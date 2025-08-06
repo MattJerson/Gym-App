@@ -9,6 +9,9 @@ import { Stack } from 'expo-router';
         <Stack.Screen name="workoutplanning" options={{ headerShown: false }} />
         <Stack.Screen name="mealplan" options={{ headerShown: false }} />
         <Stack.Screen name="home" options={{ headerShown: false }} />
+        <Stack.Screen name="emailverification" options={{ headerShown: false }} />
+        <Stack.Screen name="codeverification" options={{ headerShown: false }} />
+        <Stack.Screen name="resetpassword" options={{ headerShown: false }} />
       </Stack>
     );
   }

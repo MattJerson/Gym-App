@@ -1,4 +1,3 @@
-// unchanged imports ...
 import React, { useState } from "react";
 import {
   View,
@@ -19,6 +18,8 @@ import {
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import DropDownPicker from "react-native-dropdown-picker";
+import RegistrationHeader from '../components/RegistrationHeader';
+import { Ionicons } from "@expo/vector-icons";
 
 export default function BasicInfo() {
   const router = useRouter();
@@ -110,46 +111,17 @@ export default function BasicInfo() {
         >
           <SafeAreaView style={styles.scrollContent}>
             <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-              <Text style={styles.title}>Basic Info</Text>
-
-              <View style={styles.row}>
-                <Text style={styles.label}>Metric Units</Text>
-                <Switch
-                  value={useMetric}
-                  onValueChange={setUseMetric}
-                  trackColor={{ false: "#767577", true: "#ff4d4d" }}
-                  thumbColor={useMetric ? "#fff" : "#ccc"}
-                />
+              <View style={styles.backRow}>
+                <Pressable onPress={() => router.push('/register')}>
+                  <Ionicons name="arrow-back" size={28} color="#fff" />
+                </Pressable>
               </View>
 
-              <View style={styles.duoRow}>
-                <TextInput
-                  style={styles.duoInput}
-                  placeholder={`Height (${useMetric ? "cm" : "ft"})`}
-                  placeholderTextColor="#999"
-                  value={height}
-                  onChangeText={setHeight}
-                  keyboardType="numeric"
-                />
-                <TextInput
-                  style={styles.duoInput}
-                  placeholder={`Weight (${useMetric ? "kg" : "lbs"})`}
-                  placeholderTextColor="#999"
-                  value={weight}
-                  onChangeText={setWeight}
-                  keyboardType="numeric"
-                />
-              </View>
+              <Text style={styles.title}>Information</Text>
+              <RegistrationHeader />
 
-              <TextInput
-                style={styles.input}
-                placeholder="Age"
-                placeholderTextColor="#999"
-                value={age}
-                onChangeText={setAge}
-                keyboardType="numeric"
-              />
-
+              {/* Gender Section */}
+              <Text style={styles.questionLabel}>Please select your gender</Text>
               <DropDownPicker
                 open={genderOpen}
                 value={gender}
@@ -169,6 +141,49 @@ export default function BasicInfo() {
                 labelStyle={{ color: "#fff" }}
               />
 
+              {/* Age Section */}
+              <Text style={styles.questionLabel}>What is your age?</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Age"
+                placeholderTextColor="#999"
+                value={age}
+                onChangeText={setAge}
+                keyboardType="numeric"
+              />
+
+              {/* Height and Weight Section */}
+              <Text style={styles.questionLabel}>What is your height and weight?</Text>
+              <View style={styles.row}>
+                <Text style={styles.label}>Metric Units</Text>
+                <Switch
+                  value={useMetric}
+                  onValueChange={setUseMetric}
+                  trackColor={{ false: "#767577", true: "#ff4d4d" }}
+                  thumbColor={useMetric ? "#fff" : "#ccc"}
+                />
+              </View>
+              <View style={styles.duoRow}>
+                <TextInput
+                  style={styles.duoInput}
+                  placeholder={`Height (${useMetric ? "cm" : "ft"})`}
+                  placeholderTextColor="#999"
+                  value={height}
+                  onChangeText={setHeight}
+                  keyboardType="numeric"
+                />
+                <TextInput
+                  style={styles.duoInput}
+                  placeholder={`Weight (${useMetric ? "kg" : "lbs"})`}
+                  placeholderTextColor="#999"
+                  value={weight}
+                  onChangeText={setWeight}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              {/* Activity Level Section */}
+              <Text style={styles.questionLabel}>Select your activity level</Text>
               <DropDownPicker
                 open={activityOpen}
                 value={activityLevel}
@@ -188,6 +203,8 @@ export default function BasicInfo() {
                 labelStyle={{ color: "#fff" }}
               />
 
+              {/* Fitness Goal Section */}
+              <Text style={styles.questionLabel}>What is your fitness goal?</Text>
               <DropDownPicker
                 open={goalOpen}
                 value={fitnessGoal}
@@ -206,7 +223,7 @@ export default function BasicInfo() {
                 textStyle={{ color: "#fff" }}
                 labelStyle={{ color: "#fff" }}
               />
-
+              <Text style={styles.disclaimer}>You can always fully custom your routine and diet afterwards</Text> 
               <Pressable
                 style={[styles.button, { width: width * 0.7 }]}
                 onPress={handleSubmit}
@@ -222,26 +239,49 @@ export default function BasicInfo() {
 }
 
 const styles = StyleSheet.create({
+  backRow: {
+    position: 'absolute',
+    top: 0,
+    left: 20,
+    zIndex: 10, // Ensure it's clickable
+  },
   container: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 40,
+    paddingVertical: 20,
   },
   content: {
     width: "100%",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
   },
   title: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: "bold",
     color: "#ffffff",
     textAlign: "center",
-    marginBottom: 30,
     textTransform: "uppercase",
     letterSpacing: 2,
+    marginBottom: -20,
+  },
+  // Added new style for the labels
+  questionLabel: {
+    color: '#ccc',
+    fontSize: 13,
+    fontWeight: '500',
+    width: Dimensions.get("window").width * 0.7,
+    textAlign: 'left',
+    marginBottom: 10,
+  },
+  disclaimer: {
+    marginTop: 5,
+    textAlign: 'center',
+    color: '#ccc',
+    fontSize: 12,
+    fontWeight: '500',
+    width: Dimensions.get("window").width * 0.7,
   },
   label: {
     color: "#fff",
@@ -265,10 +305,10 @@ const styles = StyleSheet.create({
     color: "#fff",
     padding: 15,
     borderRadius: 25,
-    fontSize: 16,
+    fontSize: 12,
     flex: 1,
-    textAlign: "center",
-    marginHorizontal: 5,
+    textAlign: "left",
+    marginHorizontal: 3,
   },
   input: {
     width: Dimensions.get("window").width * 0.7,
@@ -276,8 +316,8 @@ const styles = StyleSheet.create({
     color: "#fff",
     padding: 15,
     borderRadius: 25,
-    marginBottom: 15,
-    fontSize: 16,
+    marginBottom: 10,
+    fontSize: 12,
   },
   dropdown: {
     borderRadius: 25,

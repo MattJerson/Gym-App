@@ -17,6 +17,7 @@ import { useRouter } from "expo-router";
 import DropDownPicker from "react-native-dropdown-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import RegistrationHeader from "../components/RegistrationHeader";
 
 export default function MealPlanSetup() {
   const router = useRouter();
@@ -69,64 +70,69 @@ export default function MealPlanSetup() {
             behavior={Platform.OS === "ios" ? "padding" : undefined}
           >
             <View style={styles.inner}>
-              <View style={styles.backRow}>
-                <Pressable onPress={() => router.back()}>
-                  <Ionicons name="arrow-back" size={28} color="#fff" />
+              <View style={styles.header}>
+
+                {/* The back button doesnt work for now, */}
+                <View style={styles.backRow}>
+                  <Pressable onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={28} color="#fff" />
+            </Pressable>
+                </View>
+                <Text style={styles.title}>Information</Text>
+                <RegistrationHeader />
+              </View>
+              <View style={styles.form}>
+                <DropDownPicker
+                  open={mealTypeOpen}
+                  value={mealType}
+                  items={mealTypeItems}
+                  setOpen={setMealTypeOpen}
+                  setValue={setMealType}
+                  setItems={setMealTypeItems}
+                  placeholder="Meal Preference"
+                  style={styles.dropdown}
+                  dropDownContainerStyle={styles.dropdownContainer}
+                  zIndex={3000}
+                  textStyle={styles.dropdownText}
+                />
+
+                <DropDownPicker
+                  multiple
+                  open={restrictionOpen}
+                  value={restrictions}
+                  items={restrictionItems}
+                  setOpen={setRestrictionOpen}
+                  setValue={setRestrictions}
+                  setItems={setRestrictionItems}
+                  placeholder="Dietary Restrictions"
+                  style={styles.dropdown}
+                  dropDownContainerStyle={styles.dropdownContainer}
+                  zIndex={2000}
+                  textStyle={styles.dropdownText}
+                />
+
+                <TextInput
+                  style={styles.input}
+                  placeholder="Daily Calorie Goal"
+                  placeholderTextColor="#999"
+                  value={calorieGoal}
+                  onChangeText={setCalorieGoal}
+                  keyboardType="numeric"
+                />
+
+                <TextInput
+                  style={styles.input}
+                  placeholder="Meals per Day"
+                  placeholderTextColor="#999"
+                  value={mealsPerDay}
+                  onChangeText={setMealsPerDay}
+                  keyboardType="numeric"
+                />
+
+                <Pressable style={styles.button} onPress={handleSubmit}>
+                  <Text style={styles.buttonText}>Save Meal Plan</Text>
                 </Pressable>
               </View>
-
-              <Text style={styles.title}>MEAL PLAN SETUP</Text>
-
-              <DropDownPicker
-                open={mealTypeOpen}
-                value={mealType}
-                items={mealTypeItems}
-                setOpen={setMealTypeOpen}
-                setValue={setMealType}
-                setItems={setMealTypeItems}
-                placeholder="Meal Preference"
-                style={styles.dropdown}
-                dropDownContainerStyle={styles.dropdownContainer}
-                zIndex={3000}
-                textStyle={styles.dropdownText}
-              />
-
-              <DropDownPicker
-                multiple
-                open={restrictionOpen}
-                value={restrictions}
-                items={restrictionItems}
-                setOpen={setRestrictionOpen}
-                setValue={setRestrictions}
-                setItems={setRestrictionItems}
-                placeholder="Dietary Restrictions"
-                style={styles.dropdown}
-                dropDownContainerStyle={styles.dropdownContainer}
-                zIndex={2000}
-                textStyle={styles.dropdownText}
-              />
-
-              <TextInput
-                style={styles.input}
-                placeholder="Daily Calorie Goal"
-                placeholderTextColor="#999"
-                value={calorieGoal}
-                onChangeText={setCalorieGoal}
-                keyboardType="numeric"
-              />
-
-              <TextInput
-                style={styles.input}
-                placeholder="Meals per Day"
-                placeholderTextColor="#999"
-                value={mealsPerDay}
-                onChangeText={setMealsPerDay}
-                keyboardType="numeric"
-              />
-
-              <Pressable style={styles.button} onPress={handleSubmit}>
-                <Text style={styles.buttonText}>Save Meal Plan</Text>
-              </Pressable>
             </View>
           </KeyboardAvoidingView>
         </SafeAreaView>
@@ -140,26 +146,35 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   inner: {
-    flexGrow: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    flex: 1,
+  },
+  header: {
+    width: "100%",
     paddingHorizontal: 20,
-    paddingBottom: 55,
+    paddingTop: 10,
+    paddingBottom: 20,
   },
   backRow: {
     flexDirection: "row",
     width: "100%",
     paddingHorizontal: 10,
-    marginBottom: 30,
-    marginTop: 10,
+    marginBottom: 10,
   },
   title: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: "bold",
-    color: "#fff",
-    letterSpacing: 2,
-    marginBottom: 30,
+    color: "#ffffff",
     textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 2,
+    marginTop: -35,
+    marginBottom: -20,
+  },
+  form: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 55,
   },
   dropdown: {
     width: Dimensions.get("window").width * 0.8,
