@@ -8,13 +8,20 @@ import {
   Dimensions,
   Pressable,
 } from "react-native";
-import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+const router = useRouter();
 
 export default function Home() {
   return (
     <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.backRow}>
+                <Pressable onPress={() => router.push('/register')}>
+                  <Ionicons name="arrow-back" size={28} color="#fff" />
+                </Pressable>
+              </View>
         {/* Header */}
         <View style={styles.headerRow}>
           <Text style={styles.headerText}>Welcome Back!</Text>
@@ -72,6 +79,7 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: {
+    marginTop:60,
     paddingVertical: 40,
     paddingHorizontal: 20,
   },
@@ -81,6 +89,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
+  
   headerText: {
     fontSize: 26,
     color: "#fff",
@@ -91,6 +100,12 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 20,
     marginBottom: 20,
+  },
+  backRow: {
+    position: 'absolute',
+    top: 0,
+    left: 20,
+    zIndex: 10, // Ensure it's clickable
   },
   cardTitle: {
     fontSize: 20,

@@ -195,13 +195,15 @@ export default function Register() {
               </Pressable>
 
               <Pressable style={styles.toggle} onPress={() => router.push("/emailverification")}>
-                isRegistering ?(
+                {!isRegistering && (
+                <Pressable style={styles.toggle} onPress={() => router.push("/emailverification")}>
                   <Text style={styles.toggleText}>
                     <Text style={styles.toggleTextHighlight}>
-                      Forgot Password?
+                      Forgot Password? 
                     </Text>
                   </Text>
-                )
+                </Pressable>
+              )}
               </Pressable>
             </Animated.View>
           </Animated.View>

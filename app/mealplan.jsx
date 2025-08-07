@@ -58,7 +58,7 @@ export default function MealPlanSetup() {
     };
 
     console.log("Meal Plan:", mealPlanData);
-    router.push("/home");
+    router.push("/bodyfatinfo");
   };
 
   return (
