@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,85 +11,157 @@ import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import DropDownPicker from "react-native-dropdown-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import RegistrationHeader from '../components/RegistrationHeader'; // Assuming this component exists
 
 export default function WorkoutPlanning() {
   const router = useRouter();
   const { width } = Dimensions.get("window");
 
-  const [workoutTypeOpen, setWorkoutTypeOpen] = useState(false);
-  const [workoutType, setWorkoutType] = useState(null);
-  const [workoutTypeItems, setWorkoutTypeItems] = useState([
-    { label: "Cardio", value: "cardio" },
-    { label: "Weights", value: "weights" },
-    { label: "Yoga", value: "yoga" },
-  ]);
-
-  const [timeOpen, setTimeOpen] = useState(false);
-  const [timePreference, setTimePreference] = useState(null);
-  const [timeItems, setTimeItems] = useState([
-    { label: "Morning", value: "morning" },
-    { label: "Afternoon", value: "afternoon" },
-    { label: "Evening", value: "evening" },
-  ]);
-
-  const [equipmentOpen, setEquipmentOpen] = useState(false);
-  const [equipment, setEquipment] = useState([]);
-  const [equipmentItems, setEquipmentItems] = useState([
-    { label: "Dumbbells", value: "dumbbells" },
-    { label: "Resistance Bands", value: "bands" },
-    { label: "Bodyweight", value: "bodyweight" },
-  ]);
-
-  const [experienceOpen, setExperienceOpen] = useState(false);
-  const [experience, setExperience] = useState(null);
-  const [experienceItems, setExperienceItems] = useState([
-    { label: "Beginner", value: "beginner" },
+  // State for Fitness Level
+  const [fitnessLevelOpen, setFitnessLevelOpen] = useState(false);
+  const [fitnessLevel, setFitnessLevel] = useState(null);
+  const [fitnessLevelItems, setFitnessLevelItems] = useState([
+    { label: "Basic", value: "basic" },
     { label: "Intermediate", value: "intermediate" },
     { label: "Advanced", value: "advanced" },
   ]);
 
+  // State for Training Location
+  const [trainingLocationOpen, setTrainingLocationOpen] = useState(false);
+  const [trainingLocation, setTrainingLocation] = useState(null);
+  const [trainingLocationItems, setTrainingLocationItems] = useState([
+    { label: "At Home", value: "home" },
+    { label: "At the Gym", value: "gym" },
+  ]);
+
+  // State for Training Duration
+  const [trainingDurationOpen, setTrainingDurationOpen] = useState(false);
+  const [trainingDuration, setTrainingDuration] = useState(null);
+  const [trainingDurationItems, setTrainingDurationItems] = useState([
+    { label: "20 mins", value: "20" },
+    { label: "30 mins", value: "30" },
+    { label: "45 mins", value: "45" },
+    { label: "60 mins", value: "60" },
+    { label: "More than 90 mins", value: "90+" },
+  ]);
+
+  // State for Muscle Group Focus
+  const [muscleFocusOpen, setMuscleFocusOpen] = useState(false);
+  const [muscleFocus, setMuscleFocus] = useState(null);
+  const [muscleFocusItems, setMuscleFocusItems] = useState([
+    { label: "General Growth", value: "general" },
+    { label: "Legs and Glutes", value: "legs_glutes" },
+    { label: "Back", value: "back" },
+    { label: "Chest", value: "chest" },
+    { label: "Shoulders and Arms", value: "shoulders_arms" },
+    { label: "Core", value: "core" },
+  ]);
+
+  // State for Injuries (Multiple choice)
+  const [injuriesOpen, setInjuriesOpen] = useState(false);
+  const [injuries, setInjuries] = useState([]);
+  const [injuriesItems, setInjuriesItems] = useState([
+    { label: "Lower Back", value: "lower_back" },
+    { label: "Knees", value: "knees" },
+    { label: "Shoulder", value: "shoulder" },
+    { label: "No Injuries", value: "none" },
+  ]);
+
+  // State for Training Frequency
   const [frequencyOpen, setFrequencyOpen] = useState(false);
   const [trainingFrequency, setTrainingFrequency] = useState(null);
   const [frequencyItems, setFrequencyItems] = useState([
-    { label: "1-2 days", value: "1-2" },
-    { label: "3-4 days", value: "3-4" },
-    { label: "5-6 days", value: "5-6" },
-    { label: "Everyday", value: "everyday" },
+    { label: "2 days/week", value: "2" },
+    { label: "3 days/week", value: "3" },
+    { label: "4 days/week", value: "4" },
+    { label: "5 days/week", value: "5" },
+    { label: "6 days/week", value: "6" },
   ]);
 
-  const [preferredDays, setPreferredDays] = useState("");
+  // Callbacks to close other dropdowns when one opens
+  const onFitnessLevelOpen = useCallback(() => {
+    setTrainingLocationOpen(false);
+    setTrainingDurationOpen(false);
+    setMuscleFocusOpen(false);
+    setInjuriesOpen(false);
+    setFrequencyOpen(false);
+  }, []);
 
-  const validateDays = (days) => {
-    const validDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    return days.split(/,\s*/).every((day) => validDays.includes(day.trim()));
-  };
+  const onTrainingLocationOpen = useCallback(() => {
+    setFitnessLevelOpen(false);
+    setTrainingDurationOpen(false);
+    setMuscleFocusOpen(false);
+    setInjuriesOpen(false);
+    setFrequencyOpen(false);
+  }, []);
+
+  const onTrainingDurationOpen = useCallback(() => {
+    setFitnessLevelOpen(false);
+    setTrainingLocationOpen(false);
+    setMuscleFocusOpen(false);
+    setInjuriesOpen(false);
+    setFrequencyOpen(false);
+  }, []);
+  
+  const onMuscleFocusOpen = useCallback(() => {
+    setFitnessLevelOpen(false);
+    setTrainingLocationOpen(false);
+    setTrainingDurationOpen(false);
+    setInjuriesOpen(false);
+    setFrequencyOpen(false);
+  }, []);
+
+  const onInjuriesOpen = useCallback(() => {
+    setFitnessLevelOpen(false);
+    setTrainingLocationOpen(false);
+    setTrainingDurationOpen(false);
+    setMuscleFocusOpen(false);
+    setFrequencyOpen(false);
+  }, []);
+
+  const onFrequencyOpen = useCallback(() => {
+    setFitnessLevelOpen(false);
+    setTrainingLocationOpen(false);
+    setTrainingDurationOpen(false);
+    setMuscleFocusOpen(false);
+    setInjuriesOpen(false);
+  }, []);
+
 
   const handleSubmit = () => {
+    // Validation check for all fields
     if (
-      !workoutType ||
-      !timePreference ||
-      equipment.length === 0 ||
-      !experience ||
-      !trainingFrequency ||
-      !preferredDays ||
-      !validateDays(preferredDays)
+      !fitnessLevel ||
+      !trainingLocation ||
+      !trainingDuration ||
+      !muscleFocus ||
+      injuries.length === 0 ||
+      !trainingFrequency
     ) {
-      alert("Please fill in all fields correctly (Valid days: Mon–Sun)");
+      alert("Please fill in all fields.");
       return;
     }
+    
+    // Logic check: if "No Injuries" is selected, no other injury should be selected.
+    if (injuries.includes('none') && injuries.length > 1) {
+        alert("If 'No Injuries' is selected, please deselect other injury options.");
+        return;
+    }
 
+    // Construct the data object with the new state values
     const workoutData = {
-      workoutType,
-      timePreference,
-      equipment,
-      experience,
+      fitnessLevel,
+      trainingLocation,
+      trainingDuration,
+      muscleFocus,
+      injuries,
       trainingFrequency,
-      preferredDays,
     };
 
     console.log("Workout Plan:", workoutData);
@@ -104,164 +176,205 @@ export default function WorkoutPlanning() {
             style={{ flex: 1 }}
             behavior={Platform.OS === "ios" ? "padding" : undefined}
           >
-            <View style={styles.inner}>
-              <View style={styles.backRow}>
-                <Pressable onPress={() => router.back()}>
-                  <Ionicons name="arrow-back" size={28} color="#fff" />
+            <ScrollView contentContainerStyle={styles.scrollContent}>
+              <View style={styles.content}>
+                <View style={styles.backRow}>
+                  <Pressable onPress={() => router.back()}>
+                    <Ionicons name="arrow-back" size={28} color="#fff" />
+                  </Pressable>
+                </View>
+
+                <Text style={styles.title}>Information</Text>
+                <RegistrationHeader />
+
+                <Text style={styles.questionLabel}>Fitness Level?</Text>
+                <DropDownPicker
+                  open={fitnessLevelOpen}
+                  value={fitnessLevel}
+                  items={fitnessLevelItems}
+                  setOpen={setFitnessLevelOpen}
+                  setValue={setFitnessLevel}
+                  setItems={setFitnessLevelItems}
+                  onOpen={onFitnessLevelOpen}
+                  placeholder="Select Fitness Level"
+                  style={styles.dropdown}
+                  dropDownContainerStyle={styles.dropdownContainer}
+                  textStyle={{ color: "#fff" }}
+                  labelStyle={{ color: "#fff" }}
+                  zIndex={6000}
+                />
+
+                <Text style={styles.questionLabel}>Where do you train?</Text>
+                <DropDownPicker
+                  open={trainingLocationOpen}
+                  value={trainingLocation}
+                  items={trainingLocationItems}
+                  setOpen={setTrainingLocationOpen}
+                  setValue={setTrainingLocation}
+                  setItems={setTrainingLocationItems}
+                  onOpen={onTrainingLocationOpen}
+                  placeholder="Select Location"
+                  style={styles.dropdown}
+                  dropDownContainerStyle={styles.dropdownContainer}
+                  textStyle={{ color: "#fff" }}
+                  labelStyle={{ color: "#fff" }}
+                  zIndex={5000}
+                />
+
+                <Text style={styles.questionLabel}>How long do you train?</Text>
+                <DropDownPicker
+                  open={trainingDurationOpen}
+                  value={trainingDuration}
+                  items={trainingDurationItems}
+                  setOpen={setTrainingDurationOpen}
+                  setValue={setTrainingDuration}
+                  setItems={setTrainingDurationItems}
+                  onOpen={onTrainingDurationOpen}
+                  placeholder="Select Duration"
+                  style={styles.dropdown}
+                  dropDownContainerStyle={styles.dropdownContainer}
+                  textStyle={{ color: "#fff" }}
+                  labelStyle={{ color: "#fff" }}
+                  zIndex={4000}
+                />
+
+                <Text style={styles.questionLabel}>Interested in growing a specific muscle?</Text>
+                <DropDownPicker
+                  open={muscleFocusOpen}
+                  value={muscleFocus}
+                  items={muscleFocusItems}
+                  setOpen={setMuscleFocusOpen}
+                  setValue={setMuscleFocus}
+                  setItems={setMuscleFocusItems}
+                  onOpen={onMuscleFocusOpen}
+                  placeholder="Select Muscle Group"
+                  style={styles.dropdown}
+                  dropDownContainerStyle={styles.dropdownContainer}
+                  textStyle={{ color: "#fff" }}
+                  labelStyle={{ color: "#fff" }}
+                  zIndex={3000}
+                />
+
+                <Text style={styles.questionLabel}>Any Injuries?</Text>
+                <DropDownPicker
+                  multiple
+                  open={injuriesOpen}
+                  value={injuries}
+                  items={injuriesItems}
+                  setOpen={setInjuriesOpen}
+                  setValue={setInjuries}
+                  setItems={setInjuriesItems}
+                  onOpen={onInjuriesOpen}
+                  placeholder="Select Injuries (if any)"
+                  mode="BADGE"
+                  style={styles.dropdown}
+                  dropDownContainerStyle={styles.dropdownContainer}
+                  textStyle={{ color: "#fff" }}
+                  labelStyle={{ color: "#fff" }}
+                  zIndex={2000}
+                />
+
+                <Text style={styles.questionLabel}>How often do you want to train?</Text>
+                <DropDownPicker
+                  open={frequencyOpen}
+                  value={trainingFrequency}
+                  items={frequencyItems}
+                  setOpen={setFrequencyOpen}
+                  setValue={setTrainingFrequency}
+                  setItems={setFrequencyItems}
+                  onOpen={onFrequencyOpen}
+                  placeholder="Select Frequency"
+                  style={styles.dropdown}
+                  dropDownContainerStyle={styles.dropdownContainer}
+                  textStyle={{ color: "#fff" }}
+                  labelStyle={{ color: "#fff" }}
+                  zIndex={1000}
+                />
+
+                <Text style={styles.disclaimer}>
+                  You can always fully customize your plan afterwards
+                </Text>
+
+                <Pressable style={[styles.button, { width: width * 0.7 }]} onPress={handleSubmit}>
+                  <Text style={styles.buttonText}>Save Plan</Text>
                 </Pressable>
               </View>
-
-              <Text style={styles.title}>WORKOUT PLANNING</Text>
-
-              <DropDownPicker
-                open={workoutTypeOpen}
-                value={workoutType}
-                items={workoutTypeItems}
-                setOpen={setWorkoutTypeOpen}
-                setValue={setWorkoutType}
-                setItems={setWorkoutTypeItems}
-                placeholder="Workout Type"
-                style={styles.dropdown}
-                dropDownContainerStyle={styles.dropdownContainer}
-                zIndex={6000}
-                textStyle={styles.dropdownText}
-              />
-
-              <DropDownPicker
-                open={timeOpen}
-                value={timePreference}
-                items={timeItems}
-                setOpen={setTimeOpen}
-                setValue={setTimePreference}
-                setItems={setTimeItems}
-                placeholder="Time of Day"
-                style={styles.dropdown}
-                dropDownContainerStyle={styles.dropdownContainer}
-                zIndex={5000}
-                textStyle={styles.dropdownText}
-              />
-
-              <DropDownPicker
-                multiple
-                open={equipmentOpen}
-                value={equipment}
-                items={equipmentItems}
-                setOpen={setEquipmentOpen}
-                setValue={setEquipment}
-                setItems={setEquipmentItems}
-                placeholder="Equipment Available"
-                style={styles.dropdown}
-                dropDownContainerStyle={styles.dropdownContainer}
-                zIndex={4000}
-                textStyle={styles.dropdownText}
-              />
-
-              <DropDownPicker
-                open={experienceOpen}
-                value={experience}
-                items={experienceItems}
-                setOpen={setExperienceOpen}
-                setValue={setExperience}
-                setItems={setExperienceItems}
-                placeholder="Experience Level"
-                style={styles.dropdown}
-                dropDownContainerStyle={styles.dropdownContainer}
-                zIndex={3000}
-                textStyle={styles.dropdownText}
-              />
-
-              <DropDownPicker
-                open={frequencyOpen}
-                value={trainingFrequency}
-                items={frequencyItems}
-                setOpen={setFrequencyOpen}
-                setValue={setTrainingFrequency}
-                setItems={setFrequencyItems}
-                placeholder="Training Frequency"
-                style={styles.dropdown}
-                dropDownContainerStyle={styles.dropdownContainer}
-                zIndex={2000}
-                textStyle={styles.dropdownText}
-              />
-
-              <TextInput
-                style={styles.input}
-                placeholder="Preferred Days (e.g., Mon, Wed, Fri)"
-                placeholderTextColor="#999"
-                value={preferredDays}
-                onChangeText={setPreferredDays}
-              />
-
-              <Pressable style={styles.button} onPress={handleSubmit}>
-                <Text style={styles.buttonText}>Save Plan</Text>
-              </Pressable>
-            </View>
+            </ScrollView>
           </KeyboardAvoidingView>
         </SafeAreaView>
       </LinearGradient>
     </TouchableWithoutFeedback>
   );
 }
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  backRow: {
+    position: "absolute",
+    top: 0,
+    left: 20,
+    zIndex: 10,
   },
-  inner: {
+    inner: {
     flex: 1,
+  justifyContent: "flex-start",
+  },
+  container: { flex: 1 },
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 55,
+    paddingVertical: 20,
   },
-  backRow: {
-    flexDirection: "row",
+  content: {
     width: "100%",
-    paddingHorizontal: 10,
-    marginBottom: 30,
-    marginTop: 10,
+    alignItems: "center",
+    paddingHorizontal: 0,
   },
   title: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: "bold",
-    color: "#fff",
-    letterSpacing: 2,
-    marginBottom: 30,
+    color: "#ffffff",
     textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 2,
+    marginBottom: -20,
+  },
+  questionLabel: {
+    color: "#ccc",
+    fontSize: 14,
+    fontWeight: "500",
+    width: Dimensions.get("window").width * 0.7,
+    textAlign: "left",
+    marginBottom: 10,
+  },
+  disclaimer: {
+    marginTop: 5,
+    textAlign: "center",
+    color: "#ccc",
+    fontSize: 12,
+    fontWeight: "500",
+    width: Dimensions.get("window").width * 0.7,
   },
   dropdown: {
-    width: Dimensions.get("window").width * 0.8,
     borderRadius: 25,
-    marginBottom: 15,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderColor: "transparent",
+    width: Dimensions.get("window").width * 0.7,
+    marginBottom: 15,
     alignSelf: "center",
   },
   dropdownContainer: {
-    width: Dimensions.get("window").width * 0.8,
     backgroundColor: "#333",
     borderColor: "transparent",
+    width: Dimensions.get("window").width * 0.7,
     alignSelf: "center",
   },
-  dropdownText: {
-    color: "#fff",
-  },
-  input: {
-    width: Dimensions.get("window").width * 0.8,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    color: "#fff",
-    padding: 15,
-    borderRadius: 25,
-    marginBottom: 15,
-    fontSize: 16,
-  },
   button: {
-    marginTop: 20,
     backgroundColor: "#ff4d4d",
     paddingVertical: 15,
     borderRadius: 25,
     alignItems: "center",
-    width: Dimensions.get("window").width * 0.7,
+    elevation: 5,
+    marginTop: 20,
   },
   buttonText: {
     color: "#ffffff",
