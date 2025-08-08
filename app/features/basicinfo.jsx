@@ -18,7 +18,7 @@ import {
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import DropDownPicker from "react-native-dropdown-picker";
-import RegistrationHeader from '../components/RegistrationHeader';
+import RegistrationHeader from '../../components/RegistrationHeader';
 import { Ionicons } from "@expo/vector-icons";
 
 export default function BasicInfo() {
@@ -228,7 +228,7 @@ export default function BasicInfo() {
                 style={[styles.button, { width: width * 0.7 }]}
                 onPress={handleSubmit}
               >
-                <Text style={styles.buttonText}>Save</Text>
+                <Text style={styles.buttonText}>Submit</Text>
               </Pressable>
             </Animated.View>
           </SafeAreaView>

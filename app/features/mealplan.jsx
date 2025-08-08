@@ -17,7 +17,7 @@ import { useRouter } from "expo-router";
 import DropDownPicker from "react-native-dropdown-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import RegistrationHeader from "../components/RegistrationHeader";
+import RegistrationHeader from "../../components/RegistrationHeader";
 
 export default function MealPlanSetup() {
   const router = useRouter();
@@ -130,7 +130,7 @@ export default function MealPlanSetup() {
                 />
 
                 <Pressable style={styles.button} onPress={handleSubmit}>
-                  <Text style={styles.buttonText}>Save Meal Plan</Text>
+                  <Text style={styles.buttonText}>Submit</Text>
                 </Pressable>
               </View>
             </View>

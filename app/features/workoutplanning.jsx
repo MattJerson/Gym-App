@@ -17,7 +17,7 @@ import { useRouter } from "expo-router";
 import DropDownPicker from "react-native-dropdown-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import RegistrationHeader from '../components/RegistrationHeader'; // Assuming this component exists
+import RegistrationHeader from '../../components/RegistrationHeader'; // Assuming this component exists
 
 export default function WorkoutPlanning() {
   const router = useRouter();
@@ -296,7 +296,7 @@ export default function WorkoutPlanning() {
                 </Text>
 
                 <Pressable style={[styles.button, { width: width * 0.7 }]} onPress={handleSubmit}>
-                  <Text style={styles.buttonText}>Save Plan</Text>
+                  <Text style={styles.buttonText}>Submit</Text>
                 </Pressable>
               </View>
             </ScrollView>

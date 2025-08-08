@@ -4,7 +4,7 @@ import { useRouter, usePathname } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 const steps = [
   { path: '/basicinfo', name: 'Basic Info' },
-  { path: '/workoutplanning', name: 'Workout Plan' },
+  { path: '/workoutplanning', name: 'Workout' },
   { path: '/mealplan', name: 'Meal Plan' },
 ];
 
