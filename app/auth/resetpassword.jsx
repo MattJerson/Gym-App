@@ -42,7 +42,7 @@ export default function ResetPassword() {
             </Pressable>
             <View style={styles.formContainer}>
               <Image
-                source={require('../assets/logo.png')} // Make sure you have a logo asset at this path
+                source={require('../../assets/logo.png')} // Make sure you have a logo asset at this path
                 style={styles.logo}
               />
               <Text style={styles.title}>

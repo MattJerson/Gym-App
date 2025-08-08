@@ -63,7 +63,7 @@ export default function GenerateRoutine() {
                 
                 {/* Logo Image */}
                 <Image
-                  source={require('../assets/logo.png')}
+                  source={require('../../assets/logo.png')}
                   style={styles.logo}
                 />
 
@@ -72,14 +72,14 @@ export default function GenerateRoutine() {
                   <View style={styles.imageColumn}>
                     <Text style={styles.imageLabel}>Current BodyFat</Text>
                     <Image
-                      source={require('../assets/bodygoal.jpeg')}
+                      source={require('../../assets/bodygoal.jpeg')}
                       style={styles.transformImage}
                     />
                   </View>
                   <View style={styles.imageColumn}>
                     <Text style={styles.imageLabel}>BodyFat Goal</Text>
                     <Image
-                      source={require('../assets/bodygoal.jpeg')}
+                      source={require('../../assets/bodygoal.jpeg')}
                       style={styles.transformImage}
                     />
                   </View>

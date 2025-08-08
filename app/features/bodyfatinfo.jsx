@@ -59,7 +59,7 @@ export default function BodyFatInfo() {
               <Text style={styles.questionLabel}>What's your Current Bodyfat?</Text>
               
               <Image
-                source={require('../assets/bodygoal.jpeg')}
+                source={require('../../assets/bodygoal.jpeg')}
                 style={styles.transformImage}
                 />
               <View style={styles.sliderContainer}>

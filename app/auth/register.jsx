@@ -59,10 +59,10 @@ export default function Register() {
   const handleSubmit = () => {
     if (isRegistering) {
       console.log("Registering with:", fullName, email, password);
-      router.push("/basicinfo");
+      router.push("/features/basicinfo");
     } else {
       console.log("Logging in with:", email, password);
-      router.push("/home");
+      router.push("/page/home");
     }
   };
 
@@ -91,7 +91,7 @@ export default function Register() {
               ]}
             >
               <Image
-                source={require('../assets/logo.png')}
+                source={require('../../assets/logo.png')}
                 style={styles.logo}
               />
               <Text style={styles.title}>
@@ -194,9 +194,9 @@ export default function Register() {
                 )}
               </Pressable>
 
-              <Pressable style={styles.toggle} onPress={() => router.push("/emailverification")}>
+              <Pressable style={styles.toggle} onPress={() => router.push("/auth/emailverification")}>
                 {!isRegistering && (
-                <Pressable style={styles.toggle} onPress={() => router.push("/emailverification")}>
+                <Pressable style={styles.toggle} onPress={() => router.push("/auth/emailverification")}>
                   <Text style={styles.toggleText}>
                     <Text style={styles.toggleTextHighlight}>
                       Forgot Password? 

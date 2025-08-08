@@ -31,7 +31,7 @@ export default function EmailVerification() {
 
           <View style={styles.formContainer}>
             <Image
-              source={require('../assets/logo.png')}
+              source={require('../../assets/logo.png')}
               style={styles.logo}
             />
             <Text style={styles.title}>Email Verification</Text>

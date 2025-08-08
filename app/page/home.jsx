@@ -18,7 +18,7 @@ export default function Home() {
     <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.backRow}>
-                <Pressable onPress={() => router.push('/register')}>
+                <Pressable onPress={() => router.push('/auth/register')}>
                   <Ionicons name="arrow-back" size={28} color="#fff" />
                 </Pressable>
               </View>
