@@ -1,27 +1,30 @@
-import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
-  TextInput,
+  Keyboard,
+  Platform,
+  Animated,
   Pressable,
+  TextInput,
   StyleSheet,
   Dimensions,
-  Keyboard,
-  TouchableWithoutFeedback,
-  KeyboardAvoidingView,
-  Platform,
-  SafeAreaView,
   ScrollView,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
 } from "react-native";
-import { useRouter } from "expo-router";
-import DropDownPicker from "react-native-dropdown-picker";
+import { useState, useCallback } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter, usePathname } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import RegistrationHeader from '../../components/RegistrationHeader'; // Assuming this component exists
+import DropDownPicker from "react-native-dropdown-picker";
+import RegistrationHeader from "../../components/RegistrationHeader"; // Assuming this component exists
 
 export default function WorkoutPlanning() {
   const router = useRouter();
+  const pathname = usePathname();
   const { width } = Dimensions.get("window");
+  const fadeAnim = useState(new Animated.Value(1))[0];
 
   // State for Fitness Level
   const [fitnessLevelOpen, setFitnessLevelOpen] = useState(false);
@@ -108,7 +111,7 @@ export default function WorkoutPlanning() {
     setInjuriesOpen(false);
     setFrequencyOpen(false);
   }, []);
-  
+
   const onMuscleFocusOpen = useCallback(() => {
     setFitnessLevelOpen(false);
     setTrainingLocationOpen(false);
@@ -133,7 +136,6 @@ export default function WorkoutPlanning() {
     setInjuriesOpen(false);
   }, []);
 
-
   const handleSubmit = () => {
     // Validation check for all fields
     if (
@@ -147,11 +149,13 @@ export default function WorkoutPlanning() {
       alert("Please fill in all fields.");
       return;
     }
-    
+
     // Logic check: if "No Injuries" is selected, no other injury should be selected.
-    if (injuries.includes('none') && injuries.length > 1) {
-        alert("If 'No Injuries' is selected, please deselect other injury options.");
-        return;
+    if (injuries.includes("none") && injuries.length > 1) {
+      alert(
+        "If 'No Injuries' is selected, please deselect other injury options."
+      );
+      return;
     }
 
     // Construct the data object with the new state values
@@ -163,9 +167,33 @@ export default function WorkoutPlanning() {
       injuries,
       trainingFrequency,
     };
+    const handlePress = (path) => {
+      if (pathname === path) return;
+
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        router.replace(path);
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      });
+    };
+
+    React.useEffect(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }).start();
+    }, []);
 
     console.log("Workout Plan:", workoutData);
-    router.push("/mealplan");
+    handlePress("/features/mealplan");
   };
 
   return (
@@ -179,7 +207,7 @@ export default function WorkoutPlanning() {
             <ScrollView contentContainerStyle={styles.scrollContent}>
               <View style={styles.content}>
                 <View style={styles.backRow}>
-                  <Pressable onPress={() => router.back()}>
+                  <Pressable onPress={() => handlePress()}>
                     <Ionicons name="arrow-back" size={28} color="#fff" />
                   </Pressable>
                 </View>
@@ -238,7 +266,9 @@ export default function WorkoutPlanning() {
                   zIndex={4000}
                 />
 
-                <Text style={styles.questionLabel}>Interested in growing a specific muscle?</Text>
+                <Text style={styles.questionLabel}>
+                  Interested in growing a specific muscle?
+                </Text>
                 <DropDownPicker
                   open={muscleFocusOpen}
                   value={muscleFocus}
@@ -274,7 +304,9 @@ export default function WorkoutPlanning() {
                   zIndex={2000}
                 />
 
-                <Text style={styles.questionLabel}>How often do you want to train?</Text>
+                <Text style={styles.questionLabel}>
+                  How often do you want to train?
+                </Text>
                 <DropDownPicker
                   open={frequencyOpen}
                   value={trainingFrequency}
@@ -295,7 +327,10 @@ export default function WorkoutPlanning() {
                   You can always fully customize your plan afterwards
                 </Text>
 
-                <Pressable style={[styles.button, { width: width * 0.7 }]} onPress={handleSubmit}>
+                <Pressable
+                  style={[styles.button, { width: width * 0.7 }]}
+                  onPress={handleSubmit}
+                >
                   <Text style={styles.buttonText}>Submit</Text>
                 </Pressable>
               </View>
@@ -308,21 +343,21 @@ export default function WorkoutPlanning() {
 }
 const styles = StyleSheet.create({
   backRow: {
-    position: "absolute",
     top: 0,
     left: 20,
     zIndex: 10,
+    position: "absolute",
   },
-    inner: {
+  inner: {
     flex: 1,
-  justifyContent: "flex-start",
+    justifyContent: "flex-start",
   },
   container: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: "center",
-    alignItems: "center",
     paddingVertical: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   content: {
     width: "100%",
@@ -331,54 +366,54 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 22,
-    fontWeight: "bold",
-    color: "#ffffff",
-    textAlign: "center",
-    textTransform: "uppercase",
     letterSpacing: 2,
     marginBottom: -20,
+    color: "#ffffff",
+    fontWeight: "bold",
+    textAlign: "center",
+    textTransform: "uppercase",
   },
   questionLabel: {
-    color: "#ccc",
     fontSize: 14,
-    fontWeight: "500",
-    width: Dimensions.get("window").width * 0.7,
-    textAlign: "left",
+    color: "#ccc",
     marginBottom: 10,
+    fontWeight: "500",
+    textAlign: "left",
+    width: Dimensions.get("window").width * 0.7,
   },
   disclaimer: {
     marginTop: 5,
-    textAlign: "center",
-    color: "#ccc",
     fontSize: 12,
+    color: "#ccc",
     fontWeight: "500",
+    textAlign: "center",
     width: Dimensions.get("window").width * 0.7,
   },
   dropdown: {
     borderRadius: 25,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderColor: "transparent",
-    width: Dimensions.get("window").width * 0.7,
     marginBottom: 15,
     alignSelf: "center",
+    borderColor: "transparent",
+    width: Dimensions.get("window").width * 0.7,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   dropdownContainer: {
+    alignSelf: "center",
     backgroundColor: "#333",
     borderColor: "transparent",
     width: Dimensions.get("window").width * 0.7,
-    alignSelf: "center",
   },
   button: {
-    backgroundColor: "#ff4d4d",
-    paddingVertical: 15,
-    borderRadius: 25,
-    alignItems: "center",
     elevation: 5,
     marginTop: 20,
+    borderRadius: 25,
+    paddingVertical: 15,
+    alignItems: "center",
+    backgroundColor: "#ff4d4d",
   },
   buttonText: {
-    color: "#ffffff",
     fontSize: 16,
+    color: "#ffffff",
     fontWeight: "600",
     textTransform: "uppercase",
   },

@@ -1,20 +1,20 @@
-import React, { useRef, useEffect } from "react";
 import {
   View,
   Text,
+  Image,
+  Keyboard,
+  Animated,
+  Platform,
   TextInput,
   Pressable,
   StyleSheet,
   Dimensions,
-  Animated,
-  Keyboard,
-  TouchableWithoutFeedback,
-  Image,
   KeyboardAvoidingView,
-  Platform,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Ionicons } from '@expo/vector-icons';
+import { useRef, useEffect } from "react";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
 export default function OtpVerification() {
@@ -36,21 +36,16 @@ export default function OtpVerification() {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidingView}
         >
+          <Text style={styles.title}>Verify Your Email</Text>
           <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
             <Pressable onPress={() => router.back()} style={styles.backButton}>
-                <Ionicons name="arrow-back" size={28} color="#fff" />
+              <Ionicons name="arrow-back" size={28} color="#fff" />
             </Pressable>
             <View style={styles.formContainer}>
               <Image
-                source={require('../../assets/logo.png')} // Make sure you have a logo asset at this path
+                source={require("../../assets/logo.png")} // Make sure you have a logo asset at this path
                 style={styles.logo}
               />
-              <Text style={styles.title}>
-                Verify Your Email
-              </Text>
-              <Text style={styles.subtitle}>
-                Please enter the 6-digit code sent to your email.
-              </Text>
 
               {/* === OTP INPUT FIELDS === */}
               <View style={styles.otpContainer}>
@@ -66,19 +61,18 @@ export default function OtpVerification() {
 
               {/* === RESEND OTP === */}
               <View style={styles.resendContainer}>
-                  <Text style={styles.resendText}>Didn't get the code? </Text>
-                  <Pressable>
-                      <Text style={styles.resendButtonText}>Resend</Text>
-                  </Pressable>
+                <Text style={styles.resendText}>Didn't get the code? </Text>
+                <Pressable>
+                  <Text style={styles.resendButtonText}>Resend</Text>
+                </Pressable>
               </View>
 
               {/* === VERIFY BUTTON === */}
-              <Pressable onPress={() => router.push('/resetpassword')}
-                style={[styles.button, { width: '100%' }]}
+              <Pressable
+                onPress={() => router.push("/auth/resetpassword")}
+                style={[styles.button, { width: "100%" }]}
               >
-                <Text style={styles.buttonText}>
-                  Verify
-                </Text>
+                <Text style={styles.buttonText}>Verify</Text>
               </Pressable>
             </View>
           </Animated.View>
@@ -94,90 +88,84 @@ const styles = StyleSheet.create({
   },
   keyboardAvoidingView: {
     flex: 1,
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
   },
   content: {
-    width: '100%',
+    width: "100%",
     alignItems: "center",
   },
   formContainer: {
+    alignItems: "center",
     width: Dimensions.get("window").width * 0.85,
-    alignItems: 'center',
   },
   backButton: {
-    position: 'absolute',
-    top: -40, 
     left: 20,
+    top: -200,
     zIndex: 10,
+    position: "absolute",
   },
   logo: {
     width: 120,
     height: 120,
-    resizeMode: 'contain',
     marginBottom: 20,
+    resizeMode: "contain",
   },
   title: {
-    fontSize: 26,
+    fontSize: 16,
+    marginBottom: 175,
+    letterSpacing: 1.5,
     fontWeight: "bold",
     color: "#ffffff",
     textAlign: "center",
-    marginBottom: 10,
     textTransform: "uppercase",
-    letterSpacing: 1.5,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: "#ccc",
-    textAlign: "center",
-    marginBottom: 30,
   },
   otpContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
+    width: "100%",
     marginBottom: 30,
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   otpInput: {
     width: 45,
     height: 55,
-    borderWidth: 1,
-    borderColor: '#cc3f3f',
-    borderRadius: 10,
-    textAlign: 'center',
     fontSize: 22,
-    fontWeight: '600',
-    color: '#fff',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    color: "#fff",
+    borderWidth: 1,
+    borderRadius: 10,
+    fontWeight: "600",
+    textAlign: "center",
+    borderColor: "#cc3f3f",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   resendContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 20,
+    marginBottom: 20,
+    alignItems: "center",
+    flexDirection: "row",
   },
   resendText: {
-      color: '#ccc',
-      fontSize: 14,
+    color: "#ccc",
+    fontSize: 14,
   },
   resendButtonText: {
-      color: '#ff4d4d',
-      fontSize: 14,
-      fontWeight: 'bold',
+    fontSize: 14,
+    color: "#ff4d4d",
+    fontWeight: "bold",
   },
   button: {
-    backgroundColor: "#ff4d4d",
-    paddingVertical: 15,
-    borderRadius: 25,
-    alignItems: "center",
+    height: 50,
     elevation: 5,
     marginTop: 10,
-    height: 50,
-    justifyContent: 'center',
+    borderRadius: 25,
+    paddingVertical: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ff4d4d",
   },
   buttonText: {
-    color: "#ffffff",
     fontSize: 16,
     fontWeight: "600",
+    color: "#ffffff",
     textTransform: "uppercase",
   },
 });

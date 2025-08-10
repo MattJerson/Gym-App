@@ -1,28 +1,29 @@
-import React, { useState } from "react";
 import {
   View,
   Text,
+  Alert,
+  Switch,
+  Animated,
+  Keyboard,
+  Platform,
   TextInput,
   Pressable,
   StyleSheet,
   Dimensions,
-  Animated,
-  Alert,
-  Keyboard,
-  TouchableWithoutFeedback,
-  Switch,
-  KeyboardAvoidingView,
-  Platform,
   SafeAreaView,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
 } from "react-native";
-import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter, usePathname } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import DropDownPicker from "react-native-dropdown-picker";
-import RegistrationHeader from '../../components/RegistrationHeader';
-import { Ionicons } from "@expo/vector-icons";
+import RegistrationHeader from "../../components/RegistrationHeader";
 
 export default function BasicInfo() {
   const router = useRouter();
+  const pathname = usePathname();
   const { width } = Dimensions.get("window");
 
   const [height, setHeight] = useState("");
@@ -62,6 +63,22 @@ export default function BasicInfo() {
     setActivityOpen(false);
     setGoalOpen(false);
   };
+  const handlePress = (path) => {
+    if (pathname === path) return;
+
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      router.replace(path);
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
 
   React.useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -94,7 +111,7 @@ export default function BasicInfo() {
       units: useMetric ? "Metric" : "Imperial",
     });
 
-    router.push("/workoutplanning");
+    handlePress("/features/workoutplanning");
   };
 
   return (
@@ -112,7 +129,7 @@ export default function BasicInfo() {
           <SafeAreaView style={styles.scrollContent}>
             <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
               <View style={styles.backRow}>
-                <Pressable onPress={() => router.push('/register')}>
+                <Pressable onPress={() => handlePress("/register")}>
                   <Ionicons name="arrow-back" size={28} color="#fff" />
                 </Pressable>
               </View>
@@ -121,7 +138,9 @@ export default function BasicInfo() {
               <RegistrationHeader />
 
               {/* Gender Section */}
-              <Text style={styles.questionLabel}>Please select your gender</Text>
+              <Text style={styles.questionLabel}>
+                Please select your gender
+              </Text>
               <DropDownPicker
                 open={genderOpen}
                 value={gender}
@@ -153,7 +172,9 @@ export default function BasicInfo() {
               />
 
               {/* Height and Weight Section */}
-              <Text style={styles.questionLabel}>What is your height and weight?</Text>
+              <Text style={styles.questionLabel}>
+                What is your height and weight?
+              </Text>
               <View style={styles.row}>
                 <Text style={styles.label}>Metric Units</Text>
                 <Switch
@@ -183,7 +204,9 @@ export default function BasicInfo() {
               </View>
 
               {/* Activity Level Section */}
-              <Text style={styles.questionLabel}>Select your activity level</Text>
+              <Text style={styles.questionLabel}>
+                Select your activity level
+              </Text>
               <DropDownPicker
                 open={activityOpen}
                 value={activityLevel}
@@ -204,7 +227,9 @@ export default function BasicInfo() {
               />
 
               {/* Fitness Goal Section */}
-              <Text style={styles.questionLabel}>What is your fitness goal?</Text>
+              <Text style={styles.questionLabel}>
+                What is your fitness goal?
+              </Text>
               <DropDownPicker
                 open={goalOpen}
                 value={fitnessGoal}
@@ -223,7 +248,9 @@ export default function BasicInfo() {
                 textStyle={{ color: "#fff" }}
                 labelStyle={{ color: "#fff" }}
               />
-              <Text style={styles.disclaimer}>You can always fully custom your routine and diet afterwards</Text> 
+              <Text style={styles.disclaimer}>
+                You can always fully custom your routine and diet afterwards
+              </Text>
               <Pressable
                 style={[styles.button, { width: width * 0.7 }]}
                 onPress={handleSubmit}
@@ -240,17 +267,17 @@ export default function BasicInfo() {
 
 const styles = StyleSheet.create({
   backRow: {
-    position: 'absolute',
     top: 0,
     left: 20,
     zIndex: 10, // Ensure it's clickable
+    position: "absolute",
   },
   container: { flex: 1 },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: "center",
-    alignItems: "center",
     paddingVertical: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   content: {
     width: "100%",
@@ -259,92 +286,92 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 22,
+    letterSpacing: 2,
+    marginBottom: -20,
     fontWeight: "bold",
     color: "#ffffff",
     textAlign: "center",
     textTransform: "uppercase",
-    letterSpacing: 2,
-    marginBottom: -20,
   },
   // Added new style for the labels
   questionLabel: {
-    color: '#ccc',
     fontSize: 13,
-    fontWeight: '500',
-    width: Dimensions.get("window").width * 0.7,
-    textAlign: 'left',
+    color: "#ccc",
     marginBottom: 10,
+    fontWeight: "500",
+    textAlign: "left",
+    width: Dimensions.get("window").width * 0.7,
   },
   disclaimer: {
     marginTop: 5,
-    textAlign: 'center',
-    color: '#ccc',
     fontSize: 12,
-    fontWeight: '500',
+    color: "#ccc",
+    fontWeight: "500",
+    textAlign: "center",
     width: Dimensions.get("window").width * 0.7,
   },
   label: {
-    color: "#fff",
     fontSize: 16,
+    color: "#fff",
   },
   row: {
+    marginBottom: 15,
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
     width: Dimensions.get("window").width * 0.7,
-    marginBottom: 15,
-    alignItems: "center",
   },
   duoRow: {
+    marginBottom: 15,
     flexDirection: "row",
     justifyContent: "space-between",
     width: Dimensions.get("window").width * 0.7,
-    marginBottom: 15,
   },
   duoInput: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    flex: 1,
     color: "#fff",
     padding: 15,
-    borderRadius: 25,
     fontSize: 12,
-    flex: 1,
+    borderRadius: 25,
     textAlign: "left",
     marginHorizontal: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   input: {
-    width: Dimensions.get("window").width * 0.7,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    color: "#fff",
     padding: 15,
+    fontSize: 12,
+    color: "#fff",
     borderRadius: 25,
     marginBottom: 10,
-    fontSize: 12,
+    width: Dimensions.get("window").width * 0.7,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   dropdown: {
     borderRadius: 25,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderColor: "transparent",
-    width: Dimensions.get("window").width * 0.7,
     marginBottom: 15,
     alignSelf: "center",
+    borderColor: "transparent",
+    width: Dimensions.get("window").width * 0.7,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   dropdownContainer: {
+    alignSelf: "center",
     backgroundColor: "#333",
     borderColor: "transparent",
     width: Dimensions.get("window").width * 0.7,
-    alignSelf: "center",
   },
   button: {
-    backgroundColor: "#ff4d4d",
-    paddingVertical: 15,
-    borderRadius: 25,
-    alignItems: "center",
     elevation: 5,
     marginTop: 20,
+    borderRadius: 25,
+    paddingVertical: 15,
+    alignItems: "center",
+    backgroundColor: "#ff4d4d",
   },
   buttonText: {
-    color: "#ffffff",
     fontSize: 16,
     fontWeight: "600",
+    color: "#ffffff",
     textTransform: "uppercase",
   },
 });

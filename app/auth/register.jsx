@@ -1,21 +1,21 @@
-import React, { useState, useRef } from "react";
 import {
   View,
   Text,
-  TextInput,
-  Pressable,
-  StyleSheet,
-  Dimensions,
+  Image,
   Animated,
   Keyboard,
-  TouchableWithoutFeedback,
-  Image,
-  KeyboardAvoidingView,
   Platform,
+  Pressable,
+  TextInput,
+  StyleSheet,
+  Dimensions,
+  TouchableWithoutFeedback,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import React, { useState, useRef } from "react";
 import { LinearGradient } from "expo-linear-gradient";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 export default function Register() {
   const router = useRouter();
@@ -31,7 +31,7 @@ export default function Register() {
   React.useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
-      duration: 1000,
+      duration: 800,
       useNativeDriver: true,
     }).start();
   }, []);
@@ -40,7 +40,7 @@ export default function Register() {
     Keyboard.dismiss();
     Animated.timing(formAnim, {
       toValue: 0,
-      duration: 200,
+      duration: 300,
       useNativeDriver: true,
     }).start(() => {
       setIsRegistering((prev) => !prev);
@@ -91,17 +91,17 @@ export default function Register() {
               ]}
             >
               <Image
-                source={require('../../assets/logo.png')}
+                source={require("../../assets/logo.png")}
                 style={styles.logo}
               />
-              <Text style={styles.title}>
-                {isRegistering ? "Create Account" : "Login"}
-              </Text>
 
               {/* === REGISTRATION FIELDS === */}
               {isRegistering && (
                 <View style={styles.inputContainer}>
-                  <MaterialCommunityIcons name="account-outline" style={styles.icon} />
+                  <MaterialCommunityIcons
+                    name="account-outline"
+                    style={styles.icon}
+                  />
                   <TextInput
                     style={styles.textInput}
                     placeholder="Full Name"
@@ -115,7 +115,10 @@ export default function Register() {
 
               {/* === COMMON FIELDS === */}
               <View style={styles.inputContainer}>
-                <MaterialCommunityIcons name="email-outline" style={styles.icon} />
+                <MaterialCommunityIcons
+                  name="email-outline"
+                  style={styles.icon}
+                />
                 <TextInput
                   style={styles.textInput}
                   placeholder="Email"
@@ -128,7 +131,10 @@ export default function Register() {
               </View>
 
               <View style={styles.inputContainer}>
-                <MaterialCommunityIcons name="lock-outline" style={styles.icon} />
+                <MaterialCommunityIcons
+                  name="lock-outline"
+                  style={styles.icon}
+                />
                 <TextInput
                   style={styles.textInput}
                   placeholder="Password"
@@ -137,7 +143,9 @@ export default function Register() {
                   onChangeText={setPassword}
                   secureTextEntry={!isPasswordVisible}
                 />
-                <Pressable onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
+                <Pressable
+                  onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+                >
                   <MaterialCommunityIcons
                     name={isPasswordVisible ? "eye-off-outline" : "eye-outline"}
                     style={styles.icon}
@@ -147,28 +155,35 @@ export default function Register() {
 
               {isRegistering && (
                 <View style={styles.inputContainer}>
-                  <MaterialCommunityIcons name="lock-check-outline" style={styles.icon} />
+                  <MaterialCommunityIcons
+                    name="lock-check-outline"
+                    style={styles.icon}
+                  />
                   <TextInput
                     style={styles.textInput}
                     placeholder="Confirm Password"
                     placeholderTextColor="#999"
                     value={confirmPassword}
-                    onChangeText={setConfirmPassword} 
+                    onChangeText={setConfirmPassword}
                     // IMPORTANT Note: There should not be a show password option in confirming password for security.
                     secureTextEntry={!isPasswordVisible}
-                />
-                <Pressable onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
-                  <MaterialCommunityIcons
-                    name={isPasswordVisible ? "eye-off-outline" : "eye-outline"}
-                    style={styles.icon}
                   />
-                </Pressable>
-              </View>
+                  <Pressable
+                    onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+                  >
+                    <MaterialCommunityIcons
+                      name={
+                        isPasswordVisible ? "eye-off-outline" : "eye-outline"
+                      }
+                      style={styles.icon}
+                    />
+                  </Pressable>
+                </View>
               )}
 
               {/* === SUBMIT BUTTON === */}
               <Pressable
-                style={[styles.button, { width: '100%' }]}
+                style={[styles.button, { width: "100%" }]}
                 onPress={handleSubmit}
               >
                 <Text style={styles.buttonText}>
@@ -179,31 +194,33 @@ export default function Register() {
               <Pressable style={styles.toggle} onPress={handleToggle}>
                 {isRegistering ? (
                   <Text style={styles.toggleText}>
-                    Already have an account?{' '}
-                    <Text style={styles.toggleTextHighlight}>
-                      Login
-                    </Text>
+                    Already have an account?{" "}
+                    <Text style={styles.toggleTextHighlight}>Login</Text>
                   </Text>
                 ) : (
                   <Text style={styles.toggleText}>
-                    Need an account?{' '}
-                    <Text style={styles.toggleTextHighlight}>
-                      Register
-                    </Text>
+                    Need an account?{" "}
+                    <Text style={styles.toggleTextHighlight}>Register</Text>
                   </Text>
                 )}
               </Pressable>
 
-              <Pressable style={styles.toggle} onPress={() => router.push("/auth/emailverification")}>
+              <Pressable
+                style={styles.toggle}
+                onPress={() => router.push("/auth/emailverification")}
+              >
                 {!isRegistering && (
-                <Pressable style={styles.toggle} onPress={() => router.push("/auth/emailverification")}>
-                  <Text style={styles.toggleText}>
-                    <Text style={styles.toggleTextHighlight}>
-                      Forgot Password? 
+                  <Pressable
+                    style={styles.toggle}
+                    onPress={() => router.push("/auth/emailverification")}
+                  >
+                    <Text style={styles.toggleText}>
+                      <Text style={styles.toggleTextHighlight}>
+                        Forgot Password?
+                      </Text>
                     </Text>
-                  </Text>
-                </Pressable>
-              )}
+                  </Pressable>
+                )}
               </Pressable>
             </Animated.View>
           </Animated.View>
@@ -219,69 +236,69 @@ const styles = StyleSheet.create({
   },
   keyboardAvoidingView: {
     flex: 1,
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
   },
   content: {
-    width: '100%',
+    width: "100%",
     alignItems: "center",
   },
   formContainer: {
+    alignItems: "center",
     width: Dimensions.get("window").width * 0.85,
-    alignItems: 'center',
   },
   logo: {
     width: 140,
     height: 140,
-    resizeMode: 'contain',
     marginBottom: 20,
+    resizeMode: "contain",
   },
   title: {
     fontSize: 28,
+    marginBottom: 25,
+    letterSpacing: 1.5,
     fontWeight: "bold",
     color: "#ffffff",
     textAlign: "center",
-    marginBottom: 25,
     textTransform: "uppercase",
-    letterSpacing: 1.5,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: 25,
-    paddingHorizontal: 20,
-    marginBottom: 15,
     height: 50,
+    width: "100%",
     borderWidth: 1,
-    borderColor: '#cc3f3f',
+    borderRadius: 25,
+    marginBottom: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    borderColor: "#cc3f3f",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   icon: {
     fontSize: 22,
-    color: '#ccc',
+    color: "#ccc",
   },
   textInput: {
     flex: 1,
-    color: '#fff',
     fontSize: 16,
+    color: "#fff",
     marginLeft: 10,
-    height: '100%',
+    height: "100%",
   },
   button: {
-    backgroundColor: "#ff4d4d",
-    paddingVertical: 15,
-    borderRadius: 25,
-    alignItems: "center",
+    height: 50,
     elevation: 5,
     marginTop: 10,
-    height: 50,
-    justifyContent: 'center',
+    borderRadius: 25,
+    paddingVertical: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ff4d4d",
   },
   buttonText: {
-    color: "#ffffff",
     fontSize: 16,
     fontWeight: "600",
+    color: "#ffffff",
     textTransform: "uppercase",
   },
   toggle: {

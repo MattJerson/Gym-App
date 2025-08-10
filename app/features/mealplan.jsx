@@ -1,22 +1,24 @@
-import React, { useState } from "react";
 import {
   View,
   Text,
+  Alert,
+  Keyboard,
+  Platform,
+  FlatList,
   TextInput,
   Pressable,
-  StyleSheet,
   Dimensions,
-  Keyboard,
-  TouchableWithoutFeedback,
-  KeyboardAvoidingView,
-  Platform,
+  StyleSheet,
+  ScrollView,
   SafeAreaView,
-  Alert,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
 } from "react-native";
+import { useState } from "react";
 import { useRouter } from "expo-router";
-import DropDownPicker from "react-native-dropdown-picker";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import DropDownPicker from "react-native-dropdown-picker";
 import RegistrationHeader from "../../components/RegistrationHeader";
 
 export default function MealPlanSetup() {
@@ -44,6 +46,19 @@ export default function MealPlanSetup() {
   const [calorieGoal, setCalorieGoal] = useState("");
   const [mealsPerDay, setMealsPerDay] = useState("");
 
+  const [foodInput, setFoodInput] = useState("");
+  const [foods, setFoods] = useState([]);
+
+  const addFood = () => {
+    if (!foodInput.trim()) return;
+    setFoods((prev) => [...prev, foodInput.trim()]);
+    setFoodInput("");
+  };
+
+  const removeFood = (index) => {
+    setFoods((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = () => {
     if (!mealType || !calorieGoal || !mealsPerDay) {
       Alert.alert("Error", "Please fill in all required fields.");
@@ -55,32 +70,36 @@ export default function MealPlanSetup() {
       restrictions,
       calorieGoal,
       mealsPerDay,
+      foods,
     };
 
     console.log("Meal Plan:", mealPlanData);
-    router.push("/bodyfatinfo");
+    router.push("/features/bodyfatinfo");
   };
 
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
-        <SafeAreaView style={{ flex: 1 }}>
-          <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-          >
-            <View style={styles.inner}>
+    <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
+      <SafeAreaView style={{ flex: 1 }}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <ScrollView
+              contentContainerStyle={styles.inner}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
               <View style={styles.header}>
-
-                {/* The back button doesnt work for now, */}
                 <View style={styles.backRow}>
                   <Pressable onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={28} color="#fff" />
-            </Pressable>
+                    <Ionicons name="arrow-back" size={28} color="#fff" />
+                  </Pressable>
                 </View>
                 <Text style={styles.title}>Information</Text>
                 <RegistrationHeader />
               </View>
+
               <View style={styles.form}>
                 <DropDownPicker
                   open={mealTypeOpen}
@@ -128,16 +147,51 @@ export default function MealPlanSetup() {
                   onChangeText={setMealsPerDay}
                   keyboardType="numeric"
                 />
+                <Text style={styles.questionLabel}>
+                  What foods do you like?
+                </Text>
+                {/* Food input and add button */}
+                <View style={styles.foodRow}>
+                  <TextInput
+                    style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                    placeholder="Add a food"
+                    placeholderTextColor="#999"
+                    value={foodInput}
+                    onChangeText={setFoodInput}
+                    onSubmitEditing={addFood}
+                    returnKeyType="done"
+                  />
+                  <Pressable style={styles.addButton} onPress={addFood}>
+                    <Text style={styles.addButtonText}>ADD</Text>
+                  </Pressable>
+                </View>
 
+                {/* List of foods */}
+                <FlatList
+                  data={foods}
+                  keyExtractor={(item, index) => `${item}-${index}`}
+                  renderItem={({ item, index }) => (
+                    <View style={styles.foodItem}>
+                      <Text style={styles.foodText}>{item}</Text>
+                      <Pressable onPress={() => removeFood(index)}>
+                        <Ionicons name="close" size={20} color="#fff" />
+                      </Pressable>
+                    </View>
+                  )}
+                  style={{ marginTop: 10, width: width * 0.8 }}
+                />
+                <Text style={styles.disclaimer}>
+                  You can always fully customize your plan afterwards
+                </Text>
                 <Pressable style={styles.button} onPress={handleSubmit}>
                   <Text style={styles.buttonText}>Submit</Text>
                 </Pressable>
               </View>
-            </View>
-          </KeyboardAvoidingView>
-        </SafeAreaView>
-      </LinearGradient>
-    </TouchableWithoutFeedback>
+            </ScrollView>
+          </TouchableWithoutFeedback>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
@@ -146,73 +200,123 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   inner: {
-    flex: 1,
+    paddingBottom: 55,
+    alignItems: "center",
+    paddingHorizontal: 20,
+    justifyContent: "center",
   },
   header: {
     width: "100%",
-    paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
+    paddingHorizontal: 20,
   },
   backRow: {
-    flexDirection: "row",
     width: "100%",
-    paddingHorizontal: 10,
     marginBottom: 10,
+    flexDirection: "row",
+    paddingHorizontal: 10,
+  },
+  questionLabel: {
+    fontSize: 14,
+    color: "#ccc",
+    marginBottom: 10,
+    fontWeight: "500",
+    textAlign: "left",
+    width: Dimensions.get("window").width * 0.7,
+  },
+  disclaimer: {
+    marginTop: 5,
+    fontSize: 12,
+    color: "#ccc",
+    fontWeight: "500",
+    textAlign: "center",
+    width: Dimensions.get("window").width * 0.7,
   },
   title: {
     fontSize: 22,
-    fontWeight: "bold",
+    marginTop: -35,
+    letterSpacing: 2,
     color: "#ffffff",
+    marginBottom: -20,
+    fontWeight: "bold",
     textAlign: "center",
     textTransform: "uppercase",
-    letterSpacing: 2,
-    marginTop: -35,
-    marginBottom: -20,
   },
   form: {
-    justifyContent: "center",
+    paddingBottom: 55,
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingBottom: 55,
+    justifyContent: "center",
+    width: Dimensions.get("window").width * 0.9,
   },
   dropdown: {
-    width: Dimensions.get("window").width * 0.8,
     borderRadius: 25,
     marginBottom: 15,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderColor: "transparent",
     alignSelf: "center",
+    borderColor: "transparent",
+    backgroundColor: "rgba(255,255,255,0.1)",
+    width: Dimensions.get("window").width * 0.8,
   },
   dropdownContainer: {
-    width: Dimensions.get("window").width * 0.8,
+    alignSelf: "center",
     backgroundColor: "#333",
     borderColor: "transparent",
-    alignSelf: "center",
+    width: Dimensions.get("window").width * 0.8,
   },
   dropdownText: {
     color: "#fff",
   },
   input: {
-    width: Dimensions.get("window").width * 0.8,
-    backgroundColor: "rgba(255,255,255,0.1)",
-    color: "#fff",
     padding: 15,
+    fontSize: 16,
+    color: "#fff",
     borderRadius: 25,
     marginBottom: 15,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    width: Dimensions.get("window").width * 0.8,
+  },
+  foodRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: Dimensions.get("window").width * 0.8,
+    marginTop: 10,
+  },
+  addButton: {
+    marginLeft: 8,
+    borderRadius: 25,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: "#ff4d4d",
+  },
+  addButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  foodItem: {
+    marginBottom: 8,
+    borderRadius: 20,
+    paddingVertical: 8,
+    flexDirection: "row",
+    paddingHorizontal: 12,
+    justifyContent: "space-between",
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  foodText: {
     fontSize: 16,
+    color: "#fff",
   },
   button: {
     marginTop: 20,
-    backgroundColor: "#ff4d4d",
-    paddingVertical: 15,
     borderRadius: 25,
+    paddingVertical: 15,
     alignItems: "center",
+    backgroundColor: "#ff4d4d",
     width: Dimensions.get("window").width * 0.7,
   },
   buttonText: {
-    color: "#ffffff",
     fontSize: 16,
+    color: "#ffffff",
     fontWeight: "600",
     textTransform: "uppercase",
   },

@@ -1,21 +1,21 @@
-import React, { useState, useEffect } from "react";
 import {
-  StyleSheet,
   Text,
   View,
-  Pressable,
-  Dimensions,
   Animated,
   Keyboard,
-  TouchableWithoutFeedback,
-  KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
+  Pressable,
+  StyleSheet,
   ScrollView,
+  Dimensions,
+  SafeAreaView,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
+import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 
 export default function SubscriptionPackages() {
   const router = useRouter();
@@ -39,14 +39,14 @@ export default function SubscriptionPackages() {
   const handleUseCoupon = () => {
     console.log("Use Coupon Pressed");
     // Navigate to a coupon entry screen
-    router.push("/home");
+    router.push("/page/home");
   };
-  
+
   const handleFreeTrial = () => {
     console.log("Free Trial Pressed");
     // Navigate or start free trial flow
-    router.push("/home");
-  }
+    router.push("/page/home");
+  };
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -63,42 +63,83 @@ export default function SubscriptionPackages() {
                   <Ionicons name="arrow-back" size={28} color="#fff" />
                 </Pressable>
               </View>
-              
+
               <ScrollView showsVerticalScrollIndicator={false}>
                 <View style={styles.mainContent}>
                   <Text style={styles.title}>Subscription Packages</Text>
-                  <Text style={styles.header}>You're not subscribed to any plan yet.</Text>
+                  <Text style={styles.header}>
+                    You're not subscribed to any plan yet.
+                  </Text>
 
-                  <Text style={styles.featureText}>Please subscribe to a plan to use all the features:</Text>
-                  <Text style={styles.featureItem}>✓ Get your workout plan & track records!</Text>
-                  <Text style={styles.featureItem}>✓ Get your meal plan & control diets!</Text>
+                  <Text style={styles.featureText}>
+                    Please subscribe to a plan to use all the features:
+                  </Text>
+                  <Text style={styles.featureItem}>
+                    ✓ Get your workout plan & track records!
+                  </Text>
+                  <Text style={styles.featureItem}>
+                    ✓ Get your meal plan & control diets!
+                  </Text>
 
                   {/* Subscription Cards in a 2x2 Grid */}
                   <View style={styles.cardGridContainer}>
                     {/* First Row */}
                     <View style={styles.cardRow}>
-                      <Pressable style={[styles.card, styles.monthlyCard]} onPress={() => handleJoin('Monthly')}>
+                      <Pressable
+                        style={[styles.card, styles.monthlyCard]}
+                        onPress={() => handleJoin("Monthly")}
+                      >
                         <Text style={styles.cardTitle}>Monthly</Text>
                         <Text style={styles.cardPrice}>$9.99</Text>
                         <Text style={styles.pricePer}>/month</Text>
-                        <Text style={styles.cardDescription}>Billed monthly.</Text>
+                        <Text style={styles.cardDescription}>
+                          Billed monthly.
+                        </Text>
                         <View style={styles.joinButton}>
                           <Text style={styles.joinButtonText}>Join Now</Text>
                         </View>
                       </Pressable>
-                      <Pressable style={[styles.card, styles.threeMonthCard]} onPress={() => handleJoin('3 Months')}>
-                        <Text style={[styles.cardTitle, {color: '#fff'}]}>3 Months</Text>
-                        <Text style={[styles.cardPrice, {color: '#fff'}]}>$24.99</Text>
-                        <Text style={[styles.pricePer, {color: '#eee'}]}>/quarter</Text>
-                        <Text style={[styles.cardDescription, {color: '#eee'}]}>Save 15%.</Text>
-                        <View style={[styles.joinButton, {backgroundColor: '#fff'}]}>
-                          <Text style={[styles.joinButtonText, {color: '#ff4d4d'}]}>Join Now</Text>
+                      <Pressable
+                        style={[styles.card, styles.threeMonthCard]}
+                        onPress={() => handleJoin("3 Months")}
+                      >
+                        <Text style={[styles.cardTitle, { color: "#fff" }]}>
+                          3 Months
+                        </Text>
+                        <Text style={[styles.cardPrice, { color: "#fff" }]}>
+                          $24.99
+                        </Text>
+                        <Text style={[styles.pricePer, { color: "#eee" }]}>
+                          /quarter
+                        </Text>
+                        <Text
+                          style={[styles.cardDescription, { color: "#eee" }]}
+                        >
+                          Save 15%.
+                        </Text>
+                        <View
+                          style={[
+                            styles.joinButton,
+                            { backgroundColor: "#fff" },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.joinButtonText,
+                              { color: "#ff4d4d" },
+                            ]}
+                          >
+                            Join Now
+                          </Text>
                         </View>
                       </Pressable>
                     </View>
                     {/* Second Row */}
                     <View style={styles.cardRow}>
-                      <Pressable style={[styles.card, styles.annualCard]} onPress={() => handleJoin('Annual')}>
+                      <Pressable
+                        style={[styles.card, styles.annualCard]}
+                        onPress={() => handleJoin("Annual")}
+                      >
                         <Text style={styles.cardTitle}>Annual</Text>
                         <Text style={styles.cardPrice}>$79.99</Text>
                         <Text style={styles.pricePer}>/year</Text>
@@ -107,11 +148,16 @@ export default function SubscriptionPackages() {
                           <Text style={styles.joinButtonText}>Join Now</Text>
                         </View>
                       </Pressable>
-                      <Pressable style={[styles.card, styles.lifetimeCard]} onPress={() => handleJoin('Lifetime')}>
+                      <Pressable
+                        style={[styles.card, styles.lifetimeCard]}
+                        onPress={() => handleJoin("Lifetime")}
+                      >
                         <Text style={styles.cardTitle}>Lifetime</Text>
                         <Text style={styles.cardPrice}>$149.99</Text>
                         <Text style={styles.pricePer}>one-time</Text>
-                        <Text style={styles.cardDescription}>Forever access.</Text>
+                        <Text style={styles.cardDescription}>
+                          Forever access.
+                        </Text>
                         <View style={styles.joinButton}>
                           <Text style={styles.joinButtonText}>Join Now</Text>
                         </View>
@@ -120,16 +166,21 @@ export default function SubscriptionPackages() {
                   </View>
 
                   {/* Free Trial Section */}
-                  <Text style={styles.normalText}>Get a free trial of premium features for 7 days.</Text>
+                  <Text style={styles.normalText}>
+                    Get a free trial of premium features for 7 days.
+                  </Text>
                   <Pressable onPress={handleFreeTrial}>
-                      <Text style={styles.textHighlight}>
-                        Free Trial
-                      </Text>
+                    <Text style={styles.textHighlight}>Free Trial</Text>
                   </Pressable>
 
                   {/* Coupon Section */}
-                  <Text style={styles.normalText}>Are you a member of <Text style={styles.gymName}>Gimnasio Escorpión</Text>?</Text>
-                  <Text style={styles.couponText}>Use coupon to join the app</Text>
+                  <Text style={styles.normalText}>
+                    Are you a member of{" "}
+                    <Text style={styles.gymName}>Gimnasio Escorpión</Text>?
+                  </Text>
+                  <Text style={styles.couponText}>
+                    Use coupon to join the app
+                  </Text>
                   <Pressable
                     style={[styles.button, { width: width * 0.8 }]}
                     onPress={handleUseCoupon}
@@ -147,8 +198,8 @@ export default function SubscriptionPackages() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1 
+  container: {
+    flex: 1,
   },
   content: {
     flex: 1,
@@ -156,156 +207,156 @@ const styles = StyleSheet.create({
   },
   mainContent: {
     flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 10,
     paddingBottom: 20, // Add padding at the bottom of scroll content
+    alignItems: "center",
+    paddingHorizontal: 10,
   },
   backRow: {
-    position: 'absolute',
     top: 40,
     left: 20,
     zIndex: 10,
+    position: "absolute",
   },
   title: {
     fontSize: 22,
-    fontWeight: "bold",
+    marginTop: 35, // Space below back button
+    marginBottom: 10,
     color: "#ffffff",
+    fontWeight: "bold",
+    letterSpacing: 1.5,
     textAlign: "center",
     textTransform: "uppercase",
-    letterSpacing: 1.5,
-    marginBottom: 10,
-    marginTop: 35, // Space below back button
   },
   header: {
     fontSize: 19,
-    color: '#ccc',
-    fontWeight:'bold',
-    textAlign: 'center',
+    color: "#ccc",
     marginBottom: 20,
+    fontWeight: "bold",
+    textAlign: "center",
   },
   featureText: {
     fontSize: 15,
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: '600',
+    color: "#fff",
     marginBottom: 10,
+    fontWeight: "600",
+    textAlign: "center",
   },
   featureItem: {
     fontSize: 14,
-    color: '#ccc',
-    textAlign: 'center',
+    color: "#ccc",
     marginBottom: 5,
+    textAlign: "center",
   },
   cardGridContainer: {
     marginTop: 20,
-    width: '100%',
+    width: "100%",
   },
   cardRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     marginBottom: 15,
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   card: {
-    width: '48%', // Adjusted for 2 cards per row
-    borderRadius: 20,
     padding: 15,
-    alignItems: 'center',
+    width: "48%", // Adjusted for 2 cards per row
     borderWidth: 1,
-    justifyContent: 'space-between',
     minHeight: 180, // Ensure cards have same height
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   monthlyCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   threeMonthCard: {
-    backgroundColor: '#ff4d4d',
-    borderColor: '#ff4d4d',
+    borderColor: "#ff4d4d",
+    backgroundColor: "#ff4d4d",
     transform: [{ scale: 1.02 }],
   },
   annualCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   lifetimeCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#fff',
-    textTransform: 'uppercase',
+    color: "#fff",
+    fontWeight: "bold",
+    textTransform: "uppercase",
   },
   cardPrice: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
+    color: "#fff",
     marginVertical: 5,
+    fontWeight: "bold",
   },
   pricePer: {
     fontSize: 14,
-    fontWeight: 'normal',
-    color: '#ccc',
+    color: "#ccc",
+    fontWeight: "normal",
   },
   cardDescription: {
     fontSize: 13,
-    color: '#ccc',
-    textAlign: 'center',
+    color: "#ccc",
+    textAlign: "center",
     marginVertical: 10,
   },
   joinButton: {
-    backgroundColor: '#ff4d4d',
+    borderRadius: 20,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 20,
+    backgroundColor: "#ff4d4d",
   },
   joinButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
     fontSize: 15,
+    color: "#fff",
+    fontWeight: "bold",
   },
-  normalText: { 
-    color: "#ffffff",
+  normalText: {
     fontSize: 15,
-    textAlign: "center",
     marginTop: 5,
+    color: "#ffffff",
+    textAlign: "center",
     paddingHorizontal: 10,
   },
   textHighlight: {
     fontSize: 20,
-    fontWeight: "bold",
-    color: "#ff4d4d",
-    textAlign: "center",
     marginTop: 5,
+    color: "#ff4d4d",
     marginBottom: 15,
+    fontWeight: "bold",
+    textAlign: "center",
   },
   gymName: {
-    fontWeight: 'bold',
-    color: '#ff4d4d',
+    color: "#ff4d4d",
+    fontWeight: "bold",
   },
   couponText: {
-    color: '#ccc',
-    textAlign: 'center',
     fontSize: 14,
     marginTop: 5,
+    color: "#ccc",
+    textAlign: "center",
   },
   button: {
-    backgroundColor: "#ff4d4d",
-    paddingVertical: 15,
-    borderRadius: 25,
-    alignItems: "center",
     elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
     marginTop: 15,
-    alignSelf: 'center',
+    borderRadius: 25,
+    shadowRadius: 3.84,
+    paddingVertical: 15,
+    shadowOpacity: 0.25,
+    alignSelf: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    backgroundColor: "#ff4d4d",
+    shadowOffset: { width: 0, height: 2 },
   },
   buttonText: {
-    color: "#ffffff",
     fontSize: 16,
+    color: "#ffffff",
     fontWeight: "600",
     textTransform: "uppercase",
   },

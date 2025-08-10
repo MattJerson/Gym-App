@@ -1,22 +1,22 @@
-import React, { useState, useEffect } from "react";
 import {
-  StyleSheet,
   Text,
   View,
+  Image,
+  Animated,
+  Keyboard,
+  Platform,
   Pressable,
   Dimensions,
-  Animated,
-  Image,
-  Keyboard,
-  TouchableWithoutFeedback,
-  KeyboardAvoidingView,
-  Platform,
+  StyleSheet,
   SafeAreaView,
+  KeyboardAvoidingView,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import Slider from "@react-native-community/slider";
+import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import Slider from "@react-native-community/slider";
+import { LinearGradient } from "expo-linear-gradient";
 
 export default function BodyFatInfo() {
   const router = useRouter();
@@ -36,7 +36,7 @@ export default function BodyFatInfo() {
 
   const handleSubmit = () => {
     console.log("Selected Body Fat Info:", `${Math.round(bodyfatinfo)}%`);
-    router.push("/bodyfatgoal");
+    router.push("/features/bodyfatgoal");
   };
 
   return (
@@ -49,23 +49,25 @@ export default function BodyFatInfo() {
           <SafeAreaView style={styles.scrollContent}>
             <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
               <View style={styles.backRow}>
-                <Pressable onPress={() => router.push('/register')}>
+                <Pressable onPress={() => router.push("/register")}>
                   <Ionicons name="arrow-back" size={28} color="#fff" />
                 </Pressable>
               </View>
 
               <Text style={styles.title}>Body Fat Information</Text>
-              
-              <Text style={styles.questionLabel}>What's your Current Bodyfat?</Text>
-              
+
+              <Text style={styles.questionLabel}>
+                What's your Current Bodyfat?
+              </Text>
+
               <Image
-                source={require('../../assets/bodygoal.jpeg')}
+                source={require("../../assets/bodygoal.jpeg")}
                 style={styles.transformImage}
-                />
+              />
               <View style={styles.sliderContainer}>
                 <Slider
                   style={styles.slider}
-                  minimumValue={3} 
+                  minimumValue={3}
                   maximumValue={40}
                   value={bodyfatinfo}
                   onValueChange={setBodyFatInfo}
@@ -73,11 +75,15 @@ export default function BodyFatInfo() {
                   maximumTrackTintColor="#555555"
                   thumbTintColor="#ffffff"
                 />
-                <Text style={styles.sliderValueText}>{Math.round(bodyfatinfo)}%</Text>
+                <Text style={styles.sliderValueText}>
+                  {Math.round(bodyfatinfo)}%
+                </Text>
               </View>
 
-              <Text style={styles.disclaimer}>You can always fully customize your routine and diet afterwards</Text> 
-              
+              <Text style={styles.disclaimer}>
+                You can always fully customize your routine and diet afterwards
+              </Text>
+
               <Pressable
                 style={[styles.button, { width: width * 0.7 }]}
                 onPress={handleSubmit}
@@ -93,50 +99,50 @@ export default function BodyFatInfo() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1 
+  container: {
+    flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    //justifyContent: "center",
-    alignItems: "center",
     paddingVertical: 20,
+    alignItems: "center",
+    //justifyContent: "center",
   },
   transformImage: {
     width: 280,
-    height: 350,
     margin: 10,
+    height: 350,
     borderRadius: 25,
   },
   content: {
     width: "100%",
+    paddingTop: 40,
     alignItems: "center",
     paddingHorizontal: 20, // Added horizontal padding
-    paddingTop: 40,
   },
   backRow: {
-    position: 'absolute',
     top: 0,
     left: 20,
     zIndex: 10,
+    position: "absolute",
   },
   title: {
     fontSize: 14,
-    fontWeight: "bold",
+    //marginTop: 50, // Added margin to not overlap with back button
+    letterSpacing: 2,
     color: "#ffffff",
+    marginBottom: 40,
+    fontWeight: "bold",
     textAlign: "center",
     textTransform: "uppercase",
-    letterSpacing: 2,
-    marginBottom: 40,
-    //marginTop: 50, // Added margin to not overlap with back button
   },
   questionLabel: {
-    color: '#ccc',
     fontSize: 13,
-    fontWeight: '500',
-    width: Dimensions.get("window").width * 0.7,
-    textAlign: 'left',
+    color: "#ccc",
     marginBottom: 10,
+    fontWeight: "500",
+    textAlign: "left",
+    width: Dimensions.get("window").width * 0.7,
   },
   imageContainer: {
     width: 280,
@@ -145,42 +151,42 @@ const styles = StyleSheet.create({
     borderRadius: 35,
   },
   sliderContainer: {
+    alignItems: "center",
     width: Dimensions.get("window").width * 0.7,
-    alignItems: 'center',
   },
   slider: {
-    width: '100%',
     height: 40,
+    width: "100%",
   },
   sliderValueText: {
-    color: '#ffffff',
     fontSize: 16,
-    fontWeight: 'bold',
     marginTop: 5,
+    color: "#ffffff",
+    fontWeight: "bold",
   },
   disclaimer: {
-    marginTop: 20, // Increased margin for better spacing
-    textAlign: 'center',
-    color: '#ccc',
     fontSize: 12,
-    fontWeight: '500',
+    color: "#ccc",
+    marginTop: 20, // Increased margin for better spacing
+    fontWeight: "500",
+    textAlign: "center",
     width: Dimensions.get("window").width * 0.7,
   },
   button: {
-    backgroundColor: "#ff4d4d",
-    paddingVertical: 15,
-    borderRadius: 25,
-    alignItems: "center",
     elevation: 5,
-    shadowColor: '#000', // Added shadow for iOS
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
     marginTop: 20,
+    borderRadius: 25,
+    shadowRadius: 3.84,
+    paddingVertical: 15,
+    shadowOpacity: 0.25,
+    alignItems: "center",
+    shadowColor: "#000", // Added shadow for iOS
+    backgroundColor: "#ff4d4d",
+    shadowOffset: { width: 0, height: 2 },
   },
   buttonText: {
-    color: "#ffffff",
     fontSize: 16,
+    color: "#ffffff",
     fontWeight: "600",
     textTransform: "uppercase",
   },
