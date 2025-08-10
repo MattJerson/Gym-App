@@ -59,7 +59,7 @@ export default function Register() {
   const handleSubmit = () => {
     if (isRegistering) {
       console.log("Registering with:", fullName, email, password);
-      router.push("/features/basicinfo");
+      router.push("/features/testregister");
     } else {
       console.log("Logging in with:", email, password);
       router.push("/page/home");
@@ -207,12 +207,12 @@ export default function Register() {
 
               <Pressable
                 style={styles.toggle}
-                onPress={() => router.push("/auth/emailverification")}
+                onPress={() => router.push("/auth/testforgotpassword")}
               >
                 {!isRegistering && (
                   <Pressable
                     style={styles.toggle}
-                    onPress={() => router.push("/auth/emailverification")}
+                    onPress={() => router.push("/auth/testforgotpassword")}
                   >
                     <Text style={styles.toggleText}>
                       <Text style={styles.toggleTextHighlight}>
@@ -248,9 +248,9 @@ const styles = StyleSheet.create({
     width: Dimensions.get("window").width * 0.85,
   },
   logo: {
-    width: 140,
-    height: 140,
-    marginBottom: 20,
+    width: 180,
+    height: 180,
+    marginBottom: 40,
     resizeMode: "contain",
   },
   title: {
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   toggle: {
-    marginTop: 20,
+    marginTop: 15,
   },
   toggleText: {
     color: "#ccc",
