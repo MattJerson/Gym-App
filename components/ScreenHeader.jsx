@@ -1,8 +1,15 @@
 // components/ScreenHeader.jsx
-import React, { useEffect, useRef } from "react";
-import { View, Text, Pressable, StyleSheet, Dimensions, Animated } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import {
+  View,
+  Text,
+  Animated,
+  Pressable,
+  StyleSheet,
+  Dimensions,
+} from "react-native";
 import { useRouter } from "expo-router";
+import { useEffect, useRef } from "react";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function ScreenHeader({ title, backRoute }) {
   const router = useRouter();
@@ -19,7 +26,10 @@ export default function ScreenHeader({ title, backRoute }) {
   return (
     <Animated.View style={[styles.headerContainer, { opacity: fadeAnim }]}>
       {/* Back Button */}
-      <Pressable onPress={() => router.push(backRoute)} style={styles.sideContainer}>
+      <Pressable
+        onPress={() => router.push(backRoute)}
+        style={styles.sideContainer}
+      >
         <Ionicons name="arrow-back" size={28} color="#fff" />
       </Pressable>
 
@@ -36,15 +46,15 @@ export default function ScreenHeader({ title, backRoute }) {
 
 const styles = StyleSheet.create({
   headerContainer: {
-    width: Dimensions.get("window").width,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    zIndex: 10,
+    elevation: 4,
     marginTop: 70,
     marginBottom: -20,
+    alignItems: "center",
+    flexDirection: "row",
     paddingHorizontal: 15,
-    elevation: 4,
-    zIndex: 10,
+    justifyContent: "space-between",
+    width: Dimensions.get("window").width,
   },
   sideContainer: {
     width: 40,

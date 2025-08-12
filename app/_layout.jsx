@@ -5,7 +5,7 @@ export default function Layout() {
     <Stack
       screenOptions={{
         headerShown: false,
-        animation: "none", // disable default slide transition
+        animation: "none",
       }}
     />
   );

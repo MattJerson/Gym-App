@@ -1,5 +1,3 @@
-import { useRouter, usePathname } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
 import {
   View,
   Text,
@@ -8,7 +6,9 @@ import {
   Dimensions,
   Animated,
 } from "react-native";
-import React, { useRef } from "react";
+import { useRef } from "react";
+import { useRouter, usePathname } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const steps = [
   { path: "/features/basicinfo", name: "Basic Info" },
