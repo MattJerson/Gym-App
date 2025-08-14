@@ -1,5 +1,6 @@
 import { Tabs } from "expo-router";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
+import { TouchableOpacity, StyleSheet, View } from "react-native";
 
 export default function PageLayout() {
   return (
@@ -7,13 +8,13 @@ export default function PageLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: "#1a1a1a",
-          borderTopColor: "#333",
           height: 70,
           paddingBottom: 6,
+          borderTopColor: "#333",
+          backgroundColor: "#1a1a1a",
         },
-        tabBarActiveTintColor: "#ff4d4d",
         tabBarInactiveTintColor: "#aaa",
+        tabBarActiveTintColor: "#ff4d4d",
       }}
     >
       <Tabs.Screen
@@ -35,13 +36,19 @@ export default function PageLayout() {
         }}
       />
       <Tabs.Screen
-        name="add"
+        name="chatbot"
         options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="add-circle" color="#ff4d4d" size={size + 10} /> // Larger red "+" button
-          ),
+          title: "",
           tabBarButton: (props) => (
-            <Ionicons name="add-circle" color="#ff4d4d" size={50} {...props} /> // Custom button styling
+            <View style={styles.actionButtonContainer}>
+              <TouchableOpacity
+                onPress={() => {/* Handle action press */}}
+                style={styles.actionButton}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="chatbubbles" color="#1a1a1a" size={28} />
+              </TouchableOpacity>
+            </View>
           ),
         }}
       />
@@ -66,3 +73,27 @@ export default function PageLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  actionButtonContainer: {
+    flex: 1,
+    top: -18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionButton: {
+    width: 56,
+    height: 56,
+    elevation: 8,
+    borderWidth: 3,
+    shadowRadius: 6,
+    borderRadius: 50,
+    shadowOpacity: 0.5,
+    alignItems: "center",
+    shadowColor: "#000",
+    borderColor: "#1a1a1a",
+    justifyContent: "center",
+    backgroundColor: "#ff4d4d",
+    shadowOffset: { width: 0, height: 4 },
+  },
+});
