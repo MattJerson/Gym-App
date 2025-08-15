@@ -137,7 +137,7 @@ export default function BasicInfo() {
         favoriteFoods: foods,
       };
       console.log("--- Final Form Data ---", finalData);
-      router.replace('../features/subscriptionpackages');
+      router.replace('../features/bodyfatinfo');
     } else {
       setStep(prev => prev + 1);
     }
