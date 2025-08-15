@@ -23,12 +23,18 @@
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.5",
+    "react-native-circular-progress-indicator": "^4.4.2",
     "react-native-dropdown-picker": "^5.4.6",
     "react-native-progress": "^5.0.1",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
+<<<<<<< HEAD
     "react-native-svg": "15.11.2",
     "react-native-web": "^0.20.0"
+=======
+    "react-native-web": "^0.20.0",
+    "react-native-svg": "15.11.2"
+>>>>>>> 313ed618ea3c8c101e8fcea3642493b7e5083562
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"
