@@ -8,93 +8,72 @@ import {
 import {
   Ionicons,
   FontAwesome5,
-  MaterialIcons,
 } from "@expo/vector-icons";
-<<<<<<< HEAD
 import { useRouter, usePathname } from "expo-router";
-import { LinearGradient } from 'expo-linear-gradient';
-// Import the new, more compatible progress library
-import * as Progress from 'react-native-progress';
+import { LinearGradient } from "expo-linear-gradient";
+import * as Progress from "react-native-progress";
+import { useState } from "react";
+import WorkoutCard from "../../components/WorkoutCard";
 
 export default function Home() {
-  // Hooks must be called inside the component
   const router = useRouter();
   const pathname = usePathname();
-
-  // --- Start of Progress Bar Data and Logic ---
-  // Data for the progress indicators
-=======
-// import { useRouter } from "expo-router"; // Temporarily commented out to prevent crash
-import { LinearGradient } from "expo-linear-gradient";
-import CircularProgress from "react-native-circular-progress-indicator";
-
-export default function Home() {
-  // --- Progress Data ---
-  // Store progress data in variables to make calculations and rendering dynamic.
->>>>>>> 313ed618ea3c8c101e8fcea3642493b7e5083562
+  const notifications = useState(3);
   const workoutData = { value: 75, max: 100 };
   const calorieData = { value: 1000, max: 3000 };
   const waterData = { value: 8, max: 8 };
-
-<<<<<<< HEAD
-  // Calculate percentages for progress bars
+  const userName = "Matt";
   const workoutPercent = (workoutData.value / workoutData.max) * 100;
   const caloriePercent = (calorieData.value / calorieData.max) * 100;
   const waterPercent = (waterData.value / waterData.max) * 100;
   const totalProgress = (workoutPercent + caloriePercent + waterPercent) / 3;
-  // --- End of Progress Bar Data and Logic ---
-
-  // Navigation handler
   const handlePress = (path) => {
     if (pathname !== path) {
       router.push(path);
     }
   };
-=======
-  // --- Calculations ---
-  // Calculate the percentage for each individual goal.
-  const workoutPercent = (workoutData.value / workoutData.max) * 100;
-  const caloriePercent = (calorieData.value / calorieData.max) * 100;
-  const waterPercent = (waterData.value / waterData.max) * 100;
-
-  // Calculate the total progress by averaging the three percentages.
-  // Each goal contributes 1/3 to the total.
-  const totalProgress = (workoutPercent + caloriePercent + waterPercent) / 3;
->>>>>>> 313ed618ea3c8c101e8fcea3642493b7e5083562
 
   return (
     <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-<<<<<<< HEAD
-        {/* Back Button - Placed absolutely over the scroll content */}
-        <View style={styles.backRow}>
-          <Pressable onPress={() => handlePress("/auth/register")}>
-=======
+        
         {/* Back Button */}
         <View style={styles.backRow}>
-          <Pressable onPress={() => console.log("Back button pressed")}>
->>>>>>> 313ed618ea3c8c101e8fcea3642493b7e5083562
+          <Pressable onPress={() => handlePress("/auth/register")}>
             <Ionicons name="arrow-back" size={28} color="#fff" />
           </Pressable>
         </View>
 
         {/* Header */}
         <View style={styles.headerRow}>
-          <Text style={styles.headerText}>Welcome Back!</Text>
-          <Ionicons name="notifications-outline" size={24} color="#fff" />
+          <Text style={styles.headerText}>Welcome, {userName}! 💪</Text>
+          <View style={{ position: "relative" }}>
+            <Ionicons name="notifications-outline" size={26} color="#fff" />
+            {notifications > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationText}>{notifications}</Text>
+              </View>
+            )}
+          </View>
         </View>
 
-<<<<<<< HEAD
-        {/* --- Start of New Daily Progress Card --- */}
+        {/* Daily Progress Card */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Daily Progress</Text>
+          <LinearGradient
+            colors={["#f7971e", "#ffd200"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.streakBadge}
+          >
+            <Ionicons name="flame" size={16} color="#fff" style={{ marginRight: 6 }} />
+            <Text style={styles.streakText}>Streak: 5</Text>
+          </LinearGradient>
 
-          {/* Total Horizontal Progress Bar */}
           <View style={styles.totalProgressWrapper}>
-            <Text style={styles.totalProgressLabel}>Overall Daily Goal</Text>
             <View style={styles.totalProgressContainer}>
               <LinearGradient
-                colors={['#8e44ad', '#c0392b']}
+                colors={["#8e44ad", "#c0392b"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={[styles.totalProgressBar, { width: `${totalProgress}%` }]}
@@ -105,30 +84,29 @@ export default function Home() {
             </Text>
           </View>
 
-          {/* Individual Progress Circles using react-native-progress */}
           <View style={styles.progressContainer}>
             {[
-              { label: "Workout", color: "#2ecc71", data: workoutData, unit: "%" },
+              { label: "Workout", color: "#2ecc71", data: workoutData , unit: "%" },
               { label: "Calories", color: "#f39c12", data: calorieData, unit: "kcal" },
               { label: "Water", color: "#3498db", data: waterData, unit: "glasses" },
             ].map(({ label, color, data, unit }) => (
               <View style={styles.progressCircleWrapper} key={label}>
-                {/* This container holds both the circle and the text overlay */}
                 <View style={styles.circleContainer}>
                   <Progress.Circle
                     size={100}
-                    progress={data.value / data.max} // Value between 0 and 1
+                    progress={data.value / data.max}
                     color={color}
                     unfilledColor="rgba(255, 255, 255, 0.1)"
                     borderWidth={0}
                     thickness={10}
-                    showsText={false} // We render our own text
+                    showsText={false}
+                    strokeCap="round"
                   />
-                  {/* This text is positioned absolutely to sit on top of the circle */}
                   <View style={styles.progressValueContainer}>
                     <Text style={styles.progressValueText}>{data.value}</Text>
-                    <Text style={styles.progressValueSubText}>of</Text>
-                    <Text style={styles.progressValueSubText}>{data.max} {unit}</Text>
+                    <Text style={styles.progressValueSubText}>
+                      {data.max} {unit}
+                    </Text>
                   </View>
                 </View>
                 <Text style={styles.progressLabel}>{label}</Text>
@@ -136,156 +114,98 @@ export default function Home() {
             ))}
           </View>
         </View>
-        {/* --- End of New Daily Progress Card --- */}
 
-
-        {/* Profile Summary Card */}
-=======
-        {/* Daily Progress Card */}
+        {/* Recent Activity */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Daily Progress</Text>
-
-          {/* --- Total Horizontal Progress Bar --- */}
-          <View style={styles.totalProgressWrapper}>
-             <Text style={styles.totalProgressLabel}>Overall Daily Goal</Text>
-             <View style={styles.totalProgressContainer}>
-                <LinearGradient
-                    colors={['#8e44ad', '#c0392b']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={[styles.totalProgressBar, { width: `${totalProgress}%` }]}
-                />
-             </View>
-             <Text style={styles.totalProgressText}>{`${Math.round(totalProgress)}% Complete`}</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.cardTitle}>Recent Activity</Text>
+            <Ionicons name="time-outline" size={22} color="#fff" />
           </View>
 
+          <Text style={styles.activityDate}>Today</Text>
+          {[
+            { icon: "barbell", color: ["#ff7e5f", "#feb47b"], label: "Chest + Triceps", duration: "45 mins" },
+            { icon: "walk", color: ["#43cea2", "#185a9d"], label: "Cardio", duration: "30 mins" },
+            { icon: "leaf-outline", color: ["#a18cd1", "#fbc2eb"], label: "Yoga", duration: "20 mins" },
+          ].map((item, idx) => (
+            <Pressable key={idx} style={styles.activityItem}>
+              <LinearGradient colors={item.color} style={styles.activityIconContainer}>
+                <Ionicons name={item.icon} size={20} color="#fff" />
+              </LinearGradient>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.activityLabel}>{item.label}</Text>
+                <Text style={styles.activitySub}>{item.duration}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#aaa" />
+            </Pressable>
+          ))}
+        </View>
 
-          {/* --- Individual Circular Progress Bars --- */}
-          <View style={styles.progressContainer}>
-            {/* Workout Progress */}
-            <View style={styles.progressCircleWrapper}>
-              <CircularProgress
-                value={workoutData.value}
-                maxValue={workoutData.max}
-                radius={50}
-                duration={1500}
-                activeStrokeColor={"#2ecc71"}
-                inActiveStrokeColor={"#fff"}
-                inActiveStrokeOpacity={0.2}
-                activeStrokeWidth={10}
-                inActiveStrokeWidth={10}
-                progressValueRenderer={() => (
-                  <View style={styles.progressValueContainer}>
-                    <Text style={styles.progressValueText}>{workoutData.value}%</Text>
-                    <Text style={styles.progressValueSubText}>of</Text>
-                    <Text style={styles.progressValueSubText}>{workoutData.max}%</Text>
-                  </View>
-                )}
-              />
-              <Text style={styles.progressLabel}>Workout</Text>
-            </View>
-            {/* Calorie Progress */}
-            <View style={styles.progressCircleWrapper}>
-              <CircularProgress
-                value={calorieData.value}
-                maxValue={calorieData.max}
-                radius={50}
-                duration={1500}
-                activeStrokeColor={"#f39c12"}
-                inActiveStrokeColor={"#fff"}
-                inActiveStrokeOpacity={0.2}
-                activeStrokeWidth={10}
-                inActiveStrokeWidth={10}
-                progressValueRenderer={() => (
-                  <View style={styles.progressValueContainer}>
-                    <Text style={styles.progressValueText}>{calorieData.value}</Text>
-                     <Text style={styles.progressValueSubText}>of</Text>
-                    <Text style={styles.progressValueSubText}>{calorieData.max} kcal</Text>
-                  </View>
-                )}
-              />
-              <Text style={styles.progressLabel}>Calories</Text>
-            </View>
-            {/* Water Intake Progress */}
-            <View style={styles.progressCircleWrapper}>
-              <CircularProgress
-                value={waterData.value}
-                maxValue={waterData.max}
-                radius={50}
-                duration={1500}
-                activeStrokeColor={"#3498db"}
-                inActiveStrokeColor={"#fff"}
-                inActiveStrokeOpacity={0.2}
-                activeStrokeWidth={10}
-                inActiveStrokeWidth={10}
-                progressValueRenderer={() => (
-                  <View style={styles.progressValueContainer}>
-                    <Text style={styles.progressValueText}>{waterData.value}</Text>
-                    <Text style={styles.progressValueSubText}>of</Text>
-                    <Text style={styles.progressValueSubText}>{waterData.max} glasses</Text>
-                  </View>
-                )}
-              />
-              <Text style={styles.progressLabel}>Water</Text>
-            </View>
+        {/* Horizontal Workout Cards */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.storyScroll}
+        >
+          <WorkoutCard
+            title="Push Day Workout"
+            sub="13 exercises"
+            colors={["#6EE7B7", "#2ecc71", "#027A48"]}
+            rating={4.9}
+          />
+          <WorkoutCard
+            title="Pull Day Workout"
+            sub="10 exercises"
+            colors={["#f6d365", "#fda085"]}
+            rating={4.7}
+          />
+          <WorkoutCard
+            title="Leg Day Workout"
+            sub="12 exercises"
+            colors={["#36d1dc", "#5b86e5"]}
+            rating={4.8}
+          />
+          <WorkoutCard
+            title="Core Workout"
+            sub="8 exercises"
+            colors={["#a18cd1", "#fbc2eb"]}
+            rating={4.6}
+          />
+        </ScrollView>
+
+        {/* Achievements & Leaderboard */}
+        <View style={styles.card}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.cardTitle}>Achievements & Leaderboard</Text>
+            <Ionicons name="trophy-outline" size={24} color="#ffd700" />
           </View>
-        </View>
 
-        {/* Other Cards... */}
->>>>>>> 313ed618ea3c8c101e8fcea3642493b7e5083562
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Your Profile</Text>
-          <Text style={styles.cardText}>Level: Intermediate</Text>
-          <Text style={styles.cardText}>Workouts this week: 3</Text>
-        </View>
-<<<<<<< HEAD
-
-        {/* Recent Activity Card */}
-=======
->>>>>>> 313ed618ea3c8c101e8fcea3642493b7e5083562
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Recent Activity</Text>
-          <Text style={styles.cardText}>🏋️ Chest + Triceps - 45 mins</Text>
-          <Text style={styles.cardText}>🏃 Cardio - 30 mins</Text>
-          <Text style={styles.cardText}>🧘 Yoga - 20 mins</Text>
-        </View>
-<<<<<<< HEAD
-
-        {/* Badges Card */}
-=======
->>>>>>> 313ed618ea3c8c101e8fcea3642493b7e5083562
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Badges</Text>
           <View style={styles.badgeRow}>
-            <FontAwesome5 name="medal" size={32} color="#ffd700" />
-            <FontAwesome5 name="dumbbell" size={32} color="#ff4d4d" />
-            <MaterialIcons name="military-tech" size={32} color="#9acd32" />
+            {[
+              { icon: "medal", color: "#ffd700", label: "Champion" },
+              { icon: "dumbbell", color: "#ff4d4d", label: "Power Lifter" },
+              { icon: "running", color: "#00bfff", label: "Cardio Pro" },
+            ].map((badge, idx) => (
+              <View key={idx} style={styles.badgeItem}>
+                <FontAwesome5 name={badge.icon} size={28} color={badge.color} />
+                <Text style={styles.badgeLabel}>{badge.label}</Text>
+              </View>
+            ))}
           </View>
-        </View>
-<<<<<<< HEAD
 
-        {/* Leaderboard Card */}
-=======
->>>>>>> 313ed618ea3c8c101e8fcea3642493b7e5083562
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Leaderboard</Text>
-          <Text style={styles.cardText}>🥇 You - 850 pts</Text>
-          <Text style={styles.cardText}>🥈 Alex - 800 pts</Text>
-          <Text style={styles.cardText}>🥉 Jamie - 750 pts</Text>
-        </View>
-<<<<<<< HEAD
-
-        {/* GymBot Assistant Card */}
-=======
->>>>>>> 313ed618ea3c8c101e8fcea3642493b7e5083562
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>GymBot Assistant</Text>
-          <Text style={styles.cardText}>
-            💬 Talk to GymBot about your next workout or meal!
-          </Text>
-          <Pressable style={styles.gymbotBtn}>
-            <Text style={styles.gymbotText}>Launch GymBot (Coming Soon)</Text>
-          </Pressable>
+          <View style={styles.leaderboardContainer}>
+            {[
+              { rank: "🥇", name: "You", points: 850 },
+              { rank: "🥈", name: "Alex", points: 800 },
+              { rank: "🥉", name: "Jamie", points: 750 },
+            ].map((player, idx) => (
+              <View key={idx} style={styles.leaderboardRow}>
+                <Text style={styles.leaderboardRank}>{player.rank}</Text>
+                <Text style={styles.leaderboardName}>{player.name}</Text>
+                <Text style={styles.leaderboardPoints}>{player.points} pts</Text>
+              </View>
+            ))}
+          </View>
         </View>
       </ScrollView>
     </LinearGradient>
@@ -306,6 +226,7 @@ const styles = StyleSheet.create({
     position: "absolute",
   },
   headerRow: {
+    marginVertical: 40,
     marginBottom: 20,
     alignItems: "center",
     flexDirection: "row",
@@ -316,59 +237,85 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
   },
+  notificationBadge: {
+    position: "absolute",
+    top: -4,
+    right: -6,
+    backgroundColor: "#e74c3c",
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    minWidth: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  notificationText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+  storyScroll: {
+    gap: 14,
+    flexDirection: "row",
+    marginBottom: 20,
+  },
   card: {
     padding: 20,
-    borderRadius: 20,
-    marginBottom: 20,
+    borderRadius: 32,
+    marginBottom: 22,
     backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  streakBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    marginBottom: 8,
+  },
+  streakText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#fff",
   },
   cardTitle: {
     fontSize: 20,
     color: "#fff",
-    marginBottom: 15,
+    marginBottom: 5,
     fontWeight: "bold",
+  },
+  sectionText: {
+    fontSize: 16,
+    color: "#fff",
+    marginBottom: 10,
+    fontWeight: "semibold",
   },
   cardText: {
     fontSize: 16,
     color: "#ccc",
     marginBottom: 5,
   },
-<<<<<<< HEAD
   totalProgressWrapper: {
     marginBottom: 25,
-=======
-  // --- New Styles for Total Progress Bar ---
-  totalProgressWrapper: {
-    marginBottom: 25, // Add space between total bar and circles
->>>>>>> 313ed618ea3c8c101e8fcea3642493b7e5083562
-  },
-  totalProgressLabel: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
   },
   totalProgressContainer: {
     height: 12,
-    width: '100%',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    width: "100%",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     borderRadius: 6,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   totalProgressBar: {
-    height: '100%',
+    height: "100%",
     borderRadius: 6,
   },
   totalProgressText: {
-    color: '#ccc',
+    color: "#ccc",
     fontSize: 12,
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
     marginTop: 4,
   },
-<<<<<<< HEAD
-=======
-  // --- Styles for Circular Progress ---
->>>>>>> 313ed618ea3c8c101e8fcea3642493b7e5083562
   progressContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -378,55 +325,77 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-<<<<<<< HEAD
-  // New container to hold the circle and allow text to be placed on top
   circleContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
-=======
->>>>>>> 313ed618ea3c8c101e8fcea3642493b7e5083562
   progressLabel: {
     fontSize: 14,
     color: "#ccc",
     fontWeight: "600",
   },
-<<<<<<< HEAD
-  // Position this absolutely to sit on top of the Progress.Circle
   progressValueContainer: {
-    position: 'absolute',
-=======
-  progressValueContainer: {
->>>>>>> 313ed618ea3c8c101e8fcea3642493b7e5083562
+    position: "absolute",
     justifyContent: "center",
     alignItems: "center",
   },
   progressValueText: {
-<<<<<<< HEAD
     fontSize: 20,
-=======
-    fontSize: 24,
->>>>>>> 313ed618ea3c8c101e8fcea3642493b7e5083562
     color: "#fff",
     fontWeight: "bold",
   },
   progressValueSubText: {
-<<<<<<< HEAD
     fontSize: 10,
     textAlign: "center",
     lineHeight: 16,
     color: "#ccc",
   },
-=======
-    fontSize: 13,
-    lineHeight: 16,
-    color: "#ccc",
-  },
-  // --- Other Styles ---
->>>>>>> 313ed618ea3c8c101e8fcea3642493b7e5083562
-  badgeRow: {
-    gap: 20,
+  sectionHeader: {
     flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  badgeRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 20,
+  },
+  badgeItem: {
+    alignItems: "center",
+  },
+  badgeLabel: {
+    fontSize: 12,
+    color: "#ccc",
+    marginTop: 6,
+  },
+  leaderboardContainer: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 16,
+    padding: 10,
+  },
+  leaderboardRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.08)",
+  },
+  leaderboardRank: {
+    fontSize: 16,
+    width: 30,
+    textAlign: "center",
+  },
+  leaderboardName: {
+    flex: 1,
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  leaderboardPoints: {
+    color: "#ccc",
+    fontSize: 14,
   },
   gymbotBtn: {
     marginTop: 10,
@@ -439,5 +408,36 @@ const styles = StyleSheet.create({
   gymbotText: {
     fontSize: 14,
     color: "#fff",
+  },
+  activityDate: {
+    fontSize: 12,
+    color: "#888",
+    marginBottom: 8,
+    textTransform: "uppercase",
+  },
+  activityItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    padding: 12,
+    borderRadius: 16,
+    marginBottom: 10,
+  },
+  activityIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  activityLabel: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "600",
+  },
+  activitySub: {
+    fontSize: 12,
+    color: "#bbb",
   },
 });
