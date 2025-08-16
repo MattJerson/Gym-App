@@ -1,19 +1,10 @@
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-  ScrollView,
-} from "react-native";
-import {
-  Ionicons,
-  FontAwesome5,
-} from "@expo/vector-icons";
+import { useState } from "react";
+import * as Progress from "react-native-progress";
 import { useRouter, usePathname } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Progress from "react-native-progress";
-import { useState } from "react";
 import WorkoutCard from "../../components/WorkoutCard";
+import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
+import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
 
 export default function Home() {
   const router = useRouter();
@@ -36,7 +27,6 @@ export default function Home() {
   return (
     <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        
         {/* Back Button */}
         <View style={styles.backRow}>
           <Pressable onPress={() => handlePress("/auth/register")}>
@@ -66,7 +56,12 @@ export default function Home() {
             end={{ x: 1, y: 1 }}
             style={styles.streakBadge}
           >
-            <Ionicons name="flame" size={16} color="#fff" style={{ marginRight: 6 }} />
+            <Ionicons
+              name="flame"
+              size={16}
+              color="#fff"
+              style={{ marginRight: 6 }}
+            />
             <Text style={styles.streakText}>Streak: 5</Text>
           </LinearGradient>
 
@@ -76,7 +71,10 @@ export default function Home() {
                 colors={["#8e44ad", "#c0392b"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={[styles.totalProgressBar, { width: `${totalProgress}%` }]}
+                style={[
+                  styles.totalProgressBar,
+                  { width: `${totalProgress}%` },
+                ]}
               />
             </View>
             <Text style={styles.totalProgressText}>
@@ -86,9 +84,24 @@ export default function Home() {
 
           <View style={styles.progressContainer}>
             {[
-              { label: "Workout", color: "#2ecc71", data: workoutData , unit: "%" },
-              { label: "Calories", color: "#f39c12", data: calorieData, unit: "kcal" },
-              { label: "Water", color: "#3498db", data: waterData, unit: "glasses" },
+              {
+                label: "Workout",
+                color: "#2ecc71",
+                data: workoutData,
+                unit: "%",
+              },
+              {
+                label: "Calories",
+                color: "#f39c12",
+                data: calorieData,
+                unit: "kcal",
+              },
+              {
+                label: "Water",
+                color: "#3498db",
+                data: waterData,
+                unit: "glasses",
+              },
             ].map(({ label, color, data, unit }) => (
               <View style={styles.progressCircleWrapper} key={label}>
                 <View style={styles.circleContainer}>
@@ -124,12 +137,30 @@ export default function Home() {
 
           <Text style={styles.activityDate}>Today</Text>
           {[
-            { icon: "barbell", color: ["#ff7e5f", "#feb47b"], label: "Chest + Triceps", duration: "45 mins" },
-            { icon: "walk", color: ["#43cea2", "#185a9d"], label: "Cardio", duration: "30 mins" },
-            { icon: "leaf-outline", color: ["#a18cd1", "#fbc2eb"], label: "Yoga", duration: "20 mins" },
+            {
+              icon: "barbell",
+              color: ["#ff7e5f", "#feb47b"],
+              label: "Chest + Triceps",
+              duration: "45 mins",
+            },
+            {
+              icon: "walk",
+              color: ["#43cea2", "#185a9d"],
+              label: "Cardio",
+              duration: "30 mins",
+            },
+            {
+              icon: "leaf-outline",
+              color: ["#a18cd1", "#fbc2eb"],
+              label: "Yoga",
+              duration: "20 mins",
+            },
           ].map((item, idx) => (
             <Pressable key={idx} style={styles.activityItem}>
-              <LinearGradient colors={item.color} style={styles.activityIconContainer}>
+              <LinearGradient
+                colors={item.color}
+                style={styles.activityIconContainer}
+              >
                 <Ionicons name={item.icon} size={20} color="#fff" />
               </LinearGradient>
               <View style={{ flex: 1 }}>
@@ -202,7 +233,9 @@ export default function Home() {
               <View key={idx} style={styles.leaderboardRow}>
                 <Text style={styles.leaderboardRank}>{player.rank}</Text>
                 <Text style={styles.leaderboardName}>{player.name}</Text>
-                <Text style={styles.leaderboardPoints}>{player.points} pts</Text>
+                <Text style={styles.leaderboardPoints}>
+                  {player.points} pts
+                </Text>
               </View>
             ))}
           </View>
@@ -238,26 +271,26 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   notificationBadge: {
-    position: "absolute",
     top: -4,
     right: -6,
-    backgroundColor: "#e74c3c",
-    borderRadius: 10,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
     minWidth: 18,
+    borderRadius: 10,
+    paddingVertical: 1,
+    paddingHorizontal: 5,
+    position: "absolute",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#e74c3c",
   },
   notificationText: {
-    color: "#fff",
     fontSize: 10,
+    color: "#fff",
     fontWeight: "bold",
   },
   storyScroll: {
     gap: 14,
-    flexDirection: "row",
     marginBottom: 20,
+    flexDirection: "row",
   },
   card: {
     padding: 20,
@@ -266,18 +299,18 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   streakBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 20,
     marginBottom: 8,
+    borderRadius: 20,
+    paddingVertical: 4,
+    alignItems: "center",
+    flexDirection: "row",
+    paddingHorizontal: 10,
+    alignSelf: "flex-start",
   },
   streakText: {
     fontSize: 14,
-    fontWeight: "600",
     color: "#fff",
+    fontWeight: "600",
   },
   cardTitle: {
     fontSize: 20,
@@ -302,32 +335,32 @@ const styles = StyleSheet.create({
   totalProgressContainer: {
     height: 12,
     width: "100%",
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
     borderRadius: 6,
     overflow: "hidden",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
   },
   totalProgressBar: {
     height: "100%",
     borderRadius: 6,
   },
   totalProgressText: {
-    color: "#ccc",
     fontSize: 12,
-    alignSelf: "flex-end",
     marginTop: 4,
+    color: "#ccc",
+    alignSelf: "flex-end",
   },
   progressContainer: {
     flexDirection: "row",
-    justifyContent: "space-around",
     alignItems: "center",
+    justifyContent: "space-around",
   },
   progressCircleWrapper: {
-    alignItems: "center",
     gap: 10,
+    alignItems: "center",
   },
   circleContainer: {
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
   },
   progressLabel: {
     fontSize: 14,
@@ -336,8 +369,8 @@ const styles = StyleSheet.create({
   },
   progressValueContainer: {
     position: "absolute",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
   },
   progressValueText: {
     fontSize: 20,
@@ -346,56 +379,56 @@ const styles = StyleSheet.create({
   },
   progressValueSubText: {
     fontSize: 10,
-    textAlign: "center",
-    lineHeight: 16,
     color: "#ccc",
+    lineHeight: 16,
+    textAlign: "center",
   },
   sectionHeader: {
+    marginBottom: 15,
+    alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 15,
   },
   badgeRow: {
+    marginBottom: 20,
     flexDirection: "row",
     justifyContent: "space-around",
-    marginBottom: 20,
   },
   badgeItem: {
     alignItems: "center",
   },
   badgeLabel: {
     fontSize: 12,
-    color: "#ccc",
     marginTop: 6,
+    color: "#ccc",
   },
   leaderboardContainer: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 16,
     padding: 10,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   leaderboardRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     paddingVertical: 8,
+    alignItems: "center",
+    flexDirection: "row",
     borderBottomWidth: 1,
+    justifyContent: "space-between",
     borderBottomColor: "rgba(255, 255, 255, 0.08)",
   },
   leaderboardRank: {
-    fontSize: 16,
     width: 30,
+    fontSize: 16,
     textAlign: "center",
   },
   leaderboardName: {
     flex: 1,
-    color: "#fff",
     fontSize: 14,
+    color: "#fff",
     fontWeight: "500",
   },
   leaderboardPoints: {
-    color: "#ccc",
     fontSize: 14,
+    color: "#ccc",
   },
   gymbotBtn: {
     marginTop: 10,
@@ -416,20 +449,20 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   activityItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.05)",
     padding: 12,
     borderRadius: 16,
     marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.05)",
   },
   activityIconContainer: {
     width: 40,
     height: 40,
+    marginRight: 12,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
   },
   activityLabel: {
     fontSize: 16,
