@@ -40,17 +40,17 @@ export default function Profile() {
     {
       title: "Account",
       items: [
-        { icon: "person-outline", color: "#3498db", label: "Edit Profile", path: "/profile/edit" },
-        { icon: "shield-checkmark-outline", color: "#2ecc71", label: "Privacy & Security", path: "/settings/privacy" },
-        { icon: "star-outline", color: "#f1c40f", label: "My Subscription", path: "/subscription" },
+        { icon: "person-outline", color: "#3498db", label: "Edit Profile", path: "../settings/edit" },
+        { icon: "shield-checkmark-outline", color: "#2ecc71", label: "Privacy & Security", path: "../settings/privacy" },
+        { icon: "star-outline", color: "#f1c40f", label: "My Subscription", path: "../settings/subscription" },
       ],
     },
     {
       title: "Settings",
       items: [
-        { icon: "notifications-outline", color: "#e74c3c", label: "Notifications", path: "/settings/notifications" },
-        { icon: "color-palette-outline", color: "#9b59b6", label: "Appearance", path: "/settings/appearance" },
-        { icon: "help-circle-outline", color: "#1abc9c", label: "Help & Support", path: "/support" },
+        { icon: "notifications-outline", color: "#e74c3c", label: "Notifications", path: "../settings/notifications" },
+        { icon: "color-palette-outline", color: "#9b59b6", label: "Appearance", path: "../settings/appearance" },
+        { icon: "help-circle-outline", color: "#1abc9c", label: "Help & Support", path: "../settings/helpsupport" },
       ],
     },
   ];

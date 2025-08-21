@@ -146,7 +146,9 @@ export default function Training() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Quick Actions</Text>
           <View style={styles.quickActions}>
-            <Pressable style={styles.actionBtn}>
+            <Pressable style={styles.actionBtn} 
+            onPress={() => router.push('/training/workouts')}
+            >
               <FontAwesome5 name="plus" size={20} color="#fff" />
               <Text style={styles.actionText}>Custom Workout</Text>
             </Pressable>
