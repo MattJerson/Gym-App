@@ -1,23 +1,29 @@
 import { useState } from "react";
-import * as Progress from "react-native-progress";
 import { useRouter, usePathname } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import WorkoutCard from "../../components/WorkoutCard";
+import DailyProgressCard from "../../components/home/DailyProgressCard"; // 👈 Import new component
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
+import QuickStart from "../../components/home/QuickStart";
 
 export default function Home() {
   const router = useRouter();
   const pathname = usePathname();
-  const notifications = useState(3);
+  const [notifications] = useState(3);
+  const userName = "Matt";
+
+  // Data
   const workoutData = { value: 75, max: 100 };
   const calorieData = { value: 1000, max: 3000 };
-  const waterData = { value: 8, max: 8 };
-  const userName = "Matt";
+  const stepsData = { value: 800, max: 2000 };
+
+  // Percentages for total progress
   const workoutPercent = (workoutData.value / workoutData.max) * 100;
   const caloriePercent = (calorieData.value / calorieData.max) * 100;
-  const waterPercent = (waterData.value / waterData.max) * 100;
+  const waterPercent = (stepsData.value / stepsData.max) * 100;
   const totalProgress = (workoutPercent + caloriePercent + waterPercent) / 3;
+
   const handlePress = (path) => {
     if (pathname !== path) {
       router.push(path);
@@ -47,87 +53,15 @@ export default function Home() {
           </View>
         </View>
 
-        {/* Daily Progress Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Daily Progress</Text>
-          <LinearGradient
-            colors={["#f7971e", "#ffd200"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.streakBadge}
-          >
-            <Ionicons
-              name="flame"
-              size={16}
-              color="#fff"
-              style={{ marginRight: 6 }}
-            />
-            <Text style={styles.streakText}>Streak: 5</Text>
-          </LinearGradient>
-
-          <View style={styles.totalProgressWrapper}>
-            <View style={styles.totalProgressContainer}>
-              <LinearGradient
-                colors={["#8e44ad", "#c0392b"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[
-                  styles.totalProgressBar,
-                  { width: `${totalProgress}%` },
-                ]}
-              />
-            </View>
-            <Text style={styles.totalProgressText}>
-              {`${Math.round(totalProgress)}% Complete`}
-            </Text>
-          </View>
-
-          <View style={styles.progressContainer}>
-            {[
-              {
-                label: "Workout",
-                color: "#2ecc71",
-                data: workoutData,
-                unit: "%",
-              },
-              {
-                label: "Calories",
-                color: "#f39c12",
-                data: calorieData,
-                unit: "kcal",
-              },
-              {
-                label: "Water",
-                color: "#3498db",
-                data: waterData,
-                unit: "glasses",
-              },
-            ].map(({ label, color, data, unit }) => (
-              <View style={styles.progressCircleWrapper} key={label}>
-                <View style={styles.circleContainer}>
-                  <Progress.Circle
-                    size={100}
-                    progress={data.value / data.max}
-                    color={color}
-                    unfilledColor="rgba(255, 255, 255, 0.1)"
-                    borderWidth={0}
-                    thickness={10}
-                    showsText={false}
-                    strokeCap="round"
-                  />
-                  <View style={styles.progressValueContainer}>
-                    <Text style={styles.progressValueText}>{data.value}</Text>
-                    <Text style={styles.progressValueSubText}>
-                      {data.max} {unit}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.progressLabel}>{label}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
+        {/* ✅ Daily Progress Card Component */}
+        <DailyProgressCard
+          streak={5}
+          totalProgress={totalProgress}
+          workoutData={workoutData}
+          calorieData={calorieData}
+          stepsData={stepsData}
+        />
+        <QuickStart />
         {/* Recent Activity */}
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
@@ -259,7 +193,7 @@ const styles = StyleSheet.create({
     position: "absolute",
   },
   headerRow: {
-    marginVertical: 40,
+    marginVertical: 60,
     marginBottom: 20,
     alignItems: "center",
     flexDirection: "row",
@@ -269,6 +203,12 @@ const styles = StyleSheet.create({
     fontSize: 26,
     color: "#fff",
     fontWeight: "bold",
+  },
+    logo: {
+    width: 180,
+    height: 180,
+    marginBottom: 40,
+    resizeMode: "contain",
   },
   notificationBadge: {
     top: -4,
@@ -297,91 +237,6 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     marginBottom: 22,
     backgroundColor: "rgba(255, 255, 255, 0.05)",
-  },
-  streakBadge: {
-    marginBottom: 8,
-    borderRadius: 20,
-    paddingVertical: 4,
-    alignItems: "center",
-    flexDirection: "row",
-    paddingHorizontal: 10,
-    alignSelf: "flex-start",
-  },
-  streakText: {
-    fontSize: 14,
-    color: "#fff",
-    fontWeight: "600",
-  },
-  cardTitle: {
-    fontSize: 20,
-    color: "#fff",
-    marginBottom: 5,
-    fontWeight: "bold",
-  },
-  sectionText: {
-    fontSize: 16,
-    color: "#fff",
-    marginBottom: 10,
-    fontWeight: "semibold",
-  },
-  cardText: {
-    fontSize: 16,
-    color: "#ccc",
-    marginBottom: 5,
-  },
-  totalProgressWrapper: {
-    marginBottom: 25,
-  },
-  totalProgressContainer: {
-    height: 12,
-    width: "100%",
-    borderRadius: 6,
-    overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
-  },
-  totalProgressBar: {
-    height: "100%",
-    borderRadius: 6,
-  },
-  totalProgressText: {
-    fontSize: 12,
-    marginTop: 4,
-    color: "#ccc",
-    alignSelf: "flex-end",
-  },
-  progressContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-  },
-  progressCircleWrapper: {
-    gap: 10,
-    alignItems: "center",
-  },
-  circleContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  progressLabel: {
-    fontSize: 14,
-    color: "#ccc",
-    fontWeight: "600",
-  },
-  progressValueContainer: {
-    position: "absolute",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  progressValueText: {
-    fontSize: 20,
-    color: "#fff",
-    fontWeight: "bold",
-  },
-  progressValueSubText: {
-    fontSize: 10,
-    color: "#ccc",
-    lineHeight: 16,
-    textAlign: "center",
   },
   sectionHeader: {
     marginBottom: 15,
@@ -429,18 +284,6 @@ const styles = StyleSheet.create({
   leaderboardPoints: {
     fontSize: 14,
     color: "#ccc",
-  },
-  gymbotBtn: {
-    marginTop: 10,
-    borderRadius: 15,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    alignSelf: "flex-start",
-    backgroundColor: "#444",
-  },
-  gymbotText: {
-    fontSize: 14,
-    color: "#fff",
   },
   activityDate: {
     fontSize: 12,
