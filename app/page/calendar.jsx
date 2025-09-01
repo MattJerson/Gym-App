@@ -4,7 +4,11 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  Dimensions,
+  Modal,
+  TextInput,
+  Alert,
+  ActionSheetIOS,
+  Platform,
 } from "react-native";
 import {
   Ionicons,
@@ -14,244 +18,329 @@ import {
 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { Calendar as RNCalendar } from "react-native-calendars";
+import RecentActivity from "../../components/home/RecentActivity";
+import ProgressGraph from "../../components/calendar/ProgressGraph";
+import StepsBarGraph from "../../components/calendar/StepsBarGraph";
 
-const router = useRouter();
 
 export default function Calendar() {
+  const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
+  const [showWorkoutModal, setShowWorkoutModal] = useState(false);
+  const [workoutNote, setWorkoutNote] = useState("");
+  const [selectedWorkoutType, setSelectedWorkoutType] = useState("strength");
 
   // Sample workout data
-  const workoutData = {
-    '2024-08-15': { type: 'strength', completed: true, streak: true },
-    '2024-08-14': { type: 'cardio', completed: true, streak: true },
-    '2024-08-13': { type: 'rest', completed: true, streak: true },
-    '2024-08-12': { type: 'strength', completed: true, streak: true },
-    '2024-08-16': { type: 'yoga', completed: false, planned: true },
-    '2024-08-17': { type: 'strength', completed: false, planned: true },
-    '2024-08-18': { type: 'rest', completed: false, planned: true },
-  };
+  const [workoutData, setWorkoutData] = useState({
+    "2025-09-15": { type: "strength", completed: true, streak: true, note: "Great session!" },
+    "2025-09-14": { type: "cardio", completed: true, streak: true, note: "5K run" },
+    "2025-09-13": { type: "rest", completed: true, streak: true },
+    "2025-09-12": { type: "strength", completed: true, streak: true },
+    "2025-09-16": { type: "yoga", completed: false, planned: true },
+    "2025-09-17": { type: "strength", completed: false, planned: true },
+    "2025-08-30": { type: "cardio", completed: true, streak: false },
+    "2025-08-31": { type: "strength", completed: true, streak: false },
+    "2025-10-01": { type: "yoga", completed: false, planned: true },
+    "2025-10-02": { type: "cardio", completed: false, planned: true },
+  });
 
-  const monthNames = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
+  // Sample data for the new RecentActivity component
+  const recentActivitiesData = [
+    { label: "Morning Run", duration: "45 min", icon: "walk", color: ["#FF5722", "#FF9800"] },
+    { label: "Upper Body Strength", duration: "1 hour 15 min", icon: "barbell", color: ["#4CAF50", "#8BC34A"] },
+    { label: "Evening Yoga", duration: "30 min", icon: "body", color: ["#9C27B0", "#E1BEE7"] },
+    { label: "Rest Day", duration: "Full day", icon: "bed", color: ["#607D8B", "#90A4AE"] },
   ];
 
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const workoutTypes = [
+    { key: "strength", name: "Strength", icon: "dumbbell", color: "#4CAF50" },
+    { key: "cardio", name: "Cardio", icon: "directions-run", color: "#FF5722" },
+    { key: "yoga", name: "yoga", icon: "yoga", color: "#9C27B0" },
+    { key: "rest", name: "Rest", icon: "bed", color: "#607D8B" },
+  ];
+const graphData = [
+  {
+    title: "Steps", // Updated title
+    labels: ["08/04", "08/11", "08/18", "08/25", "09/01"],
+    values: [3200, 4500, 5400, 8200, 10267],
+    color: () => `rgba(134, 65, 244, 1)`, // A nice purple color
+  },
+  {
+    title: "Weight", // Updated title
+    labels: ["09/01", "09/02", "09/03", "09/04", "09/05"],
+    values: [72.5, 72.8, 72.3, 72.5, 72.1], // More realistic weight data
+    color: () => `rgba(54, 162, 235, 1)`,
+  },
+];
+const dailyStepsData = {
+  dates: [
+    "08/01","08/02","08/03","08/04","08/05",
+    "08/06","08/07","08/08","08/09","08/10","08/11","08/12",
+    "08/13","08/14","08/15","08/16","08/17","08/18","08/19",
+    "08/20","08/21","08/22","08/23","08/24","08/25","08/26",
+    "08/27"
+  ],
+  values: [
+    6000, 7300, 8400, 9100, 10200,
+    3200, 4100, 5000, 6200, 7100, 8300, 9050,
+    4500, 5300, 6700, 7200, 8100, 8800, 9600,
+    3400, 4700, 6000, 7300, 8400, 9100, 10200
+  ],
+};
+  const formatDateKey = (date) => {
+    const d = new Date(date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
 
-  const getDaysInMonth = (date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay();
+  const addWorkout = () => {
+    if (!selectedDate) return;
+    const newWorkout = {
+      type: selectedWorkoutType,
+      completed: true,
+      streak: true,
+      note: workoutNote.trim() || undefined,
+    };
+    setWorkoutData((prev) => ({ ...prev, [selectedDate]: newWorkout }));
+    setWorkoutNote("");
+    setShowWorkoutModal(false);
+    Alert.alert("Success", "Workout logged successfully!");
+  };
 
-    const days = [];
-
-    // Add empty cells for days before the first day of the month
-    for (let i = 0; i < startingDayOfWeek; i++) {
-      days.push(null);
+  const markedDates = useMemo(() => {
+    const marks = {};
+    Object.entries(workoutData).forEach(([date, workout]) => {
+      const workoutType = workoutTypes.find((w) => w.key === workout.type);
+      const color = workout.completed ? workoutType?.color || "#fff" : "rgba(255,255,255,0.3)";
+      marks[date] = { marked: true, dotColor: color };
+    });
+    if (selectedDate) {
+      marks[selectedDate] = { ...marks[selectedDate], selected: true, selectedColor: "#007AFF" };
     }
+    return marks;
+  }, [workoutData, selectedDate]);
 
-    // Add all days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      days.push(day);
-    }
+  const monthlyStats = useMemo(() => {
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+    let workouts = 0;
+    let maxStreak = 0;
+    let currentStreak = 0;
 
-    return days;
-  };
-
-  const formatDateKey = (year, month, day) => {
-    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  };
-
-  const getWorkoutIcon = (type) => {
-    switch (type) {
-      case 'strength': return <FontAwesome5 name="dumbbell" size={12} color="#fff" />;
-      case 'cardio': return <MaterialIcons name="directions-run" size={12} color="#fff" />;
-      case 'yoga': return <MaterialCommunityIcons name="yoga" size={12} color="#fff" />;
-      case 'rest': return <Ionicons name="bed" size={12} color="#fff" />;
-      default: return null;
-    }
-  };
-
-  const getWorkoutColor = (type, completed, planned) => {
-    if (completed) {
-      switch (type) {
-        case 'strength': return '#4CAF50';
-        case 'cardio': return '#FF5722';
-        case 'yoga': return '#9C27B0';
-        case 'rest': return '#607D8B';
-        default: return '#4CAF50';
-      }
-    } else if (planned) {
-      return 'rgba(255, 255, 255, 0.3)';
-    }
-    return 'transparent';
-  };
-
-  const navigateMonth = (direction) => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(currentDate.getMonth() + direction);
-    setCurrentDate(newDate);
-  };
-
-  const isToday = (day) => {
-    const today = new Date();
-    return day === today.getDate() &&
-           currentDate.getMonth() === today.getMonth() &&
-           currentDate.getFullYear() === today.getFullYear();
-  };
-
-  const days = getDaysInMonth(currentDate);
+    Object.entries(workoutData)
+      .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+      .forEach(([dateKey, workout]) => {
+        const [year, month] = dateKey.split("-").map(Number);
+        if (year === currentYear && month - 1 === currentMonth && workout.completed) {
+          workouts++;
+        }
+        if (workout.streak && workout.completed) {
+          currentStreak++;
+          maxStreak = Math.max(maxStreak, currentStreak);
+        } else {
+          currentStreak = 0;
+        }
+      });
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const goalPercentage = Math.round((workouts / daysInMonth) * 100);
+    return { workouts, streak: maxStreak, goalPercentage };
+  }, [currentDate, workoutData]);
 
   return (
     <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.backRow}>
-          <Pressable onPress={() => router.push("/auth/register")}>
+        <View style={styles.headerRow}>
+          <Pressable onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={28} color="#fff" />
           </Pressable>
-        </View>
-
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <Text style={styles.headerText}>Workout Calendar</Text>
-          <Pressable onPress={() => {}}>
-            <Ionicons name="add-circle-outline" size={28} color="#fff" />
-          </Pressable>
-        </View>
-
-        {/* Month Navigation */}
-        <View style={styles.monthNavigation}>
-          <Pressable onPress={() => navigateMonth(-1)} style={styles.navButton}>
-            <Ionicons name="chevron-back" size={24} color="#fff" />
-          </Pressable>
-          <Text style={styles.monthText}>
-            {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-          </Text>
-          <Pressable onPress={() => navigateMonth(1)} style={styles.navButton}>
-            <Ionicons name="chevron-forward" size={24} color="#fff" />
-          </Pressable>
-        </View>
-
-        {/* Calendar */}
-        <View style={styles.calendarContainer}>
-          {/* Day Headers */}
-          <View style={styles.dayHeaders}>
-            {dayNames.map((day) => (
-              <Text key={day} style={styles.dayHeader}>{day}</Text>
-            ))}
-          </View>
-
-          {/* Calendar Grid */}
-          <View style={styles.calendarGrid}>
-            {days.map((day, index) => {
-              if (!day) {
-                return <View key={`empty-${index}`} style={styles.emptyDay} />;
+          <Text style={styles.headerText}>Calendar</Text>
+          <Pressable
+            onPress={() => {
+              setSelectedDate(formatDateKey(new Date()));
+              if (Platform.OS === "ios") {
+                ActionSheetIOS.showActionSheetWithOptions(
+                  {
+                    options: ["Cancel", "Strength", "Cardio", "Yoga", "Rest"],
+                    cancelButtonIndex: 0,
+                    title: "Log Workout",
+                  },
+                  (buttonIndex) => {
+                    if (buttonIndex === 0) return;
+                    const typeMap = ["strength", "cardio", "yoga", "rest"];
+                    const chosenType = typeMap[buttonIndex - 1];
+                    setSelectedWorkoutType(chosenType);
+                    addWorkout();
+                  }
+                );
+              } else {
+                setShowWorkoutModal(true);
               }
-
-              const dateKey = formatDateKey(currentDate.getFullYear(), currentDate.getMonth(), day);
-              const workoutInfo = workoutData[dateKey];
-              const today = isToday(day);
-
-              return (
-                <Pressable
-                  key={day}
-                  style={[
-                    styles.dayCell,
-                    today && styles.todayCell,
-                    selectedDate === dateKey && styles.selectedDay
-                  ]}
-                  onPress={() => setSelectedDate(dateKey)}
-                >
-                  <Text style={[styles.dayText, today && styles.todayText]}>
-                    {day}
-                  </Text>
-                  {workoutInfo && (
-                    <View style={[
-                      styles.workoutIndicator,
-                      { backgroundColor: getWorkoutColor(workoutInfo.type, workoutInfo.completed, workoutInfo.planned) }
-                    ]}>
-                      {getWorkoutIcon(workoutInfo.type)}
-                    </View>
-                  )}
-                  {workoutInfo && workoutInfo.streak && (
-                    <View style={styles.streakIndicator}>
-                      <Ionicons name="flame" size={8} color="#FF6B35" />
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })}
-          </View>
+            }}
+          >
+            <Ionicons name="add-circle-outline" size={32} color="#fff" />
+          </Pressable>
         </View>
 
-        {/* Legend */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Legend</Text>
-          <View style={styles.legendRow}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: '#4CAF50' }]} />
-              <Text style={styles.legendText}>Strength</Text>
+        {/* Calendar + Stats */}
+        <View style={styles.calendarCard}>
+          <RNCalendar
+            current={formatDateKey(currentDate)}
+            onDayPress={(day) => {
+              setSelectedDate(day.dateString);
+              if (!workoutData[day.dateString]) {
+                if (Platform.OS === "ios") {
+                  ActionSheetIOS.showActionSheetWithOptions(
+                    {
+                      options: ["Cancel", "Strength", "Cardio", "Yoga", "Rest"],
+                      cancelButtonIndex: 0,
+                      title: "Log Workout",
+                    },
+                    (buttonIndex) => {
+                      if (buttonIndex === 0) return;
+                      const typeMap = ["strength", "cardio", "yoga", "rest"];
+                      const chosenType = typeMap[buttonIndex - 1];
+                      setSelectedWorkoutType(chosenType);
+                      addWorkout();
+                    }
+                  );
+                } else {
+                  setShowWorkoutModal(true);
+                }
+              }
+            }}
+            onMonthChange={(month) => {
+              setCurrentDate(new Date(month.dateString));
+            }}
+            markedDates={markedDates}
+            hideExtraDays={false}
+            disableAllTouchEventsForDisabledDays={true}
+            theme={{
+              calendarBackground: "transparent",
+              dayTextColor: "#fff",
+              monthTextColor: "#fff",
+              textSectionTitleColor: "#888",
+              selectedDayBackgroundColor: "#007AFF",
+              selectedDayTextColor: "#fff",
+              todayTextColor: "#FFD700",
+              arrowColor: "#fff",
+              textDayFontWeight: "500",
+              textMonthFontWeight: "bold",
+              textDayHeaderFontWeight: "600",
+              textDayFontSize: 14,
+              textMonthFontSize: 18,
+              textDisabledColor: "#555", // gray out other months
+            }}
+          />
+
+          {/* Stats */}
+          <View style={styles.statsContainer}>
+            <Text style={styles.cardTitle}>
+              {currentDate.toLocaleString("default", { month: "long" })} Progress
+            </Text>
+            <View style={styles.statRow}>
+              <View style={[styles.statIcon, { backgroundColor: "#4CAF50" }]}>
+                <FontAwesome5 name="dumbbell" size={16} color="#fff" />
+              </View>
+              <View style={styles.statTextContainer}>
+                <Text style={styles.statLabel}>Workouts</Text>
+                <Text style={styles.statValue}>{monthlyStats.workouts}</Text>
+              </View>
             </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: '#FF5722' }]} />
-              <Text style={styles.legendText}>Cardio</Text>
+            <View style={styles.statRow}>
+              <View style={[styles.statIcon, { backgroundColor: "#FF5722" }]}>
+                <Ionicons name="flame" size={16} color="#fff" />
+              </View>
+              <View style={styles.statTextContainer}>
+                <Text style={styles.statLabel}>Best Streak</Text>
+                <Text style={styles.statValue}>{monthlyStats.streak} days</Text>
+              </View>
             </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: '#9C27B0' }]} />
-              <Text style={styles.legendText}>Yoga</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: '#607D8B' }]} />
-              <Text style={styles.legendText}>Rest</Text>
+            <View style={styles.statRow}>
+              <View style={[styles.statIcon, { backgroundColor: "#9C27B0" }]}>
+                <MaterialIcons name="track-changes" size={16} color="#fff" />
+              </View>
+              <View style={styles.statTextContainer}>
+                <Text style={styles.statLabel}>Monthly Goal</Text>
+                <Text style={styles.statValue}>{monthlyStats.goalPercentage}%</Text>
+              </View>
             </View>
           </View>
         </View>
-
-        {/* Monthly Stats */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>August Progress</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>12</Text>
-              <Text style={styles.statLabel}>Workouts</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>4</Text>
-              <Text style={styles.statLabel}>Streak</Text>
-              <Ionicons name="flame" size={16} color="#FF6B35" />
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>75%</Text>
-              <Text style={styles.statLabel}>Goal</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Quick Actions */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Quick Actions</Text>
-          <View style={styles.actionButtons}>
-            <Pressable style={styles.actionBtn}>
-              <FontAwesome5 name="dumbbell" size={16} color="#fff" />
-              <Text style={styles.actionText}>Log Workout</Text>
-            </Pressable>
-            <Pressable style={styles.actionBtn}>
-              <MaterialIcons name="schedule" size={16} color="#fff" />
-              <Text style={styles.actionText}>Schedule</Text>
-            </Pressable>
-            <Pressable style={styles.actionBtn}>
-              <Ionicons name="stats-chart" size={16} color="#fff" />
-              <Text style={styles.actionText}>Progress</Text>
-            </Pressable>
-          </View>
-        </View>
-
+      <ProgressGraph charts={graphData} />
+      <StepsBarGraph dailyData={dailyStepsData} />
+        {/* Recent Activity */}
+        <RecentActivity activities={recentActivitiesData} />
       </ScrollView>
+
+      {/* Android Fallback Modal */}
+      <Modal visible={showWorkoutModal} transparent animationType="slide">
+        <Pressable style={styles.modalOverlay} onPress={() => setShowWorkoutModal(false)}>
+          <Pressable style={styles.workoutModal}>
+            <Text style={styles.modalTitle}>Log Workout</Text>
+            <Text style={styles.modalDate}>
+              {selectedDate &&
+                new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                })}
+            </Text>
+            <Text style={styles.sectionTitle}>Workout Type</Text>
+            <View style={styles.workoutTypeGrid}>
+              {workoutTypes.map((type) => (
+                <Pressable
+                  key={type.key}
+                  style={[
+                    styles.workoutTypeButton,
+                    { backgroundColor: type.color },
+                    selectedWorkoutType === type.key && styles.selectedWorkoutType,
+                  ]}
+                  onPress={() => setSelectedWorkoutType(type.key)}
+                >
+                  {type.key === "yoga" ? (
+                    <MaterialCommunityIcons name={type.icon} size={20} color="#fff" />
+                  ) : type.key === "cardio" ? (
+                    <MaterialIcons name={type.icon} size={20} color="#fff" />
+                  ) : type.key === "rest" ? (
+                    <Ionicons name={type.icon} size={20} color="#fff" />
+                  ) : (
+                    <FontAwesome5 name={type.icon} size={20} color="#fff" />
+                  )}
+                  <Text style={styles.workoutTypeText}>{type.name}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.sectionTitle}>Notes (Optional)</Text>
+            <TextInput
+              style={styles.noteInput}
+              placeholder="How was the workout?"
+              placeholderTextColor="#999"
+              value={workoutNote}
+              onChangeText={setWorkoutNote}
+              multiline
+            />
+            <View style={styles.modalButtons}>
+              <Pressable
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowWorkoutModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalButton, styles.confirmButton]}
+                onPress={addWorkout}
+              >
+                <Text style={styles.confirmButtonText}>Log Workout</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </LinearGradient>
   );
 }
@@ -259,174 +348,138 @@ export default function Calendar() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: {
-    marginTop: 60,
-    paddingVertical: 40,
-    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 40,
+    paddingHorizontal: 15,
   },
   headerRow: {
     marginBottom: 20,
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
+    paddingHorizontal: 5,
   },
   headerText: {
-    fontSize: 26,
+    fontSize: 28,
     color: "#fff",
     fontWeight: "bold",
   },
-  backRow: {
-    top: 0,
-    left: 20,
-    zIndex: 10,
-    position: "absolute",
-  },
-  monthNavigation: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  navButton: {
-    padding: 10,
-  },
-  monthText: {
-    fontSize: 20,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  calendarContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 20,
-    padding: 15,
-    marginBottom: 20,
-  },
-  dayHeaders: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 10,
-  },
-  dayHeader: {
-    color: '#ccc',
-    fontSize: 14,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    width: 40,
-  },
-  calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-  },
-  dayCell: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-    borderRadius: 20,
-    position: 'relative',
-  },
-  emptyDay: {
-    width: 40,
-    height: 40,
-    marginBottom: 8,
-  },
-  todayCell: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  selectedDay: {
-    backgroundColor: '#007AFF',
-  },
-  dayText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  todayText: {
-    fontWeight: 'bold',
-  },
-  workoutIndicator: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  streakIndicator: {
-    position: 'absolute',
-    top: 2,
-    right: 2,
-  },
-  card: {
-    padding: 20,
-    borderRadius: 20,
-    marginBottom: 20,
+  calendarCard: {
     backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 22,
+    marginBottom: 20,
+    overflow: "hidden",
+  },
+  statsContainer: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
   },
   cardTitle: {
-    fontSize: 20,
+    fontSize: 18,
     color: "#fff",
-    marginBottom: 10,
+    marginBottom: 15,
     fontWeight: "bold",
   },
-  legendRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 15,
+  statRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
   },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  statIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    marginRight: 12,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  legendColor: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  legendText: {
-    color: '#ccc',
-    fontSize: 14,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 5,
-  },
-  statNumber: {
-    fontSize: 24,
-    color: '#fff',
-    fontWeight: 'bold',
+  statTextContainer: {
+    flex: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   statLabel: {
-    fontSize: 14,
-    color: '#ccc',
+    fontSize: 15,
+    color: "#ccc",
+    fontWeight: "500",
   },
-  actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    gap: 10,
+  statValue: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "700",
   },
-  actionBtn: {
+  // Modal Styles
+  modalOverlay: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#444',
-    padding: 12,
+    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    justifyContent: "flex-end",
+  },
+  workoutModal: {
+    backgroundColor: "#252525",
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    padding: 25,
+    paddingBottom: 40,
+  },
+  modalTitle: {
+    fontSize: 22,
+    color: "#fff",
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 5,
+  },
+  modalDate: {
+    fontSize: 16,
+    color: "#aaa",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "600",
+    marginBottom: 10,
+  },
+  workoutTypeGrid: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 20,
+  },
+  workoutTypeButton: {
+    flex: 1,
+    padding: 15,
     borderRadius: 15,
-    gap: 8,
+    alignItems: "center",
+    gap: 5,
   },
-  actionText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
+  selectedWorkoutType: {
+    borderWidth: 2,
+    borderColor: "#fff",
+    transform: [{ scale: 1.05 }],
   },
+  workoutTypeText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  noteInput: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 15,
+    padding: 15,
+    color: "#fff",
+    fontSize: 16,
+    marginBottom: 25,
+    minHeight: 100,
+    textAlignVertical: "top",
+  },
+  modalButtons: { flexDirection: "row", gap: 10 },
+  modalButton: { flex: 1, padding: 16, borderRadius: 18, alignItems: "center" },
+  cancelButton: { backgroundColor: "rgba(255, 255, 255, 0.1)" },
+  confirmButton: { backgroundColor: "#007AFF" },
+  cancelButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  confirmButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
 });

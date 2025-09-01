@@ -6,6 +6,9 @@ import DailyProgressCard from "../../components/home/DailyProgressCard"; // 👈
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
 import QuickStart from "../../components/home/QuickStart";
+import RecentActivity from "../../components/home/RecentActivity";
+import FeaturedVideo from "../../components/home/FeaturedVideo";
+
 
 export default function Home() {
   const router = useRouter();
@@ -23,6 +26,12 @@ export default function Home() {
   const caloriePercent = (calorieData.value / calorieData.max) * 100;
   const waterPercent = (stepsData.value / stepsData.max) * 100;
   const totalProgress = (workoutPercent + caloriePercent + waterPercent) / 3;
+  const mockActivities = [
+  { icon: "barbell", color: ["#ff7e5f", "#feb47b"], label: "Chest + Triceps", duration: "45 mins" },
+  { icon: "walk", color: ["#43cea2", "#185a9d"], label: "Cardio", duration: "30 mins" },
+  { icon: "leaf-outline", color: ["#a18cd1", "#fbc2eb"], label: "Yoga", duration: "20 mins" },
+  { icon: "bicycle", color: ["#36d1dc", "#5b86e5"], label: "Cycling", duration: "25 mins" },
+];
 
   const handlePress = (path) => {
     if (pathname !== path) {
@@ -62,49 +71,16 @@ export default function Home() {
           stepsData={stepsData}
         />
         <QuickStart />
-        {/* Recent Activity */}
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.cardTitle}>Recent Activity</Text>
-            <Ionicons name="time-outline" size={22} color="#fff" />
-          </View>
+        <FeaturedVideo
+          title="5 Killer Dumbbell Exercises"
+          description="Quick dumbbell workout you can do anywhere to hit all muscle groups!"
+          thumbnail="https://img.youtube.com/vi/2tM1LFFxeKg/hqdefault.jpg"
+        />
 
-          <Text style={styles.activityDate}>Today</Text>
-          {[
-            {
-              icon: "barbell",
-              color: ["#ff7e5f", "#feb47b"],
-              label: "Chest + Triceps",
-              duration: "45 mins",
-            },
-            {
-              icon: "walk",
-              color: ["#43cea2", "#185a9d"],
-              label: "Cardio",
-              duration: "30 mins",
-            },
-            {
-              icon: "leaf-outline",
-              color: ["#a18cd1", "#fbc2eb"],
-              label: "Yoga",
-              duration: "20 mins",
-            },
-          ].map((item, idx) => (
-            <Pressable key={idx} style={styles.activityItem}>
-              <LinearGradient
-                colors={item.color}
-                style={styles.activityIconContainer}
-              >
-                <Ionicons name={item.icon} size={20} color="#fff" />
-              </LinearGradient>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.activityLabel}>{item.label}</Text>
-                <Text style={styles.activitySub}>{item.duration}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#aaa" />
-            </Pressable>
-          ))}
-        </View>
+        {/* Recent Activity */}
+        <RecentActivity activities={mockActivities} />
+        {/* Featured Video */}
+
 
         {/* Horizontal Workout Cards */}
         <ScrollView
