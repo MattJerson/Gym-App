@@ -10,6 +10,27 @@ import { useState } from "react";
 const Dashboard = () => {
   const [activeSection, setActiveSection] = useState("dashboard");
 
+  // Helper functions for dynamic styling
+  const getBorderColorClass = (color) => {
+    const colorMap = {
+      blue: "border-blue-500",
+      green: "border-green-500",
+      purple: "border-purple-500",
+      orange: "border-orange-500",
+    };
+    return colorMap[color] || "border-gray-500";
+  };
+
+  const getTextColorClass = (color) => {
+    const colorMap = {
+      blue: "text-blue-500",
+      green: "text-green-500",
+      purple: "text-purple-500",
+      orange: "text-orange-500",
+    };
+    return colorMap[color] || "text-gray-500";
+  };
+
   // Dashboard data
   const stats = [
     {
@@ -77,7 +98,9 @@ const Dashboard = () => {
         {stats.map(({ label, value, icon: Icon, color, isCurrency }) => (
           <div
             key={label}
-            className={`bg-white p-6 rounded-lg shadow-md border-l-4 border-${color}-500`}
+            className={`bg-white p-6 rounded-lg shadow-md border-l-4 ${getBorderColorClass(
+              color
+            )}`}
           >
             <div className="flex items-center justify-between">
               <div>
@@ -88,7 +111,7 @@ const Dashboard = () => {
                     : value.toLocaleString()}
                 </p>
               </div>
-              <Icon className={`h-8 w-8 text-${color}-500`} />
+              <Icon className={`h-8 w-8 ${getTextColorClass(color)}`} />
             </div>
           </div>
         ))}
@@ -147,7 +170,7 @@ const Dashboard = () => {
 
   return (
     <div className="flex h-screen bg-gray-100">
-      <div className="flex-1 overflow-auto p-6">{renderContent()}</div>
+      <div className="flex-1 overflow-auto">{renderContent()}</div>
     </div>
   );
 };
