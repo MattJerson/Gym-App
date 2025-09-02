@@ -1,4 +1,3 @@
-import React from "react";
 import { Plus, Edit, Trash2 } from "lucide-react";
 
 const badges = [
@@ -22,11 +21,11 @@ const Badges = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <h2 className="text-2xl md:text-left text-center font-bold text-gray-900">
           Leadership & Badges
         </h2>
-        <button className="bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-purple-700">
+        <button className="w-full sm:w-auto bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-purple-700">
           <Plus className="h-4 w-4" />
           Create Badge
         </button>
@@ -35,7 +34,7 @@ const Badges = () => {
       {/* Leaderboard + Badge Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Top Performers */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold mb-4">Top Performers</h3>
           <div className="space-y-3">
             <div className="flex items-center justify-between p-3 bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-lg border border-yellow-200">
@@ -72,7 +71,7 @@ const Badges = () => {
         </div>
 
         {/* Badge Statistics */}
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold mb-4">Badge Statistics</h3>
           <div className="space-y-4">
             <div className="flex justify-between items-center p-3 bg-gray-50 rounded">
@@ -94,11 +93,11 @@ const Badges = () => {
       {/* Available Badges */}
       <div className="bg-white p-4 rounded-lg shadow-md">
         <h3 className="text-lg font-semibold mb-4">Available Badges</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {badges.map((badge) => (
             <div
               key={badge.id}
-              className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+              className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
             >
               <div className="text-center mb-3">
                 <span className="text-4xl mb-2 block">{badge.icon}</span>
@@ -107,8 +106,8 @@ const Badges = () => {
               <p className="text-sm text-gray-600 mb-3 text-center">
                 {badge.description}
               </p>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500">
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
+                <span className="text-sm text-gray-500 text-center sm:text-left">
                   Earned by {badge.earned} users
                 </span>
                 <div className="flex gap-1">

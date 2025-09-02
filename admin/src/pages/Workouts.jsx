@@ -23,11 +23,11 @@ const Workouts = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">
-          Workout Plans Management
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <h2 className="text-2xl md:text-left text-center font-bold text-gray-900">
+          Workout Planning
         </h2>
-        <button className="bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-orange-700">
+        <button className="w-full sm:w-auto bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-orange-700">
           <Plus className="h-4 w-4" />
           Create Workout Plan
         </button>
@@ -35,17 +35,17 @@ const Workouts = () => {
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold mb-2">Total Plans</h3>
           <p className="text-3xl font-bold text-orange-600">47</p>
           <p className="text-sm text-gray-600">12 new this month</p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold mb-2">Most Popular</h3>
           <p className="text-xl font-bold text-blue-600">Full Body HIIT</p>
           <p className="text-sm text-gray-600">2,341 completions</p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold mb-2">Completion Rate</h3>
           <p className="text-3xl font-bold text-green-600">76.8%</p>
           <p className="text-sm text-gray-600">+3.2% vs last month</p>
@@ -55,11 +55,11 @@ const Workouts = () => {
       {/* Workout Plans */}
       <div className="bg-white p-4 rounded-lg shadow-md">
         <h3 className="text-lg font-semibold mb-4">Workout Plans</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {workoutPlans.map((plan) => (
             <div
               key={plan.id}
-              className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+              className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
             >
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-semibold text-lg">{plan.name}</h4>
@@ -87,8 +87,8 @@ const Workouts = () => {
                   Difficulty: {plan.difficulty}
                 </p>
               </div>
-              <div className="flex justify-between items-center">
-                <button className="px-3 py-1 bg-blue-100 text-blue-800 rounded text-sm hover:bg-blue-200">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <button className="w-full sm:w-auto px-3 py-1 bg-blue-100 text-blue-800 rounded text-sm hover:bg-blue-200">
                   View Details
                 </button>
                 <div className="flex gap-1">

@@ -3,14 +3,16 @@ import { Send } from "lucide-react";
 const Chat = () => {
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">User Chat Support</h2>
+      <h2 className="text-2xl md:text-left text-center font-bold text-gray-900">
+        User Chat Support
+      </h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Active Conversations */}
         <div className="bg-white p-4 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold mb-4">Active Conversations</h3>
           <div className="space-y-3 max-h-96 overflow-y-auto">
-            <div className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+            <div className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
               <div className="flex justify-between items-start mb-2">
                 <span className="font-medium">John Smith</span>
                 <span className="text-xs text-gray-500">2m ago</span>
@@ -22,7 +24,7 @@ const Chat = () => {
                 Urgent
               </span>
             </div>
-            <div className="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+            <div className="p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
               <div className="flex justify-between items-start mb-2">
                 <span className="font-medium">Sarah Johnson</span>
                 <span className="text-xs text-gray-500">15m ago</span>
@@ -52,7 +54,7 @@ const Chat = () => {
           </div>
 
           {/* Messages */}
-          <div className="border rounded-lg">
+          <div className="border border-gray-200 rounded-lg">
             <div className="h-64 p-4 overflow-y-auto bg-gray-50">
               <div className="space-y-3">
                 <div className="flex">
@@ -71,15 +73,15 @@ const Chat = () => {
             </div>
 
             {/* Input Box */}
-            <div className="p-4 border-t">
+            <div className="p-4 border-t border-gray-200">
               <div className="flex gap-2">
                 <input
                   type="text"
                   placeholder="Type your message..."
-                  className="flex-1 p-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 p-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <button className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700">
-                  <Send className="h-4 w-4" />
+                <button className="bg-blue-600 text-white p-3 rounded-full hover:bg-blue-700">
+                  <Send className="h-5 w-5" />
                 </button>
               </div>
             </div>

@@ -1,11 +1,10 @@
-import React from "react";
 import {
   Plus,
-  Calendar,
-  UtensilsCrossed,
-  Activity,
   Edit,
   Trash2,
+  Calendar,
+  Activity,
+  UtensilsCrossed,
 } from "lucide-react";
 
 const mealPlans = [
@@ -31,11 +30,11 @@ const Meals = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">
-          Meal Plans Management
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+        <h2 className="text-2xl md:text-left text-center font-bold text-gray-900">
+          Meal Planning
         </h2>
-        <button className="bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-green-700">
+        <button className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-green-700">
           <Plus className="h-4 w-4" />
           Create Meal Plan
         </button>
@@ -43,17 +42,17 @@ const Meals = () => {
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold mb-2">Total Plans</h3>
           <p className="text-3xl font-bold text-green-600">23</p>
           <p className="text-sm text-gray-600">5 new this month</p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold mb-2">Most Popular</h3>
           <p className="text-xl font-bold text-blue-600">Weight Loss</p>
           <p className="text-sm text-gray-600">1,897 followers</p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold mb-2">Adherence Rate</h3>
           <p className="text-3xl font-bold text-purple-600">84.2%</p>
           <p className="text-sm text-gray-600">+5.1% vs last month</p>
@@ -63,11 +62,11 @@ const Meals = () => {
       {/* Meal Plans */}
       <div className="bg-white p-4 rounded-lg shadow-md">
         <h3 className="text-lg font-semibold mb-4">Meal Plans</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {mealPlans.map((plan) => (
             <div
               key={plan.id}
-              className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+              className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
             >
               <div className="flex items-center justify-between mb-3">
                 <h4 className="font-semibold text-lg">{plan.name}</h4>
@@ -95,8 +94,8 @@ const Meals = () => {
                   Type: {plan.type}
                 </p>
               </div>
-              <div className="flex justify-between items-center">
-                <button className="px-3 py-1 bg-green-100 text-green-800 rounded text-sm hover:bg-green-200">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <button className="w-full sm:w-auto px-3 py-1 bg-green-100 text-green-800 rounded text-sm hover:bg-green-200">
                   View Details
                 </button>
                 <div className="flex gap-1">

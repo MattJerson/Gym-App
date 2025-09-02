@@ -1,11 +1,11 @@
-import { useState } from "react";
 import {
   Users,
-  CreditCard,
-  DollarSign,
   Activity,
+  DollarSign,
   TrendingUp,
+  CreditCard,
 } from "lucide-react";
+import { useState } from "react";
 
 const Dashboard = () => {
   const [activeSection, setActiveSection] = useState("dashboard");
@@ -68,7 +68,9 @@ const Dashboard = () => {
 
   const renderDashboard = () => (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Dashboard Overview</h2>
+      <h2 className="text-2xl md:text-left text-center font-bold text-gray-900">
+        Dashboard Overview
+      </h2>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
