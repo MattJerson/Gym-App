@@ -1,76 +1,113 @@
-// components/calendar/StepsBarGraph.js
-import React from "react";
-import { View, Text, StyleSheet, Dimensions } from "react-native";
+// components/calendar/StepsBarGraph.jsx
+import React, { useState, useMemo } from "react";
+import { View, Text, StyleSheet, Dimensions, Pressable } from "react-native";
 import { BarChart } from "react-native-chart-kit";
 
+const screenWidth = Dimensions.get("window").width;
+
 export default function StepsBarGraph({ dailyData }) {
-  const screenWidth = Dimensions.get("window").width - 40;
-  
-  // Show every 7th date like iPhone Health app
-  const labels = dailyData.dates.map((date, idx) =>
-    idx % 7 === 0 ? date : ""
-  );
-  
-  const chartData = {
-    labels,
-    datasets: [
-      {
-        data: dailyData.values,
-      },
-    ],
-  };
+  const [range, setRange] = useState("1M");
+
+  const filteredData = useMemo(() => {
+    if (!dailyData?.dates || !dailyData?.values) return { labels: [], values: [] };
+
+    switch (range) {
+      case "1W":
+        return {
+          labels: dailyData.dates.slice(-7),
+          values: dailyData.values.slice(-7),
+        };
+
+      case "1M": {
+        const weeks = [];
+        for (let i = 0; i < dailyData.values.length; i += 7) {
+          weeks.push(dailyData.values.slice(i, i + 7));
+        }
+        return {
+          labels: weeks.map((_, idx) => `W${idx + 1}`),
+          values: weeks.map(
+            (w) => Math.round(w.reduce((a, b) => a + b, 0) / w.length)
+          ),
+        };
+      }
+
+      case "1Y": {
+        const allMonths = {
+          "01": [], "02": [], "03": [], "04": [], "05": [], "06": [],
+          "07": [], "08": [], "09": [], "10": [], "11": [], "12": []
+        };
+        dailyData.dates.forEach((date, idx) => {
+          const month = date.split("/")[0].padStart(2, "0");
+          if (allMonths[month]) {
+            allMonths[month].push(dailyData.values[idx]);
+          }
+        });
+        const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        return {
+          labels: monthNames,
+          values: Object.values(allMonths).map((vals) =>
+            vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0
+          ),
+        };
+      }
+
+      default:
+        return dailyData;
+    }
+  }, [range, dailyData]);
 
   return (
     <View style={styles.card}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Steps</Text>
-          <Text style={styles.subtitle}>Last 30 days</Text>
+      {/* Header */}
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Daily Steps</Text>
+        <View style={styles.rangeButtons}>
+          {["1W", "1M", "1Y"].map((r) => (
+            <Pressable
+              key={r}
+              style={[styles.rangeButton, range === r && styles.rangeButtonActive]}
+              onPress={() => setRange(r)}
+            >
+              <Text
+                style={[
+                  styles.rangeText,
+                  range === r && styles.rangeTextActive,
+                ]}
+              >
+                {r}
+              </Text>
+            </Pressable>
+          ))}
         </View>
-        <Text style={styles.deviceLabel}>iPhone</Text>
       </View>
-      
+
+      {/* Chart */}
       <BarChart
-        data={chartData}
-        width={screenWidth}
-        height={300}
-        fromZero
-        withInnerLines
-        showValuesOnTopOfBars={false}
-        yAxisSuffix=""
-        yAxisInterval={1}
-        segments={3} // Creates 4 segments like iPhone (0, 5133, 10267, 15400)
-        chartConfig={{
-          backgroundColor: "#2C2C2E", // Dark background like iPhone
-          backgroundGradientFrom: "#2C2C2E",
-          backgroundGradientTo: "#2C2C2E",
-          decimalPlaces: 0,
-          color: (opacity = 1) => `rgba(255, 69, 58, ${opacity})`, // Red/pink bars like iPhone
-          labelColor: (opacity = 1) => `rgba(142, 142, 147, ${opacity})`, // Gray labels
-          propsForBackgroundLines: {
-            stroke: "rgba(72, 72, 74, 0.5)", // Subtle grid lines
-          },
-          barPercentage: 0.15, // Very thin bars
-          formatYLabel: (yValue) => {
-            const numValue = parseInt(yValue);
-            if (numValue >= 1000) {
-              return `${Math.floor(numValue / 1000)},${String(numValue % 1000).padStart(3, '0')}`;
-            }
-            return numValue.toString();
-          },
-          propsForLabels: {
-            fontSize: 12,
-          },
-          propsForVerticalLabels: {
-            fontSize: 14,
-            fill: "rgba(142, 142, 147, 1)",
-          },
-          propsForHorizontalLabels: {
-            fontSize: 12,
-            fill: "rgba(142, 142, 147, 1)",
-          },
+        data={{
+          labels: filteredData.labels,
+          datasets: [{ data: filteredData.values }],
         }}
-        style={styles.chartStyle}
+        width={screenWidth - 70}
+        height={230}
+        fromZero
+        withInnerLines={true}
+        withHorizontalLabels={true}
+        chartConfig={{
+          decimalPlaces: 0,
+          color: (opacity = 1) => `rgba(52, 211, 153, ${opacity})`,
+          labelColor: () => "#bbb",
+          barPercentage: 0.4,
+          propsForBackgroundLines: {
+            strokeDasharray: "",
+            stroke: "rgba(255,255,255,0.1)",
+          },
+          fillShadowGradientFrom: "#34d399",
+          fillShadowGradientTo: "#10b981",
+          fillShadowGradientOpacity: 1,
+        }}
+        style={{
+          padding: 10,
+        }}
       />
     </View>
   );
@@ -78,35 +115,41 @@ export default function StepsBarGraph({ dailyData }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#1C1C1E", // iPhone dark card background
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: "black",
+    borderRadius: 20,
+    padding: 15,
     marginBottom: 20,
   },
-  header: {
+  headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 20,
+    alignItems: "center",
+    marginBottom: 10,
   },
   title: {
-    fontSize: 28,
-    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  rangeButtons: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  rangeButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  rangeButtonActive: {
+    backgroundColor: "#34d399",
+  },
+  rangeText: {
+    fontSize: 14,
     fontWeight: "600",
-    marginBottom: 4,
+    color: "#ccc",
   },
-  subtitle: {
-    fontSize: 16,
-    color: "#8E8E93", // Gray subtitle
-    fontWeight: "400",
-  },
-  deviceLabel: {
-    fontSize: 16,
-    color: "#8E8E93",
-    fontWeight: "400",
-  },
-  chartStyle: {
-    borderRadius: 0,
-    marginLeft: -16, // Align with card edges
+  rangeTextActive: {
+    color: "#fff",
   },
 });

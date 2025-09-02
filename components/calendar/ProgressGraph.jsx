@@ -1,33 +1,74 @@
 // components/calendar/ProgressGraph.jsx
-import { View, Text, StyleSheet, Dimensions, ScrollView } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import React, { useState, useMemo } from "react";
+import { View, Text, StyleSheet, Dimensions, Pressable } from "react-native";
 import { LineChart } from "react-native-chart-kit";
 
-const { width } = Dimensions.get("window");
+const screenWidth = Dimensions.get("window").width;
 
-const CARD_WIDTH = width * 0.8;
-const CARD_MARGIN = 20;
-const SNAP_INTERVAL = CARD_WIDTH + CARD_MARGIN;
+export default function ProgressGraph({ chart }) {
+  const [range, setRange] = useState("1M");
 
-// Define the smaller dimensions for the chart itself
-const CHART_WIDTH = CARD_WIDTH - 30;
-const CHART_HEIGHT = 210;
+  // format data similar to StepsBarGraph
+  const filteredData = useMemo(() => {
+    if (!chart?.labels || !chart?.values) return { labels: [], values: [] };
 
-export default function ProgressGraph({ charts = [] }) {
-  if (!charts || charts.length === 0) {
-    return null;
-  }
+    switch (range) {
+      case "1W":
+        return {
+          labels: chart.labels.slice(-7),
+          values: chart.values.slice(-7),
+        };
 
-  // This is the working chart config we had before, with the gray background
+      case "1M": {
+        const weeks = [];
+        for (let i = 0; i < chart.values.length; i += 7) {
+          weeks.push(chart.values.slice(i, i + 7));
+        }
+        return {
+          labels: weeks.map((_, idx) => `W${idx + 1}`),
+          values: weeks.map(
+            (w) => Math.round(w.reduce((a, b) => a + b, 0) / w.length)
+          ),
+        };
+      }
+
+      case "1Y": {
+        const allMonths = {
+          "01": [], "02": [], "03": [], "04": [], "05": [], "06": [],
+          "07": [], "08": [], "09": [], "10": [], "11": [], "12": []
+        };
+        chart.labels.forEach((date, idx) => {
+          const month = date.split("/")[0].padStart(2, "0");
+          if (allMonths[month]) {
+            allMonths[month].push(chart.values[idx]);
+          }
+        });
+        const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        return {
+          labels: monthNames,
+          values: Object.values(allMonths).map((vals) =>
+            vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0
+          ),
+        };
+      }
+
+      default:
+        return chart;
+    }
+  }, [range, chart]);
+
   const chartConfig = {
-    backgroundGradientFrom: "#333333",
-    backgroundGradientTo: "#333333",
-    color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(200, 200, 200, ${opacity})`,
+    decimalPlaces: Math.max(...(filteredData.values || [0])) > 1000 ? 0 : 1,
+    color: (opacity = 1) => `rgba(52, 211, 153, ${opacity})`,
+    labelColor: () => "#bbb",
     propsForDots: {
       r: "4",
       strokeWidth: "2",
       stroke: "#fff",
+    },
+    propsForBackgroundLines: {
+      strokeDasharray: "",
+      stroke: "rgba(255,255,255,0.1)",
     },
     segments: 4,
   };
@@ -43,104 +84,97 @@ export default function ProgressGraph({ charts = [] }) {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.card}>
+      {/* Header */}
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Progress</Text>
-        <Ionicons name="bar-chart-outline" size={20} color="#fff" />
+        <Text style={styles.title}>{chart.title}</Text>
+        <View style={styles.rangeButtons}>
+          {["1W", "1M", "1Y"].map((r) => (
+            <Pressable
+              key={r}
+              style={[styles.rangeButton, range === r && styles.rangeButtonActive]}
+              onPress={() => setRange(r)}
+            >
+              <Text
+                style={[
+                  styles.rangeText,
+                  range === r && styles.rangeTextActive,
+                ]}
+              >
+                {r}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        snapToInterval={SNAP_INTERVAL}
-        decelerationRate="fast"
-        contentContainerStyle={{ paddingHorizontal: 20 }}
-      >
-        {charts.map((chart, index) => {
-          const isHighValue = Math.max(...chart.values) > 1000;
-          const dataForChart = {
-            labels: chart.labels,
-            datasets: [
-              {
-                data: chart.values,
-                color: chart.color,
-                strokeWidth: 3,
-              },
-            ],
-          };
-
-          return (
-            // FIX #1: The outer card is now just a container to center the chart.
-            // Its size remains the same as you wanted.
-            <View key={index} style={styles.graphCard}>
-              {/* This new wrapper holds the smaller chart and its title */}
-              <View style={styles.chartWrapper}>
-                <LineChart
-                  data={dataForChart}
-                  // FIX #2: Use the smaller dimensions for the chart.
-                  width={CHART_WIDTH}
-                  height={CHART_HEIGHT}
-                  chartConfig={chartConfig}
-                  bezier
-                  withInnerLines={false}
-                  style={styles.graphStyle} // This style now just adds the border radius
-                  formatYLabel={(yValue) => formatLabel(parseFloat(yValue), isHighValue)}
-                  decimalPlaces={isHighValue ? 0 : 1}
-                  fromZero={false}
-                />
-                {/* FIX #3: The title is an overlay again, positioned relative to the smaller chart wrapper. */}
-                <Text style={styles.chartTitleOverlay}>{chart.title}</Text>
-              </View>
-            </View>
-          );
-        })}
-      </ScrollView>
+      {/* Chart */}
+      <LineChart
+        data={{
+          labels: filteredData.labels,
+          datasets: [
+            {
+              data: filteredData.values,
+              color:
+                chart.color ||
+                ((opacity = 1) => `rgba(52, 211, 153, ${opacity})`),
+              strokeWidth: 3,
+            },
+          ],
+        }}
+        width={screenWidth - 70}
+        height={230}
+        chartConfig={chartConfig}
+        bezier
+        withInnerLines={true}
+        withHorizontalLabels={true}
+        style={{ padding: 10 }}
+        formatYLabel={(yValue) =>
+          formatLabel(parseFloat(yValue), Math.max(...filteredData.values) > 1000)
+        }
+        fromZero={false}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    marginBottom: 18,
+  card: {
+    backgroundColor: "black",
+    borderRadius: 20,
+    padding: 15,
+    marginBottom: 20,
   },
   headerRow: {
-    marginBottom: 10,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
+    marginBottom: 10,
   },
   title: {
     fontSize: 20,
-    fontWeight: "700",
+    fontWeight: "bold",
     color: "#fff",
   },
-  // This is the full-size container card. It's transparent.
-  // Its only job is to center its content.
-  graphCard: {
-    width: CARD_WIDTH,
-    height: 250, // The fixed height of the card area
-    marginRight: CARD_MARGIN,
-    justifyContent: "center",
-    alignItems: "center",
+  rangeButtons: {
+    flexDirection: "row",
+    gap: 10,
   },
-  // This new View is smaller and holds the visible chart and title.
-  chartWrapper: {
-    width: CHART_WIDTH,
-    height: CHART_HEIGHT,
-    position: 'relative', // Context for the title overlay
+  rangeButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.1)",
   },
-  // This style is applied to the LineChart itself.
-  graphStyle: {
-    borderRadius: 22,
+  rangeButtonActive: {
+    backgroundColor: "#34d399",
   },
-  // The title overlay is positioned within the smaller chartWrapper.
-  chartTitleOverlay: {
-    position: "absolute",
-    top: 18,
-    left: 18,
-    fontSize: 16,
-    fontWeight: "bold",
+  rangeText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#ccc",
+  },
+  rangeTextActive: {
     color: "#fff",
   },
 });

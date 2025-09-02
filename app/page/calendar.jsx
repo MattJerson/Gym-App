@@ -24,7 +24,6 @@ import RecentActivity from "../../components/home/RecentActivity";
 import ProgressGraph from "../../components/calendar/ProgressGraph";
 import StepsBarGraph from "../../components/calendar/StepsBarGraph";
 
-
 export default function Calendar() {
   const router = useRouter();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -61,35 +60,34 @@ export default function Calendar() {
     { key: "yoga", name: "yoga", icon: "yoga", color: "#9C27B0" },
     { key: "rest", name: "Rest", icon: "bed", color: "#607D8B" },
   ];
-const graphData = [
-  {
-    title: "Steps", // Updated title
-    labels: ["08/04", "08/11", "08/18", "08/25", "09/01"],
-    values: [3200, 4500, 5400, 8200, 10267],
-    color: () => `rgba(134, 65, 244, 1)`, // A nice purple color
-  },
-  {
-    title: "Weight", // Updated title
-    labels: ["09/01", "09/02", "09/03", "09/04", "09/05"],
-    values: [72.5, 72.8, 72.3, 72.5, 72.1], // More realistic weight data
-    color: () => `rgba(54, 162, 235, 1)`,
-  },
-];
-const dailyStepsData = {
-  dates: [
-    "08/01","08/02","08/03","08/04","08/05",
-    "08/06","08/07","08/08","08/09","08/10","08/11","08/12",
-    "08/13","08/14","08/15","08/16","08/17","08/18","08/19",
-    "08/20","08/21","08/22","08/23","08/24","08/25","08/26",
-    "08/27"
-  ],
-  values: [
-    6000, 7300, 8400, 9100, 10200,
-    3200, 4100, 5000, 6200, 7100, 8300, 9050,
-    4500, 5300, 6700, 7200, 8100, 8800, 9600,
-    3400, 4700, 6000, 7300, 8400, 9100, 10200
-  ],
-};
+
+  // single-chart data (ProgressGraph now expects a single `chart` prop)
+  const chart = {
+    title: "Weight Progress",
+    labels: ["08/01", "08/02", "08/03", "08/04", "08/05", "08/06", "08/07"],
+    values: [70, 71, 71.5, 71, 70.8, 70.5, 70.2],
+    color: (opacity = 1) => `rgba(52, 211, 153, ${opacity})`,
+  };
+
+  const dailyStepsData = {
+    dates: [
+      "08/01","08/02","08/03","08/04","08/05","08/06","08/07",
+      "08/08","08/09","08/10","08/11","08/12","08/13","08/14",
+      "08/15","08/16","08/17","08/18","08/19","08/20","08/21",
+      "08/22","08/23","08/24","08/25","08/26","08/27","08/28",
+      "08/29","08/30","08/31"
+    ],
+    values: [
+      12539, 5776, 2782, 10673, 4430,
+      13029, 6263, 4226, 42300, 2783,
+      1021, 7563, 8863, 4992, 13332,
+      3661, 4324, 2226, 3688, 10773,
+      5792, 6960, 9021, 6642, 1876,
+      11528, 4474, 11983, 9385, 11111,
+      7701
+    ]
+  };
+
   const formatDateKey = (date) => {
     const d = new Date(date);
     const year = d.getFullYear();
@@ -233,7 +231,7 @@ const dailyStepsData = {
               textDayHeaderFontWeight: "600",
               textDayFontSize: 14,
               textMonthFontSize: 18,
-              textDisabledColor: "#555", // gray out other months
+              textDisabledColor: "#555",
             }}
           />
 
@@ -271,8 +269,12 @@ const dailyStepsData = {
             </View>
           </View>
         </View>
-      <ProgressGraph charts={graphData} />
-      <StepsBarGraph dailyData={dailyStepsData} />
+
+        {/* Pass single `chart` prop to ProgressGraph */}
+        <ProgressGraph chart={chart} />
+
+        <StepsBarGraph dailyData={dailyStepsData} />
+        
         {/* Recent Activity */}
         <RecentActivity activities={recentActivitiesData} />
       </ScrollView>
