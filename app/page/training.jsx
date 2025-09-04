@@ -14,6 +14,9 @@ import {
 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import WorkoutProgressBar from "../../components/training/WorkoutProgressBar";
+import ContinueWorkoutCard from "../../components/training/ContinueWorkoutCard";
+import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
 
 const router = useRouter();
 
@@ -33,6 +36,30 @@ export default function Training() {
           <Ionicons name="notifications-outline" size={24} color="#fff" />
         </View>
 
+        {/* Progress Card */}
+        <WorkoutProgressBar 
+          workoutData={{ value: 3, max: 5 }}
+          stepsData={{ value: 8500, max: 10000 }}
+          caloriesData={{ value: 420, max: 500 }}
+        />
+
+        <ContinueWorkoutCard 
+          workoutName="My Push Day"
+          workoutType="Custom Workout"
+          completedExercises={4}
+          totalExercises={6}
+          timeElapsed={15}
+          progress={0.67}
+          onContinue={() => console.log('Continue workout')}
+        />
+
+        <TodaysWorkoutCard 
+          workoutName="Pull Day"
+          workoutType="Custom Workout"
+          totalExercises={8}
+          timeElapsed={60}
+          onContinue={() => console.log('Continue workout')}
+        />
         {/* Quick Start Workout */}
         <Pressable style={[styles.card, styles.quickStartCard]}>
           <LinearGradient
