@@ -6,6 +6,7 @@ import {
   ScrollView,
   Dimensions,
   Image,
+  Alert,
 } from "react-native";
 import {
   Ionicons,
@@ -15,207 +16,223 @@ import {
 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { useState, useEffect } from "react";
+// Import components
+import MacroProgressSummary from "../../components/mealplan/MacroProgressSummary";
+import TodaysMeals from "../../components/mealplan/TodaysMeals";
+import RecentMeals from "../../components/mealplan/RecentMeals";
+import NotificationBar from "../../components/NotificationBar";
+import { MealPlanDataService } from "../../services/MealPlanDataService";
 
 const router = useRouter();
 
 export default function Mealplan() {
-  const todaysMeals = [
-    {
-      meal: "Breakfast",
-      name: "Protein Oats Bowl",
-      calories: 420,
-      protein: 28,
-      time: "8:00 AM",
-      icon: "🍓",
-    },
-    {
-      meal: "Lunch",
-      name: "Grilled Chicken Salad",
-      calories: 380,
-      protein: 35,
-      time: "1:00 PM",
-      icon: "🥗",
-    },
-    {
-      meal: "Pre-Workout",
-      name: "Banana + Almond Butter",
-      calories: 220,
-      protein: 8,
-      time: "5:30 PM",
-      icon: "🍌",
-    },
-    {
-      meal: "Dinner",
-      name: "Salmon & Sweet Potato",
-      calories: 480,
-      protein: 38,
-      time: "7:30 PM",
-      icon: "🐟",
-    },
-  ];
+  // 🔄 Data-driven state management
+  const [notifications, setNotifications] = useState(0);
+  const [macroGoals, setMacroGoals] = useState(null);
+  const [weeklyPlan, setWeeklyPlan] = useState([]);
+  const [todaysMeals, setTodaysMeals] = useState([]);
+  const [recentMeals, setRecentMeals] = useState([]);
+  const [quickActions, setQuickActions] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [isLoading, setIsLoading] = useState(true);
 
-  const weeklyPlan = [
-    { day: "Mon", active: false },
-    { day: "Tue", active: true },
-    { day: "Wed", active: false },
-    { day: "Thu", active: false },
-    { day: "Fri", active: false },
-    { day: "Sat", active: false },
-    { day: "Sun", active: false },
-  ];
+  // 🔄 Load data on component mount - Replace with actual user ID
+  const userId = "user123";
 
-  const macroGoals = {
-    calories: { current: 1500, target: 2200 },
-    protein: { current: 109, target: 140 },
-    carbs: { current: 145, target: 200 },
-    fats: { current: 68, target: 85 },
+  useEffect(() => {
+    loadMealPlanData();
+  }, []);
+
+  const loadMealPlanData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Load all meal plan data in parallel
+      const [
+        notificationsData,
+        macroData,
+        weeklyData,
+        mealsData,
+        recentData,
+        actionsData
+      ] = await Promise.all([
+        MealPlanDataService.fetchUserNotifications(userId),
+        MealPlanDataService.fetchMacroProgress(userId, selectedDate),
+        MealPlanDataService.fetchWeeklyPlan(userId, selectedDate),
+        MealPlanDataService.fetchTodaysMeals(userId, selectedDate),
+        MealPlanDataService.fetchRecentMeals(userId),
+        MealPlanDataService.fetchQuickActions(userId)
+      ]);
+
+      // Update state with fetched data
+      setNotifications(notificationsData.count);
+      setMacroGoals(macroData);
+      setWeeklyPlan(weeklyData);
+      setTodaysMeals(mealsData);
+      setRecentMeals(recentData);
+      setQuickActions(actionsData);
+      
+    } catch (error) {
+      console.error("Error loading meal plan data:", error);
+      Alert.alert("Error", "Failed to load meal plan data. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddFood = async (mealType) => {
+    try {
+      console.log(`Add food to ${mealType}`);
+      // Navigate to food selection screen
+      router.push(`/meal-plan/add-food?mealType=${mealType}`);
+    } catch (error) {
+      Alert.alert("Error", "Failed to add food. Please try again.");
+    }
+  };
+
+  const handleEditMeal = async () => {
+    try {
+      console.log("Edit meals");
+      // Navigate to meal editing screen
+      // router.push('/meal-plan/edit');
+    } catch (error) {
+      Alert.alert("Error", "Failed to edit meal. Please try again.");
+    }
+  };
+
+  const handleDaySelect = async (day) => {
+    try {
+      const newDate = new Date(day.date);
+      setSelectedDate(newDate);
+      
+      // Load meals for selected date
+      const [mealsData, macroData] = await Promise.all([
+        MealPlanDataService.fetchTodaysMeals(userId, newDate),
+        MealPlanDataService.fetchMacroProgress(userId, newDate)
+      ]);
+      
+      setTodaysMeals(mealsData);
+      setMacroGoals(macroData);
+      
+      // Update weekly plan with new active day
+      setWeeklyPlan(prev => 
+        prev.map(d => ({ ...d, active: d.date === day.date }))
+      );
+    } catch (error) {
+      Alert.alert("Error", "Failed to load day data. Please try again.");
+    }
+  };
+
+  const handleQuickAction = (action) => {
+    console.log(`Quick action: ${action.title}`);
+    // Navigate to appropriate screen based on action.route
+    // router.push(action.route);
   };
 
   return (
     <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.backRow}>
-          <Pressable onPress={() => router.push("/auth/register")}>
-            <Ionicons name="arrow-back" size={28} color="#fff" />
-          </Pressable>
-        </View>
-
         {/* Header */}
         <View style={styles.headerRow}>
           <Text style={styles.headerText}>Meal Plan</Text>
-          <Pressable>
-            <MaterialIcons name="shopping-cart" size={24} color="#fff" />
-          </Pressable>
+          <NotificationBar notifications={notifications} />
         </View>
 
-        {/* Daily Overview Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Today's Progress</Text>
-            <Text style={styles.dateText}>Tuesday, Aug 19</Text>
+        {/* Loading State */}
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading meal plan data...</Text>
           </View>
+        ) : (
+          <>
+            {/* Macro Progress Summary */}
+            {macroGoals && (
+              <MacroProgressSummary macroGoals={macroGoals} />
+            )}
 
-          <View style={styles.macroGrid}>
-            <View style={styles.macroItem}>
-              <Text style={styles.macroValue}>
-                {macroGoals.calories.current}/{macroGoals.calories.target}
-              </Text>
-              <Text style={styles.macroLabel}>Calories</Text>
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      width: `${
-                        (macroGoals.calories.current /
-                          macroGoals.calories.target) *
-                        100
-                      }%`,
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-
-            <View style={styles.macroItem}>
-              <Text style={styles.macroValue}>
-                {macroGoals.protein.current}g/{macroGoals.protein.target}g
-              </Text>
-              <Text style={styles.macroLabel}>Protein</Text>
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      width: `${
-                        (macroGoals.protein.current /
-                          macroGoals.protein.target) *
-                        100
-                      }%`,
-                      backgroundColor: "#ff6b6b",
-                    },
-                  ]}
-                />
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Weekly Calendar */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Weekly Plan</Text>
-          <View style={styles.weekRow}>
-            {weeklyPlan.map((day, index) => (
-              <Pressable
-                key={index}
-                style={[styles.dayButton, day.active && styles.activeDayButton]}
-              >
-                <Text
-                  style={[styles.dayText, day.active && styles.activeDayText]}
-                >
-                  {day.day}
+            {/* Weekly Calendar */}
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>Weekly Plan</Text>
+                <Text style={styles.dateText}>
+                  {MealPlanDataService.formatDate(selectedDate)}
                 </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {/* Today's Meals */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Today's Meals</Text>
-            <Pressable>
-              <MaterialIcons name="edit" size={20} color="#4CAF50" />
-            </Pressable>
-          </View>
-
-          {todaysMeals.map((meal, index) => (
-            <Pressable key={index} style={styles.mealItem}>
-              <View style={styles.mealLeft}>
-                <Text style={styles.mealIcon}>{meal.icon}</Text>
-                <View style={styles.mealDetails}>
-                  <Text style={styles.mealType}>{meal.meal}</Text>
-                  <Text style={styles.mealName}>{meal.name}</Text>
-                  <Text style={styles.mealTime}>{meal.time}</Text>
-                </View>
               </View>
-              <View style={styles.mealRight}>
-                <Text style={styles.mealCalories}>{meal.calories} cal</Text>
-                <Text style={styles.mealProtein}>{meal.protein}g protein</Text>
-                <Ionicons name="chevron-forward" size={16} color="#666" />
+              <View style={styles.weekRow}>
+                {weeklyPlan.map((day, index) => (
+                  <Pressable
+                    key={index}
+                    style={[
+                      styles.dayButton, 
+                      day.active && styles.activeDayButton,
+                      day.isCompleted && styles.completedDayButton
+                    ]}
+                    onPress={() => handleDaySelect(day)}
+                  >
+                    <Text
+                      style={[
+                        styles.dayText, 
+                        day.active && styles.activeDayText,
+                        day.isCompleted && styles.completedDayText
+                      ]}
+                    >
+                      {day.day}
+                    </Text>
+                    {day.mealsPlanned > 0 && (
+                      <View style={styles.mealIndicator}>
+                        <Text style={styles.mealCount}>{day.mealsPlanned}</Text>
+                      </View>
+                    )}
+                  </Pressable>
+                ))}
               </View>
-            </Pressable>
-          ))}
-        </View>
+            </View>
 
-        {/* Quick Actions */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Quick Actions</Text>
-          <View style={styles.actionGrid}>
-            <Pressable style={styles.actionButton}>
-              <MaterialCommunityIcons
-                name="food-apple"
-                size={24}
-                color="#4CAF50"
-              />
-              <Text style={styles.actionText}>Meal Prep Guide</Text>
-            </Pressable>
+            {/* Today's Meals Component */}
+            <TodaysMeals 
+              meals={todaysMeals}
+              onAddFood={handleAddFood}
+              onEditMeal={handleEditMeal}
+            />
 
-            <Pressable style={styles.actionButton}>
-              <MaterialCommunityIcons
-                name="calculator"
-                size={24}
-                color="#2196F3"
-              />
-              <Text style={styles.actionText}>Macro Calculator</Text>
-            </Pressable>
+            {/* Quick Actions */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Quick Actions</Text>
+              <View style={styles.actionGrid}>
+                {quickActions.map((action, index) => {
+                  const IconComponent = action.iconLibrary === 'FontAwesome5' 
+                    ? FontAwesome5 
+                    : MaterialCommunityIcons;
+                  
+                  return (
+                    <Pressable 
+                      key={action.id}
+                      style={styles.actionButton}
+                      onPress={() => handleQuickAction(action)}
+                      disabled={!action.isAvailable}
+                    >
+                      <IconComponent
+                        name={action.icon}
+                        size={24}
+                        color={action.isAvailable ? action.color : "#666"}
+                      />
+                      <Text style={[
+                        styles.actionText,
+                        !action.isAvailable && styles.disabledActionText
+                      ]}>
+                        {action.title}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
 
-            <Pressable style={styles.actionButton}>
-              <FontAwesome5 name="history" size={24} color="#9C27B0" />
-              <Text style={styles.actionText}>Meal History</Text>
-            </Pressable>
-          </View>
-        </View>
+            {/* Recent Meals */}
+            <RecentMeals meals={recentMeals} />
+          </>
+        )}
       </ScrollView>
     </LinearGradient>
   );
@@ -224,21 +241,31 @@ export default function Mealplan() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: {
-    marginTop: 60,
+    paddingTop: 60,
     paddingBottom: 10,
-    paddingVertical: 40,
     paddingHorizontal: 20,
   },
   headerRow: {
-    marginBottom: 20,
+    marginBottom: 24,
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
   },
   headerText: {
-    fontSize: 26,
+    fontSize: 28,
     color: "#fff",
     fontWeight: "bold",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 60,
+  },
+  loadingText: {
+    color: "#fff",
+    fontSize: 16,
+    opacity: 0.7,
   },
   card: {
     padding: 20,
@@ -247,7 +274,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   backRow: {
-    top: 0,
+    top: 60,
     left: 20,
     zIndex: 10,
     position: "absolute",
@@ -255,7 +282,6 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 20,
     color: "#fff",
-    marginBottom: 15,
     fontWeight: "bold",
   },
   cardHeader: {
@@ -267,38 +293,6 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 14,
     color: "#999",
-  },
-  macroGrid: {
-    gap: 15,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  macroItem: {
-    flex: 1,
-    alignItems: "center",
-  },
-  macroValue: {
-    fontSize: 16,
-    color: "#fff",
-    marginBottom: 5,
-    fontWeight: "bold",
-  },
-  macroLabel: {
-    fontSize: 12,
-    color: "#999",
-    marginBottom: 8,
-  },
-  progressBar: {
-    height: 6,
-    width: "100%",
-    borderRadius: 3,
-    overflow: "hidden",
-    backgroundColor: "#333",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 3,
-    backgroundColor: "#4CAF50",
   },
   weekRow: {
     flexDirection: "row",
@@ -313,6 +307,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   activeDayButton: {
+    backgroundColor: "#1E3A5F",
+  },
+  completedDayButton: {
     backgroundColor: "#4CAF50",
   },
   dayText: {
@@ -323,55 +320,24 @@ const styles = StyleSheet.create({
   activeDayText: {
     color: "#fff",
   },
-  mealItem: {
-    paddingVertical: 15,
-    alignItems: "center",
-    flexDirection: "row",
-    borderBottomWidth: 1,
-    borderBottomColor: "#333",
-    justifyContent: "space-between",
-  },
-  mealLeft: {
-    flex: 1,
-    alignItems: "center",
-    flexDirection: "row",
-  },
-  mealIcon: {
-    fontSize: 32,
-    marginRight: 15,
-  },
-  mealDetails: {
-    flex: 1,
-  },
-  mealType: {
-    fontSize: 12,
-    marginBottom: 2,
-    color: "#4CAF50",
-    fontWeight: "bold",
-  },
-  mealName: {
-    fontSize: 16,
+  completedDayText: {
     color: "#fff",
-    marginBottom: 2,
-    fontWeight: "500",
   },
-  mealTime: {
-    fontSize: 12,
-    color: "#999",
+  mealIndicator: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    backgroundColor: "#1E3A5F",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  mealRight: {
-    alignItems: "flex-end",
-  },
-  mealCalories: {
-    fontSize: 14,
+  mealCount: {
+    fontSize: 10,
     color: "#fff",
-    marginBottom: 2,
     fontWeight: "bold",
-  },
-  mealProtein: {
-    fontSize: 12,
-    color: "#999",
-    marginBottom: 5,
   },
   actionGrid: {
     gap: 10,
@@ -384,7 +350,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#333",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   actionText: {
     marginTop: 8,
@@ -393,9 +359,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     textAlign: "center",
   },
-  tipText: {
-    fontSize: 14,
-    color: "#ccc",
-    lineHeight: 20,
+  disabledActionText: {
+    color: "#666",
   },
 });

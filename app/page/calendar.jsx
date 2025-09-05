@@ -18,11 +18,14 @@ import {
 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Calendar as RNCalendar } from "react-native-calendars";
 import RecentActivity from "../../components/home/RecentActivity";
 import ProgressGraph from "../../components/calendar/ProgressGraph";
 import StepsBarGraph from "../../components/calendar/StepsBarGraph";
+import CalendarAnalytics from "../../components/calendar/CalendarAnalytics";
+import NotificationBar from "../../components/NotificationBar";
+import { CalendarDataService } from "../../services/CalendarDataService";
 
 export default function Calendar() {
   const router = useRouter();
@@ -31,97 +34,120 @@ export default function Calendar() {
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [workoutNote, setWorkoutNote] = useState("");
   const [selectedWorkoutType, setSelectedWorkoutType] = useState("strength");
+  
+  // 🔄 Data-driven state management
+  const [notifications, setNotifications] = useState(0);
+  const [workoutData, setWorkoutData] = useState({});
+  const [recentActivitiesData, setRecentActivitiesData] = useState([]);
+  const [workoutTypes, setWorkoutTypes] = useState([]);
+  const [progressChart, setProgressChart] = useState(null);
+  const [stepsData, setStepsData] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Sample workout data
-  const [workoutData, setWorkoutData] = useState({
-    "2025-09-15": { type: "strength", completed: true, streak: true, note: "Great session!" },
-    "2025-09-14": { type: "cardio", completed: true, streak: true, note: "5K run" },
-    "2025-09-13": { type: "rest", completed: true, streak: true },
-    "2025-09-12": { type: "strength", completed: true, streak: true },
-    "2025-09-16": { type: "yoga", completed: false, planned: true },
-    "2025-09-17": { type: "strength", completed: false, planned: true },
-    "2025-08-30": { type: "cardio", completed: true, streak: false },
-    "2025-08-31": { type: "strength", completed: true, streak: false },
-    "2025-10-01": { type: "yoga", completed: false, planned: true },
-    "2025-10-02": { type: "cardio", completed: false, planned: true },
-  });
+  // 🔄 Load data on component mount - Replace with actual user ID
+  const userId = "user123";
 
-  // Sample data for the new RecentActivity component
-  const recentActivitiesData = [
-    { label: "Morning Run", duration: "45 min", icon: "walk", color: ["#FF5722", "#FF9800"] },
-    { label: "Upper Body Strength", duration: "1 hour 15 min", icon: "barbell", color: ["#4CAF50", "#8BC34A"] },
-    { label: "Evening Yoga", duration: "30 min", icon: "body", color: ["#9C27B0", "#E1BEE7"] },
-    { label: "Rest Day", duration: "Full day", icon: "bed", color: ["#607D8B", "#90A4AE"] },
-  ];
+  useEffect(() => {
+    loadCalendarData();
+  }, []);
 
-  const workoutTypes = [
-    { key: "strength", name: "Strength", icon: "dumbbell", color: "#4CAF50" },
-    { key: "cardio", name: "Cardio", icon: "directions-run", color: "#FF5722" },
-    { key: "yoga", name: "yoga", icon: "yoga", color: "#9C27B0" },
-    { key: "rest", name: "Rest", icon: "bed", color: "#607D8B" },
-  ];
+  const loadCalendarData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Load all calendar data in parallel
+      const [
+        notificationsData,
+        calendarData,
+        activitiesData,
+        typesData,
+        chartData,
+        stepsResponse,
+        analyticsData
+      ] = await Promise.all([
+        CalendarDataService.fetchUserNotifications(userId),
+        CalendarDataService.fetchWorkoutCalendar(userId, "2025-08-01", "2025-10-31"),
+        CalendarDataService.fetchRecentActivities(userId),
+        CalendarDataService.fetchWorkoutTypes(),
+        CalendarDataService.fetchProgressChart(userId, "weight"),
+        CalendarDataService.fetchStepsData(userId),
+        CalendarDataService.fetchCalendarAnalytics(userId)
+      ]);
 
-  // single-chart data (ProgressGraph now expects a single `chart` prop)
-  const chart = {
-    title: "Weight Progress",
-    labels: ["08/01", "08/02", "08/03", "08/04", "08/05", "08/06", "08/07"],
-    values: [70, 71, 71.5, 71, 70.8, 70.5, 70.2],
-    color: (opacity = 1) => `rgba(52, 211, 153, ${opacity})`,
-  };
-
-  const dailyStepsData = {
-    dates: [
-      "08/01","08/02","08/03","08/04","08/05","08/06","08/07",
-      "08/08","08/09","08/10","08/11","08/12","08/13","08/14",
-      "08/15","08/16","08/17","08/18","08/19","08/20","08/21",
-      "08/22","08/23","08/24","08/25","08/26","08/27","08/28",
-      "08/29","08/30","08/31"
-    ],
-    values: [
-      12539, 5776, 2782, 10673, 4430,
-      13029, 6263, 4226, 42300, 2783,
-      1021, 7563, 8863, 4992, 13332,
-      3661, 4324, 2226, 3688, 10773,
-      5792, 6960, 9021, 6642, 1876,
-      11528, 4474, 11983, 9385, 11111,
-      7701
-    ]
+      // Update state with fetched data
+      setNotifications(notificationsData.count);
+      setWorkoutData(calendarData);
+      setRecentActivitiesData(activitiesData);
+      setWorkoutTypes(typesData);
+      setProgressChart(chartData);
+      setStepsData(stepsResponse);
+      setAnalytics(analyticsData);
+      
+    } catch (error) {
+      console.error("Error loading calendar data:", error);
+      Alert.alert("Error", "Failed to load calendar data. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const formatDateKey = (date) => {
-    const d = new Date(date);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
+    return CalendarDataService.formatDateKey(date);
   };
 
-  const addWorkout = () => {
-    if (!selectedDate) return;
-    const newWorkout = {
-      type: selectedWorkoutType,
-      completed: true,
-      streak: true,
-      note: workoutNote.trim() || undefined,
-    };
-    setWorkoutData((prev) => ({ ...prev, [selectedDate]: newWorkout }));
-    setWorkoutNote("");
-    setShowWorkoutModal(false);
-    Alert.alert("Success", "Workout logged successfully!");
+  const addWorkout = async () => {
+    if (!selectedDate) {
+      Alert.alert("Error", "Please select a date first");
+      return;
+    }
+
+    try {
+      const newWorkout = {
+        type: selectedWorkoutType,
+        completed: true,
+        streak: true,
+        note: workoutNote.trim() || undefined,
+        date: selectedDate,
+        duration: 0, // Can be updated later
+        createdAt: new Date().toISOString()
+      };
+
+      // 🔄 Call API to create workout
+      const createdWorkout = await CalendarDataService.createWorkout(userId, newWorkout);
+      
+      // Update local state
+      setWorkoutData(prev => ({ 
+        ...prev, 
+        [selectedDate]: createdWorkout 
+      }));
+      
+      setWorkoutNote("");
+      setShowWorkoutModal(false);
+      Alert.alert("Success", "Workout logged successfully!");
+      
+      // Refresh recent activities
+      const updatedActivities = await CalendarDataService.fetchRecentActivities(userId);
+      setRecentActivitiesData(updatedActivities);
+      
+    } catch (error) {
+      console.error("Error creating workout:", error);
+      Alert.alert("Error", "Failed to log workout. Please try again.");
+    }
   };
 
   const markedDates = useMemo(() => {
     const marks = {};
     Object.entries(workoutData).forEach(([date, workout]) => {
       const workoutType = workoutTypes.find((w) => w.key === workout.type);
-      const color = workout.completed ? workoutType?.color || "#fff" : "rgba(255,255,255,0.3)";
+      const color = workout.completed ? workoutType?.color || "#1E3A5F" : "rgba(30, 58, 95, 0.3)";
       marks[date] = { marked: true, dotColor: color };
     });
     if (selectedDate) {
-      marks[selectedDate] = { ...marks[selectedDate], selected: true, selectedColor: "#007AFF" };
+      marks[selectedDate] = { ...marks[selectedDate], selected: true, selectedColor: "#1E3A5F" };
     }
     return marks;
-  }, [workoutData, selectedDate]);
+  }, [workoutData, selectedDate, workoutTypes]);
 
   const monthlyStats = useMemo(() => {
     const currentMonth = currentDate.getMonth();
@@ -153,39 +179,47 @@ export default function Calendar() {
     <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerRow}>
-          <Pressable onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={28} color="#fff" />
-          </Pressable>
           <Text style={styles.headerText}>Calendar</Text>
-          <Pressable
-            onPress={() => {
-              setSelectedDate(formatDateKey(new Date()));
-              if (Platform.OS === "ios") {
-                ActionSheetIOS.showActionSheetWithOptions(
-                  {
-                    options: ["Cancel", "Strength", "Cardio", "Yoga", "Rest"],
-                    cancelButtonIndex: 0,
-                    title: "Log Workout",
-                  },
-                  (buttonIndex) => {
-                    if (buttonIndex === 0) return;
-                    const typeMap = ["strength", "cardio", "yoga", "rest"];
-                    const chosenType = typeMap[buttonIndex - 1];
-                    setSelectedWorkoutType(chosenType);
-                    addWorkout();
-                  }
-                );
-              } else {
-                setShowWorkoutModal(true);
-              }
-            }}
-          >
-            <Ionicons name="add-circle-outline" size={32} color="#fff" />
-          </Pressable>
+          <View style={styles.headerRight}>
+            <NotificationBar notifications={notifications} />
+            <Pressable
+              style={styles.addButton}
+              onPress={() => {
+                setSelectedDate(formatDateKey(new Date()));
+                if (Platform.OS === "ios") {
+                  ActionSheetIOS.showActionSheetWithOptions(
+                    {
+                      options: ["Cancel", "Strength", "Cardio", "Yoga", "Rest"],
+                      cancelButtonIndex: 0,
+                      title: "Log Workout",
+                    },
+                    (buttonIndex) => {
+                      if (buttonIndex === 0) return;
+                      const typeMap = ["strength", "cardio", "yoga", "rest"];
+                      const chosenType = typeMap[buttonIndex - 1];
+                      setSelectedWorkoutType(chosenType);
+                      addWorkout();
+                    }
+                  );
+                } else {
+                  setShowWorkoutModal(true);
+                }
+              }}
+            >
+              <Ionicons name="add-circle-outline" size={32} color="#1E3A5F" />
+            </Pressable>
+          </View>
         </View>
 
-        {/* Calendar + Stats */}
-        <View style={styles.calendarCard}>
+        {/* Loading State */}
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading calendar data...</Text>
+          </View>
+        ) : (
+          <>
+            {/* Calendar + Stats */}
+            <View style={styles.calendarCard}>
           <RNCalendar
             current={formatDateKey(currentDate)}
             onDayPress={(day) => {
@@ -222,10 +256,10 @@ export default function Calendar() {
               dayTextColor: "#fff",
               monthTextColor: "#fff",
               textSectionTitleColor: "#888",
-              selectedDayBackgroundColor: "#007AFF",
+              selectedDayBackgroundColor: "#1E3A5F",
               selectedDayTextColor: "#fff",
-              todayTextColor: "#FFD700",
-              arrowColor: "#fff",
+              todayTextColor: "#1E3A5F",
+              arrowColor: "#1E3A5F",
               textDayFontWeight: "500",
               textMonthFontWeight: "bold",
               textDayHeaderFontWeight: "600",
@@ -241,7 +275,7 @@ export default function Calendar() {
               {currentDate.toLocaleString("default", { month: "long" })} Progress
             </Text>
             <View style={styles.statRow}>
-              <View style={[styles.statIcon, { backgroundColor: "#4CAF50" }]}>
+              <View style={[styles.statIcon, { backgroundColor: "#1E3A5F" }]}>
                 <FontAwesome5 name="dumbbell" size={16} color="#fff" />
               </View>
               <View style={styles.statTextContainer}>
@@ -250,7 +284,7 @@ export default function Calendar() {
               </View>
             </View>
             <View style={styles.statRow}>
-              <View style={[styles.statIcon, { backgroundColor: "#FF5722" }]}>
+              <View style={[styles.statIcon, { backgroundColor: "#1E3A5F" }]}>
                 <Ionicons name="flame" size={16} color="#fff" />
               </View>
               <View style={styles.statTextContainer}>
@@ -259,7 +293,7 @@ export default function Calendar() {
               </View>
             </View>
             <View style={styles.statRow}>
-              <View style={[styles.statIcon, { backgroundColor: "#9C27B0" }]}>
+              <View style={[styles.statIcon, { backgroundColor: "#1E3A5F" }]}>
                 <MaterialIcons name="track-changes" size={16} color="#fff" />
               </View>
               <View style={styles.statTextContainer}>
@@ -270,13 +304,18 @@ export default function Calendar() {
           </View>
         </View>
 
-        {/* Pass single `chart` prop to ProgressGraph */}
-        <ProgressGraph chart={chart} />
+        {/* Progress Charts - Only render when data is loaded */}
+        {progressChart && <ProgressGraph chart={progressChart} />}
 
-        <StepsBarGraph dailyData={dailyStepsData} />
+        {stepsData && <StepsBarGraph dailyData={stepsData} />}
+
+        {/* Calendar Analytics */}
+        {analytics && <CalendarAnalytics analytics={analytics} />}
         
         {/* Recent Activity */}
         <RecentActivity activities={recentActivitiesData} />
+          </>
+        )}
       </ScrollView>
 
       {/* Android Fallback Modal */}
@@ -356,15 +395,34 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     marginBottom: 20,
-    alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 5,
   },
   headerText: {
     fontSize: 28,
     color: "#fff",
     fontWeight: "bold",
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 15,
+  },
+  addButton: {
+    padding: 4,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 60,
+  },
+  loadingText: {
+    color: "#fff",
+    fontSize: 16,
+    opacity: 0.7,
   },
   calendarCard: {
     backgroundColor: "rgba(255, 255, 255, 0.05)",
@@ -481,7 +539,7 @@ const styles = StyleSheet.create({
   modalButtons: { flexDirection: "row", gap: 10 },
   modalButton: { flex: 1, padding: 16, borderRadius: 18, alignItems: "center" },
   cancelButton: { backgroundColor: "rgba(255, 255, 255, 0.1)" },
-  confirmButton: { backgroundColor: "#007AFF" },
+  confirmButton: { backgroundColor: "#1E3A5F" },
   cancelButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
   confirmButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
 });

@@ -1,37 +1,238 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import WorkoutCard from "../../components/WorkoutCard";
 import DailyProgressCard from "../../components/home/DailyProgressCard"; // 👈 Import new component
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
 import QuickStart from "../../components/home/QuickStart";
 import RecentActivity from "../../components/home/RecentActivity";
 import FeaturedVideo from "../../components/home/FeaturedVideo";
+import NotificationBar from "../../components/NotificationBar";
 
+// 🔄 API Service Functions - Replace these with actual API calls
+const HomeDataService = {
+  async fetchUserData(userId) {
+    // Replace with: const response = await fetch(`/api/users/${userId}`);
+    return {
+      name: "Matt",
+      notifications: 3,
+    };
+  },
+
+  async fetchDailyProgress(userId, date) {
+    // Replace with: const response = await fetch(`/api/progress/${userId}?date=${date}`);
+    return {
+      streak: {
+        current: 5,
+        goal: 7,
+        lastWorkout: "Yesterday",
+        bestStreak: 12,
+      },
+      metrics: {
+        workout: { value: 1, max: 1, unit: "Done" },
+        calories: { value: 420, max: 500, unit: "kcal" },
+        steps: { value: 8500, max: 10000, unit: "steps" },
+      },
+    };
+  },
+
+  async fetchWorkoutCategories() {
+    // Replace with: const response = await fetch('/api/workout-categories');
+    return [
+      {
+        id: 1,
+        title: "Push Day",
+        subtitle: "Chest, Shoulders, Triceps",
+        gradient: ["#FF6B6B", "#4ECDC4"],
+        icon: "fitness",
+        difficulty: "Intermediate",
+      },
+      {
+        id: 2,
+        title: "Cardio Blast",
+        subtitle: "HIIT Training Session",
+        gradient: ["#A8E6CF", "#88D8C0"],
+        icon: "flash",
+        difficulty: "Beginner",
+      },
+      {
+        id: 3,
+        title: "Full Body",
+        subtitle: "Complete Workout",
+        gradient: ["#FFD93D", "#6BCF7F"],
+        icon: "body",
+        difficulty: "Advanced",
+      },
+    ];
+  },
+
+  async fetchFeaturedContent() {
+    // Replace with: const response = await fetch('/api/featured-content');
+    return {
+      title: "Complete Core Transformation",
+      subtitle: "Science-Based Training",
+      author: "Dr. Mike Fitness",
+      views: "2.1M",
+      category: "Education",
+      thumbnail: "https://img.youtube.com/vi/2tM1LFFxeKg/hqdefault.jpg",
+      duration: "12 min read",
+    };
+  },
+
+  async fetchRecentActivities(userId, limit = 4) {
+    // Replace with: const response = await fetch(`/api/activities/${userId}?limit=${limit}`);
+    return [
+      {
+        id: 1,
+        label: "Chest + Triceps",
+        duration: "45 mins",
+        icon: "barbell",
+        color: ["#ff7e5f", "#feb47b"],
+        date: "Today",
+        calories: 280,
+      },
+      {
+        id: 2,
+        label: "Morning Cardio",
+        duration: "30 mins",
+        icon: "walk",
+        color: ["#43cea2", "#185a9d"],
+        date: "Yesterday",
+        calories: 220,
+      },
+      {
+        id: 3,
+        label: "Evening Yoga",
+        duration: "20 mins",
+        icon: "leaf-outline",
+        color: ["#a18cd1", "#fbc2eb"],
+        date: "2 days ago",
+        calories: 120,
+      },
+      {
+        id: 4,
+        label: "Cycling Session",
+        duration: "25 mins",
+        icon: "bicycle",
+        color: ["#36d1dc", "#5b86e5"],
+        date: "3 days ago",
+        calories: 310,
+      },
+    ];
+  },
+};
 
 export default function Home() {
   const router = useRouter();
   const pathname = usePathname();
   const [notifications] = useState(3);
-  const userName = "Matt";
+  
+  // 🔄 Centralized data - replace with API calls later
+  const homeData = {
+    user: {
+      name: "Matt",
+      notifications: 3,
+    },
+    dailyProgress: {
+      streak: {
+        current: 5,
+        goal: 7,
+        lastWorkout: "Yesterday",
+        bestStreak: 12,
+      },
+      totalProgress: 65, // Will be calculated from individual metrics
+      metrics: {
+        workout: { value: 1, max: 1, unit: "Done" },
+        calories: { value: 420, max: 500, unit: "kcal" },
+        steps: { value: 8500, max: 10000, unit: "steps" },
+      },
+    },
+    quickStart: {
+      categories: [
+        {
+          id: 1,
+          title: "Push Day",
+          subtitle: "Chest, Shoulders, Triceps",
+          gradient: ["#FF6B6B", "#4ECDC4"],
+          icon: "fitness",
+          difficulty: "Intermediate",
+        },
+        {
+          id: 2,
+          title: "Cardio Blast",
+          subtitle: "HIIT Training Session",
+          gradient: ["#A8E6CF", "#88D8C0"],
+          icon: "flash",
+          difficulty: "Beginner",
+        },
+        {
+          id: 3,
+          title: "Full Body",
+          subtitle: "Complete Workout",
+          gradient: ["#FFD93D", "#6BCF7F"],
+          icon: "body",
+          difficulty: "Advanced",
+        },
+      ],
+    },
+    featuredContent: {
+      title: "Complete Core Transformation",
+      subtitle: "Science-Based Training",
+      author: "Dr. Mike Fitness",
+      views: "2.1M",
+      category: "Education",
+      thumbnail: "https://img.youtube.com/vi/2tM1LFFxeKg/hqdefault.jpg",
+      duration: "12 min read",
+    },
+    recentActivities: [
+      {
+        id: 1,
+        label: "Chest + Triceps",
+        duration: "45 mins",
+        icon: "barbell",
+        color: ["#ff7e5f", "#feb47b"],
+        date: "Today",
+        calories: 280,
+      },
+      {
+        id: 2,
+        label: "Morning Cardio",
+        duration: "30 mins",
+        icon: "walk",
+        color: ["#43cea2", "#185a9d"],
+        date: "Yesterday",
+        calories: 220,
+      },
+      {
+        id: 3,
+        label: "Evening Yoga",
+        duration: "20 mins",
+        icon: "leaf-outline",
+        color: ["#a18cd1", "#fbc2eb"],
+        date: "2 days ago",
+        calories: 120,
+      },
+      {
+        id: 4,
+        label: "Cycling Session",
+        duration: "25 mins",
+        icon: "bicycle",
+        color: ["#36d1dc", "#5b86e5"],
+        date: "3 days ago",
+        calories: 310,
+      },
+    ],
+  };
 
-  // Data
-  const workoutData = { value: 75, max: 100 };
-  const calorieData = { value: 1000, max: 3000 };
-  const stepsData = { value: 800, max: 2000 };
+  // Calculate total progress from metrics
+  const calculateTotalProgress = (metrics) => {
+    const workoutPercent = (metrics.workout.value / metrics.workout.max) * 100;
+    const caloriePercent = (metrics.calories.value / metrics.calories.max) * 100;
+    const stepsPercent = (metrics.steps.value / metrics.steps.max) * 100;
+    return (workoutPercent + caloriePercent + stepsPercent) / 3;
+  };
 
-  // Percentages for total progress
-  const workoutPercent = (workoutData.value / workoutData.max) * 100;
-  const caloriePercent = (calorieData.value / calorieData.max) * 100;
-  const waterPercent = (stepsData.value / stepsData.max) * 100;
-  const totalProgress = (workoutPercent + caloriePercent + waterPercent) / 3;
-  const mockActivities = [
-  { icon: "barbell", color: ["#ff7e5f", "#feb47b"], label: "Chest + Triceps", duration: "45 mins" },
-  { icon: "walk", color: ["#43cea2", "#185a9d"], label: "Cardio", duration: "30 mins" },
-  { icon: "leaf-outline", color: ["#a18cd1", "#fbc2eb"], label: "Yoga", duration: "20 mins" },
-  { icon: "bicycle", color: ["#36d1dc", "#5b86e5"], label: "Cycling", duration: "25 mins" },
-];
+  const totalProgress = calculateTotalProgress(homeData.dailyProgress.metrics);
 
   const handlePress = (path) => {
     if (pathname !== path) {
@@ -42,114 +243,38 @@ export default function Home() {
   return (
     <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Back Button */}
-        <View style={styles.backRow}>
-          <Pressable onPress={() => handlePress("/auth/register")}>
-            <Ionicons name="arrow-back" size={28} color="#fff" />
-          </Pressable>
-        </View>
 
         {/* Header */}
         <View style={styles.headerRow}>
-          <Text style={styles.headerText}>Welcome, {userName}! 💪</Text>
-          <View style={{ position: "relative" }}>
-            <Ionicons name="notifications-outline" size={26} color="#fff" />
-            {notifications > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationText}>{notifications}</Text>
-              </View>
-            )}
-          </View>
+          <Text style={styles.headerText}>Welcome, {homeData.user.name}! 💪</Text>
+          <NotificationBar notifications={homeData.user.notifications} />
         </View>
 
         {/* ✅ Daily Progress Card Component */}
         <DailyProgressCard
-          streak={5}
           totalProgress={totalProgress}
-          workoutData={workoutData}
-          calorieData={calorieData}
-          stepsData={stepsData}
+          workoutData={homeData.dailyProgress.metrics.workout}
+          calorieData={homeData.dailyProgress.metrics.calories}
+          stepsData={homeData.dailyProgress.metrics.steps}
+          streakData={homeData.dailyProgress.streak}
         />
-        <QuickStart />
+        
+        <QuickStart categories={homeData.quickStart.categories} />
+        
         <FeaturedVideo
-          title="5 Killer Dumbbell Exercises"
-          description="Quick dumbbell workout you can do anywhere to hit all muscle groups!"
-          thumbnail="https://img.youtube.com/vi/2tM1LFFxeKg/hqdefault.jpg"
+          title={homeData.featuredContent.title}
+          subtitle={homeData.featuredContent.subtitle}
+          author={homeData.featuredContent.author}
+          views={homeData.featuredContent.views}
+          category={homeData.featuredContent.category}
+          thumbnail={homeData.featuredContent.thumbnail}
+          duration={homeData.featuredContent.duration}
         />
 
         {/* Recent Activity */}
-        <RecentActivity activities={mockActivities} />
+        <RecentActivity activities={homeData.recentActivities} />
         {/* Featured Video */}
 
-
-        {/* Horizontal Workout Cards */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.storyScroll}
-        >
-          <WorkoutCard
-            title="Push Day Workout"
-            sub="13 exercises"
-            colors={["#6EE7B7", "#2ecc71", "#027A48"]}
-            rating={4.9}
-          />
-          <WorkoutCard
-            title="Pull Day Workout"
-            sub="10 exercises"
-            colors={["#f6d365", "#fda085"]}
-            rating={4.7}
-          />
-          <WorkoutCard
-            title="Leg Day Workout"
-            sub="12 exercises"
-            colors={["#36d1dc", "#5b86e5"]}
-            rating={4.8}
-          />
-          <WorkoutCard
-            title="Core Workout"
-            sub="8 exercises"
-            colors={["#a18cd1", "#fbc2eb"]}
-            rating={4.6}
-          />
-        </ScrollView>
-
-        {/* Achievements & Leaderboard */}
-        <View style={styles.card}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.cardTitle}>Achievements & Leaderboard</Text>
-            <Ionicons name="trophy-outline" size={24} color="#ffd700" />
-          </View>
-
-          <View style={styles.badgeRow}>
-            {[
-              { icon: "medal", color: "#ffd700", label: "Champion" },
-              { icon: "dumbbell", color: "#ff4d4d", label: "Power Lifter" },
-              { icon: "running", color: "#00bfff", label: "Cardio Pro" },
-            ].map((badge, idx) => (
-              <View key={idx} style={styles.badgeItem}>
-                <FontAwesome5 name={badge.icon} size={28} color={badge.color} />
-                <Text style={styles.badgeLabel}>{badge.label}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.leaderboardContainer}>
-            {[
-              { rank: "🥇", name: "You", points: 850 },
-              { rank: "🥈", name: "Alex", points: 800 },
-              { rank: "🥉", name: "Jamie", points: 750 },
-            ].map((player, idx) => (
-              <View key={idx} style={styles.leaderboardRow}>
-                <Text style={styles.leaderboardRank}>{player.rank}</Text>
-                <Text style={styles.leaderboardName}>{player.name}</Text>
-                <Text style={styles.leaderboardPoints}>
-                  {player.points} pts
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
       </ScrollView>
     </LinearGradient>
   );
@@ -158,7 +283,7 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: {
-    paddingTop: 60,
+    paddingTop: 10,
     paddingBottom: 40,
     paddingHorizontal: 20,
   },

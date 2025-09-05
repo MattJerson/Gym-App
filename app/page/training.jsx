@@ -4,7 +4,7 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  Dimensions,
+  Alert,
 } from "react-native";
 import {
   Ionicons,
@@ -14,214 +14,221 @@ import {
 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { useState, useEffect } from "react";
 import WorkoutProgressBar from "../../components/training/WorkoutProgressBar";
 import ContinueWorkoutCard from "../../components/training/ContinueWorkoutCard";
 import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
+import BrowseWorkouts from "../../components/training/BrowseWorkouts";
+import RecentWorkouts from "../../components/training/RecentWorkouts";
+import NotificationBar from "../../components/NotificationBar";
+import { TrainingDataService } from "../../services/TrainingDataService";
 
 const router = useRouter();
 
 export default function Training() {
+  // 🔄 Data-driven state management
+  const [notifications, setNotifications] = useState(0);
+  const [workoutProgress, setWorkoutProgress] = useState(null);
+  const [continueWorkout, setContinueWorkout] = useState(null);
+  const [todaysWorkout, setTodaysWorkout] = useState(null);
+  const [browseWorkouts, setBrowseWorkouts] = useState([]);
+  const [recentWorkouts, setRecentWorkouts] = useState([]);
+  const [exerciseLibrary, setExerciseLibrary] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 🔄 Load data on component mount - Replace with actual user ID
+  const userId = "user123";
+
+  useEffect(() => {
+    loadTrainingData();
+  }, []);
+
+  const loadTrainingData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Load all training data in parallel
+      const [
+        notificationsData,
+        progressData,
+        continueData,
+        todaysData,
+        browseData,
+        recentData,
+        libraryData
+      ] = await Promise.all([
+        TrainingDataService.fetchUserNotifications(userId),
+        TrainingDataService.fetchWorkoutProgress(userId),
+        TrainingDataService.fetchContinueWorkout(userId),
+        TrainingDataService.fetchTodaysWorkout(userId),
+        TrainingDataService.fetchBrowseWorkouts(userId),
+        TrainingDataService.fetchRecentWorkouts(userId),
+        TrainingDataService.fetchExerciseLibrary(userId)
+      ]);
+
+      // Update state with fetched data
+      setNotifications(notificationsData.count);
+      setWorkoutProgress(progressData);
+      setContinueWorkout(continueData);
+      setTodaysWorkout(todaysData);
+      setBrowseWorkouts(browseData);
+      setRecentWorkouts(recentData);
+      setExerciseLibrary(libraryData);
+      
+    } catch (error) {
+      console.error("Error loading training data:", error);
+      Alert.alert("Error", "Failed to load training data. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleContinueWorkout = async () => {
+    try {
+      if (continueWorkout) {
+        const session = await TrainingDataService.updateWorkoutProgress(
+          userId, 
+          continueWorkout.id, 
+          { progress: continueWorkout.progress }
+        );
+        console.log('Continue workout:', session);
+        // Navigate to workout screen
+        // router.push(`/training/workouts?sessionId=${session.sessionId}`);
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to continue workout. Please try again.");
+    }
+  };
+
+  const handleStartTodaysWorkout = async () => {
+    try {
+      if (todaysWorkout) {
+        const session = await TrainingDataService.startWorkout(userId, todaysWorkout.id);
+        console.log('Start today\'s workout:', session);
+        // Navigate to workout screen
+        // router.push(`/training/workouts?sessionId=${session.sessionId}`);
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to start workout. Please try again.");
+    }
+  };
+
+  const handleSelectWorkout = async (workoutId) => {
+    try {
+      const session = await TrainingDataService.startWorkout(userId, workoutId);
+      console.log("Selected workout ID:", workoutId, "Session:", session);
+      // Navigate to workout screen
+      // router.push(`/training/workouts?sessionId=${session.sessionId}`);
+    } catch (error) {
+      Alert.alert("Error", "Failed to start workout. Please try again.");
+    }
+  };
+
   return (
     <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.backRow}>
-          <Pressable onPress={() => router.push("/auth/register")}>
-            <Ionicons name="arrow-back" size={28} color="#fff" />
-          </Pressable>
-        </View>
-
         {/* Header */}
         <View style={styles.headerRow}>
           <Text style={styles.headerText}>Training</Text>
-          <Ionicons name="notifications-outline" size={24} color="#fff" />
+          <NotificationBar notifications={notifications} />
         </View>
 
-        {/* Progress Card */}
-        <WorkoutProgressBar 
-          workoutData={{ value: 3, max: 5 }}
-          stepsData={{ value: 8500, max: 10000 }}
-          caloriesData={{ value: 420, max: 500 }}
-        />
-
-        <ContinueWorkoutCard 
-          workoutName="My Push Day"
-          workoutType="Custom Workout"
-          completedExercises={4}
-          totalExercises={6}
-          timeElapsed={15}
-          progress={0.67}
-          onContinue={() => console.log('Continue workout')}
-        />
-
-        <TodaysWorkoutCard 
-          workoutName="Pull Day"
-          workoutType="Custom Workout"
-          totalExercises={8}
-          timeElapsed={60}
-          onContinue={() => console.log('Continue workout')}
-        />
-        {/* Quick Start Workout */}
-        <Pressable style={[styles.card, styles.quickStartCard]}>
-          <LinearGradient
-            colors={["#ff6b6b", "#ee5a24"]}
-            style={styles.quickStartGradient}
-          >
-            <View style={styles.quickStartContent}>
-              <MaterialIcons name="play-circle-filled" size={48} color="#fff" />
-              <View style={styles.quickStartText}>
-                <Text style={styles.quickStartTitle}>Quick Start</Text>
-                <Text style={styles.quickStartSubtitle}>
-                  Continue last workout
-                </Text>
-              </View>
-            </View>
-          </LinearGradient>
-        </Pressable>
-
-        {/* Current Program */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Current Program</Text>
-            <Pressable>
-              <Text style={styles.changeText}>Change</Text>
-            </Pressable>
+        {/* Loading State */}
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading training data...</Text>
           </View>
-          <View style={styles.programInfo}>
-            <FontAwesome5 name="dumbbell" size={24} color="#ff6b6b" />
-            <View style={styles.programDetails}>
-              <Text style={styles.programName}>Push Pull Legs</Text>
-              <Text style={styles.programSubtext}>
-                Week 3 of 8 • Intermediate
-              </Text>
-            </View>
-          </View>
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: "37.5%" }]} />
-          </View>
-        </View>
-
-        {/* Today's Workout */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Today's Workout</Text>
-          <View style={styles.todayWorkout}>
-            <MaterialCommunityIcons
-              name="chest-expander"
-              size={32}
-              color="#4ecdc4"
-            />
-            <View style={styles.workoutInfo}>
-              <Text style={styles.workoutName}>Push Day - Chest & Triceps</Text>
-              <Text style={styles.workoutDetails}>7 exercises • ~45 mins</Text>
-            </View>
-            <Pressable style={styles.startBtn}>
-              <Text style={styles.startBtnText}>Start</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Workout Programs */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Workout Programs</Text>
-            <Pressable>
-              <Text style={styles.seeAllText}>See All</Text>
-            </Pressable>
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.programsScroll}
-          >
-            <Pressable style={styles.programCard}>
-              <MaterialIcons name="fitness-center" size={24} color="#ffd93d" />
-              <Text style={styles.programCardTitle}>Strength</Text>
-              <Text style={styles.programCardSub}>Get Power</Text>
-            </Pressable>
-            <Pressable style={styles.programCard}>
-              <MaterialCommunityIcons name="run" size={24} color="#6c5ce7" />
-              <Text style={styles.programCardTitle}>HIIT</Text>
-              <Text style={styles.programCardSub}>Burn Fat</Text>
-            </Pressable>
-            <Pressable style={styles.programCard}>
-              <FontAwesome5 name="heart" size={24} color="#fd79a8" />
-              <Text style={styles.programCardTitle}>Cardio</Text>
-              <Text style={styles.programCardSub}>Endurance</Text>
-            </Pressable>
-            <Pressable style={styles.programCard}>
-              <MaterialCommunityIcons name="yoga" size={24} color="#00b894" />
-              <Text style={styles.programCardTitle}>Stretch</Text>
-              <Text style={styles.programCardSub}>Mobility</Text>
-            </Pressable>
-          </ScrollView>
-        </View>
-
-        {/* Exercise Library */}
-        <Pressable style={styles.card}>
-          <View style={styles.libraryHeader}>
-            <MaterialIcons name="library-books" size={32} color="#74b9ff" />
-            <View style={styles.libraryInfo}>
-              <Text style={styles.cardTitle}>Exercise Library</Text>
-              <Text style={styles.cardText}>
-                500+ exercises with video guides
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#ccc" />
-          </View>
-        </Pressable>
-
-        {/* Quick Actions */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Quick Actions</Text>
-          <View style={styles.quickActions}>
-            <Pressable style={styles.actionBtn} 
-            onPress={() => router.push('/training/workouts')}
-            >
-              <FontAwesome5 name="plus" size={20} color="#fff" />
-              <Text style={styles.actionText}>Custom Workout</Text>
-            </Pressable>
-            <Pressable style={styles.actionBtn}>
-              <MaterialIcons name="history" size={20} color="#fff" />
-              <Text style={styles.actionText}>Workout History</Text>
-            </Pressable>
-            <Pressable style={styles.actionBtn}>
-              <MaterialCommunityIcons
-                name="chart-line"
-                size={20}
-                color="#fff"
+        ) : (
+          <>
+            {/* Progress Card */}
+            {workoutProgress && (
+              <WorkoutProgressBar 
+                workoutData={workoutProgress.workoutData}
+                stepsData={workoutProgress.stepsData}
+                caloriesData={workoutProgress.caloriesData}
               />
-              <Text style={styles.actionText}>Progress</Text>
-            </Pressable>
-          </View>
-        </View>
+            )}
 
-        {/* Recent Workouts */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Recent Workouts</Text>
-          <View style={styles.recentWorkout}>
-            <View style={styles.workoutDot} />
-            <View style={styles.recentInfo}>
-              <Text style={styles.recentName}>Pull Day - Back & Biceps</Text>
-              <Text style={styles.recentDetails}>2 days ago • 42 mins</Text>
-            </View>
-            <Text style={styles.recentWeight}>+5 lbs</Text>
-          </View>
-          <View style={styles.recentWorkout}>
-            <View style={[styles.workoutDot, { backgroundColor: "#ffd93d" }]} />
-            <View style={styles.recentInfo}>
-              <Text style={styles.recentName}>Leg Day - Quads & Glutes</Text>
-              <Text style={styles.recentDetails}>4 days ago • 55 mins</Text>
-            </View>
-            <Text style={styles.recentWeight}>PR!</Text>
-          </View>
-          <View style={styles.recentWorkout}>
-            <View style={[styles.workoutDot, { backgroundColor: "#00b894" }]} />
-            <View style={styles.recentInfo}>
-              <Text style={styles.recentName}>Push Day - Chest & Triceps</Text>
-              <Text style={styles.recentDetails}>6 days ago • 38 mins</Text>
-            </View>
-            <Text style={styles.recentWeight}>Complete</Text>
-          </View>
-        </View>
+            {/* Continue Workout Card - Only show if there's an active workout */}
+            {continueWorkout && (
+              <ContinueWorkoutCard 
+                workoutName={continueWorkout.workoutName}
+                workoutType={continueWorkout.workoutType}
+                completedExercises={continueWorkout.completedExercises}
+                totalExercises={continueWorkout.totalExercises}
+                timeElapsed={continueWorkout.timeElapsed}
+                progress={continueWorkout.progress}
+                onContinue={handleContinueWorkout}
+              />
+            )}
+
+            {/* Today's Workout Card */}
+            {todaysWorkout && (
+              <TodaysWorkoutCard 
+                workoutName={todaysWorkout.workoutName}
+                workoutType={todaysWorkout.workoutType}
+                totalExercises={todaysWorkout.totalExercises}
+                timeElapsed={todaysWorkout.estimatedDuration}
+                onContinue={handleStartTodaysWorkout}
+              />
+            )}
+
+            {/* Browse Workouts */}
+            <BrowseWorkouts 
+              workouts={browseWorkouts}
+              onSelectWorkout={handleSelectWorkout}
+            />
+
+            {/* Create Custom Workout Button */}
+            <Pressable 
+              style={styles.createWorkoutButton} 
+              onPress={() => {
+                console.log('Navigate to create custom workout');
+                router.push('/training/create-workout');
+              }}
+            >
+              <LinearGradient
+                colors={["#1E3A5F", "#4A90E2"]}
+                style={styles.createWorkoutGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.createWorkoutContent}>
+                  <View style={styles.createWorkoutIcon}>
+                    <Ionicons name="add-circle" size={28} color="#fff" />
+                  </View>
+                  <View style={styles.createWorkoutText}>
+                    <Text style={styles.createWorkoutTitle}>Create Custom Workout</Text>
+                    <Text style={styles.createWorkoutSubtitle}>Design your own training routine</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
+                </View>
+              </LinearGradient>
+            </Pressable>
+
+            {/* Exercise Library */}
+            {exerciseLibrary && (
+              <Pressable style={styles.card} onPress={() => {
+                console.log('Navigate to exercise library');
+                // router.push('/training/exercise-library');
+              }}>
+                <View style={styles.libraryHeader}>
+                  <MaterialIcons name="library-books" size={32} color="#1E3A5F" />
+                  <View style={styles.libraryInfo}>
+                    <Text style={styles.cardTitle}>Exercise Library</Text>
+                    <Text style={styles.cardText}>
+                      {exerciseLibrary.totalExercises}+ exercises with video guides
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                </View>
+              </Pressable>
+            )}
+
+            {/* Recent Workouts */}
+            <RecentWorkouts workouts={recentWorkouts} />
+          </>
+        )}
       </ScrollView>
     </LinearGradient>
   );
@@ -230,8 +237,9 @@ export default function Training() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: {
-    marginTop: 60,
-    paddingVertical: 40,
+    // Adjusted top padding to match your original styles more closely
+    paddingTop: 60, 
+    paddingBottom: 40,
     paddingHorizontal: 20,
   },
   headerRow: {
@@ -245,6 +253,17 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 60,
+  },
+  loadingText: {
+    color: "#fff",
+    fontSize: 16,
+    opacity: 0.7,
+  },
   card: {
     padding: 20,
     borderRadius: 16,
@@ -252,7 +271,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   backRow: {
-    top: 0,
+    // Adjusted top position to align with paddingTop of scrollContent
+    top: 60,
     left: 20,
     zIndex: 10,
     position: "absolute",
@@ -266,123 +286,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#ccc",
   },
-  cardHeader: {
-    marginBottom: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  changeText: {
-    fontSize: 14,
-    color: "#ff6b6b",
-    fontWeight: "500",
-  },
-  seeAllText: {
-    fontSize: 14,
-    color: "#74b9ff",
-    fontWeight: "500",
-  },
-  quickStartCard: {
-    padding: 0,
-    overflow: "hidden",
-  },
-  quickStartGradient: {
-    padding: 20,
-    borderRadius: 16,
-  },
-  quickStartContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  quickStartText: {
-    marginLeft: 16,
-  },
-  quickStartTitle: {
-    fontSize: 20,
-    color: "#fff",
-    fontWeight: "bold",
-  },
-  quickStartSubtitle: {
-    fontSize: 14,
-    color: "rgba(255, 255, 255, 0.8)",
-  },
-  programInfo: {
-    marginBottom: 12,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  programDetails: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  programName: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "600",
-  },
-  programSubtext: {
-    fontSize: 14,
-    color: "#ccc",
-  },
-  progressBar: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 2,
-    backgroundColor: "#ff6b6b",
-  },
-  todayWorkout: {
-    marginTop: 12,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  workoutInfo: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  workoutName: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "600",
-  },
-  workoutDetails: {
-    fontSize: 14,
-    color: "#ccc",
-  },
-  startBtn: {
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    backgroundColor: "#4ecdc4",
-  },
-  startBtnText: {
-    color: "#fff",
-    fontWeight: "600",
-  },
-  programsScroll: {
-    marginTop: 12,
-  },
-  programCard: {
-    width: 100,
-    padding: 16,
-    marginRight: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-  },
-  programCardTitle: {
-    fontSize: 14,
-    marginTop: 8,
-    color: "#fff",
-    fontWeight: "600",
-  },
-  programCardSub: {
-    fontSize: 12,
-    color: "#ccc",
-  },
   libraryHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -391,54 +294,40 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 16,
   },
-  quickActions: {
-    marginTop: 12,
+  createWorkoutButton: {
+    marginBottom: 16,
+    borderRadius: 20,
+    overflow: "hidden",
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  createWorkoutGradient: {
+    padding: 20,
+  },
+  createWorkoutContent: {
     flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  actionBtn: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 12,
-    marginHorizontal: 4,
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
-  actionText: {
-    fontSize: 12,
-    marginTop: 8,
+  createWorkoutIcon: {
+    marginRight: 16,
+  },
+  createWorkoutText: {
+    flex: 1,
+  },
+  createWorkoutTitle: {
+    fontSize: 18,
     color: "#fff",
-    textAlign: "center",
+    fontWeight: "bold",
+    marginBottom: 2,
   },
-  recentWorkout: {
-    paddingVertical: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.05)",
-  },
-  workoutDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#4ecdc4",
-  },
-  recentInfo: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  recentName: {
+  createWorkoutSubtitle: {
     fontSize: 14,
-    color: "#fff",
+    color: "rgba(255,255,255,0.8)",
     fontWeight: "500",
   },
-  recentDetails: {
-    fontSize: 12,
-    color: "#ccc",
-  },
-  recentWeight: {
-    fontSize: 12,
-    color: "#4ecdc4",
-    fontWeight: "600",
-  },
+  // Note: Removed unused styles from the static list to keep the code clean
 });
+

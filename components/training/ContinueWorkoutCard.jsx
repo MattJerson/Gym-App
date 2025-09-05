@@ -5,7 +5,7 @@ import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import * as Progress from "react-native-progress";
 
 export default function ContinueWorkoutCard({ 
-  workoutName = "My Push Day",
+  workoutName = "Push Day",
   workoutType = "Custom Workout",
   completedExercises = 4,
   totalExercises = 6,

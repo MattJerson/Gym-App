@@ -11,6 +11,7 @@ import {
 import { useRouter, usePathname } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
+import NotificationBar from "../../components/NotificationBar";
 
 // Mock user data
 const user = {
@@ -28,6 +29,7 @@ const user = {
 export default function Profile() {
   const router = useRouter();
   const pathname = usePathname();
+  const [notifications] = useState(3);
 
   const handlePress = (path) => {
     if (pathname !== path) {
@@ -60,11 +62,10 @@ export default function Profile() {
     <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* Back Button */}
-          <View style={styles.backRow}>
-            <Pressable onPress={() => handlePress("/home")}>
-              <Ionicons name="arrow-back" size={28} color="#fff" />
-            </Pressable>
+          {/* Header */}
+          <View style={styles.headerRow}>
+            <Text style={styles.headerText}>Profile</Text>
+            <NotificationBar notifications={notifications} />
           </View>
 
           {/* Profile Header */}
@@ -117,7 +118,7 @@ export default function Profile() {
 
           {/* Logout Button */}
            <View style={styles.logoutContainer}>
-            <Pressable style={styles.logoutButton} onPress={() => console.log("Logout Pressed")}>
+            <Pressable style={styles.logoutButton} onPress={() => handlePress("/auth/register")}>
                 <Ionicons name="log-out-outline" size={22} color="#e74c3c" />
                 <Text style={styles.logoutText}>Log Out</Text>
             </Pressable>
@@ -134,9 +135,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 40,
+    paddingTop: 60,
     paddingBottom: 40,
     paddingHorizontal: 20,
+  },
+  headerRow: {
+    marginBottom: 24,
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  headerText: {
+    fontSize: 28,
+    color: "#fff",
+    fontWeight: "bold",
   },
   backRow: {
     top: 60,
