@@ -181,7 +181,7 @@ export default function BasicInfo() {
         favoriteFoods: foods,
       };
       console.log("--- Final Form Data ---", finalData);
-      router.replace('../features/bodyfatinfo');
+      router.replace('../features/bodyfatuser');
     } else {
       setStep(prev => prev + 1);
     }
@@ -301,98 +301,45 @@ export default function BasicInfo() {
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidingView}
         >
-          <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-            {/* Header Section */}
-            <Animated.View 
-              style={[
-                styles.headerSection,
-                {
-                  opacity: logoAnim,
-                  transform: [
-                    {
-                      translateY: logoAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [-50, 0],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            >
-              <View style={styles.logoContainer}>
-                <LinearGradient
-                  colors={["#1E3A5F", "#4A90E2"]}
-                  style={styles.logoGradient}
-                >
-                  <MaterialCommunityIcons name="dumbbell" size={40} color="#fff" />
-                </LinearGradient>
-              </View>
-              
-              <Text style={styles.welcomeText}>Complete Your Profile</Text>
-              <Text style={styles.subtitleText}>
-                Step {step + 1} of {formConfig.length} - Help us personalize your fitness journey
-              </Text>
-
-              {/* Step Indicators */}
-              <View style={styles.stepsIndicatorContainer}>
-                {formConfig.map((config, index) => (
-                  <Pressable 
-                    key={index} 
-                    onPress={() => {
-                      setStep(index);
-                      lightHaptic();
-                    }}
-                    style={styles.stepTab}
-                  >
-                    <LinearGradient
-                      colors={
-                        index === step 
-                          ? ["#1E3A5F", "#4A90E2"]
-                          : index < step
-                          ? ["#4CAF50", "#66BB6A"]
-                          : ["rgba(255, 255, 255, 0.1)", "rgba(255, 255, 255, 0.05)"]
-                      }
-                      style={[
-                        styles.stepIndicator,
-                        index === step && styles.activeStepIndicator,
-                        index < step && styles.completedStepIndicator
-                      ]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 1 }}
-                    >
-                      {index < step ? (
-                        <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                      ) : (
-                        <Text style={[
-                          styles.stepNumber, 
-                          index === step && styles.activeStepNumber
-                        ]}>
-                          {index + 1}
-                        </Text>
-                      )}
-                    </LinearGradient>
-                    <Text style={[
-                      styles.stepText, 
-                      index === step && styles.activeStepText,
-                      index < step && styles.completedStepText
-                    ]}>
-                      {config.title}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              {/* Back Button */}
-              {step > 0 && (
+          <Animated.View style={[styles.content, { opacity: fadeAnim }]}>            {/* Header */}
+            <View style={styles.header}>
+              {step > 0 ? (
                 <Pressable 
-                  onPress={handlePreviousStep} 
+                  onPress={() => {
+                    setStep(step - 1);
+                    lightHaptic();
+                  }}
                   style={styles.backButton}
                 >
-                  <Ionicons name="arrow-back" size={24} color="#1E3A5F" />
-                  <Text style={styles.backButtonText}>Previous</Text>
+                  <Ionicons name="arrow-back" size={24} color="#fff" />
+                </Pressable>
+              ) : (
+                <Pressable 
+                  onPress={() => {
+                    router.back();
+                    lightHaptic();
+                  }}
+                  style={styles.backButton}
+                >
+                  <Ionicons name="arrow-back" size={24} color="#fff" />
                 </Pressable>
               )}
-            </Animated.View>
+              <View style={styles.stepIndicator}>
+                <Text style={styles.stepText}>{step + 1}/{formConfig.length}</Text>
+              </View>
+            </View>
+
+            {/* Progress Bar */}
+            <View style={styles.progressBarContainer}>
+              <View style={styles.progressBar}>
+                <Animated.View 
+                  style={[
+                    styles.progressFill,
+                    { width: `${((step + 1) / formConfig.length) * 100}%` }
+                  ]}
+                />
+              </View>
+            </View>
 
             <Animated.ScrollView
               contentContainerStyle={styles.scrollContent}
@@ -667,111 +614,62 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 20,
-  },
-  content: {
+  },  content: {
     width: "100%",
     alignItems: "center",
     maxWidth: 400,
     flex: 1,
-  },
-  headerSection: {
+    paddingTop: 20,
+  },  header: {
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
-    paddingTop: 40,
+    justifyContent: "space-between",
+    paddingVertical: 20,
+    paddingTop: Platform.OS === "ios" ? 25 : 35,
+    marginTop: 15,
     width: "100%",
   },
-  logoContainer: {
-    marginBottom: 20,
-  },
-  logoGradient: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#1E3A5F",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
   },
-  welcomeText: {
-    fontSize: 28,
-    fontWeight: "bold",
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
     color: "#fff",
-    marginBottom: 8,
+    letterSpacing: 0.5,
     textAlign: "center",
-  },
-  subtitleText: {
-    fontSize: 16,
-    color: "#999",
-    textAlign: "center",
-    lineHeight: 22,
-    maxWidth: 320,
-    marginBottom: 24,
-  },
-  stepsIndicatorContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 20,
-    marginBottom: 20,
-  },
-  stepTab: {
-    alignItems: 'center',
-    gap: 8,
+    flex: 1,
   },
   stepIndicator: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: "transparent",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  stepNumber: {
-    fontSize: 14,
-    color: "#888",
-    fontWeight: "bold",
-  },
-  activeStepNumber: {
-    color: "#fff",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 15,
   },
   stepText: {
     fontSize: 12,
-    color: "#888",
-    fontWeight: '600',
-    textAlign: 'center',
-    maxWidth: 60,
-  },
-  activeStepText: {
-    color: "#1E3A5F",
-    fontWeight: '700',
-  },
-  completedStepText: {
-    color: "#4CAF50",
-    fontWeight: '700',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    marginBottom: 20,
-    gap: 8,
-  },
-  backButtonText: {
-    color: "#1E3A5F",
-    fontSize: 16,
+    color: "#fff",
     fontWeight: "600",
+  },
+  progressBarContainer: {
+    width: "100%",
+    marginBottom: 30,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#4A9EFF",
+    borderRadius: 2,
   },
   formScrollView: {
     flex: 1,

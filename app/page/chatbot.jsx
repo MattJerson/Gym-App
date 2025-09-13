@@ -24,7 +24,7 @@ export default function Chatbot() {
   const [messages, setMessages] = useState([
     {
       id: 1,
-      text: "Hi! I'm GymBot, your fitness assistant. How can I help you today?",
+      text: "Hello! I'm your virtual fitness assistant. I can help you with workouts, nutrition, and training questions. What would you like to know?",
       isBot: true,
       timestamp: "2:30 PM",
     },
@@ -49,7 +49,7 @@ export default function Chatbot() {
       setTimeout(() => {
         const botResponse = {
           id: messages.length + 2,
-          text: "Thanks for your message! I'm here to help with workouts, nutrition, and fitness advice.",
+          text: "Thank you for your question. I'm here to help with your fitness journey. Let me provide you with some guidance on that topic.",
           isBot: true,
           timestamp: new Date().toLocaleTimeString([], {
             hour: "2-digit",
@@ -60,9 +60,8 @@ export default function Chatbot() {
       }, 1000);
     }
   };
-
   return (
-    <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
+    <View style={styles.container}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -73,13 +72,12 @@ export default function Chatbot() {
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </Pressable>
           <View style={styles.headerCenter}>
-            <MaterialCommunityIcons name="robot" size={32} color="#ff4d4d" />
+            <View style={styles.botAvatar}>
+              <MaterialCommunityIcons name="robot-outline" size={24} color="#fff" />
+            </View>
             <View style={styles.headerText}>
-              <Text style={styles.headerTitle}>GymBot</Text>
-              <View style={styles.statusRow}>
-                <View style={styles.onlineIndicator} />
-                <Text style={styles.statusText}>Online</Text>
-              </View>
+              <Text style={styles.headerTitle}>Virtual Assistant</Text>
+              <Text style={styles.statusText}>Online</Text>
             </View>
           </View>
         </View>
@@ -98,12 +96,8 @@ export default function Chatbot() {
               ]}
             >
               {msg.isBot && (
-                <View style={styles.botAvatar}>
-                  <MaterialCommunityIcons
-                    name="robot"
-                    size={20}
-                    color="#ff4d4d"
-                  />
+                <View style={styles.messageAvatar}>
+                  <MaterialCommunityIcons name="robot-outline" size={16} color="#5b86e5" />
                 </View>
               )}
               <View
@@ -130,8 +124,8 @@ export default function Chatbot() {
                 </Text>
               </View>
               {!msg.isBot && (
-                <View style={styles.userAvatar}>
-                  <FontAwesome5 name="user" size={16} color="#fff" />
+                <View style={styles.messageAvatar}>
+                  <MaterialCommunityIcons name="account" size={16} color="#5b86e5" />
                 </View>
               )}
             </View>
@@ -142,9 +136,8 @@ export default function Chatbot() {
         <View style={styles.inputContainer}>
           <View style={styles.inputWrapper}>
             <TextInput
-              style={styles.textInput}
-              placeholder="Ask me about workouts, nutrition, or fitness..."
-              placeholderTextColor="#888"
+              style={styles.textInput}              placeholder="Type your fitness question..."
+              placeholderTextColor="#aaa"
               value={message}
               onChangeText={setMessage}
               multiline
@@ -152,34 +145,40 @@ export default function Chatbot() {
             />
             <Pressable
               onPress={sendMessage}
-              style={[styles.sendButton, { opacity: message.trim() ? 1 : 0.5 }]}
+              style={[
+                styles.sendButton,
+                { opacity: message.trim() ? 1 : 0.5 }
+              ]}
               disabled={!message.trim()}
             >
-              <Ionicons name="send" size={20} color="#fff" />
+              <Ionicons name="send" size={18} color="#fff" />
             </Pressable>
           </View>
         </View>
       </KeyboardAvoidingView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#1a1a1a",
   },
   header: {
     paddingTop: 50,
     paddingBottom: 15,
     flexDirection: "row",
     alignItems: "center",
-    borderBottomWidth: 1,
     paddingHorizontal: 20,
-    justifyContent: "space-between",
+    backgroundColor: "#5b86e5",
+    borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   backButton: {
-    padding: 5,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
   },
   headerCenter: {
     flex: 1,
@@ -187,40 +186,34 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
+  botAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
   headerText: {
-    marginLeft: 10,
+    marginLeft: 12,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 18,
     color: "#fff",
-    fontWeight: "bold",
-  },
-  statusRow: {
-    marginTop: 2,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  onlineIndicator: {
-    width: 8,
-    height: 8,
-    marginRight: 5,
-    borderRadius: 4,
-    backgroundColor: "#4CAF50",
+    fontWeight: "600",
   },
   statusText: {
     fontSize: 12,
-    color: "#4CAF50",
-  },
-  headerAction: {
-    padding: 5,
-  },
-  chatContainer: {
+    color: "rgba(255, 255, 255, 0.8)",
+    marginTop: 2,
+  },  chatContainer: {
     flex: 1,
+    backgroundColor: "#1a1a1a",
     paddingVertical: 10,
     paddingHorizontal: 15,
   },
   messageContainer: {
-    marginVertical: 5,
+    marginVertical: 8,
     flexDirection: "row",
     alignItems: "flex-end",
   },
@@ -230,43 +223,34 @@ const styles = StyleSheet.create({
   userMessage: {
     justifyContent: "flex-end",
   },
-  botAvatar: {
-    width: 32,
-    height: 32,
-    marginRight: 8,
-    borderRadius: 16,
-    marginBottom: 15,
-    alignItems: "center",
-    backgroundColor: "#333",
-    justifyContent: "center",
-  },
-  userAvatar: {
-    width: 32,
-    height: 32,
-    marginLeft: 8,
-    borderRadius: 16,
-    marginBottom: 15,
+  messageAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#ff4d4d",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    marginBottom: 4,
   },
   messageBubble: {
     maxWidth: "75%",
-    borderRadius: 20,
+    borderRadius: 18,
     marginVertical: 2,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-  },
-  botBubble: {
-    borderBottomLeftRadius: 5,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginHorizontal: 8,
+  },  botBubble: {
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderBottomLeftRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   userBubble: {
-    borderBottomRightRadius: 5,
-    backgroundColor: "#ff4d4d",
+    backgroundColor: "#5b86e5",
+    borderBottomRightRadius: 6,
   },
   messageText: {
-    fontSize: 16,
+    fontSize: 15,
     lineHeight: 20,
   },
   botText: {
@@ -277,43 +261,44 @@ const styles = StyleSheet.create({
   },
   timestamp: {
     fontSize: 11,
-    marginTop: 5,
-  },
-  botTimestamp: {
+    marginTop: 4,
+  },  botTimestamp: {
     color: "#aaa",
   },
   userTimestamp: {
-    color: "rgba(255, 255, 255, 0.8)",
+    color: "rgba(255, 255, 255, 0.7)",
   },
   inputContainer: {
     borderTopWidth: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
     borderTopColor: "rgba(255, 255, 255, 0.1)",
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    backgroundColor: "#1a1a1a",
   },
   inputWrapper: {
-    borderRadius: 25,
+    borderRadius: 24,
     paddingVertical: 8,
     flexDirection: "row",
-    paddingHorizontal: 15,
+    paddingHorizontal: 16,
     alignItems: "flex-end",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   textInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: "#fff",
     maxHeight: 100,
-    paddingRight: 10,
+    paddingRight: 12,
     paddingVertical: 8,
   },
   sendButton: {
-    width: 36,
-    height: 36,
-    marginLeft: 5,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#ff4d4d",
+    backgroundColor: "#5b86e5",
   },
 });

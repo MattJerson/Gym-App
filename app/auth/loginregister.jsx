@@ -124,7 +124,7 @@ export default function Register() {
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         console.log("Registering with:", fullName, email, password);
-        router.push("/features/testregister");
+        router.push("/features/registrationprocess");
       } else {
         // Login validation - Keep validation for login
         if (!email.trim()) {
@@ -441,7 +441,7 @@ export default function Register() {
               {!isRegistering && (
                 <Pressable
                   style={styles.forgotPasswordContainer}
-                  onPress={() => router.push("/auth/testforgotpassword")}
+                  onPress={() => router.push("/auth/passwordresetprocess")}
                 >
                   <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
                 </Pressable>
