@@ -1,42 +1,62 @@
 // components/home/RecentActivity.jsx
 import { View, Text, StyleSheet, Pressable } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 
 export default function RecentActivity({ activities = [] }) {
+  const router = useRouter();
+
+  const handleViewAll = () => {
+    router.push("/activity");
+  };
+
+  const getActivityHighlight = (activity) => {
+    // Show calories for nutrition-related activities, duration for workouts
+    if (activity.type === 'nutrition' || activity.calories) {
+      return `${activity.calories} cal`;
+    } else if (activity.duration) {
+      return activity.duration;
+    }
+    return activity.calories ? `${activity.calories} cal` : '';
+  };
+
   return (
     <View style={styles.card}>
       {/* Header */}
       <View style={styles.headerRow}>
         <Text style={styles.title}>Recent Activity</Text>
-        <Ionicons name="time-outline" size={20} color="#fff" />
+        <Ionicons name="time-outline" size={18} color="#fff" />
       </View>
 
       {/* Dynamic list of activities */}
       {activities.slice(0, 4).map((item, idx) => (
         <Pressable key={idx} style={styles.item}>
-          <LinearGradient colors={item.color} style={styles.iconContainer}>
-            <Ionicons name={item.icon} size={16} color="#fff" />
-          </LinearGradient>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>{item.label}</Text>
-            <Text style={styles.sub}>{item.duration}</Text>
+          <View style={styles.activityInfo}>
+            <Text style={styles.name}>{item.label}</Text>
+            <Text style={styles.details}>{item.date} • {item.duration}</Text>
           </View>
+
+          <Text style={styles.highlight}>
+            {getActivityHighlight(item)}
+          </Text>
         </Pressable>
       ))}
 
-      {/* Subtle footer */}
-      <Text style={styles.footer}>View full history →</Text>
+      {/* Subtle footer with navigation */}
+      <Pressable onPress={handleViewAll}>
+        <Text style={styles.footer}>View full history →</Text>
+      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    padding: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderRadius: 22,
     marginBottom: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   headerRow: {
     marginBottom: 10,
@@ -45,38 +65,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   title: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 18,
+    fontWeight: "600",
     color: "#fff",
   },
   item: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    borderBottomColor: "rgba(255, 255, 255, 0.06)",
   },
-  iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    marginRight: 10,
-    justifyContent: "center",
-    alignItems: "center",
+  activityInfo: {
+    flex: 1,
   },
-  label: {
+  name: {
     fontSize: 14,
     color: "#fff",
     fontWeight: "500",
+    marginBottom: 2,
   },
-  sub: {
-    fontSize: 11,
+  details: {
+    fontSize: 12,
     color: "#aaa",
   },
-  footer: {
+  highlight: {
     fontSize: 12,
-    marginTop: 10,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  footer: {
+    fontSize: 13,
+    marginTop: 12,
     textAlign: "right",
-    color: "#bbb",
+    color: "#74b9ff",
+    fontWeight: "500",
   },
 });

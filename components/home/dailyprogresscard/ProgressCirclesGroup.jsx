@@ -12,21 +12,24 @@ export default function ProgressCirclesGroup({
       label: "Workout",
       colors: ["#FF3B30", "#FF6B6B"],
       data: workoutData,
-      icon: () => <Ionicons name="barbell" size={28} color="#fff" />,
+      // The icon function now accepts a color argument
+      icon: (color) => <Ionicons name="barbell" size={28} color={color} />,
       unit: "Done",
     },
     {
       label: "Steps",
       colors: ["#34C759", "#00E676"],
       data: stepsData,
-      icon: () => <FontAwesome5 name="walking" size={28} color="#fff" />,
+      // The icon function now accepts a color argument
+      icon: (color) => <FontAwesome5 name="walking" size={28} color={color} />,
       unit: "steps",
     },
     {
       label: "Cal",
       colors: ["#FF9500", "#FFCC00"],
       data: calorieData,
-      icon: () => <Ionicons name="flame" size={28} color="#fff" />,
+      // The icon function now accepts a color argument
+      icon: (color) => <Ionicons name="flame" size={28} color={color} />,
       unit: "kcal",
     },
   ];

@@ -1,125 +1,94 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 
-export default function QuickStart({ categories = [] }) {
-  // Default categories if none provided
-  const defaultCategories = [
+export default function QuickStart() {
+  const router = useRouter();
+
+  const quickActions = [
     {
-      id: 1,
-      title: "Push Day",
-      subtitle: "Chest, Shoulders, Triceps",
-      gradient: ["#FF6B6B", "#4ECDC4"],
+      title: "Start",
+      subtitle: "Workout",
       icon: "fitness",
-      difficulty: "Intermediate",
+      iconLibrary: "Ionicons",
+      route: "/training/workouts",
+      iconColor: "#b9e3e6",
     },
     {
-      id: 2,
-      title: "Cardio Blast", 
-      subtitle: "HIIT Training Session",
-      gradient: ["#A8E6CF", "#88D8C0"],
-      icon: "flash",
-      difficulty: "Beginner",
+      title: "Log Meal",
+      subtitle: "Meal Plan",
+      icon: "food-outline",
+      iconLibrary: "Ionicons",
+      route: "/meal-plan/add-food",
+      iconColor: "#00c6ac",
     },
     {
-      id: 3,
-      title: "Full Body",
-      subtitle: "Complete Workout",
-      gradient: ["#FFD93D", "#6BCF7F"],
-      icon: "body",
-      difficulty: "Advanced",
+      title: "Chat",
+      subtitle: "Community",
+      icon: "chat-outline",
+      iconLibrary: "MaterialCommunityIcons",
+      route: "/page/communitychat",
+      iconColor: "#b9e3e6",
     },
   ];
 
-  const workoutCategories = categories.length > 0 ? categories : defaultCategories;
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const handlePress = (route) => {
+    router.push(route);
+  };
 
-  useEffect(() => {
-    // Set random category as today's recommendation
-    setSelectedCategory(workoutCategories[Math.floor(Math.random() * workoutCategories.length)]);
-  }, [workoutCategories]);
+  const renderIcon = (action) => {
+    if (action.iconLibrary === "Ionicons") {
+      return (
+        <Ionicons
+          name={action.icon}
+          size={20}
+          color={action.iconColor}
+        />
+      );
+    } else {
+      return (
+        <MaterialCommunityIcons
+          name={action.icon}
+          size={20}
+          color={action.iconColor}
+        />
+      );
+    }
+  };
 
   return (
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>Quick Start</Text>
       
       <View style={styles.row}>
-        {/* Start Workout */}
-        <Pressable 
-          style={styles.cardContainer} 
-          onPress={() => {}}
-          android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
-        >
-          <LinearGradient
-            colors={selectedCategory ? selectedCategory.gradient : ["#667eea", "#764ba2"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.gradient}
+        {quickActions.map((action, index) => (
+          <Pressable 
+            key={index}
+            style={styles.cardContainer} 
+            onPress={() => handlePress(action.route)}
+            android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
           >
-            <View style={styles.cardContent}>
-              <View style={styles.textSection}>
-                <Text style={styles.categoryLabel}>START</Text>
-                <Text style={styles.difficultyBadge}>{selectedCategory?.difficulty || "Intermediate"}</Text>
+            <LinearGradient
+              colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.03)"]}
+              style={styles.gradientCard}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.cardContent}>
+                <View style={styles.iconContainer}>
+                  {renderIcon(action)}
+                </View>
+                
+                <View style={styles.textSection}>
+                  <Text style={styles.title}>{action.title}</Text>
+                  <Text style={styles.subtitle}>{action.subtitle}</Text>
+                </View>
               </View>
-              
-              {/* Background Icon */}
-              <View style={styles.backgroundIconContainer}>
-                <Ionicons
-                  name={selectedCategory?.icon || "fitness"}
-                  size={80}
-                  color="rgba(255,255,255,0.15)"
-                />
-              </View>
-              
-              {/* Bottom Text */}
-              <View style={styles.bottomTextSection}>
-                <Text style={styles.title}>{selectedCategory?.title || "Workout"}</Text>
-                <Text style={styles.subtitle}>{selectedCategory?.subtitle || "Loading..."}</Text>
-              </View>
-            </View>
-            
-            <View style={styles.bottomAccent} />
-          </LinearGradient>
-        </Pressable>
-
-        {/* Browse Categories */}
-        <Pressable 
-          style={styles.cardContainer} 
-          onPress={() => {}}
-          android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
-        >
-          <LinearGradient
-            colors={["#a8edea", "#fed6e3"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.gradient}
-          >
-            <View style={styles.cardContent}>
-              <View style={styles.textSection}>
-                <Text style={styles.categoryLabel}>BROWSE</Text>
-                <Text style={styles.difficultyBadge}>{workoutCategories.length} Options</Text>
-              </View>
-              
-              {/* Background Icon */}
-              <View style={styles.backgroundIconContainer}>
-                <Ionicons
-                  name="library"
-                  size={80}
-                  color="rgba(255,255,255,0.15)"
-                />
-              </View>
-              
-              {/* Bottom Text */}
-              <View style={styles.bottomTextSection}>
-                <Text style={styles.title}>All Workouts</Text>
-                <Text style={styles.subtitle}>Browse Categories</Text>
-              </View>
-            </View>
-            
-            <View style={styles.bottomAccent} />
-          </LinearGradient>
-        </Pressable>
+            </LinearGradient>
+          </Pressable>
+        ))}
       </View>
     </View>
   );
@@ -138,87 +107,54 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
-    gap: 16,
+    gap: 12,
   },
   cardContainer: {
     flex: 1,
-    borderRadius: 20,
+    borderRadius: 16,
     overflow: "hidden",
-    elevation: 8,
+    elevation: 4,
     shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
-  gradient: {
+  gradientCard: {
     flex: 1,
-    minHeight: 140,
-    position: "relative",
+    minHeight: 100,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
   cardContent: {
     flex: 1,
-    padding: 20,
-    position: "relative",
+    padding: 16,
     justifyContent: "space-between",
-  },
-  textSection: {
-    alignItems: "flex-start",
-  },
-  categoryLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "rgba(255,255,255,0.8)",
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  difficultyBadge: {
-    fontSize: 10,
-    color: "rgba(255,255,255,0.8)",
-    fontWeight: "600",
-    backgroundColor: "rgba(255,255,255,0.15)",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginTop: 2,
-  },
-  backgroundIconContainer: {
-    position: "absolute",
-    top: "50%",
-    right: 20,
-    transform: [{ translateY: -40 }],
-    zIndex: 1,
-  },
-  bottomTextSection: {
-    alignItems: "flex-start",
-    zIndex: 2,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#fff",
-    marginBottom: 4,
-    textShadowColor: "rgba(0, 0, 0, 0.2)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "rgba(255,255,255,0.9)",
-    fontWeight: "500",
+    position: "relative",
   },
   iconContainer: {
-    backgroundColor: "rgba(255,255,255,0.15)",
-    borderRadius: 16,
-    padding: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 12,
   },
-  bottomAccent: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 4,
-    backgroundColor: "rgba(255,255,255,0.2)",
+  textSection: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#fff",
+    marginBottom: 2,
+    letterSpacing: 0.5,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.85)",
+    fontWeight: "500",
   },
 });

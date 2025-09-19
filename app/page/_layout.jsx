@@ -7,8 +7,9 @@ export default function PageLayout() {
   const router = useRouter();
   const segments = useSegments(); // gives current route segments
 
-  // detect if current route is "chatbot"
+  // detect if current route is "chatbot" or "communitychat"
   const isChatbot = segments.includes("chatbot");
+  const isCommunityChat = segments.includes("communitychat");
 
   return (
     <View style={{ flex: 1 }}>
@@ -107,8 +108,14 @@ export default function PageLayout() {
             href: null,
           }}
         />
+        <Tabs.Screen
+          name="communitychat"
+          options={{
+            href: null,
+          }}
+        />
       </Tabs>
-      {!isChatbot && (
+      {!isChatbot && !isCommunityChat && (
         <TouchableOpacity
           style={styles.fab}
           activeOpacity={0.8}

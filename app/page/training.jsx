@@ -22,6 +22,7 @@ import BrowseWorkouts from "../../components/training/BrowseWorkouts";
 import RecentWorkouts from "../../components/training/RecentWorkouts";
 import NotificationBar from "../../components/NotificationBar";
 import { TrainingDataService } from "../../services/TrainingDataService";
+import { WorkoutSessionService } from "../../services/WorkoutSessionService";
 
 const router = useRouter();
 
@@ -86,14 +87,19 @@ export default function Training() {
   const handleContinueWorkout = async () => {
     try {
       if (continueWorkout) {
-        const session = await TrainingDataService.updateWorkoutProgress(
-          userId, 
-          continueWorkout.id, 
-          { progress: continueWorkout.progress }
-        );
-        console.log('Continue workout:', session);
-        // Navigate to workout screen
-        // router.push(`/training/workouts?sessionId=${session.sessionId}`);
+        // Check if there's an existing session in progress
+        const existingSession = await WorkoutSessionService.getCurrentSession();
+        if (existingSession) {
+          router.push(`/workout/${existingSession.workoutId}`);
+        } else {
+          const session = await TrainingDataService.updateWorkoutProgress(
+            userId, 
+            continueWorkout.id, 
+            { progress: continueWorkout.progress }
+          );
+          console.log('Continue workout:', session);
+          router.push(`/workout/${continueWorkout.id}`);
+        }
       }
     } catch (error) {
       Alert.alert("Error", "Failed to continue workout. Please try again.");
@@ -103,10 +109,8 @@ export default function Training() {
   const handleStartTodaysWorkout = async () => {
     try {
       if (todaysWorkout) {
-        const session = await TrainingDataService.startWorkout(userId, todaysWorkout.id);
-        console.log('Start today\'s workout:', session);
-        // Navigate to workout screen
-        // router.push(`/training/workouts?sessionId=${session.sessionId}`);
+        // Use our workout session service to start the workout
+        router.push(`/workout/${todaysWorkout.id}`);
       }
     } catch (error) {
       Alert.alert("Error", "Failed to start workout. Please try again.");
@@ -115,10 +119,8 @@ export default function Training() {
 
   const handleSelectWorkout = async (workoutId) => {
     try {
-      const session = await TrainingDataService.startWorkout(userId, workoutId);
-      console.log("Selected workout ID:", workoutId, "Session:", session);
-      // Navigate to workout screen
-      // router.push(`/training/workouts?sessionId=${session.sessionId}`);
+      // Navigate to workout session page
+      router.push(`/workout/${workoutId}`);
     } catch (error) {
       Alert.alert("Error", "Failed to start workout. Please try again.");
     }

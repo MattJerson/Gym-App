@@ -2,6 +2,7 @@ import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 
 // MOCK DATA: In your app, you'll pass this data in as a prop.
 const MOCK_WORKOUTS = [
@@ -38,6 +39,8 @@ const MOCK_WORKOUTS = [
 ];
 
 export default function RecentWorkouts({ workouts = MOCK_WORKOUTS }) {
+  const router = useRouter();
+
   // Transform new data structure to match component expectations
   const transformWorkout = (workout) => {
     if (workout.title) {
@@ -61,6 +64,10 @@ export default function RecentWorkouts({ workouts = MOCK_WORKOUTS }) {
   };
 
   const displayWorkouts = workouts.map(transformWorkout);
+
+  const handleViewAll = () => {
+    router.push("/activity?filter=workout");
+  };
 
   return (
     <View style={styles.card}>
@@ -88,8 +95,8 @@ export default function RecentWorkouts({ workouts = MOCK_WORKOUTS }) {
         </Pressable>
       ))}
 
-      {/* Subtle footer */}
-      <Pressable>
+      {/* Subtle footer with navigation */}
+      <Pressable onPress={handleViewAll}>
         <Text style={styles.footer}>View full history →</Text>
       </Pressable>
     </View>

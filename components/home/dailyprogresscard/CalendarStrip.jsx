@@ -11,9 +11,6 @@ export default function CalendarStrip() {
 
   return (
     <View style={styles.calendarWrapper}>
-      {/* Month label */}
-      <Text style={styles.monthText}>{today.format("MMMM YYYY")}</Text>
-
       <View style={styles.calendarContainer}>
         {daysAround.map((day, idx) => {
           const isToday = day.isSame(today, "day");
@@ -61,19 +58,11 @@ export default function CalendarStrip() {
 const styles = StyleSheet.create({
   calendarWrapper: {
     marginBottom: 10,
-    padding: 10,
+    padding: 15,
     backgroundColor: "rgba(255,255,255,0.05)",
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
-  },
-  monthText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 16,
-    textAlign: "center",
-    opacity: 0.8,
   },
   calendarContainer: {
     flexDirection: "row",

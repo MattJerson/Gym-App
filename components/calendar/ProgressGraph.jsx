@@ -1,137 +1,78 @@
-// components/calendar/ProgressGraph.jsx
-import React, { useState, useMemo } from "react";
-import { View, Text, StyleSheet, Dimensions, Pressable } from "react-native";
+import React, { useMemo } from "react";
+import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { LineChart } from "react-native-chart-kit";
 
 const screenWidth = Dimensions.get("window").width;
 
 export default function ProgressGraph({ chart }) {
-  const [range, setRange] = useState("1M");
-
-  // format data similar to StepsBarGraph
+  // Data is filtered for the 7-day view
   const filteredData = useMemo(() => {
     if (!chart?.labels || !chart?.values) return { labels: [], values: [] };
+    return {
+      labels: chart.labels.slice(-7).map(label => label.substring(3, 5)), // Show only day, e.g., "Mon"
+      values: chart.values.slice(-7),
+    };
+  }, [chart]);
+  
+  // Calculate weekly average to display in the header
+  const weeklyAverage = useMemo(() => {
+     if (!filteredData.values || filteredData.values.length === 0) return 0;
+     const total = filteredData.values.reduce((sum, value) => sum + value, 0);
+     return Math.round(total / filteredData.values.length);
+  }, [filteredData.values]);
 
-    switch (range) {
-      case "1W":
-        return {
-          labels: chart.labels.slice(-7),
-          values: chart.values.slice(-7),
-        };
-
-      case "1M": {
-        const weeks = [];
-        for (let i = 0; i < chart.values.length; i += 7) {
-          weeks.push(chart.values.slice(i, i + 7));
-        }
-        return {
-          labels: weeks.map((_, idx) => `W${idx + 1}`),
-          values: weeks.map(
-            (w) => Math.round(w.reduce((a, b) => a + b, 0) / w.length)
-          ),
-        };
-      }
-
-      case "1Y": {
-        const allMonths = {
-          "01": [], "02": [], "03": [], "04": [], "05": [], "06": [],
-          "07": [], "08": [], "09": [], "10": [], "11": [], "12": []
-        };
-        chart.labels.forEach((date, idx) => {
-          const month = date.split("/")[0].padStart(2, "0");
-          if (allMonths[month]) {
-            allMonths[month].push(chart.values[idx]);
-          }
-        });
-        const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-        return {
-          labels: monthNames,
-          values: Object.values(allMonths).map((vals) =>
-            vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0
-          ),
-        };
-      }
-
-      default:
-        return chart;
-    }
-  }, [range, chart]);
-
-  const chartConfig = {
-    decimalPlaces: Math.max(...(filteredData.values || [0])) > 1000 ? 0 : 1,
-    color: (opacity = 1) => `rgba(52, 211, 153, ${opacity})`,
-    labelColor: () => "#bbb",
+  const aestheticChartConfig = {
+    backgroundGradientFrom: "#1C1C1E",
+    backgroundGradientTo: "#1C1C1E",
+    decimalPlaces: 0,
+    color: (opacity = 1) => `rgba(0, 220, 180, ${opacity})`, // Vibrant Teal
+    labelColor: (opacity = 1) => `rgba(235, 235, 245, ${opacity * 0.6})`,
     propsForDots: {
-      r: "4",
+      r: "5",
       strokeWidth: "2",
-      stroke: "#fff",
+      stroke: "#1C1C1E", // Background color for a "punched-out" look
+      fill: "rgb(0, 220, 180)",
     },
     propsForBackgroundLines: {
-      strokeDasharray: "",
-      stroke: "rgba(255,255,255,0.1)",
+      stroke: "rgba(255, 255, 255, 0.08)",
+      strokeDasharray: "0",
     },
     segments: 4,
   };
 
-  const formatLabel = (value, isHighValue) => {
-    if (isHighValue) {
-      if (value >= 1000) {
-        return `${(value / 1000).toFixed(1)}k`;
-      }
-      return Math.round(value);
+  const formatLabel = (value) => {
+    const numValue = parseFloat(value);
+    if (numValue >= 1000) {
+      return `${(numValue / 1000).toFixed(1)}k`;
     }
-    return value.toFixed(1);
+    return Math.round(numValue);
   };
 
   return (
     <View style={styles.card}>
-      {/* Header */}
+      {/* Header with Title and Weekly Average */}
       <View style={styles.headerRow}>
         <Text style={styles.title}>{chart.title}</Text>
-        <View style={styles.rangeButtons}>
-          {["1W", "1M", "1Y"].map((r) => (
-            <Pressable
-              key={r}
-              style={[styles.rangeButton, range === r && styles.rangeButtonActive]}
-              onPress={() => setRange(r)}
-            >
-              <Text
-                style={[
-                  styles.rangeText,
-                  range === r && styles.rangeTextActive,
-                ]}
-              >
-                {r}
-              </Text>
-            </Pressable>
-          ))}
+        <View>
+          <Text style={styles.averageValue}>{formatLabel(weeklyAverage)}</Text>
+          <Text style={styles.averageLabel}>Weekly Avg.</Text>
         </View>
       </View>
 
-      {/* Chart */}
+      {/* Chart with Gradient Fill */}
       <LineChart
         data={{
           labels: filteredData.labels,
-          datasets: [
-            {
-              data: filteredData.values,
-              color:
-                chart.color ||
-                ((opacity = 1) => `rgba(52, 211, 153, ${opacity})`),
-              strokeWidth: 3,
-            },
-          ],
+          datasets: [{ data: filteredData.values }],
         }}
-        width={screenWidth - 70}
-        height={230}
-        chartConfig={chartConfig}
+        width={screenWidth - 48} // Adjusted for new padding
+        height={220}
+        chartConfig={aestheticChartConfig}
         bezier
         withInnerLines={true}
-        withHorizontalLabels={true}
-        style={{ padding: 10 }}
-        formatYLabel={(yValue) =>
-          formatLabel(parseFloat(yValue), Math.max(...filteredData.values) > 1000)
-        }
+        withShadow={true} // This adds the nice gradient fill under the line
+        style={styles.chartStyle}
+        formatYLabel={formatLabel}
         fromZero={false}
       />
     </View>
@@ -140,41 +81,42 @@ export default function ProgressGraph({ chart }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "black",
-    borderRadius: 20,
-    padding: 15,
+    backgroundColor: "#1C1C1E", // Softer dark color
+    borderRadius: 24,
+    paddingVertical: 20,
+    paddingHorizontal: 10,
     marginBottom: 20,
+    // Adding a subtle shadow for depth
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 8,
   },
   headerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 15,
+    paddingHorizontal: 14,
   },
   title: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#EFEFEF",
+  },
+  averageValue: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#fff",
+    color: "#FFFFFF",
+    textAlign: 'right',
   },
-  rangeButtons: {
-    flexDirection: "row",
-    gap: 10,
+  averageLabel: {
+    fontSize: 12,
+    color: "rgba(235, 235, 245, 0.6)",
+    textAlign: 'right',
   },
-  rangeButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.1)",
-  },
-  rangeButtonActive: {
-    backgroundColor: "#34d399",
-  },
-  rangeText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#ccc",
-  },
-  rangeTextActive: {
-    color: "#fff",
+  chartStyle: {
+    borderRadius: 16,
   },
 });

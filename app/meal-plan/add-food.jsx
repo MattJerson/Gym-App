@@ -3,7 +3,6 @@ import {
   Text,
   Pressable,
   StyleSheet,
-  ScrollView,
   TextInput,
   Modal,
   Alert,
@@ -27,16 +26,12 @@ export default function AddFood() {
   
   // 🔄 State management
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("all");
   const [foods, setFoods] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [recentFoods, setRecentFoods] = useState([]);
-  const [favoriteFoods, setFavoriteFoods] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
   const [selectedFood, setSelectedFood] = useState(null);
   const [quantity, setQuantity] = useState("1");
-  const [activeTab, setActiveTab] = useState("search");
+  const [isSearching, setIsSearching] = useState(false);
 
   // User ID - replace with actual user ID
   const userId = "user123";
@@ -56,25 +51,43 @@ export default function AddFood() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === "search") {
-      searchFoods();
+    if (searchQuery.length > 0) {
+      setIsSearching(true);
+      const debounceTimer = setTimeout(() => {
+        searchFoods();
+      }, 300);
+      
+      return () => clearTimeout(debounceTimer);
+    } else {
+      loadInitialData();
     }
-  }, [searchQuery, selectedCategory, activeTab]);
+  }, [searchQuery]);
 
   const loadInitialData = async () => {
     try {
       setIsLoading(true);
       
-      const [recentData, favoritesData, searchData] = await Promise.all([
-        MealPlanDataService.getRecentFoods(userId, 8),
-        MealPlanDataService.getFavoritesFoods(userId, 8),
-        MealPlanDataService.searchFoods(userId, "", "all", 20)
+      // Get recent foods first, then fill with popular base foods
+      const [recentData, baseData] = await Promise.all([
+        MealPlanDataService.getRecentFoods(userId, 5),
+        MealPlanDataService.searchFoods(userId, "", "all", 15)
       ]);
 
-      setRecentFoods(recentData);
-      setFavoriteFoods(favoritesData);
-      setFoods(searchData.foods);
-      setCategories(searchData.categories);
+      // Combine recent foods with base foods, avoiding duplicates
+      const recentIds = new Set(recentData.map(food => food.id));
+      const baseFoods = baseData.foods.filter(food => !recentIds.has(food.id));
+      
+      // Add section headers for better organization
+      const combinedFoods = [
+        ...recentData.length > 0 ? [
+          { type: 'header', title: 'Recent Foods' },
+          ...recentData.map(food => ({ ...food, type: 'food', isRecent: true }))
+        ] : [],
+        { type: 'header', title: recentData.length > 0 ? 'Popular Foods' : 'Foods' },
+        ...baseFoods.slice(0, 15).map(food => ({ ...food, type: 'food' }))
+      ];
+
+      setFoods(combinedFoods);
       
     } catch (error) {
       console.error("Error loading food data:", error);
@@ -89,12 +102,23 @@ export default function AddFood() {
       const searchData = await MealPlanDataService.searchFoods(
         userId, 
         searchQuery, 
-        selectedCategory, 
-        50
+        "all", // Remove category filtering
+        30
       );
-      setFoods(searchData.foods);
+      
+      // Add search results header
+      const searchResults = searchData.foods.length > 0 ? [
+        { type: 'header', title: `Search Results (${searchData.foods.length})` },
+        ...searchData.foods.map(food => ({ ...food, type: 'food' }))
+      ] : [
+        { type: 'empty', message: 'No foods found' }
+      ];
+      
+      setFoods(searchResults);
     } catch (error) {
       console.error("Error searching foods:", error);
+    } finally {
+      setIsSearching(false);
     }
   };
 
@@ -145,44 +169,59 @@ export default function AddFood() {
     };
   };
 
-  const renderFoodItem = ({ item }) => (
-    <Pressable style={styles.foodItem} onPress={() => handleFoodSelect(item)}>
-      <View style={styles.foodInfo}>
-        <Text style={styles.foodName}>{item.name}</Text>
-        <Text style={styles.foodBrand}>{item.brand} • {item.servingSize}</Text>
-        <View style={styles.nutritionRow}>
-          <Text style={styles.nutritionText}>{item.calories} cal</Text>
-          <Text style={styles.nutritionText}>P: {item.protein}g</Text>
-          <Text style={styles.nutritionText}>C: {item.carbs}g</Text>
-          <Text style={styles.nutritionText}>F: {item.fats}g</Text>
+  const renderItem = ({ item }) => {
+    if (item.type === 'header') {
+      return (
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{item.title}</Text>
         </View>
-      </View>
-      <View style={styles.foodActions}>
-        {item.verified && (
-          <MaterialIcons name="verified" size={16} color="#4CAF50" />
-        )}
-        <Ionicons name="add-circle-outline" size={24} color="#1E3A5F" />
-      </View>
-    </Pressable>
-  );
-
-  const renderCategoryTab = (category) => (
-    <Pressable
-      key={category.id}
-      style={[
-        styles.categoryTab,
-        selectedCategory === category.id && styles.activeCategoryTab
-      ]}
-      onPress={() => setSelectedCategory(category.id)}
-    >
-      <Text style={[
-        styles.categoryText,
-        selectedCategory === category.id && styles.activeCategoryText
-      ]}>
-        {category.name}
-      </Text>
-    </Pressable>
-  );
+      );
+    }
+    
+    if (item.type === 'empty') {
+      return (
+        <View style={styles.emptyState}>
+          <MaterialIcons name="restaurant" size={48} color="#666" />
+          <Text style={styles.emptyStateText}>{item.message}</Text>
+        </View>
+      );
+    }
+    
+    return (
+      <Pressable 
+        style={[
+          styles.foodItem,
+          item.isRecent && styles.recentFoodItem
+        ]} 
+        onPress={() => handleFoodSelect(item)}
+      >
+        <View style={styles.foodInfo}>
+          <View style={styles.foodHeader}>
+            <Text style={styles.foodName}>{item.name}</Text>
+            {item.isRecent && (
+              <View style={styles.recentBadge}>
+                <Ionicons name="time" size={12} color="#FF9800" />
+                <Text style={styles.recentBadgeText}>Recent</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.foodBrand}>{item.brand} • {item.servingSize}</Text>
+          <View style={styles.nutritionRow}>
+            <Text style={styles.nutritionText}>{item.calories} cal</Text>
+            <Text style={styles.nutritionText}>P: {item.protein}g</Text>
+            <Text style={styles.nutritionText}>C: {item.carbs}g</Text>
+            <Text style={styles.nutritionText}>F: {item.fats}g</Text>
+          </View>
+        </View>
+        <View style={styles.foodActions}>
+          {item.verified && (
+            <MaterialIcons name="verified" size={16} color="#4CAF50" />
+          )}
+          <Ionicons name="add-circle-outline" size={24} color="#fff" />
+        </View>
+      </Pressable>
+    );
+  };
 
   return (
     <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
@@ -194,98 +233,35 @@ export default function AddFood() {
         <View style={styles.headerContent}>
           <View style={styles.mealTypeHeader}>
             <Ionicons name={currentMeal.icon} size={24} color={currentMeal.color} />
-            <Text style={styles.headerTitle}>Add to {currentMeal.name}</Text>
+            <Text style={styles.headerTitle}>Add to Log</Text>
           </View>
         </View>
         <View style={styles.headerRight} />
       </View>
 
-      {/* Tab Navigation */}
-      <View style={styles.tabContainer}>
-        <Pressable
-          style={[styles.tab, activeTab === "search" && styles.activeTab]}
-          onPress={() => setActiveTab("search")}
-        >
-          <Ionicons 
-            name="search" 
-            size={20} 
-            color={activeTab === "search" ? "#fff" : "#666"} 
+      {/* Search Bar */}
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={20} color="#666" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search foods..."
+            placeholderTextColor="#666"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
-          <Text style={[
-            styles.tabText,
-            activeTab === "search" && styles.activeTabText
-          ]}>
-            Search
-          </Text>
-        </Pressable>
-        
-        <Pressable
-          style={[styles.tab, activeTab === "recent" && styles.activeTab]}
-          onPress={() => setActiveTab("recent")}
-        >
-          <Ionicons 
-            name="time" 
-            size={20} 
-            color={activeTab === "recent" ? "#fff" : "#666"} 
-          />
-          <Text style={[
-            styles.tabText,
-            activeTab === "recent" && styles.activeTabText
-          ]}>
-            Recent
-          </Text>
-        </Pressable>
-        
-        <Pressable
-          style={[styles.tab, activeTab === "favorites" && styles.activeTab]}
-          onPress={() => setActiveTab("favorites")}
-        >
-          <Ionicons 
-            name="heart" 
-            size={20} 
-            color={activeTab === "favorites" ? "#fff" : "#666"} 
-          />
-          <Text style={[
-            styles.tabText,
-            activeTab === "favorites" && styles.activeTabText
-          ]}>
-            Favorites
-          </Text>
-        </Pressable>
+          {searchQuery.length > 0 && (
+            <Pressable onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={20} color="#666" />
+            </Pressable>
+          )}
+          {isSearching && (
+            <ActivityIndicator size="small" color="#1E3A5F" />
+          )}
+        </View>
       </View>
 
-      {/* Search Bar - Only show in search tab */}
-      {activeTab === "search" && (
-        <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color="#666" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search foods..."
-              placeholderTextColor="#666"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <Pressable onPress={() => setSearchQuery("")}>
-                <Ionicons name="close-circle" size={20} color="#666" />
-              </Pressable>
-            )}
-          </View>
-
-          {/* Category Filters */}
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={styles.categoryContainer}
-            contentContainerStyle={styles.categoryContent}
-          >
-            {categories.map(renderCategoryTab)}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Content */}
+      {/* Food List */}
       <View style={styles.content}>
         {isLoading ? (
           <View style={styles.loadingContainer}>
@@ -294,30 +270,15 @@ export default function AddFood() {
           </View>
         ) : (
           <FlatList
-            data={
-              activeTab === "recent" ? recentFoods :
-              activeTab === "favorites" ? favoriteFoods :
-              foods
+            data={foods}
+            keyExtractor={(item, index) => 
+              item.type === 'header' ? `header-${index}` : 
+              item.type === 'empty' ? `empty-${index}` : 
+              item.id
             }
-            keyExtractor={(item) => item.id}
-            renderItem={renderFoodItem}
+            renderItem={renderItem}
             contentContainerStyle={styles.foodList}
             showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <MaterialIcons name="restaurant" size={48} color="#666" />
-                <Text style={styles.emptyStateText}>
-                  {activeTab === "search" && searchQuery 
-                    ? "No foods found" 
-                    : activeTab === "recent" 
-                    ? "No recent foods" 
-                    : activeTab === "favorites"
-                    ? "No favorite foods yet"
-                    : "No foods available"
-                  }
-                </Text>
-              </View>
-            }
           />
         )}
       </View>
@@ -352,7 +313,7 @@ export default function AddFood() {
                   <View style={styles.quantityInput}>
                     <Pressable 
                       style={styles.quantityButton}
-                      onPress={() => setQuantity(String(Math.max(0.25, parseFloat(quantity) - 0.25)))}
+                      onPress={() => setQuantity(String(Math.max(0.25, parseFloat(quantity || "1") - 0.25)))}
                     >
                       <Ionicons name="remove" size={20} color="#fff" />
                     </Pressable>
@@ -364,7 +325,7 @@ export default function AddFood() {
                     />
                     <Pressable 
                       style={styles.quantityButton}
-                      onPress={() => setQuantity(String(parseFloat(quantity) + 0.25))}
+                      onPress={() => setQuantity(String(parseFloat(quantity || "1") + 0.25))}
                     >
                       <Ionicons name="add" size={20} color="#fff" />
                     </Pressable>
@@ -409,7 +370,7 @@ export default function AddFood() {
                     colors={[currentMeal.color, "#1E3A5F"]}
                     style={styles.addButtonGradient}
                   >
-                    <Text style={styles.addButtonText}>Add to {currentMeal.name}</Text>
+                    <Text style={styles.addButtonText}>Add to Log</Text>
                   </LinearGradient>
                 </Pressable>
               </>
@@ -458,37 +419,9 @@ const styles = StyleSheet.create({
   headerRight: {
     width: 40,
   },
-  tabContainer: {
-    flexDirection: "row",
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    marginHorizontal: 4,
-    gap: 6,
-  },
-  activeTab: {
-    backgroundColor: "#1E3A5F",
-  },
-  tabText: {
-    fontSize: 14,
-    color: "#666",
-    fontWeight: "500",
-  },
-  activeTabText: {
-    color: "#fff",
-  },
   searchContainer: {
     paddingHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   searchBar: {
     flexDirection: "row",
@@ -498,36 +431,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 12,
-    marginBottom: 12,
   },
   searchInput: {
     flex: 1,
     color: "#fff",
     fontSize: 16,
-  },
-  categoryContainer: {
-    height: 40,
-  },
-  categoryContent: {
-    paddingRight: 20,
-  },
-  categoryTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    marginRight: 8,
-  },
-  activeCategoryTab: {
-    backgroundColor: "#1E3A5F",
-  },
-  categoryText: {
-    fontSize: 14,
-    color: "#666",
-    fontWeight: "500",
-  },
-  activeCategoryText: {
-    color: "#fff",
   },
   content: {
     flex: 1,
@@ -547,6 +455,16 @@ const styles = StyleSheet.create({
   foodList: {
     paddingBottom: 20,
   },
+  sectionHeader: {
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    color: "#fff",
+    fontWeight: "600",
+    opacity: 0.9,
+  },
   foodItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -555,14 +473,39 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
   },
+  recentFoodItem: {
+    backgroundColor: "rgba(255, 152, 0, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 152, 0, 0.2)",
+  },
   foodInfo: {
     flex: 1,
+  },
+  foodHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
   },
   foodName: {
     fontSize: 16,
     color: "#fff",
     fontWeight: "600",
-    marginBottom: 4,
+    flex: 1,
+  },
+  recentBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 152, 0, 0.2)",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    gap: 4,
+  },
+  recentBadgeText: {
+    fontSize: 10,
+    color: "#FF9800",
+    fontWeight: "600",
   },
   foodBrand: {
     fontSize: 14,

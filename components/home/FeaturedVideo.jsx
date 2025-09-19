@@ -1,4 +1,4 @@
-import { View, Text, Image, StyleSheet, Pressable } from "react-native";
+import { View, Text, Image, StyleSheet, Pressable, Alert } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 
@@ -11,6 +11,45 @@ export default function FeaturedVideo({
   author = "Dr. Sarah Johnson",
   views = "2.4M",
 }) {
+
+  const handlePlayVideo = () => {
+    Alert.alert(
+      "Play Video",
+      `Opening "${title}" by ${author}\n\nNote: Video playback functionality will be implemented soon!`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Continue",
+          onPress: () => {
+            console.log("Playing video:", title);
+            // TODO: Implement actual video playback here
+            // Example: router.push(`/video/${videoId}`) or open video player
+          }
+        }
+      ]
+    );
+  };
+
+  const handleCardPress = () => {
+    Alert.alert(
+      "Featured Content",
+      `"${title}"\n\nBy: ${author}\nViews: ${views}\nDuration: ${duration}\nCategory: ${category}\n\nWould you like to watch this video?`,
+      [
+        {
+          text: "Not Now",
+          style: "cancel"
+        },
+        {
+          text: "Watch",
+          onPress: handlePlayVideo
+        }
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>Featured Content</Text>
@@ -18,14 +57,17 @@ export default function FeaturedVideo({
       <Pressable 
         style={styles.card}
         android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
-        onPress={() => {}}
+        onPress={handleCardPress}
       >
         {/* Video Thumbnail Container */}
         <View style={styles.thumbnailContainer}>
           <Image source={{ uri: thumbnail }} style={styles.thumbnail} />
           
           {/* Play Button Overlay */}
-          <View style={styles.playButtonOverlay}>
+          <Pressable 
+            style={styles.playButtonOverlay}
+            onPress={handlePlayVideo}
+          >
             <LinearGradient
               colors={['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.1)']}
               style={styles.playButtonGradient}
@@ -34,7 +76,7 @@ export default function FeaturedVideo({
                 <Ionicons name="play" size={24} color="#000" />
               </View>
             </LinearGradient>
-          </View>
+          </Pressable>
           
           {/* Duration Badge */}
           <View style={styles.durationBadge}>
@@ -64,14 +106,12 @@ export default function FeaturedVideo({
           <Text style={styles.description}>{subtitle}</Text>
           
           <View style={styles.actionRow}>
-            <Pressable style={styles.primaryButton}>
+            <Pressable 
+              style={styles.primaryButton}
+              onPress={handlePlayVideo}
+            >
               <Ionicons name="play-circle" size={18} color="#fff" />
               <Text style={styles.primaryButtonText}>Watch Now</Text>
-            </Pressable>
-            
-            <Pressable style={styles.secondaryButton}>
-              <Ionicons name="bookmark-outline" size={16} color="#007AFF" />
-              <Text style={styles.secondaryButtonText}>Save</Text>
             </Pressable>
           </View>
         </View>
@@ -216,7 +256,6 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
   },
   primaryButton: {
     flex: 1,
@@ -232,20 +271,6 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: "#fff",
     fontSize: 15,
-    fontWeight: "600",
-  },
-  secondaryButton: {
-    backgroundColor: "rgba(0, 122, 255, 0.1)",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    gap: 6,
-  },
-  secondaryButtonText: {
-    color: "#007AFF",
-    fontSize: 14,
     fontWeight: "600",
   },
 });

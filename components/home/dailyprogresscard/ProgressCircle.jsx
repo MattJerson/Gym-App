@@ -7,19 +7,24 @@ export default function ProgressCircle({ label, data, icon, colors, unit }) {
   const isCompleted = progress >= 1;
   const mainColor = colors[0];
 
+  // Determine the dynamic color for the active elements (ring and icon)
+  const activeColor = isCompleted ? "#00D4AA" : mainColor;
+  // Use a neutral color for the icon when there is no progress
+  const iconColor = progress > 0 ? activeColor : "#777";
+
   return (
     <Pressable style={styles.progressCircleWrapper}>
       <View style={styles.circleContainer}>
-        {/* Background circle with gradient border effect */}
+        {/* The gradient is now transparent, removing the background */}
         <LinearGradient
-          colors={isCompleted ? ["#00D4AA", "#00B894"] : [mainColor + "40", mainColor + "20"]}
+          colors={["transparent", "transparent"]}
           style={styles.circleBackground}
         >
           <Progress.Circle
             size={90}
             progress={progress}
-            color={isCompleted ? "#00D4AA" : mainColor}
-            unfilledColor="rgba(255,255,255,0.1)"
+            color={activeColor} // The ring uses the active color
+            unfilledColor="rgba(255,255,255,0.1)" // Kept for a subtle track
             borderWidth={0}
             thickness={6}
             strokeCap="round"
@@ -29,11 +34,9 @@ export default function ProgressCircle({ label, data, icon, colors, unit }) {
         </LinearGradient>
 
         <View style={styles.progressValueContainer}>
-          <View style={[
-            styles.iconContainer,
-            isCompleted && styles.iconContainerCompleted
-          ]}>
-            {icon()}
+          <View style={styles.iconContainer}>
+            {/* Pass the dynamic color to the icon render prop */}
+            {icon(iconColor)}
           </View>
           <Text style={[
             styles.progressValueText,
@@ -46,7 +49,6 @@ export default function ProgressCircle({ label, data, icon, colors, unit }) {
           </Text>
         </View>
         
-        {/* Completion badge */}
         {isCompleted && (
           <View style={styles.completionBadge}>
             <Text style={styles.completionBadgeText}>✓</Text>
@@ -87,9 +89,6 @@ const styles = StyleSheet.create({
   iconContainer: {
     marginBottom: 2,
     opacity: 0.9,
-  },
-  iconContainerCompleted: {
-    opacity: 1,
   },
   progressValueText: {
     fontSize: 18,

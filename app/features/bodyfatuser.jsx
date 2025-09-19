@@ -79,7 +79,7 @@ export default function BodyFatUser() {
     setShowConfirmation(false);
     console.log("Current Body Fat:", `${Math.round(currentBodyFat)}%`);
     console.log("Goal Body Fat:", `${Math.round(goalBodyFat)}%`);
-    router.push("/page/home");
+    router.push("features/subscriptionpackages");
   };
 
   const handleCancel = () => {
@@ -102,7 +102,7 @@ export default function BodyFatUser() {
     // Simulate API call
     setTimeout(() => {
       setIsLoading(false);
-      router.push("/page/home");
+      router.push("features/subscriptionpackages");
     }, 1500);
   };
   return (
