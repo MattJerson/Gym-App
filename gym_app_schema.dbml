@@ -1,0 +1,1216 @@
+// ===========================================
+// Gym App Database Schema - DBML
+// Target: Supabase (PostgreSQL)
+// ===========================================
+// This schema supports a full-featured gym/fitness mobile + admin app
+// with workout tracking, meal planning, social features, and admin management
+
+// ===========================================
+// USER AUTHENTICATION & PROFILES
+// ===========================================
+
+Table users {
+  id uuid [pk, default: `gen_random_uuid()`]
+  email varchar(255) [unique, not null]
+  username varchar(50) [unique, not null]
+  password_hash varchar(255) [not null]
+  email_verified boolean [default: false]
+  phone varchar(20)
+  status user_status [default: 'active']
+  last_login_at timestamp
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  deleted_at timestamp
+  
+  Note: 'Core user authentication table'
+}
+
+Table user_profiles {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  full_name varchar(100)
+  bio text
+  avatar_url varchar(500)
+  date_of_birth date
+  gender gender_type
+  height_cm integer
+  weight_kg decimal(5,2)
+  body_fat_percentage decimal(4,2)
+  fitness_level fitness_level_type [default: 'beginner']
+  primary_goals text[]
+  dietary_restrictions text[]
+  meal_preferences meal_preference_type
+  calorie_goal integer
+  meals_per_day integer
+  favorite_foods text[]
+  timezone varchar(50) [default: 'UTC']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Extended user profile information and preferences'
+}
+
+Table user_devices {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  device_token varchar(255) [not null]
+  device_type device_type_enum [not null]
+  device_os varchar(50)
+  app_version varchar(20)
+  is_active boolean [default: true]
+  last_used_at timestamp [default: `now()`]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Device registration for push notifications'
+}
+
+// ===========================================
+// ROLES & PERMISSIONS
+// ===========================================
+
+Table roles {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(50) [unique, not null]
+  description text
+  permissions text[]
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'System roles (admin, premium_user, basic_user, etc.)'
+}
+
+Table user_roles {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  role_id uuid [ref: > roles.id, not null]
+  assigned_at timestamp [default: `now()`]
+  assigned_by uuid [ref: > users.id]
+  expires_at timestamp
+  
+  Note: 'User role assignments'
+}
+
+// ===========================================
+// SUBSCRIPTIONS & PAYMENTS
+// ===========================================
+
+Table subscription_plans {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(100) [not null]
+  description text
+  price_monthly decimal(10,2)
+  price_quarterly decimal(10,2)
+  price_yearly decimal(10,2)
+  features text[]
+  max_custom_workouts integer
+  max_meal_plans integer
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Available subscription plans'
+}
+
+Table user_subscriptions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  plan_id uuid [ref: > subscription_plans.id, not null]
+  status subscription_status [default: 'active']
+  billing_cycle billing_cycle_type [not null]
+  amount decimal(10,2) [not null]
+  currency varchar(3) [default: 'USD']
+  started_at timestamp [default: `now()`]
+  ends_at timestamp
+  next_billing_date date
+  cancelled_at timestamp
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'User subscription records'
+}
+
+Table payments {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  subscription_id uuid [ref: > user_subscriptions.id]
+  amount decimal(10,2) [not null]
+  currency varchar(3) [default: 'USD']
+  payment_method payment_method_type
+  payment_provider varchar(50)
+  external_payment_id varchar(255)
+  status payment_status [default: 'pending']
+  processed_at timestamp
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Payment transaction records'
+}
+
+// ===========================================
+// WORKOUTS & EXERCISES
+// ===========================================
+
+Table exercise_categories {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(100) [unique, not null]
+  description text
+  icon varchar(50)
+  color varchar(7)
+  sort_order integer [default: 0]
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Exercise categories (Strength, Cardio, Yoga, etc.)'
+}
+
+Table exercises {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(255) [not null]
+  category_id uuid [ref: > exercise_categories.id, not null]
+  description text
+  instructions text[]
+  tips text[]
+  target_muscles text[]
+  equipment text[]
+  difficulty_level difficulty_level_type [default: 'beginner']
+  video_url varchar(500)
+  image_url varchar(500)
+  calories_per_minute decimal(4,2)
+  is_active boolean [default: true]
+  created_by uuid [ref: > users.id]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Exercise library with instructions and media'
+}
+
+Table workout_templates {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(255) [not null]
+  description text
+  category_id uuid [ref: > exercise_categories.id]
+  difficulty_level difficulty_level_type [default: 'beginner']
+  estimated_duration integer
+  calories_estimate integer
+  target_muscles text[]
+  equipment_needed text[]
+  is_featured boolean [default: false]
+  is_custom boolean [default: false]
+  created_by uuid [ref: > users.id]
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Pre-defined and custom workout templates'
+}
+
+Table workout_template_exercises {
+  id uuid [pk, default: `gen_random_uuid()`]
+  template_id uuid [ref: > workout_templates.id, not null]
+  exercise_id uuid [ref: > exercises.id, not null]
+  exercise_order integer [not null]
+  sets integer
+  reps varchar(50)
+  weight_kg decimal(6,2)
+  duration_seconds integer
+  rest_time_seconds integer
+  notes text
+  created_at timestamp [default: `now()`]
+  
+  Note: 'Exercises within workout templates'
+}
+
+Table workout_programs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(255) [not null]
+  description text
+  duration_weeks integer
+  workouts_per_week integer
+  difficulty_level difficulty_level_type [default: 'beginner']
+  goals text[]
+  is_featured boolean [default: false]
+  created_by uuid [ref: > users.id]
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Multi-week workout programs'
+}
+
+Table program_workouts {
+  id uuid [pk, default: `gen_random_uuid()`]
+  program_id uuid [ref: > workout_programs.id, not null]
+  template_id uuid [ref: > workout_templates.id, not null]
+  week_number integer [not null]
+  day_of_week integer [not null]
+  workout_order integer [not null]
+  created_at timestamp [default: `now()`]
+  
+  Note: 'Workout schedule within programs'
+}
+
+Table user_program_enrollments {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  program_id uuid [ref: > workout_programs.id, not null]
+  status enrollment_status [default: 'active']
+  start_date date [not null]
+  current_week integer [default: 1]
+  current_day integer [default: 1]
+  completed_workouts integer [default: 0]
+  total_workouts integer
+  completion_percentage decimal(5,2) [default: 0]
+  paused_at timestamp
+  completed_at timestamp
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'User enrollment in workout programs'
+}
+
+// ===========================================
+// WORKOUT SESSIONS & TRACKING
+// ===========================================
+
+Table workout_sessions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  template_id uuid [ref: > workout_templates.id]
+  program_enrollment_id uuid [ref: > user_program_enrollments.id]
+  session_name varchar(255)
+  status session_status [default: 'planned']
+  scheduled_date date
+  started_at timestamp
+  completed_at timestamp
+  duration_minutes integer
+  calories_burned integer
+  notes text
+  rating integer
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Individual workout session records'
+}
+
+Table workout_session_exercises {
+  id uuid [pk, default: `gen_random_uuid()`]
+  session_id uuid [ref: > workout_sessions.id, not null]
+  exercise_id uuid [ref: > exercises.id, not null]
+  exercise_order integer [not null]
+  planned_sets integer
+  planned_reps varchar(50)
+  planned_weight_kg decimal(6,2)
+  planned_duration_seconds integer
+  status exercise_status [default: 'planned']
+  started_at timestamp
+  completed_at timestamp
+  notes text
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Exercises within workout sessions'
+}
+
+Table workout_sets {
+  id uuid [pk, default: `gen_random_uuid()`]
+  session_exercise_id uuid [ref: > workout_session_exercises.id, not null]
+  set_number integer [not null]
+  reps integer
+  weight_kg decimal(6,2)
+  duration_seconds integer
+  distance_meters decimal(8,2)
+  rest_time_seconds integer
+  difficulty_rating integer
+  is_completed boolean [default: false]
+  completed_at timestamp
+  created_at timestamp [default: `now()`]
+  
+  Note: 'Individual set records within exercises'
+}
+
+// ===========================================
+// PROGRESS TRACKING & MEASUREMENTS
+// ===========================================
+
+Table progress_entries {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  entry_type progress_entry_type [not null]
+  measurement_date date [not null]
+  value decimal(10,3) [not null]
+  unit varchar(20)
+  notes text
+  photo_url varchar(500)
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Weight, body fat, measurements, etc.'
+}
+
+Table personal_records {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  exercise_id uuid [ref: > exercises.id, not null]
+  record_type pr_record_type [not null]
+  value decimal(10,3) [not null]
+  unit varchar(20)
+  reps integer
+  achieved_date date [not null]
+  session_id uuid [ref: > workout_sessions.id]
+  previous_record_id uuid [ref: > personal_records.id]
+  created_at timestamp [default: `now()`]
+  
+  Note: 'Personal best records for exercises'
+}
+
+Table daily_activity {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  activity_date date [not null]
+  steps integer [default: 0]
+  calories_burned integer [default: 0]
+  active_minutes integer [default: 0]
+  workouts_completed integer [default: 0]
+  sleep_hours decimal(3,1)
+  water_intake_ml integer [default: 0]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Daily activity tracking and metrics'
+}
+
+// ===========================================
+// NUTRITION & MEAL PLANNING
+// ===========================================
+
+Table food_items {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(255) [not null]
+  brand varchar(100)
+  barcode varchar(50)
+  serving_size varchar(100)
+  serving_unit varchar(50)
+  calories_per_serving decimal(8,2)
+  protein_g decimal(6,2)
+  carbs_g decimal(6,2)
+  fat_g decimal(6,2)
+  fiber_g decimal(6,2)
+  sugar_g decimal(6,2)
+  sodium_mg decimal(8,2)
+  created_by uuid [ref: > users.id]
+  is_verified boolean [default: false]
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Food database with nutritional information'
+}
+
+Table meal_plans {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  name varchar(255) [not null]
+  description text
+  start_date date
+  end_date date
+  daily_calorie_target integer
+  protein_target_g decimal(6,2)
+  carbs_target_g decimal(6,2)
+  fat_target_g decimal(6,2)
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'User meal plans with macro targets'
+}
+
+Table meal_entries {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  meal_plan_id uuid [ref: > meal_plans.id]
+  meal_type meal_type_enum [not null]
+  consumed_date date [not null]
+  consumed_at timestamp
+  food_item_id uuid [ref: > food_items.id, not null]
+  quantity decimal(8,2) [not null]
+  unit varchar(50)
+  calories decimal(8,2)
+  protein_g decimal(6,2)
+  carbs_g decimal(6,2)
+  fat_g decimal(6,2)
+  notes text
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Individual food consumption records'
+}
+
+Table meal_recipes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(255) [not null]
+  description text
+  instructions text[]
+  prep_time_minutes integer
+  cook_time_minutes integer
+  servings integer [default: 1]
+  difficulty_level difficulty_level_type [default: 'beginner']
+  cuisine_type varchar(100)
+  dietary_tags text[]
+  image_url varchar(500)
+  created_by uuid [ref: > users.id]
+  is_public boolean [default: false]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Recipe collection'
+}
+
+Table recipe_ingredients {
+  id uuid [pk, default: `gen_random_uuid()`]
+  recipe_id uuid [ref: > meal_recipes.id, not null]
+  food_item_id uuid [ref: > food_items.id, not null]
+  quantity decimal(8,2) [not null]
+  unit varchar(50)
+  ingredient_order integer [not null]
+  is_optional boolean [default: false]
+  created_at timestamp [default: `now()`]
+  
+  Note: 'Ingredients for recipes'
+}
+
+// ===========================================
+// SOCIAL FEATURES & COMMUNITY
+// ===========================================
+
+Table user_relationships {
+  id uuid [pk, default: `gen_random_uuid()`]
+  follower_id uuid [ref: > users.id, not null]
+  following_id uuid [ref: > users.id, not null]
+  status relationship_status [default: 'pending']
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'User follow relationships'
+}
+
+Table posts {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  content text [not null]
+  post_type post_type_enum [default: 'general']
+  workout_session_id uuid [ref: > workout_sessions.id]
+  meal_entry_id uuid [ref: > meal_entries.id]
+  progress_entry_id uuid [ref: > progress_entries.id]
+  media_urls text[]
+  is_public boolean [default: true]
+  likes_count integer [default: 0]
+  comments_count integer [default: 0]
+  shares_count integer [default: 0]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  deleted_at timestamp
+  
+  Note: 'User posts and activity sharing'
+}
+
+Table post_likes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  post_id uuid [ref: > posts.id, not null]
+  user_id uuid [ref: > users.id, not null]
+  created_at timestamp [default: `now()`]
+  
+  Note: 'Post likes/reactions'
+}
+
+Table post_comments {
+  id uuid [pk, default: `gen_random_uuid()`]
+  post_id uuid [ref: > posts.id, not null]
+  user_id uuid [ref: > users.id, not null]
+  parent_comment_id uuid [ref: > post_comments.id]
+  content text [not null]
+  likes_count integer [default: 0]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  deleted_at timestamp
+  
+  Note: 'Comments on posts with threading support'
+}
+
+Table chat_channels {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(100) [not null]
+  description text
+  channel_type channel_type_enum [default: 'public']
+  icon varchar(50)
+  member_count integer [default: 0]
+  is_active boolean [default: true]
+  created_by uuid [ref: > users.id, not null]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Community chat channels'
+}
+
+Table chat_members {
+  id uuid [pk, default: `gen_random_uuid()`]
+  channel_id uuid [ref: > chat_channels.id, not null]
+  user_id uuid [ref: > users.id, not null]
+  role member_role_enum [default: 'member']
+  joined_at timestamp [default: `now()`]
+  last_read_at timestamp
+  is_muted boolean [default: false]
+  
+  Note: 'Channel membership records'
+}
+
+Table chat_messages {
+  id uuid [pk, default: `gen_random_uuid()`]
+  channel_id uuid [ref: > chat_channels.id, not null]
+  user_id uuid [ref: > users.id, not null]
+  content text [not null]
+  message_type message_type_enum [default: 'text']
+  reply_to_id uuid [ref: > chat_messages.id]
+  media_url varchar(500)
+  is_edited boolean [default: false]
+  edited_at timestamp
+  created_at timestamp [default: `now()`]
+  deleted_at timestamp
+  
+  Note: 'Chat messages within channels'
+}
+
+// ===========================================
+// GAMIFICATION & ACHIEVEMENTS
+// ===========================================
+
+Table badges {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(100) [unique, not null]
+  description text [not null]
+  icon varchar(100)
+  icon_url varchar(500)
+  badge_type badge_type_enum [default: 'achievement']
+  criteria jsonb
+  points_value integer [default: 0]
+  rarity badge_rarity_enum [default: 'common']
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Available badges and achievements'
+}
+
+Table user_badges {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  badge_id uuid [ref: > badges.id, not null]
+  earned_at timestamp [default: `now()`]
+  progress_data jsonb
+  related_session_id uuid [ref: > workout_sessions.id]
+  related_entry_id uuid [ref: > progress_entries.id]
+  
+  Note: 'User earned badges'
+}
+
+Table leaderboards {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(100) [not null]
+  description text
+  metric_type leaderboard_metric_enum [not null]
+  timeframe leaderboard_timeframe_enum [not null]
+  start_date date
+  end_date date
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Leaderboard configurations'
+}
+
+Table leaderboard_entries {
+  id uuid [pk, default: `gen_random_uuid()`]
+  leaderboard_id uuid [ref: > leaderboards.id, not null]
+  user_id uuid [ref: > users.id, not null]
+  rank_position integer [not null]
+  score decimal(12,3) [not null]
+  calculated_at timestamp [default: `now()`]
+  
+  Note: 'User positions on leaderboards'
+}
+
+// ===========================================
+// NOTIFICATIONS & MESSAGING
+// ===========================================
+
+Table notifications {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  title varchar(255) [not null]
+  message text [not null]
+  notification_type notification_type_enum [not null]
+  category notification_category_enum [default: 'general']
+  priority notification_priority_enum [default: 'normal']
+  action_url varchar(500)
+  action_data jsonb
+  is_read boolean [default: false]
+  read_at timestamp
+  sent_at timestamp
+  delivery_status delivery_status_enum [default: 'pending']
+  created_at timestamp [default: `now()`]
+  
+  Note: 'In-app and push notifications'
+}
+
+Table notification_preferences {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  workout_reminders boolean [default: true]
+  meal_reminders boolean [default: true]
+  progress_updates boolean [default: true]
+  social_notifications boolean [default: true]
+  marketing_emails boolean [default: false]
+  push_enabled boolean [default: true]
+  email_enabled boolean [default: true]
+  quiet_hours_start time
+  quiet_hours_end time
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'User notification preferences'
+}
+
+Table support_tickets {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  subject varchar(255) [not null]
+  description text [not null]
+  category support_category_enum [not null]
+  priority support_priority_enum [default: 'normal']
+  status support_status_enum [default: 'open']
+  assigned_to uuid [ref: > users.id]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  resolved_at timestamp
+  
+  Note: 'Customer support tickets'
+}
+
+Table support_messages {
+  id uuid [pk, default: `gen_random_uuid()`]
+  ticket_id uuid [ref: > support_tickets.id, not null]
+  user_id uuid [ref: > users.id, not null]
+  message text [not null]
+  is_internal boolean [default: false]
+  attachments text[]
+  created_at timestamp [default: `now()`]
+  
+  Note: 'Messages within support tickets'
+}
+
+// ===========================================
+// CONTENT MANAGEMENT & MEDIA
+// ===========================================
+
+Table media_files {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id]
+  filename varchar(255) [not null]
+  original_filename varchar(255)
+  file_path varchar(500) [not null]
+  file_size integer
+  mime_type varchar(100)
+  file_type media_file_type_enum [not null]
+  width integer
+  height integer
+  duration_seconds integer
+  is_public boolean [default: false]
+  created_at timestamp [default: `now()`]
+  
+  Note: 'Media file storage metadata'
+}
+
+Table content_articles {
+  id uuid [pk, default: `gen_random_uuid()`]
+  title varchar(255) [not null]
+  slug varchar(255) [unique, not null]
+  content text [not null]
+  excerpt text
+  featured_image_id uuid [ref: > media_files.id]
+  category content_category_enum [not null]
+  tags text[]
+  is_published boolean [default: false]
+  published_at timestamp
+  author_id uuid [ref: > users.id, not null]
+  view_count integer [default: 0]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Educational content and articles'
+}
+
+// ===========================================
+// ADMIN & ANALYTICS
+// ===========================================
+
+Table admin_users {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id, not null]
+  admin_level admin_level_enum [not null]
+  permissions text[]
+  last_login_at timestamp
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Admin user access levels'
+}
+
+Table audit_logs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id]
+  action varchar(100) [not null]
+  resource_type varchar(100)
+  resource_id uuid
+  old_values jsonb
+  new_values jsonb
+  ip_address inet
+  user_agent text
+  created_at timestamp [default: `now()`]
+  
+  Note: 'System audit trail'
+}
+
+Table analytics_events {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [ref: > users.id]
+  event_name varchar(100) [not null]
+  event_category varchar(50)
+  event_data jsonb
+  session_id varchar(255)
+  device_info jsonb
+  created_at timestamp [default: `now()`]
+  
+  Note: 'User behavior analytics'
+}
+
+Table app_settings {
+  id uuid [pk, default: `gen_random_uuid()`]
+  setting_key varchar(100) [unique, not null]
+  setting_value text
+  setting_type setting_type_enum [default: 'string']
+  description text
+  is_public boolean [default: false]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+  
+  Note: 'Application configuration settings'
+}
+
+// ===========================================
+// ENUMS
+// ===========================================
+
+Enum user_status {
+  active
+  inactive
+  suspended
+  deleted
+}
+
+Enum gender_type {
+  male
+  female
+  other
+  prefer_not_to_say
+}
+
+Enum fitness_level_type {
+  beginner
+  intermediate
+  advanced
+  expert
+}
+
+Enum meal_preference_type {
+  omnivore
+  vegetarian
+  vegan
+  pescatarian
+  keto
+  paleo
+  mediterranean
+  low_carb
+  high_protein
+}
+
+Enum device_type_enum {
+  ios
+  android
+  web
+}
+
+Enum subscription_status {
+  active
+  cancelled
+  expired
+  paused
+  pending
+}
+
+Enum billing_cycle_type {
+  monthly
+  quarterly
+  yearly
+}
+
+Enum payment_method_type {
+  credit_card
+  debit_card
+  paypal
+  apple_pay
+  google_pay
+  bank_transfer
+}
+
+Enum payment_status {
+  pending
+  completed
+  failed
+  refunded
+  cancelled
+}
+
+Enum difficulty_level_type {
+  beginner
+  intermediate
+  advanced
+}
+
+Enum enrollment_status {
+  active
+  paused
+  completed
+  cancelled
+}
+
+Enum session_status {
+  planned
+  in_progress
+  completed
+  skipped
+  cancelled
+}
+
+Enum exercise_status {
+  planned
+  in_progress
+  completed
+  skipped
+}
+
+Enum progress_entry_type {
+  weight
+  body_fat
+  chest
+  waist
+  hips
+  biceps
+  thighs
+  neck
+  height
+}
+
+Enum pr_record_type {
+  one_rep_max
+  max_reps
+  max_weight
+  best_time
+  longest_distance
+  max_volume
+}
+
+Enum meal_type_enum {
+  breakfast
+  lunch
+  dinner
+  snack
+  pre_workout
+  post_workout
+}
+
+Enum relationship_status {
+  pending
+  accepted
+  blocked
+}
+
+Enum post_type_enum {
+  general
+  workout
+  progress
+  meal
+  achievement
+  motivation
+}
+
+Enum channel_type_enum {
+  public
+  private
+  direct_message
+}
+
+Enum member_role_enum {
+  owner
+  admin
+  moderator
+  member
+}
+
+Enum message_type_enum {
+  text
+  image
+  video
+  file
+  system
+}
+
+Enum badge_type_enum {
+  achievement
+  milestone
+  streak
+  challenge
+  special
+}
+
+Enum badge_rarity_enum {
+  common
+  uncommon
+  rare
+  epic
+  legendary
+}
+
+Enum leaderboard_metric_enum {
+  total_workouts
+  total_calories
+  longest_streak
+  total_points
+  weight_lifted
+}
+
+Enum leaderboard_timeframe_enum {
+  daily
+  weekly
+  monthly
+  yearly
+  all_time
+}
+
+Enum notification_type_enum {
+  workout_reminder
+  meal_reminder
+  achievement
+  social_interaction
+  system_update
+  marketing
+  support
+}
+
+Enum notification_category_enum {
+  workout
+  nutrition
+  social
+  system
+  marketing
+  achievement
+  general
+}
+
+Enum notification_priority_enum {
+  low
+  normal
+  high
+  urgent
+}
+
+Enum delivery_status_enum {
+  pending
+  sent
+  delivered
+  failed
+  read
+}
+
+Enum support_category_enum {
+  technical_issue
+  billing
+  feature_request
+  account_help
+  content_report
+  other
+}
+
+Enum support_priority_enum {
+  low
+  normal
+  high
+  urgent
+}
+
+Enum support_status_enum {
+  open
+  in_progress
+  resolved
+  closed
+  escalated
+}
+
+Enum media_file_type_enum {
+  image
+  video
+  audio
+  document
+}
+
+Enum content_category_enum {
+  fitness_tips
+  nutrition_guide
+  exercise_tutorial
+  wellness
+  equipment_review
+  motivation
+}
+
+Enum admin_level_enum {
+  super_admin
+  admin
+  moderator
+  support
+}
+
+Enum setting_type_enum {
+  string
+  integer
+  boolean
+  json
+  array
+}
+
+// ===========================================
+// INDEXES
+// ===========================================
+
+// User and authentication indexes
+TableIndex users_email_idx { columns: [email] }
+TableIndex users_username_idx { columns: [username] }
+TableIndex users_status_idx { columns: [status] }
+TableIndex user_profiles_user_id_idx { columns: [user_id] }
+TableIndex user_devices_user_id_idx { columns: [user_id] }
+TableIndex user_devices_device_token_idx { columns: [device_token] }
+
+// Subscription and payment indexes
+TableIndex user_subscriptions_user_id_idx { columns: [user_id] }
+TableIndex user_subscriptions_status_idx { columns: [status] }
+TableIndex payments_user_id_idx { columns: [user_id] }
+TableIndex payments_status_idx { columns: [status] }
+
+// Workout and exercise indexes
+TableIndex exercises_category_id_idx { columns: [category_id] }
+TableIndex exercises_difficulty_idx { columns: [difficulty_level] }
+TableIndex workout_templates_category_id_idx { columns: [category_id] }
+TableIndex workout_templates_created_by_idx { columns: [created_by] }
+TableIndex workout_sessions_user_id_idx { columns: [user_id] }
+TableIndex workout_sessions_status_idx { columns: [status] }
+TableIndex workout_sessions_scheduled_date_idx { columns: [scheduled_date] }
+
+// Progress and measurement indexes
+TableIndex progress_entries_user_id_idx { columns: [user_id] }
+TableIndex progress_entries_entry_type_idx { columns: [entry_type] }
+TableIndex progress_entries_measurement_date_idx { columns: [measurement_date] }
+TableIndex personal_records_user_id_idx { columns: [user_id] }
+TableIndex personal_records_exercise_id_idx { columns: [exercise_id] }
+TableIndex daily_activity_user_id_idx { columns: [user_id] }
+TableIndex daily_activity_activity_date_idx { columns: [activity_date] }
+
+// Nutrition indexes
+TableIndex meal_entries_user_id_idx { columns: [user_id] }
+TableIndex meal_entries_consumed_date_idx { columns: [consumed_date] }
+TableIndex meal_entries_meal_type_idx { columns: [meal_type] }
+TableIndex food_items_name_idx { columns: [name] }
+
+// Social features indexes
+TableIndex posts_user_id_idx { columns: [user_id] }
+TableIndex posts_created_at_idx { columns: [created_at] }
+TableIndex post_likes_post_id_idx { columns: [post_id] }
+TableIndex post_comments_post_id_idx { columns: [post_id] }
+TableIndex chat_messages_channel_id_idx { columns: [channel_id] }
+TableIndex chat_messages_created_at_idx { columns: [created_at] }
+
+// Notification indexes
+TableIndex notifications_user_id_idx { columns: [user_id] }
+TableIndex notifications_is_read_idx { columns: [is_read] }
+TableIndex notifications_created_at_idx { columns: [created_at] }
+
+// Analytics and audit indexes
+TableIndex audit_logs_user_id_idx { columns: [user_id] }
+TableIndex audit_logs_created_at_idx { columns: [created_at] }
+TableIndex analytics_events_user_id_idx { columns: [user_id] }
+TableIndex analytics_events_event_name_idx { columns: [event_name] }
+TableIndex analytics_events_created_at_idx { columns: [created_at] }
+
+// ===========================================
+// RELATIONSHIP VERIFICATION
+// ===========================================
+
+// USER RELATIONSHIPS:
+// Ref: user_profiles.user_id -> users.id (one-to-one)
+// Ref: user_devices.user_id -> users.id (many-to-one)
+// Ref: user_roles.user_id -> users.id (many-to-one)
+// Ref: user_roles.role_id -> roles.id (many-to-one)
+// Ref: user_subscriptions.user_id -> users.id (many-to-one)
+// Ref: user_subscriptions.plan_id -> subscription_plans.id (many-to-one)
+
+// WORKOUT RELATIONSHIPS:
+// Ref: exercises.category_id -> exercise_categories.id (many-to-one)
+// Ref: workout_templates.category_id -> exercise_categories.id (many-to-one)
+// Ref: workout_template_exercises.template_id -> workout_templates.id (many-to-one)
+// Ref: workout_template_exercises.exercise_id -> exercises.id (many-to-one)
+// Ref: workout_sessions.user_id -> users.id (many-to-one)
+// Ref: workout_sessions.template_id -> workout_templates.id (many-to-one)
+
+// PROGRESS RELATIONSHIPS:
+// Ref: progress_entries.user_id -> users.id (many-to-one)
+// Ref: personal_records.user_id -> users.id (many-to-one)
+// Ref: personal_records.exercise_id -> exercises.id (many-to-one)
+// Ref: daily_activity.user_id -> users.id (many-to-one)
+
+// NUTRITION RELATIONSHIPS:
+// Ref: meal_plans.user_id -> users.id (many-to-one)
+// Ref: meal_entries.user_id -> users.id (many-to-one)
+// Ref: meal_entries.food_item_id -> food_items.id (many-to-one)
+// Ref: recipe_ingredients.recipe_id -> meal_recipes.id (many-to-one)
+// Ref: recipe_ingredients.food_item_id -> food_items.id (many-to-one)
+
+// SOCIAL RELATIONSHIPS:
+// Ref: user_relationships.follower_id -> users.id (many-to-one)
+// Ref: user_relationships.following_id -> users.id (many-to-one)
+// Ref: posts.user_id -> users.id (many-to-one)
+// Ref: post_likes.post_id -> posts.id (many-to-one)
+// Ref: post_likes.user_id -> users.id (many-to-one)
+// Ref: post_comments.post_id -> posts.id (many-to-one)
+// Ref: post_comments.user_id -> users.id (many-to-one)
+
+// NOTIFICATION RELATIONSHIPS:
+// Ref: notifications.user_id -> users.id (many-to-one)
+// Ref: notification_preferences.user_id -> users.id (one-to-one)
+// Ref: support_tickets.user_id -> users.id (many-to-one)
+// Ref: support_messages.ticket_id -> support_tickets.id (many-to-one)
+
+// GAMIFICATION RELATIONSHIPS:
+// Ref: user_badges.user_id -> users.id (many-to-one)
+// Ref: user_badges.badge_id -> badges.id (many-to-one)
+// Ref: leaderboard_entries.leaderboard_id -> leaderboards.id (many-to-one)
+// Ref: leaderboard_entries.user_id -> users.id (many-to-one)
