@@ -34,9 +34,7 @@ const CalendarAnalytics = ({ analytics }) => {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Monthly Analytics</Text>
-      <Text style={styles.subtitle}>A summary of your fitness journey</Text>
-      
+      <Text style={styles.title}>Monthly Analytics</Text> 
       <View style={styles.analyticsGrid}>
         {analyticsItems.map((item, index) => (
           <View key={index} style={styles.analyticsItem}>
@@ -77,9 +75,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
+
   title: {
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: '800',
     color: '#EFEFEF',
   },
@@ -103,7 +104,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   analyticsValue: {
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 2,
@@ -132,6 +133,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#fff',
     fontWeight: '700',
+    paddingBottom: 5,
   },
 });
 

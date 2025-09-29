@@ -21,24 +21,25 @@ export default function ProgressGraph({ chart }) {
      return Math.round(total / filteredData.values.length);
   }, [filteredData.values]);
 
-  const aestheticChartConfig = {
-    backgroundGradientFrom: "#1C1C1E",
-    backgroundGradientTo: "#1C1C1E",
-    decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(0, 220, 180, ${opacity})`, // Vibrant Teal
-    labelColor: (opacity = 1) => `rgba(235, 235, 245, ${opacity * 0.6})`,
-    propsForDots: {
-      r: "5",
-      strokeWidth: "2",
-      stroke: "#1C1C1E", // Background color for a "punched-out" look
-      fill: "rgb(0, 220, 180)",
-    },
-    propsForBackgroundLines: {
-      stroke: "rgba(255, 255, 255, 0.08)",
-      strokeDasharray: "0",
-    },
-    segments: 4,
-  };
+const aestheticChartConfig = {
+  backgroundGradientFrom: "#1C1C1E",
+  backgroundGradientTo: "#1C1C1E",
+  decimalPlaces: 0,
+  color: (opacity = 1) => `rgba(10, 132, 255, ${opacity})`, // ✅ #0A84FF
+  labelColor: (opacity = 1) => `rgba(235, 235, 245, ${opacity * 0.6})`,
+  propsForDots: {
+    r: "5",
+    strokeWidth: "2",
+    stroke: "#1C1C1E", // background punch-out
+    fill: "#0A84FF",  // same vivid blue for consistency
+  },
+  propsForBackgroundLines: {
+    stroke: "rgba(255, 255, 255, 0.05)",
+    strokeDasharray: "0",
+  },
+  segments: 4,
+};
+
 
   const formatLabel = (value) => {
     const numValue = parseFloat(value);
@@ -81,17 +82,17 @@ export default function ProgressGraph({ chart }) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#1C1C1E", // Softer dark color
+    backgroundColor: "#1C1C1E",
     borderRadius: 24,
     paddingVertical: 20,
     paddingHorizontal: 10,
     marginBottom: 20,
-    // Adding a subtle shadow for depth
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 8,
+    borderColor: "rgba(255,255,255,0.1)", 
   },
   headerRow: {
     flexDirection: "row",

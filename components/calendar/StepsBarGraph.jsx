@@ -86,21 +86,22 @@ export default function StepsBarGraph({ dailyData }) {
     return Math.round(numValue);
   };
 
-  const aestheticChartConfig = {
-    backgroundGradientFrom: "#1C1C1E",
-    backgroundGradientTo: "#1C1C1E",
-    decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(0, 220, 180, ${opacity})`, // Vibrant Teal
-    labelColor: (opacity = 1) => `rgba(235, 235, 245, ${opacity * 0.6})`,
-    barPercentage: 0.6,
-    propsForBackgroundLines: {
-      stroke: "rgba(255, 255, 255, 0.08)",
-      strokeDasharray: "0",
-    },
-    fillShadowGradientFrom: "#00DCB4", // Vibrant Teal
-    fillShadowGradientTo: "#00B894",   // Deeper Teal for gradient
-    fillShadowGradientOpacity: 1,
-  };
+const aestheticChartConfig = {
+  backgroundGradientFrom: "#1C1C1E",
+  backgroundGradientTo: "#1C1C1E",
+  decimalPlaces: 0,
+  color: (opacity = 1) => `rgba(10, 132, 255, ${opacity})`, // ✅ #0A84FF
+  labelColor: (opacity = 1) => `rgba(235, 235, 245, ${opacity * 0.6})`,
+  barPercentage: 0.6,
+  propsForBackgroundLines: {
+    stroke: "rgba(255, 255, 255, 0.08)",
+    strokeDasharray: "0",
+  },
+  fillShadowGradientFrom: "#0A84FF", // ✅ vivid blue start
+  fillShadowGradientTo: "#0A84FF",   // ✅ same blue (solid look)
+  fillShadowGradientOpacity: 1,
+};
+
 
   return (
     <View style={styles.card}>
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   rangeButtonActive: {
-    backgroundColor: "#00DCB4",
+    backgroundColor: "#0A84FF",
   },
   rangeText: {
     fontSize: 12, // Smaller font

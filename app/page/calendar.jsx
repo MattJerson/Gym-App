@@ -232,7 +232,7 @@ export default function Calendar() {
                 showLogWorkoutUI();
               }}
             >
-              <Ionicons name="add-circle-outline" size={32} color="#1E3A5F" />
+              <Ionicons name="add-circle-outline" size={32} color="#74b9ff" />
             </Pressable>
           </View>
         </View>
@@ -257,7 +257,7 @@ export default function Calendar() {
                   textSectionTitleColor: "#888",
                   selectedDayBackgroundColor: "#1E3A5F",
                   selectedDayTextColor: "#fff",
-                  arrowColor: "#1E3A5F",
+                  arrowColor: "#74b9ff",
                   textDayFontWeight: "500",
                   textMonthFontWeight: "bold",
                   textDayHeaderFontWeight: "600",
@@ -426,7 +426,14 @@ const styles = StyleSheet.create({
   addButton: { padding: 4 },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 60 },
   loadingText: { color: "#fff", fontSize: 16, opacity: 0.7 },
-  calendarCard: { backgroundColor: "rgba(255, 255, 255, 0.05)", borderRadius: 22, marginBottom: 20, overflow: "hidden" },
+  calendarCard: {
+  backgroundColor: "rgba(255, 255, 255, 0.05)",
+  borderRadius: 22,
+  marginBottom: 20,
+  overflow: "hidden",
+  borderWidth: 1,
+  borderColor: "rgba(255,255,255,0.1)", 
+},
   statsContainer: { padding: 20, borderTopWidth: 1, borderTopColor: "rgba(255, 255, 255, 0.1)" },
   cardTitle: { fontSize: 18, color: "#fff", marginBottom: 15, fontWeight: "bold" },
   statRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "rgba(255, 255, 255, 0.06)" },
