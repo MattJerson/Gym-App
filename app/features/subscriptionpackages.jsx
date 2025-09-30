@@ -35,7 +35,7 @@ export default function SubscriptionPackages() {
 
   const handleJoin = async (plan) => {
     try {
-      // Call your backend
+      // 1️⃣ Call your backend to create PaymentIntent, ephemeral key, and customer
       const response = await fetch(
         "http://192.168.253.138:3000/create-payment-intent",
         {
@@ -45,10 +45,20 @@ export default function SubscriptionPackages() {
         }
       );
 
+      if (!response.ok) {
+        console.error("Backend returned error:", response.statusText);
+        return;
+      }
+
       const { paymentIntent, ephemeralKey, customer } = await response.json();
 
-      // 1️⃣ Initialize payment sheet
-      const initResult = await initPaymentSheet({
+      if (!paymentIntent || !ephemeralKey || !customer) {
+        console.error("Backend response missing required fields");
+        return;
+      }
+
+      // 2️⃣ Initialize Payment Sheet
+      const { error: initError } = await initPaymentSheet({
         merchantDisplayName: "Gym App",
         customerId: customer,
         customerEphemeralKeySecret: ephemeralKey,
@@ -56,16 +66,16 @@ export default function SubscriptionPackages() {
         allowsDelayedPaymentMethods: true,
       });
 
-      if (initResult.error) {
-        console.error("PaymentSheet init error:", initResult.error);
+      if (initError) {
+        console.error("PaymentSheet initialization failed:", initError);
         return;
       }
 
-      // 2️⃣ Present the payment sheet
-      const presentResult = await presentPaymentSheet();
+      // 3️⃣ Present the Payment Sheet
+      const { error: paymentError } = await presentPaymentSheet();
 
-      if (presentResult.error) {
-        console.error("Payment failed:", presentResult.error);
+      if (paymentError) {
+        console.error("Payment failed:", paymentError);
       } else {
         console.log("Payment successful ✅");
         router.push("/page/home");
