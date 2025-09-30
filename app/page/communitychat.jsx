@@ -2,38 +2,67 @@ import {
   View,
   Text,
   Platform,
+  FlatList,
+  Animated,
   TextInput,
   Pressable,
+  Dimensions,
   StyleSheet,
-  ScrollView,
   KeyboardAvoidingView,
-  FlatList,
 } from "react-native";
-import {
-  Ionicons,
-  FontAwesome5,
-  MaterialIcons,
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
-import { useState } from "react";
 import { useRouter } from "expo-router";
+import { useState, useRef, useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+
+const { width } = Dimensions.get("window");
 
 export default function CommunityChat() {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [activeChannel, setActiveChannel] = useState("general");
-  
-  // Sample channels
-  const channels = [
-    { id: "general", name: "General", icon: "chat-outline", memberCount: 1247 },
-    { id: "workouts", name: "Workouts", icon: "dumbbell", memberCount: 856 },
-    { id: "nutrition", name: "Nutrition", icon: "food-apple-outline", memberCount: 623 },
-    { id: "progress", name: "Progress", icon: "chart-line", memberCount: 445 },
-    { id: "motivation", name: "Motivation", icon: "fire", memberCount: 789 },
+  const [showSidebar, setShowSidebar] = useState(true);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  // Channel categories matching your app's style
+  const channelCategories = [
+    {
+      name: "FITNESS",
+      channels: [
+        { id: "general", name: "General", icon: "chat", unread: 3 },
+        {
+          id: "announcement",
+          name: "Announcement",
+          icon: "megaphone",
+          unread: 0,
+        },
+      ],
+    },
+    {
+      name: "WORKOUTS",
+      channels: [
+        { id: "workouts", name: "Workouts", icon: "dumbbell", unread: 12 },
+        { id: "nutrition", name: "Nutrition", icon: "food-apple", unread: 0 },
+        { id: "progress", name: "Progress", icon: "trending-up", unread: 5 },
+      ],
+    },
+    {
+      name: "COMMUNITY",
+      channels: [
+        { id: "motivation", name: "Motivation", icon: "fire", unread: 8 },
+        { id: "off-topic", name: "Off-topic", icon: "chat-outline", unread: 0 },
+      ],
+    },
   ];
 
-  // Sample messages for different channels
   const channelMessages = {
     general: [
       {
@@ -43,6 +72,10 @@ export default function CommunityChat() {
         text: "Good morning everyone! Ready to crush today's workout? 💪",
         timestamp: "9:23 AM",
         isOnline: true,
+        reactions: [
+          { emoji: "💪", count: 5 },
+          { emoji: "🔥", count: 3 },
+        ],
       },
       {
         id: 2,
@@ -51,6 +84,10 @@ export default function CommunityChat() {
         text: "Just finished my morning run! The weather is perfect today 🌅",
         timestamp: "9:45 AM",
         isOnline: true,
+        reactions: [
+          { emoji: "🏃‍♀️", count: 2 },
+          { emoji: "☀️", count: 6 },
+        ],
       },
       {
         id: 3,
@@ -59,6 +96,7 @@ export default function CommunityChat() {
         text: "Anyone tried the new HIIT workout? Looks intense! 🔥",
         timestamp: "10:12 AM",
         isOnline: false,
+        reactions: [{ emoji: "🔥", count: 8 }],
       },
     ],
     workouts: [
@@ -69,14 +107,10 @@ export default function CommunityChat() {
         text: "PRed my deadlift today! 185lbs x5 💪 Feeling amazing!",
         timestamp: "8:30 AM",
         isOnline: true,
-      },
-      {
-        id: 2,
-        user: "CardioKing",
-        avatar: "🏃",
-        text: "That HIIT session was brutal but so worth it! Who's joining tomorrow?",
-        timestamp: "9:15 AM",
-        isOnline: true,
+        reactions: [
+          { emoji: "💪", count: 12 },
+          { emoji: "🎉", count: 8 },
+        ],
       },
     ],
     nutrition: [
@@ -87,6 +121,7 @@ export default function CommunityChat() {
         text: "Sharing my weekly meal prep! High protein, low carb 📸",
         timestamp: "7:45 AM",
         isOnline: false,
+        reactions: [{ emoji: "😍", count: 15 }],
       },
     ],
     progress: [
@@ -97,6 +132,7 @@ export default function CommunityChat() {
         text: "6 months progress update! Down 30lbs and feeling incredible!",
         timestamp: "Yesterday",
         isOnline: false,
+        reactions: [{ emoji: "🎉", count: 25 }],
       },
     ],
     motivation: [
@@ -107,6 +143,7 @@ export default function CommunityChat() {
         text: "Remember: You don't have to be perfect, you just have to be consistent! 💯",
         timestamp: "Yesterday",
         isOnline: true,
+        reactions: [{ emoji: "💯", count: 30 }],
       },
     ],
   };
@@ -115,119 +152,127 @@ export default function CommunityChat() {
 
   const sendMessage = () => {
     if (message.trim()) {
-      // In a real app, this would send to a backend
       console.log(`Sending message to #${activeChannel}: ${message}`);
       setMessage("");
     }
   };
 
-  const renderChannel = ({ item }) => (
-    <Pressable
-      style={[
-        styles.channelItem,
-        activeChannel === item.id && styles.activeChannel
-      ]}
-      onPress={() => setActiveChannel(item.id)}
-    >
-      <View style={styles.channelContent}>
-        <MaterialCommunityIcons
-          name={item.icon}
-          size={16}
-          color={activeChannel === item.id ? "#5b86e5" : "#aaa"}
-        />
-        <Text style={[
-          styles.channelName,
-          activeChannel === item.id && styles.activeChannelName
-        ]}>
-          #{item.name.toLowerCase()}
-        </Text>
-      </View>
-      <Text style={styles.memberCount}>{item.memberCount}</Text>
-    </Pressable>
+  const toggleSidebar = () => {
+    setShowSidebar(!showSidebar);
+  };
+
+  const renderChannelCategory = ({ item }) => (
+    <View style={styles.categoryContainer}>
+      <Text style={styles.categoryTitle}>{item.name}</Text>
+      {item.channels.map((channel) => (
+        <Pressable
+          key={channel.id}
+          style={[
+            styles.channelItem,
+            activeChannel === channel.id && styles.activeChannelItem,
+          ]}
+          onPress={() => setActiveChannel(channel.id)}
+        >
+          <MaterialCommunityIcons
+            name={channel.icon}
+            size={18}
+            color={activeChannel === channel.id ? "#fff" : "#aaa"}
+            style={styles.channelIcon}
+          />
+          <Text
+            style={[
+              styles.channelName,
+              activeChannel === channel.id && styles.activeChannelName,
+            ]}
+          >
+            {channel.name}
+          </Text>
+          {channel.unread > 0 && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadCount}>{channel.unread}</Text>
+            </View>
+          )}
+        </Pressable>
+      ))}
+    </View>
   );
 
   const renderMessage = ({ item }) => (
     <View style={styles.messageContainer}>
-      <View style={styles.messageHeader}>
-        <View style={styles.userInfo}>
-          <Text style={styles.userAvatar}>{item.avatar}</Text>
-          <Text style={styles.userName}>{item.user}</Text>
-          <View style={[
-            styles.onlineStatus,
-            { backgroundColor: item.isOnline ? "#00ff88" : "#666" }
-          ]} />
-          <Text style={styles.messageTimestamp}>{item.timestamp}</Text>
+      <View style={styles.messageCard}>
+        <View style={styles.messageHeader}>
+          <View style={styles.userInfo}>
+            <View style={styles.avatarContainer}>
+              <Text style={styles.userAvatar}>{item.avatar}</Text>
+              {item.isOnline && <View style={styles.onlineIndicator} />}
+            </View>
+            <Text style={styles.userName}>{item.user}</Text>
+            <Text style={styles.messageTimestamp}>{item.timestamp}</Text>
+          </View>
         </View>
+        <Text style={styles.messageText}>{item.text}</Text>
+        {item.reactions && item.reactions.length > 0 && (
+          <View style={styles.reactionsContainer}>
+            {item.reactions.map((reaction, idx) => (
+              <View key={idx} style={styles.reactionItem}>
+                <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
+                <Text style={styles.reactionCount}>{reaction.count}</Text>
+              </View>
+            ))}
+          </View>
+        )}
       </View>
-      <Text style={styles.messageText}>{item.text}</Text>
     </View>
   );
 
   return (
-    <View style={styles.container}>
+    <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        {/* Header */}
+        {/* Header matching your app's style */}
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </Pressable>
-          <View style={styles.headerCenter}>
-            <MaterialCommunityIcons name="account-group" size={24} color="#fff" />
-            <View style={styles.headerText}>
+          <View style={styles.headerLeft}>
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={22} color="#fff" />
+            </Pressable>
+            <View style={styles.headerTitleContainer}>
               <Text style={styles.headerTitle}>Community Chat</Text>
-              <Text style={styles.statusText}>#{activeChannel}</Text>
+              <Text style={styles.headerSubtitle}>#{activeChannel}</Text>
             </View>
           </View>
-          <Pressable style={styles.moreButton}>
-            <MaterialCommunityIcons name="dots-vertical" size={24} color="#fff" />
-          </Pressable>
+          <View style={styles.headerRight}>
+            <Pressable onPress={toggleSidebar} style={styles.headerButton}>
+              <MaterialCommunityIcons
+                name={showSidebar ? "menu-open" : "menu"}
+                size={24}
+                color="#fff"
+              />
+            </Pressable>
+          </View>
         </View>
 
-        <View style={styles.mainContent}>
-          {/* Sidebar with channels */}
-          <View style={styles.sidebar}>
-            <Text style={styles.sidebarTitle}>Channels</Text>
-            <FlatList
-              data={channels}
-              renderItem={renderChannel}
-              keyExtractor={(item) => item.id}
-              showsVerticalScrollIndicator={false}
-            />
-            
-            <View style={styles.onlineSection}>
-              <Text style={styles.sidebarTitle}>Online Now</Text>
-              <View style={styles.onlineUsers}>
-                <Text style={styles.onlineUser}>👨‍💼 FitMike92</Text>
-                <Text style={styles.onlineUser}>👩‍🦰 HealthyHannah</Text>
-                <Text style={styles.onlineUser}>💪 StrengthSarah</Text>
-                <Text style={styles.onlineUser}>🏃 CardioKing</Text>
-                <Text style={styles.moreOnline}>+42 more</Text>
+        <Animated.View style={[styles.mainContent, { opacity: fadeAnim }]}>
+          {/* Sidebar */}
+          {showSidebar && (
+            <View style={styles.sidebar}>
+              <View style={styles.sidebarHeader}>
+                <MaterialCommunityIcons name="forum" size={20} color="#fff" />
+                <Text style={styles.sidebarTitle}>Channels</Text>
               </View>
+              <FlatList
+                data={channelCategories}
+                renderItem={renderChannelCategory}
+                keyExtractor={(item) => item.name}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.channelsList}
+              />
             </View>
-          </View>
+          )}
 
           {/* Chat Area */}
           <View style={styles.chatArea}>
-            {/* Channel Header */}
-            <View style={styles.channelHeader}>
-              <View style={styles.channelInfo}>
-                <MaterialCommunityIcons 
-                  name={channels.find(c => c.id === activeChannel)?.icon || "chat-outline"} 
-                  size={20} 
-                  color="#5b86e5" 
-                />
-                <Text style={styles.channelTitle}>
-                  #{activeChannel}
-                </Text>
-              </View>
-              <Text style={styles.channelMemberCount}>
-                {channels.find(c => c.id === activeChannel)?.memberCount || 0} members
-              </Text>
-            </View>
-
             {/* Messages */}
             <FlatList
               style={styles.messagesList}
@@ -236,254 +281,349 @@ export default function CommunityChat() {
               keyExtractor={(item) => item.id.toString()}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.messagesContainer}
+              ListHeaderComponent={
+                <View style={styles.channelIntro}>
+                  <View style={styles.channelIconLarge}>
+                    <MaterialCommunityIcons
+                      name={
+                        channelCategories
+                          .flatMap((c) => c.channels)
+                          .find((ch) => ch.id === activeChannel)?.icon || "chat"
+                      }
+                      size={32}
+                      color="#fff"
+                    />
+                  </View>
+                  <Text style={styles.channelIntroTitle}>
+                    Welcome to #{activeChannel}!
+                  </Text>
+                  <Text style={styles.channelIntroText}>
+                    This is the start of the #{activeChannel} channel.
+                  </Text>
+                </View>
+              }
             />
 
-            {/* Input Area */}
+            {/* Input matching your app's style */}
             <View style={styles.inputContainer}>
               <View style={styles.inputWrapper}>
                 <Pressable style={styles.attachButton}>
-                  <Ionicons name="add" size={20} color="#aaa" />
+                  <MaterialCommunityIcons
+                    name="plus-circle"
+                    size={24}
+                    color="#aaa"
+                  />
                 </Pressable>
                 <TextInput
                   style={styles.textInput}
                   placeholder={`Message #${activeChannel}...`}
-                  placeholderTextColor="#aaa"
+                  placeholderTextColor="#888"
                   value={message}
                   onChangeText={setMessage}
                   multiline
                   maxLength={500}
                 />
                 <Pressable style={styles.emojiButton}>
-                  <MaterialCommunityIcons name="emoticon-happy-outline" size={20} color="#aaa" />
+                  <MaterialCommunityIcons
+                    name="emoticon-happy-outline"
+                    size={22}
+                    color="#aaa"
+                  />
                 </Pressable>
                 <Pressable
                   onPress={sendMessage}
                   style={[
                     styles.sendButton,
-                    { opacity: message.trim() ? 1 : 0.5 }
+                    { opacity: message.trim() ? 1 : 0.5 },
                   ]}
                   disabled={!message.trim()}
                 >
-                  <Ionicons name="send" size={18} color="#fff" />
+                  <LinearGradient
+                    colors={["#FF6B6B", "#4ECDC4"]}
+                    style={styles.sendButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Ionicons name="send" size={18} color="#fff" />
+                  </LinearGradient>
                 </Pressable>
               </View>
             </View>
           </View>
-        </View>
+        </Animated.View>
       </KeyboardAvoidingView>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1a1a1a",
   },
   header: {
-    paddingTop: 50,
-    paddingBottom: 15,
+    paddingTop: 60,
+    paddingBottom: 20,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    backgroundColor: "#5b86e5",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "transparent",
+    justifyContent: "space-between",
   },
-  backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-  },
-  headerCenter: {
+  headerLeft: {
     flex: 1,
-    marginLeft: 15,
     flexDirection: "row",
     alignItems: "center",
   },
-  headerText: {
-    marginLeft: 12,
+  backButton: {
+    width: 40,
+    height: 40,
+    marginRight: 15,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  headerTitleContainer: {
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 26,
     color: "#fff",
-    fontWeight: "600",
+    fontWeight: "bold",
   },
-  statusText: {
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.8)",
+  headerSubtitle: {
+    fontSize: 14,
     marginTop: 2,
+    color: "#aaa",
+    textTransform: "capitalize",
   },
-  moreButton: {
-    padding: 8,
+  headerRight: {
+    flexDirection: "row",
+  },
+  headerButton: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
+
   mainContent: {
     flex: 1,
     flexDirection: "row",
   },
-  
-  // Sidebar Styles
+
   sidebar: {
-    width: 120,
-    backgroundColor: "#0f0f0f",
-    borderRightWidth: 1,
-    borderRightColor: "rgba(255, 255, 255, 0.1)",
-    paddingVertical: 15,
+    width: 180,
+    padding: 15,
+    marginLeft: 20,
+    marginRight: 10,
+    borderRadius: 32,
+    marginBottom: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  sidebarHeader: {
+    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   sidebarTitle: {
-    fontSize: 12,
-    color: "#aaa",
-    fontWeight: "600",
+    fontSize: 18,
+    color: "#fff",
+    marginLeft: 10,
+    fontWeight: "bold",
+  },
+  channelsList: {
+    paddingBottom: 10,
+  },
+
+  // Channel Categories
+  categoryContainer: {
+    marginBottom: 20,
+  },
+  categoryTitle: {
+    fontSize: 11,
+    color: "#888",
+    letterSpacing: 1,
     marginBottom: 10,
-    marginHorizontal: 12,
+    fontWeight: "700",
+    paddingHorizontal: 8,
     textTransform: "uppercase",
   },
   channelItem: {
+    marginBottom: 4,
+    borderRadius: 16,
+    paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 8,
     paddingHorizontal: 12,
-    marginHorizontal: 6,
-    borderRadius: 6,
   },
-  activeChannel: {
-    backgroundColor: "rgba(91, 134, 229, 0.2)",
+  activeChannelItem: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
-  channelContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
+  channelIcon: {
+    marginRight: 10,
   },
   channelName: {
-    fontSize: 12,
+    flex: 1,
+    fontSize: 14,
     color: "#aaa",
-    marginLeft: 6,
     fontWeight: "500",
   },
   activeChannelName: {
-    color: "#5b86e5",
-    fontWeight: "600",
-  },
-  memberCount: {
-    fontSize: 10,
-    color: "#666",
-  },
-  onlineSection: {
-    marginTop: 20,
-  },
-  onlineUsers: {
-    paddingHorizontal: 12,
-  },
-  onlineUser: {
-    fontSize: 11,
-    color: "#ccc",
-    marginBottom: 4,
-  },
-  moreOnline: {
-    fontSize: 10,
-    color: "#666",
-    fontStyle: "italic",
-    marginTop: 4,
-  },
-
-  // Chat Area Styles
-  chatArea: {
-    flex: 1,
-    backgroundColor: "#1a1a1a",
-  },
-  channelHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
-  },
-  channelInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  channelTitle: {
-    fontSize: 16,
     color: "#fff",
     fontWeight: "600",
-    marginLeft: 8,
   },
-  channelMemberCount: {
-    fontSize: 12,
+  unreadBadge: {
+    height: 20,
+    minWidth: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    paddingHorizontal: 6,
+    justifyContent: "center",
+    backgroundColor: "#e74c3c",
+  },
+  unreadCount: {
+    fontSize: 11,
+    color: "#fff",
+    fontWeight: "bold",
+  },
+
+  // Chat Area
+  chatArea: {
+    flex: 1,
+    marginBottom: 20,
+  },
+
+  // Channel Intro
+  channelIntro: {
+    paddingVertical: 40,
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  channelIconLarge: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  channelIntroTitle: {
+    fontSize: 24,
+    color: "#fff",
+    marginBottom: 8,
+    fontWeight: "bold",
+    textAlign: "center",
+    textTransform: "capitalize",
+  },
+  channelIntroText: {
+    fontSize: 14,
     color: "#aaa",
+    textAlign: "center",
   },
+
+  // Messages matching your card style
   messagesList: {
     flex: 1,
   },
   messagesContainer: {
-    paddingVertical: 10,
+    paddingHorizontal: 10,
   },
   messageContainer: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  messageCard: {
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   messageHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 10,
   },
   userInfo: {
     flexDirection: "row",
     alignItems: "center",
   },
+  avatarContainer: {
+    marginRight: 10,
+    position: "relative",
+  },
   userAvatar: {
-    fontSize: 16,
-    marginRight: 8,
+    fontSize: 20,
+  },
+  onlineIndicator: {
+    right: 0,
+    width: 10,
+    bottom: 0,
+    height: 10,
+    borderWidth: 2,
+    borderRadius: 5,
+    position: "absolute",
+    borderColor: "#1a1a1a",
+    backgroundColor: "#00ff88",
   },
   userName: {
-    fontSize: 14,
-    color: "#5b86e5",
+    fontSize: 16,
+    color: "#fff",
+    marginRight: 10,
     fontWeight: "600",
-    marginRight: 6,
-  },
-  onlineStatus: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 8,
   },
   messageTimestamp: {
-    fontSize: 11,
-    color: "#666",
+    fontSize: 12,
+    color: "#888",
   },
   messageText: {
-    fontSize: 14,
+    fontSize: 15,
+    lineHeight: 22,
     color: "#fff",
-    lineHeight: 20,
-    marginLeft: 24,
   },
 
-  // Input Styles
+  // Reactions
+  reactionsContainer: {
+    gap: 8,
+    marginTop: 12,
+    flexWrap: "wrap",
+    flexDirection: "row",
+  },
+  reactionItem: {
+    borderRadius: 12,
+    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  reactionEmoji: {
+    fontSize: 14,
+    marginRight: 4,
+  },
+  reactionCount: {
+    fontSize: 12,
+    color: "#fff",
+    fontWeight: "600",
+  },
+
   inputContainer: {
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)",
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    backgroundColor: "#1a1a1a",
+    paddingVertical: 15,
+    paddingHorizontal: 10,
   },
   inputWrapper: {
     borderRadius: 24,
-    paddingVertical: 8,
+    paddingVertical: 10,
     flexDirection: "row",
     paddingHorizontal: 16,
     alignItems: "flex-end",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   attachButton: {
     padding: 4,
-    marginRight: 8,
+    marginRight: 12,
   },
   textInput: {
     flex: 1,
@@ -494,15 +634,19 @@ const styles = StyleSheet.create({
   },
   emojiButton: {
     padding: 4,
-    marginLeft: 8,
-    marginRight: 8,
+    marginLeft: 12,
+    marginRight: 12,
   },
   sendButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: "hidden",
+  },
+  sendButtonGradient: {
+    width: 40,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#5b86e5",
   },
 });

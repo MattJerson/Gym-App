@@ -5,9 +5,9 @@ import { LinearGradient } from "expo-linear-gradient";
 
 export default function PageLayout() {
   const router = useRouter();
-  const segments = useSegments(); // gives current route segments
+  const segments = useSegments();
 
-  // detect if current route is "chatbot" or "communitychat"
+
   const isChatbot = segments.includes("chatbot");
   const isCommunityChat = segments.includes("communitychat");
 

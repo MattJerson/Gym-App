@@ -16,6 +16,7 @@ import {
 } from "@expo/vector-icons";
 import { useState } from "react";
 import { useRouter } from "expo-router";
+import { askGemini } from "../../backend/gemini";
 import { LinearGradient } from "expo-linear-gradient";
 
 export default function Chatbot() {
@@ -30,7 +31,7 @@ export default function Chatbot() {
     },
   ]);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (message.trim()) {
       const newMessage = {
         id: messages.length + 1,
@@ -42,22 +43,37 @@ export default function Chatbot() {
         }),
       };
 
-      setMessages([...messages, newMessage]);
+      const updatedMessages = [...messages, newMessage];
+      setMessages(updatedMessages);
       setMessage("");
 
-      // Simulate bot response
-      setTimeout(() => {
-        const botResponse = {
-          id: messages.length + 2,
-          text: "Thank you for your question. I'm here to help with your fitness journey. Let me provide you with some guidance on that topic.",
-          isBot: true,
-          timestamp: new Date().toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-        };
-        setMessages((prev) => [...prev, botResponse]);
-      }, 1000);
+      // Show temporary "typing..." message
+      const typingMessage = {
+        id: updatedMessages.length + 1,
+        text: "Typing...",
+        isBot: true,
+        timestamp: "",
+      };
+      setMessages((prev) => [...prev, typingMessage]);
+
+      // Ask Gemini with truncated conversation
+      const reply = await askGemini(updatedMessages);
+
+      // Replace "Typing..." with real reply
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === typingMessage.id
+            ? {
+                ...msg,
+                text: reply,
+                timestamp: new Date().toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }),
+              }
+            : msg
+        )
+      );
     }
   };
   return (
@@ -73,7 +89,11 @@ export default function Chatbot() {
           </Pressable>
           <View style={styles.headerCenter}>
             <View style={styles.botAvatar}>
-              <MaterialCommunityIcons name="robot-outline" size={24} color="#fff" />
+              <MaterialCommunityIcons
+                name="robot-outline"
+                size={24}
+                color="#fff"
+              />
             </View>
             <View style={styles.headerText}>
               <Text style={styles.headerTitle}>Virtual Assistant</Text>
@@ -97,7 +117,11 @@ export default function Chatbot() {
             >
               {msg.isBot && (
                 <View style={styles.messageAvatar}>
-                  <MaterialCommunityIcons name="robot-outline" size={16} color="#5b86e5" />
+                  <MaterialCommunityIcons
+                    name="robot-outline"
+                    size={16}
+                    color="#5b86e5"
+                  />
                 </View>
               )}
               <View
@@ -125,7 +149,11 @@ export default function Chatbot() {
               </View>
               {!msg.isBot && (
                 <View style={styles.messageAvatar}>
-                  <MaterialCommunityIcons name="account" size={16} color="#5b86e5" />
+                  <MaterialCommunityIcons
+                    name="account"
+                    size={16}
+                    color="#5b86e5"
+                  />
                 </View>
               )}
             </View>
@@ -136,7 +164,8 @@ export default function Chatbot() {
         <View style={styles.inputContainer}>
           <View style={styles.inputWrapper}>
             <TextInput
-              style={styles.textInput}              placeholder="Type your fitness question..."
+              style={styles.textInput}
+              placeholder="Type your fitness question..."
               placeholderTextColor="#aaa"
               value={message}
               onChangeText={setMessage}
@@ -145,10 +174,7 @@ export default function Chatbot() {
             />
             <Pressable
               onPress={sendMessage}
-              style={[
-                styles.sendButton,
-                { opacity: message.trim() ? 1 : 0.5 }
-              ]}
+              style={[styles.sendButton, { opacity: message.trim() ? 1 : 0.5 }]}
               disabled={!message.trim()}
             >
               <Ionicons name="send" size={18} color="#fff" />
@@ -206,7 +232,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "rgba(255, 255, 255, 0.8)",
     marginTop: 2,
-  },  chatContainer: {
+  },
+  chatContainer: {
     flex: 1,
     backgroundColor: "#1a1a1a",
     paddingVertical: 10,
@@ -239,7 +266,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     marginHorizontal: 8,
-  },  botBubble: {
+  },
+  botBubble: {
     backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderBottomLeftRadius: 6,
     borderWidth: 1,
@@ -262,7 +290,8 @@ const styles = StyleSheet.create({
   timestamp: {
     fontSize: 11,
     marginTop: 4,
-  },  botTimestamp: {
+  },
+  botTimestamp: {
     color: "#aaa",
   },
   userTimestamp: {

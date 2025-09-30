@@ -17,7 +17,7 @@ export default function QuickStart() {
       iconColor: "#b9e3e6",
     },
     {
-      title: "Log Meal",
+      title: "Diet",
       subtitle: "Meal Plan",
       icon: "food-outline",
       iconLibrary: "Ionicons",
@@ -61,12 +61,12 @@ export default function QuickStart() {
   return (
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>Quick Start</Text>
-      
+
       <View style={styles.row}>
         {quickActions.map((action, index) => (
-          <Pressable 
+          <Pressable
             key={index}
-            style={styles.cardContainer} 
+            style={styles.cardContainer}
             onPress={() => handlePress(action.route)}
             android_ripple={{ color: 'rgba(255,255,255,0.1)' }}
           >
@@ -80,7 +80,7 @@ export default function QuickStart() {
                 <View style={styles.iconContainer}>
                   {renderIcon(action)}
                 </View>
-                
+
                 <View style={styles.textSection}>
                   <Text style={styles.title}>{action.title}</Text>
                   <Text style={styles.subtitle}>{action.subtitle}</Text>

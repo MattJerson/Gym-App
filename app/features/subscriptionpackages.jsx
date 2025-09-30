@@ -16,9 +16,11 @@ import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useStripe } from "@stripe/stripe-react-native";
 
 export default function SubscriptionPackages() {
   const router = useRouter();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const { width } = Dimensions.get("window");
 
   const fadeAnim = useState(new Animated.Value(0))[0];
@@ -31,9 +33,46 @@ export default function SubscriptionPackages() {
     }).start();
   }, [fadeAnim]);
 
-  const handleJoin = (plan) => {
-    console.log("Joining plan:", plan);
-    // Add navigation or payment logic here
+  const handleJoin = async (plan) => {
+    try {
+      // Call your backend
+      const response = await fetch(
+        "http://192.168.253.138:3000/create-payment-intent",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ plan }),
+        }
+      );
+
+      const { paymentIntent, ephemeralKey, customer } = await response.json();
+
+      // 1️⃣ Initialize payment sheet
+      const initResult = await initPaymentSheet({
+        merchantDisplayName: "Gym App",
+        customerId: customer,
+        customerEphemeralKeySecret: ephemeralKey,
+        paymentIntentClientSecret: paymentIntent,
+        allowsDelayedPaymentMethods: true,
+      });
+
+      if (initResult.error) {
+        console.error("PaymentSheet init error:", initResult.error);
+        return;
+      }
+
+      // 2️⃣ Present the payment sheet
+      const presentResult = await presentPaymentSheet();
+
+      if (presentResult.error) {
+        console.error("Payment failed:", presentResult.error);
+      } else {
+        console.log("Payment successful ✅");
+        router.push("/page/home");
+      }
+    } catch (err) {
+      console.error("Payment error:", err);
+    }
   };
 
   const handleUseCoupon = () => {
