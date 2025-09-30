@@ -1,6 +1,5 @@
 import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useState, useEffect } from "react";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import moment from "moment";
 
@@ -37,10 +36,7 @@ export default function DailyProgressCard({
   }, [workoutData, stepsData, calorieData]);
 
   return (
-    <LinearGradient
-      colors={["rgba(255,255,255,0.08)", "rgba(255,255,255,0.03)"]}
-      style={styles.card}
-    >
+    <View style={[styles.card, { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}>
       {/* Enhanced Header with Streak */}
       <View style={styles.headerSection}>
         <View style={styles.dateSection}>
@@ -49,9 +45,10 @@ export default function DailyProgressCard({
         </View>
         
         <View style={styles.streakSection}>
-          <LinearGradient
-            colors={currentStreak >= 3 ? ["#FF6B35", "#F7931E"] : ["#666", "#888"]}
-            style={styles.streakBadge}
+          <View
+            style={[styles.streakBadge, {
+              backgroundColor: currentStreak >= 3 ? "#FF6B35" : "#666",
+            }]}
           >
             <Ionicons 
               name="flame" 
@@ -59,7 +56,7 @@ export default function DailyProgressCard({
               color="#fff" 
             />
             <Text style={styles.streakNumber}>{currentStreak}</Text>
-          </LinearGradient>
+          </View>
           <Text style={styles.streakLabel}>Day Streak</Text>
         </View>
       </View>
@@ -83,7 +80,7 @@ export default function DailyProgressCard({
         stepsData={stepsData}
         calorieData={calorieData}
       />
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -97,7 +94,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   headerSection: {
     flexDirection: "row",

@@ -14,7 +14,6 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import React, { useState, useRef, useEffect } from "react";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import FormInput from "../../components/FormInput";
@@ -158,174 +157,172 @@ export default function Register() {
 
   /* -------------------- RENDER -------------------- */
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
-        <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          style={styles.keyboardAvoidingView}
-        >
-          <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-            {/* Header */}
-            <Animated.View
-              style={[
-                styles.headerSection,
-                {
-                  opacity: logoAnim,
-                  transform: [
-                    {
-                      translateY: logoAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [-50, 0],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            >
-              <View style={styles.logoContainer}>
-                <Image
-                  source={require("../../assets/logo.png")}
-                  style={styles.logo}
-                />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#0B0B0B" />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingView}
+      >
+        <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
+          {/* Header */}
+          <Animated.View
+            style={[
+              styles.headerSection,
+              {
+                opacity: logoAnim,
+                transform: [
+                  {
+                    translateY: logoAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-50, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={styles.logoContainer}>
+              <Image
+                source={require("../../assets/logo.png")}
+                style={styles.logo}
+              />
+            </View>
+            <Text style={styles.welcomeText}>
+              {isRegistering ? "Create Account" : "Welcome Back"}
+            </Text>
+            <Text style={styles.subtitleText}>
+              {isRegistering
+                ? "Start your fitness journey and see your growth"
+                : "Sign in to continue your fitness journey"}
+            </Text>
+          </Animated.View>
+
+          {/* Form */}
+          <Animated.View
+            style={[
+              styles.formContainer,
+              {
+                opacity: formAnim,
+                transform: [
+                  {
+                    translateY: formAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [30, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            {isRegistering && (
+              <FormInput
+                placeholder="Nickname"
+                value={nickname}
+                onChangeText={setNickname}
+                errorMessage={errors.nickname}
+              />
+            )}
+            <FormInput
+              placeholder="Email Address"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              errorMessage={errors.email}
+            />
+            <FormInput
+              placeholder="Password"
+              value={password}
+              onChangeText={setPassword}
+              isPassword
+              errorMessage={errors.password}
+            />
+
+            {/* Password Strength Bar */}
+            {isRegistering && password.length > 0 && (
+              <View style={styles.passwordStrengthContainer}>
+                <View style={styles.passwordStrengthBar}>
+                  <View
+                    style={[
+                      styles.passwordStrengthFill,
+                      {
+                        width: `${(passwordStrength.strength / 5) * 100}%`,
+                        backgroundColor: passwordStrength.color,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text
+                  style={[
+                    styles.passwordStrengthText,
+                    { color: passwordStrength.color },
+                  ]}
+                >
+                  {passwordStrength.text}
+                </Text>
               </View>
-              <Text style={styles.welcomeText}>
-                {isRegistering ? "Create Account" : "Welcome Back"}
-              </Text>
-              <Text style={styles.subtitleText}>
-                {isRegistering
-                  ? "Start your fitness journey and see your growth"
-                  : "Sign in to continue your fitness journey"}
-              </Text>
-            </Animated.View>
-
-            {/* Form */}
-            <Animated.View
-              style={[
-                styles.formContainer,
-                {
-                  opacity: formAnim,
-                  transform: [
-                    {
-                      translateY: formAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [30, 0],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            >
-              {isRegistering && (
-                <FormInput
-                  placeholder="Nickname"
-                  value={nickname}
-                  onChangeText={setNickname}
-                  errorMessage={errors.nickname}
-                />
-              )}
+            )}
+            {isRegistering && (
               <FormInput
-                placeholder="Email Address"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                errorMessage={errors.email}
-              />
-              <FormInput
-                placeholder="Password"
-                value={password}
-                onChangeText={setPassword}
+                placeholder="Confirm Password"
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
                 isPassword
-                errorMessage={errors.password}
+                errorMessage={errors.confirmPassword}
               />
+            )}
 
-              {/* Password Strength Bar */}
-              {isRegistering && password.length > 0 && (
-                <View style={styles.passwordStrengthContainer}>
-                  <View style={styles.passwordStrengthBar}>
-                    <View
-                      style={[
-                        styles.passwordStrengthFill,
-                        {
-                          width: `${(passwordStrength.strength / 5) * 100}%`,
-                          backgroundColor: passwordStrength.color,
-                        },
-                      ]}
+            {/* Submit Button */}
+            <Pressable
+              style={styles.submitButton}
+              onPress={handleSubmit}
+              disabled={isLoading}
+            >
+              <View style={styles.submitButtonSolid}>
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Text style={styles.submitButtonText}>
+                      {isRegistering ? "Create Account" : "Sign In"}
+                    </Text>
+                    <Ionicons
+                      name="arrow-forward"
+                      size={20}
+                      color="#fff"
+                      style={styles.submitButtonIcon}
                     />
                   </View>
-                  <Text
-                    style={[
-                      styles.passwordStrengthText,
-                      { color: passwordStrength.color },
-                    ]}
-                  >
-                    {passwordStrength.text}
-                  </Text>
-                </View>
-              )}
-              {isRegistering && (
-                <FormInput
-                  placeholder="Confirm Password"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  isPassword
-                  errorMessage={errors.confirmPassword}
-                />
-              )}
+                )}
+              </View>
+            </Pressable>
 
-              {/* Submit Button */}
+            {/* Toggle */}
+            <Pressable style={styles.toggleContainer} onPress={handleToggle}>
+              <Text style={styles.toggleText}>
+                {isRegistering
+                  ? "Already have an account? "
+                  : "Don't have an account? "}
+                <Text style={styles.toggleTextHighlight}>
+                  {isRegistering ? "Sign In" : "Sign Up"}
+                </Text>
+              </Text>
+            </Pressable>
+
+            {/* Forgot Password */}
+            {!isRegistering && (
               <Pressable
-                style={styles.submitButton}
-                onPress={handleSubmit}
-                disabled={isLoading}
+                style={styles.forgotPasswordContainer}
+                onPress={() => router.push("/auth/passwordresetprocess")}
               >
-                <View style={styles.submitButtonSolid}>
-                  {isLoading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
-                      <Text style={styles.submitButtonText}>
-                        {isRegistering ? "Create Account" : "Sign In"}
-                      </Text>
-                      <Ionicons
-                        name="arrow-forward"
-                        size={20}
-                        color="#fff"
-                        style={styles.submitButtonIcon}
-                      />
-                    </View>
-                  )}
-                </View>
-              </Pressable>
-
-              {/* Toggle */}
-              <Pressable style={styles.toggleContainer} onPress={handleToggle}>
-                <Text style={styles.toggleText}>
-                  {isRegistering
-                    ? "Already have an account? "
-                    : "Don't have an account? "}
-                  <Text style={styles.toggleTextHighlight}>
-                    {isRegistering ? "Sign In" : "Sign Up"}
-                  </Text>
+                <Text style={styles.forgotPasswordText}>
+                  Forgot Password?
                 </Text>
               </Pressable>
-
-              {/* Forgot Password */}
-              {!isRegistering && (
-                <Pressable
-                  style={styles.forgotPasswordContainer}
-                  onPress={() => router.push("/auth/passwordresetprocess")}
-                >
-                  <Text style={styles.forgotPasswordText}>
-                    Forgot Password?
-                  </Text>
-                </Pressable>
-              )}
-            </Animated.View>
+            )}
           </Animated.View>
-        </KeyboardAvoidingView>
-      </LinearGradient>
-    </TouchableWithoutFeedback>
+        </Animated.View>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -333,6 +330,7 @@ export default function Register() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#0B0B0B",
   },
   keyboardAvoidingView: {
     flex: 1,

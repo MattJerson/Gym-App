@@ -110,6 +110,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 20,
     backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
     overflow: "hidden",
   },
   cardHeader: {

@@ -153,15 +153,21 @@ export default function Profile() {
                 ]}>
                   <View style={styles.leaderboardLeft}>
                     {/* Position with Medal Icons for Top 3 */}
-                    <View style={[
-                      styles.positionBadge,
-                      user.position === 1 && styles.goldBadge,
-                      user.position === 2 && styles.silverBadge,
-                      user.position === 3 && styles.bronzeBadge,
-                    ]}>
+                    <View
+                      style={[
+                        styles.positionBadge,
+                        user.position === 1 && styles.goldBadge,
+                        user.position === 2 && styles.silverBadge,
+                        user.position === 3 && styles.bronzeBadge,
+                      ]}
+                    >
                       {user.position <= 3 ? (
                         <Text style={styles.medalEmoji}>
-                          {user.position === 1 ? '🥇' : user.position === 2 ? '🥈' : '🥉'}
+                          {user.position === 1
+                            ? "🥇"
+                            : user.position === 2
+                            ? "🥈"
+                            : "🥉"}
                         </Text>
                       ) : (
                         <Text style={styles.positionText}>{user.position}</Text>
@@ -170,23 +176,32 @@ export default function Profile() {
                     
                     {/* User Info */}
                     <View style={styles.userInfo}>
-                      <Text style={[
-                        styles.leaderboardName,
-                        user.name === "Matt" && styles.currentUserName
-                      ]}>
+                      <Text
+                        style={[
+                          styles.leaderboardName,
+                          user.name === "Matt" && styles.currentUserName,
+                        ]}
+                      >
                         {user.name}
-                        {user.name === "Matt" && " (You)"}
+                        {user.name === "Matt" && <Text> (You)</Text>}
                       </Text>
                       <View style={styles.progressBar}>
-                        <View style={[
-                          styles.progressFill,
-                          { 
-                            width: `${(user.points / 1247) * 100}%`,
-                            backgroundColor: user.position === 1 ? "#f1c40f" : 
-                                           user.position === 2 ? "#95a5a6" : 
-                                           user.position === 3 ? "#e67e22" : "#5B86E5"
-                          }
-                        ]} />
+                        <View
+                          style={[
+                            styles.progressFill,
+                            {
+                              width: `${(user.points / 1247) * 100}%`,
+                              backgroundColor:
+                                user.position === 1
+                                  ? "#f1c40f"
+                                  : user.position === 2
+                                  ? "#95a5a6"
+                                  : user.position === 3
+                                  ? "#e67e22"
+                                  : "#5B86E5",
+                            },
+                          ]}
+                        />
                       </View>
                     </View>
                   </View>

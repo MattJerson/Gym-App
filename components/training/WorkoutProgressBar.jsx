@@ -15,9 +15,6 @@ export default function WorkoutProgressBar({
 
   return (
     <View style={styles.mainCard}>
-      {/* Gradient overlay effect */}
-      <View style={styles.gradientOverlay} />
-      
       {/* Date + Title */}
       <View style={styles.headerRow}>
         <View style={styles.dateContainer}>
@@ -89,27 +86,20 @@ export default function WorkoutProgressBar({
 
 const styles = StyleSheet.create({
   mainCard: {
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    borderWidth: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)', // Changed to solid color
     borderRadius: 24,
     padding: 18,
     marginBottom: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 12,
     elevation: 6,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderWidth: 1,
   },
   gradientOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-    backgroundColor: 'rgba(88, 86, 214, 0.03)',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    display: 'none', // Removed gradient overlay
   },
   headerRow: {
     flexDirection: 'row',

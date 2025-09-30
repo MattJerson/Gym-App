@@ -187,126 +187,113 @@ export default function ForgotPasswordFlow() {
       );
     });
   };  return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <LinearGradient 
-        colors={["#0F1419", "#1a1a1a", "#2d2d2d"]} 
-        style={styles.container}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <StatusBar barStyle="light-content" backgroundColor="#0F1419" />
-        <SafeAreaView style={styles.safeArea}>
-          <Animated.View style={[
-            styles.content, 
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }]
-            }
-          ]}>
-            {/* Header */}
-            <View style={styles.header}>
-              <Pressable 
-                onPress={handlePreviousStep} 
-                style={styles.backButton}
-              >
-                <Ionicons name="arrow-back" size={24} color="#fff" />
-              </Pressable>
-              <Text style={styles.headerTitle}>{currentStep.title}</Text>
-              <View style={styles.stepIndicator}>
-                <Text style={styles.stepText}>{step + 1}/{stepsConfig.length}</Text>
-              </View>
-            </View>
-
-            {/* Progress Bar */}
-            <View style={styles.progressBarContainer}>
-              <View style={styles.progressBar}>
-                <Animated.View 
-                  style={[
-                    styles.progressFill,
-                    { width: `${((step + 1) / stepsConfig.length) * 100}%` }
-                  ]}
-                />
-              </View>
-            </View>
-
-            {/* Main Content */}
-            <KeyboardAvoidingView
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
-              style={styles.mainContent}
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#0B0B0B" />
+      <SafeAreaView style={styles.safeArea}>
+        <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Pressable 
+              onPress={handlePreviousStep} 
+              style={styles.backButton}
             >
-              {/* Icon Container */}
-              <View style={styles.iconContainer}>
-                <LinearGradient
-                  colors={["#4A9EFF", "#6BB6FF"]}
-                  style={styles.iconGradient}
-                >
-                  <MaterialCommunityIcons 
-                    name={currentStep.displayIcon} 
-                    size={40} 
-                    color="#fff" 
-                  />
-                </LinearGradient>
-              </View>
-
-              <Text style={styles.subtitle}>{currentStep.subtitle}</Text>
-              
-              {/* Form Fields */}
-              <View style={styles.formContainer}>
-                {renderFields()}
-
-                {step === 1 && (
-                  <View style={styles.resendContainer}>
-                    <Text style={styles.resendText}>Didn't receive the code? </Text>
-                    <Pressable>
-                      <Text style={styles.resendButtonText}>Resend</Text>
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-            </KeyboardAvoidingView>
-
-            {/* Bottom Section */}
-            <View style={styles.bottomSection}>
-              <Pressable
-                style={[styles.submitButton, isLoading && styles.submitButtonLoading]}
-                onPress={handleNextStep}
-                disabled={isLoading}
-              >
-                <LinearGradient
-                  colors={isLoading ? ["#666", "#888"] : ["#4A9EFF", "#6BB6FF"]}
-                  style={styles.submitButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  {isLoading ? (
-                    <View style={styles.loadingContent}>
-                      <ActivityIndicator 
-                        size="small" 
-                        color="#fff" 
-                        style={styles.loadingSpinner} 
-                      />
-                      <Text style={styles.submitButtonText}>Processing...</Text>
-                    </View>
-                  ) : (
-                    <>
-                      <Text style={styles.submitButtonText}>
-                        {currentStep.buttonText}
-                      </Text>
-                      <Ionicons 
-                        name="arrow-forward" 
-                        size={20} 
-                        color="#fff" 
-                        style={styles.submitButtonIcon}
-                      />
-                    </>
-                  )}
-                </LinearGradient>
-              </Pressable>
+              <Ionicons name="arrow-back" size={24} color="#fff" />
+            </Pressable>
+            <Text style={styles.headerTitle}>{currentStep.title}</Text>
+            <View style={styles.stepIndicator}>
+              <Text style={styles.stepText}>{step + 1}/{stepsConfig.length}</Text>
             </View>
-          </Animated.View>
-        </SafeAreaView>
-      </LinearGradient>
-    </TouchableWithoutFeedback>
+          </View>
+
+          {/* Progress Bar */}
+          <View style={styles.progressBarContainer}>
+            <View style={styles.progressBar}>
+              <Animated.View 
+                style={[
+                  styles.progressFill,
+                  { width: `${((step + 1) / stepsConfig.length) * 100}%` }
+                ]}
+              />
+            </View>
+          </View>
+
+          {/* Main Content */}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.mainContent}
+          >
+            {/* Icon Container */}
+            <View style={styles.iconContainer}>
+              <LinearGradient
+                colors={["#4A9EFF", "#6BB6FF"]}
+                style={styles.iconGradient}
+              >
+                <MaterialCommunityIcons 
+                  name={currentStep.displayIcon} 
+                  size={40} 
+                  color="#fff" 
+                />
+              </LinearGradient>
+            </View>
+
+            <Text style={styles.subtitle}>{currentStep.subtitle}</Text>
+            
+            {/* Form Fields */}
+            <View style={styles.formContainer}>
+              {renderFields()}
+
+              {step === 1 && (
+                <View style={styles.resendContainer}>
+                  <Text style={styles.resendText}>Didn't receive the code? </Text>
+                  <Pressable>
+                    <Text style={styles.resendButtonText}>Resend</Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          </KeyboardAvoidingView>
+
+          {/* Bottom Section */}
+          <View style={styles.bottomSection}>
+            <Pressable
+              style={[styles.submitButton, isLoading && styles.submitButtonLoading]}
+              onPress={handleNextStep}
+              disabled={isLoading}
+            >
+              <LinearGradient
+                colors={isLoading ? ["#666", "#888"] : ["#4A9EFF", "#6BB6FF"]}
+                style={styles.submitButtonGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                {isLoading ? (
+                  <View style={styles.loadingContent}>
+                    <ActivityIndicator 
+                      size="small" 
+                      color="#fff" 
+                      style={styles.loadingSpinner} 
+                    />
+                    <Text style={styles.submitButtonText}>Processing...</Text>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.submitButtonText}>
+                      {currentStep.buttonText}
+                    </Text>
+                    <Ionicons 
+                      name="arrow-forward" 
+                      size={20} 
+                      color="#fff" 
+                      style={styles.submitButtonIcon}
+                    />
+                  </>
+                )}
+              </LinearGradient>
+            </Pressable>
+          </View>
+        </Animated.View>
+      </SafeAreaView>
+    </View>
   );
 }
 

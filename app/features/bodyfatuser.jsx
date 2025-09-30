@@ -107,12 +107,7 @@ export default function BodyFatUser() {
   };
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <LinearGradient 
-        colors={["#0F1419", "#1a1a1a", "#2d2d2d"]} 
-        style={styles.container}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
+      <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
         <StatusBar barStyle="light-content" backgroundColor="#0F1419" />
         <SafeAreaView style={styles.safeArea}>
           <Animated.View 
@@ -296,7 +291,7 @@ export default function BodyFatUser() {
             )}
           </Animated.View>
         </SafeAreaView>
-      </LinearGradient>
+      </View>
     </TouchableWithoutFeedback>
   );
 }

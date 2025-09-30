@@ -520,7 +520,7 @@ export default function BasicInfo() {
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
+      <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
         <StatusBar barStyle="light-content" backgroundColor="#1a1a1a" />
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -666,7 +666,7 @@ export default function BasicInfo() {
 
           </Animated.View>
         </KeyboardAvoidingView>
-      </LinearGradient>
+      </View>
     </TouchableWithoutFeedback>
   );
 }

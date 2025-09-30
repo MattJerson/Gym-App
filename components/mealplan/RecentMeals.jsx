@@ -95,6 +95,8 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     marginBottom: 18,
     backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)"
   },
   headerRow: {
     marginBottom: 10,
