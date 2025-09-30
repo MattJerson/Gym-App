@@ -259,7 +259,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 60,
     paddingBottom: 40,
     paddingHorizontal: 20,
   },
@@ -283,7 +282,6 @@ const styles = StyleSheet.create({
   profileHeader: {
     alignItems: "center",
     marginBottom: 20,
-    marginTop: 40,
   },  avatarContainer: {
     marginBottom: 15,
     borderWidth: 3,

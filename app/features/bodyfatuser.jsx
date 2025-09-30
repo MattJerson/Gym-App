@@ -228,47 +228,37 @@ export default function BodyFatUser() {
               )}
             </View>
 
-            {/* Bottom Section */}
+                        {/* Bottom Section */}
             <View style={styles.bottomSection}>
               <Text style={styles.disclaimer}>
                 You can always adjust these values later in your profile settings.
               </Text>
 
               <Pressable
-                style={[styles.nextButton, isLoading && styles.nextButtonLoading]}
+                style={styles.submitButton}
                 onPress={handleNext}
                 disabled={isLoading}
               >
-                <LinearGradient
-                  colors={currentStep === 0 ? ["#4A9EFF", "#6B73FF"] : ["#FF6B6B", "#FF8E53"]}
-                  style={styles.nextButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
+                <View style={styles.submitButtonSolid}>
                   {isLoading ? (
-                    <View style={styles.loadingContent}>
-                      <ActivityIndicator 
-                        size="small" 
-                        color="#fff" 
-                        style={styles.loadingSpinner} 
-                      />
-                      <Text style={styles.nextButtonText}>Saving...</Text>
-                    </View>
+                    <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <View style={styles.buttonContent}>
-                      <Text style={styles.nextButtonText}>
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <Text style={styles.submitButtonText}>
                         {currentStep === 0 ? "Next" : "Save & Continue"}
                       </Text>
-                      <Ionicons 
-                        name="arrow-forward" 
-                        size={20} 
-                        color="#fff" 
-                        style={styles.buttonIcon} 
+                      <Ionicons
+                        name="arrow-forward"
+                        size={20}
+                        color="#fff"
+                        style={styles.submitButtonIcon}
                       />
                     </View>
                   )}
-                </LinearGradient>              </Pressable>
+                </View>
+              </Pressable>
             </View>
+
 
             {/* Confirmation Modal */}
             {showConfirmation && (
@@ -292,7 +282,7 @@ export default function BodyFatUser() {
                     </Pressable>
                     <Pressable style={styles.confirmButton} onPress={handleConfirm}>
                       <LinearGradient
-                        colors={["#4A9EFF", "#6B73FF"]}
+                        colors={["#4A9EFF", "#356FB0"]}
                         style={styles.confirmButtonGradient}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
@@ -449,25 +439,23 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.7)",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 30,
   },
   modalContainer: {
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "#0B0B0B",
     borderRadius: 20,
     padding: 30,
     width: "100%",
     maxWidth: 350,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 10,
   },
   modalTitle: {
-    fontSize: 22,
+    fontSize: 28,
     fontWeight: "bold",
-    color: "#1E3A5F",
+    color: "#ffffffff",
     marginBottom: 16,
     textAlign: "center",
   },
@@ -485,7 +473,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   modalDetailText: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#666",
     marginBottom: 30,
     textAlign: "center",
@@ -499,20 +487,20 @@ const styles = StyleSheet.create({
   cancelButton: {
     flex: 1,
     height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(0, 0, 0, 0.1)",
+    borderRadius: 12,
+    backgroundColor: "rgba(0, 0, 0, 0.37)",
     alignItems: "center",
     justifyContent: "center",
   },
   cancelButtonText: {
-    fontSize: 16,
+    fontSize: 20,
     color: "#666",
     fontWeight: "600",
   },
   confirmButton: {
     flex: 1,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 12,
     overflow: "hidden",
   },
   confirmButtonGradient: {
@@ -521,7 +509,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   confirmButtonText: {
-    fontSize: 16,
+    fontSize: 20,
     color: "#fff",
     fontWeight: "bold",
   },  bottomSection: {
@@ -582,4 +570,28 @@ const styles = StyleSheet.create({
   loadingSpinner: {
     marginRight: 12,
   },
+  submitButton: {
+  width: "100%",
+  height: 56,
+  borderRadius: 16,
+  overflow: "hidden",
+},
+submitButtonSolid: {
+  flex: 1,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  paddingHorizontal: 24,
+  backgroundColor: "#356FB0", // solid color (same as Register)
+},
+submitButtonText: {
+  fontSize: 18,
+  fontWeight: "bold",
+  color: "#fff",
+  marginRight: 8,
+},
+submitButtonIcon: {
+  opacity: 0.8,
+},
+
 });
