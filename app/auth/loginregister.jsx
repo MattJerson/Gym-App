@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   toggleTextHighlight: {
-    color: "#336cb8",
+    color: "#4590e6ff",
     fontWeight: "bold",
   },
   forgotPasswordContainer: {
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   },
   forgotPasswordText: {
     fontSize: 16,
-    color: "#336cb8",
+    color: "#4590e6ff",
     fontWeight: "600",
     textAlign: "center",
   },

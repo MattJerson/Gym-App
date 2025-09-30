@@ -160,6 +160,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
   headerRow: {
     flexDirection: "row",

@@ -126,8 +126,8 @@ export default function Training() {
     }
   };
 
-  return (
-    <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
+  return (<View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
+    
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.headerRow}>
@@ -232,7 +232,7 @@ export default function Training() {
           </>
         )}
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 

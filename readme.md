@@ -246,4 +246,9 @@ For support, email support@gymapp.com or join our Discord community.
 
 ---
 
-**Built with ❤️ for fitness enthusiasts**
+
+015f7b
+1e3a5f
+b9e3e6
+288477
+00c6ac

@@ -72,7 +72,7 @@ export default function Profile() {
 
 
   return (
-    <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
+    <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {/* Header */}
@@ -250,7 +250,7 @@ export default function Profile() {
 
         </ScrollView>
       </SafeAreaView>
-    </LinearGradient>
+    </View>
   );
 }
 

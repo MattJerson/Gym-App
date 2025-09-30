@@ -562,6 +562,7 @@ export default function BasicInfo() {
             <Animated.ScrollView
               contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
               style={[
                 styles.formScrollView,
                 {
@@ -621,6 +622,7 @@ export default function BasicInfo() {
                         )}
                         style={styles.foodsList}
                         scrollEnabled={false}
+                        showsVerticalScrollIndicator={false}
                       />
                     )}
                   </View>

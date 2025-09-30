@@ -218,7 +218,7 @@ export default function Calendar() {
 
 
   return (
-    <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
+    <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.headerRow}>
           <Text style={styles.headerText}>Calendar</Text>
@@ -413,7 +413,7 @@ export default function Calendar() {
           </Pressable>
         </Pressable>
       </Modal>
-    </LinearGradient>
+    </View>
   );
 }
 

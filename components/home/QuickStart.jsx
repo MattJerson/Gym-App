@@ -19,7 +19,7 @@ export default function QuickStart() {
     {
       title: "Diet",
       subtitle: "Meal Plan",
-      icon: "food-outline",
+      icon: "restaurant-outline",
       iconLibrary: "Ionicons",
       route: "/meal-plan/add-food",
       iconColor: "#00c6ac",

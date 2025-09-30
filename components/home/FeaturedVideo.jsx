@@ -123,6 +123,7 @@ export default function FeaturedVideo({
 const styles = StyleSheet.create({
   container: {
     marginBottom: 24,
+
   },
   sectionTitle: {
     fontSize: 22,
@@ -140,6 +141,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
   },
   thumbnailContainer: {
     position: "relative",

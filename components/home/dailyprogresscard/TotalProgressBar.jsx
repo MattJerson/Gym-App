@@ -20,7 +20,7 @@ export default function TotalProgressBar({ totalProgress }) {
       
       <View style={styles.totalProgressContainer}>
         <LinearGradient
-          colors={["#2E4A6F", "#1E3A5F"]}
+          colors={["#4378beff", "#043d87ff"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[styles.totalProgressBar, { width: `${Math.min(totalProgress, 100)}%` }]}

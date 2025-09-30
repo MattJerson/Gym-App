@@ -241,7 +241,7 @@ export default function Home() {
   };
 
   return (
-    <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
+    <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
 
         {/* Header */}
@@ -276,12 +276,15 @@ export default function Home() {
         {/* Featured Video */}
 
       </ScrollView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+  flex: 1,
+  backgroundColor: "#0B0B0B", // solid dark background
+},
   scrollContent: {
     paddingTop: 10,
     paddingBottom: 40,

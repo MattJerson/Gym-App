@@ -10,15 +10,13 @@ export default function RecentActivity({ activities = [] }) {
     router.push("/activity");
   };
 
-  const getActivityHighlight = (activity) => {
-    // Show calories for nutrition-related activities, duration for workouts
-    if (activity.type === 'nutrition' || activity.calories) {
-      return `${activity.calories} cal`;
-    } else if (activity.duration) {
-      return activity.duration;
-    }
-    return activity.calories ? `${activity.calories} cal` : '';
-  };
+const getActivityHighlight = (activity) => {
+  const parts = [];
+  if (activity.calories) parts.push(`${activity.calories} cal`);
+  if (activity.duration) parts.push(activity.duration);
+  return parts.join(" • "); // e.g. "250 cal • 30 min"
+};
+
 
   return (
     <View style={styles.card}>
