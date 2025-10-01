@@ -86,10 +86,10 @@ export default function WorkoutProgressBar({
 
 const styles = StyleSheet.create({
   mainCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)', // Changed to solid color
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 24,
-    padding: 18,
-    marginBottom: 16,
+    padding: 14,        // reduced from 18
+    marginBottom: 12,   // reduced from 16
     overflow: 'hidden',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   gradientOverlay: {
-    display: 'none', // Removed gradient overlay
+    display: 'none',
   },
   headerRow: {
     flexDirection: 'row',
@@ -209,12 +209,12 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   stepsCard: {
-    borderLeftWidth: 2.5,
-    borderLeftColor: '#30d158',
+    borderLeftWidth: 0,    // removed 3D/stroke effect
+    borderLeftColor: 'transparent',
   },
   workoutCard: {
-    borderLeftWidth: 2.5,
-    borderLeftColor: '#5856d6',
+    borderLeftWidth: 0,    // removed 3D/stroke effect
+    borderLeftColor: 'transparent',
   },
   statHeader: {
     flexDirection: 'row',

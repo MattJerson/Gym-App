@@ -1,7 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function TodaysWorkoutCard_SteelGrind({
   workoutName = "Heavy Compound Day",
@@ -10,77 +9,163 @@ export default function TodaysWorkoutCard_SteelGrind({
   timeElapsed = 75,
   onContinue = () => {},
 }) {
+  // Calculate estimated calories (15 per exercise)
+  const estimatedCalories = Math.round(totalExercises * 15);
+  // Calculate estimated duration in minutes
+  const estimatedDuration = Math.round(totalExercises * 10);
+
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Today's Workout</Text>
-
       <Pressable style={styles.card} onPress={onContinue}>
-        <LinearGradient colors={["#1F2933", "#39424A"]} style={styles.gradient}>
-          <View style={styles.chromeTop}>
-            <Text style={styles.type}>{workoutType}</Text>
-            <View style={styles.miniStats}>
-              <View style={styles.mStat}><MaterialIcons name="fitness-center" size={14} color="#9CA3AF"/><Text style={styles.mStatText}>{totalExercises}</Text></View>
-              <View style={styles.vDivider} />
-              <View style={styles.mStat}><MaterialIcons name="timer" size={14} color="#9CA3AF"/><Text style={styles.mStatText}>{timeElapsed}m</Text></View>
+        <View style={styles.cardInner}>
+          <View style={styles.contentWrapper}>
+            <View style={styles.leftContent}>
+              <View style={styles.topSection}>
+                <View style={styles.typeBadge}>
+                  <Text style={styles.type}>{workoutType.toUpperCase()}</Text>
+                </View>
+              </View>
+
+              <Text style={styles.title} numberOfLines={2}>
+                {workoutName}
+              </Text>
+
+              <View style={styles.bottomSection}>
+                <View style={styles.metrics}>
+                  <View style={styles.metric}>
+                    <Text style={styles.metricNum}>{estimatedCalories}</Text>
+                    <Text style={styles.metricLabel}>kcal</Text>
+                  </View>
+                  <View style={styles.metricDivider} />
+                  <View style={styles.metric}>
+                    <Text style={styles.metricNum}>{estimatedDuration}</Text>
+                    <Text style={styles.metricLabel}>min</Text>
+                  </View>
+                </View>
+                
+                <Pressable 
+                  style={styles.goBtn} 
+                  onPress={onContinue}
+                  android_ripple={{ color: 'rgba(163, 230, 53, 0.3)' }}
+                >
+                  <Ionicons name="play" size={18} color="#0B0B0B" />
+                </Pressable>
+              </View>
             </View>
           </View>
-
-          <Text style={styles.title} numberOfLines={1}>{workoutName}</Text>
-
-          <View style={styles.bottomRow}>
-            <View style={styles.metrics}>
-              <View style={styles.metric}>
-                <Text style={styles.metricNum}>{Math.round(totalExercises * 1.2)}</Text>
-                <Text style={styles.metricLabel}>Est kcal</Text>
-              </View>
-              <View style={styles.metric}>
-                <Text style={styles.metricNum}>{totalExercises}</Text>
-                <Text style={styles.metricLabel}>Sets</Text>
-              </View>
-            </View>
-
-            <Pressable style={styles.goBtn} onPress={onContinue}>
-              <Ionicons name="play" size={16} color="#0B0B0B" />
-            </Pressable>
-          </View>
-        </LinearGradient>
+        </View>
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { marginBottom: 18 },
-  header: { color: "#fff", fontSize: 15, fontWeight: "600", marginBottom: 8 },
-  card: {
-    borderRadius: 12,
-    overflow: "hidden",
-    elevation: 6,
+  container: { 
+    marginBottom: 18,
   },
-  gradient: {
-    padding: 14,
-    minHeight: 140,
+  header: { 
+    color: "#FAFAFA", 
+    fontSize: 15, 
+    fontWeight: "700", 
+    marginBottom: 10,
+    letterSpacing: 0.3,
+  },
+  card: {
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  cardInner: {
+    borderRadius: 16,
+    borderWidth: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: "#A3E635", // Accent border on left
+    borderColor: "rgba(163, 230, 53, 0.2)",
+    overflow: "hidden",
+    backgroundColor: "#161616", // Slightly lighter than #0B0B0B
+  },
+  contentWrapper: {
+    flexDirection: "row",
+    flex: 1,
+    minHeight: 150,
+  },
+  leftContent: {
+    flex: 1,
+    padding: 16,
     justifyContent: "space-between",
   },
-  chromeTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  type: { color: "#9CA3AF", fontSize: 12, fontWeight: "700" },
-  miniStats: { flexDirection: "row", alignItems: "center" },
-  mStat: { flexDirection: "row", alignItems: "center", gap: 6 },
-  mStatText: { color: "#9CA3AF", marginLeft: 6, fontWeight: "700" },
-  vDivider: { width: 1, height: 18, backgroundColor: "#2B2F31", marginHorizontal: 8 },
-  title: { color: "#fff", fontSize: 22, fontWeight: "900", marginTop: 8 },
-  bottomRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  metrics: { flexDirection: "row", gap: 12 },
-  metric: { alignItems: "center" },
-  metricNum: { color: "#A3E635", fontWeight: "900", fontSize: 16 },
-  metricLabel: { color: "#9CA3AF", fontSize: 12 },
+  topSection: {
+    marginBottom: 12,
+  },
+  typeBadge: {
+    backgroundColor: "rgba(163, 230, 53, 0.12)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "rgba(163, 230, 53, 0.25)",
+    alignSelf: "flex-start",
+  },
+  type: { 
+    color: "#A3E635", 
+    fontSize: 10, 
+    fontWeight: "800",
+    letterSpacing: 0.8,
+  },
+  title: { 
+    color: "#FAFAFA", 
+    fontSize: 20, 
+    fontWeight: "800", 
+    marginBottom: 12,
+    lineHeight: 26,
+  },
+  bottomSection: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  metrics: { 
+    flexDirection: "row", 
+    alignItems: "center",
+    backgroundColor: "rgba(163, 230, 53, 0.08)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "rgba(163, 230, 53, 0.15)",
+  },
+  metric: { 
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 4,
+  },
+  metricNum: { 
+    color: "#A3E635", 
+    fontWeight: "800", 
+    fontSize: 16,
+  },
+  metricLabel: { 
+    color: "#A1A1AA", 
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  metricDivider: {
+    width: 1,
+    height: 16,
+    backgroundColor: "rgba(163, 230, 53, 0.25)",
+  },
   goBtn: {
     backgroundColor: "#A3E635",
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
-    elevation: 6,
+    elevation: 4,
+    shadowColor: "#A3E635",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
 });

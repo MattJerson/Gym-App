@@ -8,33 +8,30 @@ import {
 } from "react-native";
 import {
   Ionicons,
-  FontAwesome5,
-  MaterialIcons,
-  MaterialCommunityIcons,
 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import { useState, useEffect } from "react";
 import WorkoutProgressBar from "../../components/training/WorkoutProgressBar";
 import ContinueWorkoutCard from "../../components/training/ContinueWorkoutCard";
 import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
 import BrowseWorkouts from "../../components/training/BrowseWorkouts";
+import MyWorkouts from "../../components/training/MyWorkouts";
 import RecentWorkouts from "../../components/training/RecentWorkouts";
 import NotificationBar from "../../components/NotificationBar";
 import { TrainingDataService } from "../../services/TrainingDataService";
 import { WorkoutSessionService } from "../../services/WorkoutSessionService";
-
-const router = useRouter();
+import { BrowseWorkoutsDataService } from "../../services/BrowseWorkoutsDataService";
 
 export default function Training() {
+  const router = useRouter();
+  
   // 🔄 Data-driven state management
   const [notifications, setNotifications] = useState(0);
   const [workoutProgress, setWorkoutProgress] = useState(null);
   const [continueWorkout, setContinueWorkout] = useState(null);
   const [todaysWorkout, setTodaysWorkout] = useState(null);
-  const [browseWorkouts, setBrowseWorkouts] = useState([]);
+  const [workoutCategories, setWorkoutCategories] = useState([]);
   const [recentWorkouts, setRecentWorkouts] = useState([]);
-  const [exerciseLibrary, setExerciseLibrary] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // 🔄 Load data on component mount - Replace with actual user ID
@@ -48,23 +45,21 @@ export default function Training() {
     try {
       setIsLoading(true);
       
-      // Load all training data in parallel
+      // Load all training data in parallel (removed exercise library)
       const [
         notificationsData,
         progressData,
         continueData,
         todaysData,
-        browseData,
+        categoriesData,
         recentData,
-        libraryData
       ] = await Promise.all([
         TrainingDataService.fetchUserNotifications(userId),
         TrainingDataService.fetchWorkoutProgress(userId),
         TrainingDataService.fetchContinueWorkout(userId),
         TrainingDataService.fetchTodaysWorkout(userId),
-        TrainingDataService.fetchBrowseWorkouts(userId),
+        BrowseWorkoutsDataService.fetchWorkoutCategories(),
         TrainingDataService.fetchRecentWorkouts(userId),
-        TrainingDataService.fetchExerciseLibrary(userId)
       ]);
 
       // Update state with fetched data
@@ -72,9 +67,8 @@ export default function Training() {
       setWorkoutProgress(progressData);
       setContinueWorkout(continueData);
       setTodaysWorkout(todaysData);
-      setBrowseWorkouts(browseData);
+      setWorkoutCategories(categoriesData);
       setRecentWorkouts(recentData);
-      setExerciseLibrary(libraryData);
       
     } catch (error) {
       console.error("Error loading training data:", error);
@@ -87,7 +81,6 @@ export default function Training() {
   const handleContinueWorkout = async () => {
     try {
       if (continueWorkout) {
-        // Check if there's an existing session in progress
         const existingSession = await WorkoutSessionService.getCurrentSession();
         if (existingSession) {
           router.push(`/workout/${existingSession.workoutId}`);
@@ -109,7 +102,6 @@ export default function Training() {
   const handleStartTodaysWorkout = async () => {
     try {
       if (todaysWorkout) {
-        // Use our workout session service to start the workout
         router.push(`/workout/${todaysWorkout.id}`);
       }
     } catch (error) {
@@ -117,17 +109,24 @@ export default function Training() {
     }
   };
 
-  const handleSelectWorkout = async (workoutId) => {
+  const handleSelectCategory = async (categoryId) => {
     try {
-      // Navigate to workout session page
-      router.push(`/workout/${workoutId}`);
+      const category = workoutCategories.find(cat => cat.id === categoryId);
+      router.push({
+        pathname: '/training/workout-category',
+        params: {
+          categoryId: categoryId,
+          categoryName: category?.name || 'Workouts',
+          categoryColor: category?.color || '#A3E635'
+        }
+      });
     } catch (error) {
-      Alert.alert("Error", "Failed to start workout. Please try again.");
+      Alert.alert("Error", "Failed to load category. Please try again.");
     }
   };
 
-  return (<View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
-    
+  return (
+    <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.headerRow}>
@@ -151,7 +150,7 @@ export default function Training() {
               />
             )}
 
-            {/* Continue Workout Card - Only show if there's an active workout */}
+            {/* Continue Workout Card */}
             {continueWorkout && (
               <ContinueWorkoutCard 
                 workoutName={continueWorkout.workoutName}
@@ -175,10 +174,10 @@ export default function Training() {
               />
             )}
 
-            {/* Browse Workouts */}
+            {/* Browse Workout Categories */}
             <BrowseWorkouts 
-              workouts={browseWorkouts}
-              onSelectWorkout={handleSelectWorkout}
+              categories={workoutCategories}
+              onSelectCategory={handleSelectCategory}
             />
 
             {/* Create Custom Workout Button */}
@@ -189,43 +188,29 @@ export default function Training() {
                 router.push('/training/create-workout');
               }}
             >
-              <LinearGradient
-                colors={["#1E3A5F", "#4A90E2"]}
-                style={styles.createWorkoutGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <View style={styles.createWorkoutContent}>
-                  <View style={styles.createWorkoutIcon}>
-                    <Ionicons name="add-circle" size={28} color="#fff" />
-                  </View>
-                  <View style={styles.createWorkoutText}>
-                    <Text style={styles.createWorkoutTitle}>Create Custom Workout</Text>
-                    <Text style={styles.createWorkoutSubtitle}>Design your own training routine</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
+              <View style={styles.createWorkoutContent}>
+                <View style={styles.createWorkoutIcon}>
+                  <Ionicons name="add-circle" size={28} color="#3B82F6" />
                 </View>
-              </LinearGradient>
+                <View style={styles.createWorkoutText}>
+                  <Text style={styles.createWorkoutTitle}>Create Custom Workout</Text>
+                  <Text style={styles.createWorkoutSubtitle}>Design your own training routine</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#71717A" />
+              </View>
             </Pressable>
 
-            {/* Exercise Library */}
-            {exerciseLibrary && (
-              <Pressable style={styles.card} onPress={() => {
-                console.log('Navigate to exercise library');
-                // router.push('/training/exercise-library');
-              }}>
-                <View style={styles.libraryHeader}>
-                  <MaterialIcons name="library-books" size={32} color="#1E3A5F" />
-                  <View style={styles.libraryInfo}>
-                    <Text style={styles.cardTitle}>Exercise Library</Text>
-                    <Text style={styles.cardText}>
-                      {exerciseLibrary.totalExercises}+ exercises with video guides
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="#ccc" />
-                </View>
-              </Pressable>
-            )}
+            {/* My Workouts Section */}
+            <MyWorkouts 
+              onSelectWorkout={(workoutId) => {
+                console.log('Selected workout:', workoutId);
+                router.push(`/workout/${workoutId}`);
+              }}
+              onWorkoutOptions={(workoutId) => {
+                console.log('Workout options:', workoutId);
+                Alert.alert('Workout Options', 'Edit, Delete, or Share this workout');
+              }}
+            />
 
             {/* Recent Workouts */}
             <RecentWorkouts workouts={recentWorkouts} />
@@ -239,7 +224,6 @@ export default function Training() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: {
-    // Adjusted top padding to match your original styles more closely
     paddingTop: 60, 
     paddingBottom: 40,
     paddingHorizontal: 20,
@@ -273,7 +257,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   backRow: {
-    // Adjusted top position to align with paddingTop of scrollContent
     top: 60,
     left: 20,
     zIndex: 10,
@@ -288,30 +271,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#ccc",
   },
-  libraryHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  libraryInfo: {
-    flex: 1,
-    marginLeft: 16,
-  },
   createWorkoutButton: {
     marginBottom: 16,
-    borderRadius: 20,
+    borderRadius: 16,
+    backgroundColor: "#161616",
+    borderWidth: 2,
+    borderLeftWidth: 4,
+    borderLeftColor: "#3B82F6",
+    borderColor: "rgba(59, 130, 246, 0.2)",
     overflow: "hidden",
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-  },
-  createWorkoutGradient: {
-    padding: 20,
   },
   createWorkoutContent: {
     flexDirection: "row",
     alignItems: "center",
+    padding: 16,
   },
   createWorkoutIcon: {
     marginRight: 16,
@@ -320,16 +293,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   createWorkoutTitle: {
-    fontSize: 18,
-    color: "#fff",
-    fontWeight: "bold",
+    fontSize: 16,
+    color: "#FAFAFA",
+    fontWeight: "700",
     marginBottom: 2,
   },
   createWorkoutSubtitle: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.8)",
+    fontSize: 13,
+    color: "#A1A1AA",
     fontWeight: "500",
   },
-  // Note: Removed unused styles from the static list to keep the code clean
 });
-

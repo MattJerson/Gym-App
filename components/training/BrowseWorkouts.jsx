@@ -6,140 +6,156 @@ import {
   Pressable,
   FlatList,
   Dimensions,
+  Image,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import {
-  MaterialIcons,
-  FontAwesome5,
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
 
 // Get screen dimensions
 const { width } = Dimensions.get("window");
 
-// --- MODIFICATIONS START HERE ---
-
-// Calculate card dimensions
+// Card dimensions
 const PADDING_HORIZONTAL = 20;
-const CARD_MARGIN_RIGHT = 16;
-const VISIBLE_CARDS = 2.5;
+const CARD_MARGIN_RIGHT = 12;
+const VISIBLE_CARDS = 2.2;
 
-const CARD_WIDTH = (width - (PADDING_HORIZONTAL * 2)) / VISIBLE_CARDS;
-// Adjusted aspect ratio to make cards shorter ( ~3/4 of previous height)
-const CARD_HEIGHT = CARD_WIDTH * 1.25; 
+const CARD_WIDTH = (width - (PADDING_HORIZONTAL * 2) - CARD_MARGIN_RIGHT) / VISIBLE_CARDS;
+const CARD_HEIGHT = 220;
 
-// --- MODIFICATIONS END HERE ---
+// Import workout images at top level
+const WORKOUT_IMAGES = {
+  image1: require("../../assets/browseworkout1.jpg"),
+  image2: require("../../assets/browseworkout2.jpg"),
+  image3: require("../../assets/browseworkout3.jpg"),
+  image4: require("../../assets/browseworkout4.jpg"),
+  image5: require("../../assets/browseworkout5.jpg"),
+};
 
-const MOCK_WORKOUTS = [
+const MOCK_CATEGORIES = [
   {
-    id: "1",
-    name: "Push Day",
-    type: "Strength",
-    icon: { name: "chest-expander", library: MaterialCommunityIcons },
-    colors: ["#ffafbd", "#ffc3a0"], // Pink -> Peach
+    id: "strength",
+    name: "STRENGTH",
+    emoji: "💪",
+    description: "Build muscle & power",
+    workoutCount: 24,
+    color: "#B8F34A",
+    image: WORKOUT_IMAGES.image1
   },
   {
-    id: "2",
-    name: "Pull Day",
-    type: "Strength",
-    icon: { name: "weight-lifter", library: FontAwesome5 },
-    colors: ["#2193b0", "#6dd5ed"], // Blue -> Light Blue
+    id: "cardio",
+    name: "CARDIO",
+    emoji: "🏃",
+    description: "Boost endurance & burn",
+    workoutCount: 18,
+    color: "#FF6B6B",
+    image: WORKOUT_IMAGES.image2
   },
   {
-    id: "3",
-    name: "Leg Day",
-    type: "Hypertrophy",
-    icon: { name: "running", library: FontAwesome5 },
-    colors: ["#cc2b5e", "#753a88"], // Purple -> Dark Pink
+    id: "endurance",
+    name: "ENDURANCE",
+    emoji: "⚡",
+    description: "Increase stamina",
+    workoutCount: 15,
+    color: "#60A5FA",
+    image: WORKOUT_IMAGES.image3
   },
   {
-    id: "4",
-    name: "Full Body HIIT",
-    type: "Cardio",
-    icon: { name: "flash-on", library: MaterialIcons },
-    colors: ["#ee9ca7", "#ffdde1"], // Light Pink -> Lighter Pink
+    id: "flexibility",
+    name: "FLEXIBILITY",
+    emoji: "🧘",
+    description: "Stretch & recover",
+    workoutCount: 12,
+    color: "#A78BFA",
+    image: WORKOUT_IMAGES.image4
   },
   {
-    id: "5",
-    name: "Active Recovery",
-    type: "Mobility",
-    icon: { name: "yoga", library: MaterialCommunityIcons },
-    colors: ["#42e695", "#3bb2b8"], // Green -> Teal
+    id: "hiit",
+    name: "HIIT",
+    emoji: "🔥",
+    description: "High intensity training",
+    workoutCount: 20,
+    color: "#FBBF24",
+    image: WORKOUT_IMAGES.image5
   },
+  {
+    id: "functional",
+    name: "FUNCTIONAL",
+    emoji: "🎯",
+    description: "Real-world fitness",
+    workoutCount: 16,
+    color: "#34D399",
+    image: WORKOUT_IMAGES.image1
+  }
 ];
 
-// Individual Card Component for the FlatList
-const WorkoutCardItem = ({ item, onPress }) => {
-  // Handle both old and new data structures
-  const iconName = item.icon?.name || item.icon;
-  const iconLibrary = item.icon?.library || FontAwesome5;
-  const colors = item.colors || item.gradient || ["#1E3A5F", "#4A90E2"];
-  
-  // Icon mapping for the new data structure
-  const getIconLibrary = (iconName) => {
-    const iconMap = {
-      'dumbbell': FontAwesome5,
-      'flash': MaterialIcons,
-      'trending-up': MaterialIcons,
-      'leaf': MaterialCommunityIcons,
-      'fitness': MaterialIcons,
-      'body': MaterialCommunityIcons,
-      'zap': MaterialIcons
-    };
-    return iconMap[iconName] || FontAwesome5;
-  };
-
-  const IconComponent = typeof iconLibrary === 'function' ? iconLibrary : getIconLibrary(iconName);
-
+// Category Card Component - with gradient opacity image
+const CategoryCardItem = ({ item, onPress }) => {
   return (
-    <Pressable style={styles.card} onPress={onPress}>
-      <LinearGradient
-        colors={colors}
-        style={styles.gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <View style={styles.iconOverlay}>
-          <IconComponent
-            name={iconName}
-            size={70}
-            color="rgba(255, 255, 255, 0.15)"
-          />
-        </View>
-
-        {/* --- MODIFIED CONTENT LAYOUT --- */}
-        <View style={styles.textContainer}>
-          <View style={styles.workoutTypeTag}>
-            <Text style={styles.workoutTypeText}>{item.type}</Text>
-          </View>
-          <Text style={styles.workoutName}>{item.name}</Text>
-          {/* Additional info for new data structure */}
-          {item.duration && (
-            <Text style={styles.workoutDetails}>
-              {item.duration} min • {item.exercises} exercises
+    <Pressable 
+      style={({ pressed }) => [
+        styles.card,
+        pressed && styles.cardPressed
+      ]} 
+      onPress={onPress}
+    >
+      <View style={[styles.cardInner, { backgroundColor: item.color }]}>
+        {/* Workout image - full card */}
+        <Image 
+          source={item.image}
+          style={styles.workoutImage}
+          resizeMode="cover"
+        />
+        
+        {/* Gradient overlay - 70% opacity at top, 0% at bottom */}
+        <LinearGradient
+          colors={[
+            'rgba(0, 0, 0, 0.7)',   // 70% opacity at top
+            'rgba(0, 0, 0, 0.5)',   // 50% opacity in middle
+            'rgba(0, 0, 0, 0.2)',   // 20% opacity
+            'rgba(0, 0, 0, 0)',     // 0% opacity at bottom
+          ]}
+          style={styles.gradientOverlay}
+          locations={[0, 0.4, 0.7, 1]}
+        />
+        
+        {/* Content */}
+        <View style={styles.content}>
+          {/* Large emoji */}
+          <Text style={styles.emojiLarge}>{item.emoji}</Text>
+          
+          {/* Category name (supports 2 lines) */}
+          <View style={styles.nameWrapper}>
+            <Text 
+              style={styles.categoryName}
+              numberOfLines={2}
+            >
+              {item.name}
             </Text>
-          )}
+          </View>
         </View>
-        {/* ----------------------------- */}
 
-      </LinearGradient>
+        {/* Arrow - absolute positioned at bottom right */}
+        <View style={styles.arrowContainer}>
+          <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+        </View>
+      </View>
     </Pressable>
   );
 };
 
 export default function BrowseWorkouts({
-  workouts = MOCK_WORKOUTS,
-  onSelectWorkout = () => {},
+  categories = MOCK_CATEGORIES,
+  onSelectCategory = () => {},
 }) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Browse Workouts</Text>
       <FlatList
-        data={workouts}
+        data={categories}
         renderItem={({ item }) => (
-          <WorkoutCardItem
+          <CategoryCardItem
             item={item}
-            onPress={() => onSelectWorkout(item.id)}
+            onPress={() => onSelectCategory(item.id)}
           />
         )}
         keyExtractor={(item) => item.id}
@@ -159,10 +175,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 18,
+    fontSize: 22,
     color: "#fff",
-    fontWeight: "600",
-    marginBottom: 12,
+    fontWeight: "700",
+    marginBottom: 16,
+    letterSpacing: 0.3,
   },
   listContentContainer: {
     paddingRight: PADDING_HORIZONTAL * 2,
@@ -171,59 +188,70 @@ const styles = StyleSheet.create({
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
     marginRight: CARD_MARGIN_RIGHT,
-    borderRadius: 4,
-    overflow: "hidden",
-    elevation: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
   },
-  gradient: {
-    padding: 10,
+  cardPressed: {
+    transform: [{ scale: 0.96 }],
+  },
+  cardInner: {
     flex: 1,
-    // Pushes the textContainer to the bottom
-    justifyContent: "flex-end",
+    borderRadius: 24,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.58,
+    shadowRadius: 16,
+    elevation: 12,
   },
-  iconOverlay: {
+  workoutImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: "100%",
+    height: "100%",
+    opacity: 0.6, // 60% base opacity for the image itself
+  },
+  gradientOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+    paddingBottom: 10,
+    justifyContent: "space-between",
+    zIndex: 2,
+  },
+  emojiLarge: {
+    fontSize: 56,
+    lineHeight: 60,
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  nameWrapper: {
+    minHeight: 50,
+    justifyContent: "center",
+    paddingRight: 10,
+    flexShrink: 1,
+  },
+  categoryName: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
+    textShadowColor: "rgba(0, 0, 0, 0.7)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
+    lineHeight: 28,
+    textAlign: "left",
+  },
+  arrowContainer: {
     position: "absolute",
-    top: 10,
-    right: -5,
-    opacity: 0.8,
-  },
-  // --- NEW AND UPDATED STYLES ---
-  textContainer: {
-    // Aligns content to the bottom-left
-    alignSelf: 'flex-start'
-  },
-  workoutTypeTag: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 5,
-    paddingVertical: 4,
-    backgroundColor: "rgba(0, 0, 0, 0.40)",
-    borderRadius: 4,
-    marginBottom: 4, // Space between tag and title
-  },
-  workoutTypeText: {
-    fontSize: 8,
-    color: "#fff",
-    fontWeight: "500",
-  },
-  workoutName: {
-    fontSize: 22, // Made text slightly larger
-    color: "#fff",
-    fontWeight: "bold",
-    textShadowColor: "rgba(0, 0, 0, 0.25)",
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
-  },
-  workoutDetails: {
-    fontSize: 10,
-    color: "rgba(255, 255, 255, 0.8)",
-    fontWeight: "500",
-    marginTop: 2,
-    textShadowColor: "rgba(0, 0, 0, 0.25)",
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+    bottom: 18,
+    right: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 3,
   },
 });
