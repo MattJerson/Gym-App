@@ -88,7 +88,7 @@ const MOCK_CATEGORIES = [
   }
 ];
 
-// Category Card Component - with gradient opacity image
+// Category Card Component - cleaner design matching MyWorkouts style
 const CategoryCardItem = ({ item, onPress }) => {
   return (
     <Pressable 
@@ -98,45 +98,47 @@ const CategoryCardItem = ({ item, onPress }) => {
       ]} 
       onPress={onPress}
     >
-      <View style={[styles.cardInner, { backgroundColor: item.color }]}>
-        {/* Workout image - full card */}
+      <View style={styles.cardInner}>
+        {/* Color accent stripe at top */}
+        <View style={[styles.colorAccent, { backgroundColor: item.color }]} />
+        
+        {/* Workout image - background layer */}
         <Image 
           source={item.image}
           style={styles.workoutImage}
           resizeMode="cover"
         />
         
-        {/* Gradient overlay - 70% opacity at top, 0% at bottom */}
+        {/* Gradient overlay for readability */}
         <LinearGradient
           colors={[
-            'rgba(0, 0, 0, 0.7)',   // 70% opacity at top
-            'rgba(0, 0, 0, 0.5)',   // 50% opacity in middle
-            'rgba(0, 0, 0, 0.2)',   // 20% opacity
-            'rgba(0, 0, 0, 0)',     // 0% opacity at bottom
+            'rgba(0, 0, 0, 0.5)',   // 50% at top
+            'rgba(0, 0, 0, 0.3)',   // 30% in middle
+            'rgba(0, 0, 0, 0)',     // 0% at bottom
           ]}
           style={styles.gradientOverlay}
-          locations={[0, 0.4, 0.7, 1]}
+          locations={[0, 0.5, 1]}
         />
         
         {/* Content */}
         <View style={styles.content}>
-          {/* Large emoji */}
-          <Text style={styles.emojiLarge}>{item.emoji}</Text>
+          {/* Icon badge with emoji */}
+          <View style={[styles.iconBadge, { backgroundColor: `${item.color}20` }]}>
+            <Text style={styles.emoji}>{item.emoji}</Text>
+          </View>
           
-          {/* Category name (supports 2 lines) */}
-          <View style={styles.nameWrapper}>
-            <Text 
-              style={styles.categoryName}
-              numberOfLines={2}
-            >
+          {/* Category info */}
+          <View style={styles.infoContainer}>
+            <Text style={styles.categoryName} numberOfLines={1}>
               {item.name}
             </Text>
+            <Text style={styles.workoutCount}>{item.workoutCount} workouts</Text>
           </View>
-        </View>
 
-        {/* Arrow - absolute positioned at bottom right */}
-        <View style={styles.arrowContainer}>
-          <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+          {/* Arrow button */}
+          <View style={[styles.arrowButton, { backgroundColor: `${item.color}30` }]}>
+            <Ionicons name="arrow-forward" size={18} color="#fff" />
+          </View>
         </View>
       </View>
     </Pressable>
@@ -172,7 +174,7 @@ export default function BrowseWorkouts({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: 24,
   },
   title: {
     fontSize: 22,
@@ -190,68 +192,91 @@ const styles = StyleSheet.create({
     marginRight: CARD_MARGIN_RIGHT,
   },
   cardPressed: {
-    transform: [{ scale: 0.96 }],
+    transform: [{ scale: 0.97 }],
+    opacity: 0.9,
   },
   cardInner: {
     flex: 1,
-    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 20,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.58,
-    shadowRadius: 16,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  colorAccent: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+    zIndex: 3,
   },
   workoutImage: {
     ...StyleSheet.absoluteFillObject,
     width: "100%",
     height: "100%",
-    opacity: 0.6, // 60% base opacity for the image itself
+    opacity: 0.4,
   },
   gradientOverlay: {
     ...StyleSheet.absoluteFillObject,
   },
   content: {
     flex: 1,
-    padding: 20,
-    paddingBottom: 10,
+    padding: 16,
     justifyContent: "space-between",
     zIndex: 2,
   },
-  emojiLarge: {
-    fontSize: 56,
-    lineHeight: 60,
-    textShadowColor: "rgba(0, 0, 0, 0.5)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+  iconBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
-  nameWrapper: {
-    minHeight: 50,
-    justifyContent: "center",
-    paddingRight: 10,
-    flexShrink: 1,
+  emoji: {
+    fontSize: 32,
+    lineHeight: 36,
+  },
+  infoContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingVertical: 8,
   },
   categoryName: {
-    fontSize: 18,
-    fontWeight: "900",
+    fontSize: 20,
+    fontWeight: "800",
     color: "#FFFFFF",
-    letterSpacing: 0.5,
-    textShadowColor: "rgba(0, 0, 0, 0.7)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
-    lineHeight: 28,
-    textAlign: "left",
+    letterSpacing: 0.3,
+    marginBottom: 4,
+    textShadowColor: "rgba(0, 0, 0, 0.5)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
   },
-  arrowContainer: {
-    position: "absolute",
-    bottom: 18,
-    right: 18,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
+  workoutCount: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "rgba(255, 255, 255, 0.8)",
+    letterSpacing: 0.2,
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  arrowButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 3,
+    alignSelf: 'flex-end',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
 });

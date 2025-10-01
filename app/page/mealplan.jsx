@@ -34,6 +34,7 @@ export default function Mealplan() {
   const [todaysMeals, setTodaysMeals] = useState([]);
   const [recentMeals, setRecentMeals] = useState([]);
   const [quickActions, setQuickActions] = useState([]);
+  const [currentPlan, setCurrentPlan] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
 
@@ -72,6 +73,27 @@ export default function Mealplan() {
       setTodaysMeals(mealsData);
       setRecentMeals(recentData);
       setQuickActions(actionsData);
+
+      // Static current plan data (not connected to backend yet)
+      setCurrentPlan({
+        id: "2",
+        name: "Weight Loss",
+        duration: "8 weeks",
+        progress: "Week 3 of 8",
+        weekNumber: 3,
+        totalWeeks: 8,
+        calories: 1800,
+        type: "Balanced",
+        startDate: "Sep 10, 2024",
+        color: "#00D4AA",
+        icon: "run-fast",
+        stats: {
+          daysCompleted: 15,
+          totalDays: 56,
+          adherence: 89,
+          avgCalories: 1750,
+        }
+      });
       
     } catch (error) {
       console.error("Error loading meal plan data:", error);
@@ -128,6 +150,62 @@ export default function Mealplan() {
     console.log(`Quick action: ${action.title}`);
     // Navigate to appropriate screen based on action.route
     // router.push(action.route);
+  };
+
+  const handlePlanOptions = () => {
+    Alert.alert(
+      "Meal Plan Options",
+      "Choose an action",
+      [
+        {
+          text: "Edit Plan",
+          onPress: () => {
+            console.log("Edit current plan");
+            Alert.alert("Edit Plan", "Customize your meal plan settings");
+          },
+        },
+        {
+          text: "Change Plan",
+          onPress: () => {
+            console.log("Change meal plan");
+            Alert.alert("Change Plan", "Browse and select a different meal plan");
+          },
+        },
+        {
+          text: "View Details",
+          onPress: () => {
+            console.log("View plan details");
+            Alert.alert("Plan Details", "See full breakdown of your meal plan");
+          },
+        },
+        {
+          text: "Remove Plan",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              "Remove Plan",
+              "Are you sure you want to remove this meal plan?",
+              [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Remove",
+                  style: "destructive",
+                  onPress: () => {
+                    console.log("Remove plan");
+                    setCurrentPlan(null);
+                    Alert.alert("Success", "Meal plan removed");
+                  },
+                },
+              ]
+            );
+          },
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ]
+    );
   };
 
   return (
@@ -194,6 +272,82 @@ export default function Mealplan() {
               onAddFood={handleAddFood}
               onEditMeal={handleEditMeal}
             />
+
+            {/* My Meal Plan Section */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>My Meal Plan</Text>
+              <Pressable 
+                style={styles.optionsButton}
+                onPress={handlePlanOptions}
+              >
+                <Ionicons name="ellipsis-horizontal" size={20} color="#fff" />
+              </Pressable>
+            </View>
+
+            {currentPlan ? (
+              <View style={styles.currentPlanCard}>
+                <View style={[styles.planColorAccent, { backgroundColor: currentPlan.color }]} />
+                
+                <View style={styles.planCardHeader}>
+                  <View style={[styles.planIconBadge, { backgroundColor: `${currentPlan.color}20` }]}>
+                    <MaterialCommunityIcons name={currentPlan.icon} size={20} color={currentPlan.color} />
+                  </View>
+                  <View style={styles.planBadge}>
+                    <Text style={[styles.planBadgeText, { color: currentPlan.color }]}>ACTIVE</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.planCardTitle}>Current Plan</Text>
+                <Text style={styles.planName}>{currentPlan.name}</Text>
+                
+                <View style={styles.planMetrics}>
+                  <View style={styles.planMetric}>
+                    <Text style={styles.metricValue}>{currentPlan.progress}</Text>
+                    <Text style={styles.metricLabel}>Progress</Text>
+                  </View>
+                  <View style={styles.planMetricDivider} />
+                  <View style={styles.planMetric}>
+                    <Text style={styles.metricValue}>{currentPlan.calories}</Text>
+                    <Text style={styles.metricLabel}>Cal/Day</Text>
+                  </View>
+                  <View style={styles.planMetricDivider} />
+                  <View style={styles.planMetric}>
+                    <Text style={styles.metricValue}>{currentPlan.stats.adherence}%</Text>
+                    <Text style={styles.metricLabel}>Adherence</Text>
+                  </View>
+                </View>
+
+                {/* Progress Bar */}
+                <View style={styles.progressBarContainer}>
+                  <View style={styles.progressBarBg}>
+                    <View 
+                      style={[
+                        styles.progressBarFill, 
+                        { 
+                          width: `${(currentPlan.weekNumber / currentPlan.totalWeeks) * 100}%`,
+                          backgroundColor: currentPlan.color 
+                        }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.progressText}>
+                    {currentPlan.stats.daysCompleted} of {currentPlan.stats.totalDays} days
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.noPlanCard}>
+                <MaterialCommunityIcons name="food-apple" size={48} color="#666" />
+                <Text style={styles.noPlanTitle}>No Active Meal Plan</Text>
+                <Text style={styles.noPlanText}>
+                  Choose a meal plan to start tracking your nutrition goals
+                </Text>
+                <Pressable style={styles.browsePlansButton}>
+                  <Text style={styles.browsePlansText}>Browse Meal Plans</Text>
+                  <Ionicons name="arrow-forward" size={18} color="#00D4AA" />
+                </Pressable>
+              </View>
+            )}
 
             {/* Quick Actions */}
             <View style={styles.card}>
@@ -380,5 +534,169 @@ const styles = StyleSheet.create({
   },
   disabledActionText: {
     color: "#666",
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  optionsButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+  currentPlanCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    overflow: "hidden",
+    marginBottom: 20,
+  },
+  planColorAccent: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+  },
+  planCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  planIconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  planBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: "rgba(0, 212, 170, 0.15)",
+  },
+  planBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+  },
+  planCardTitle: {
+    fontSize: 11,
+    color: "#888",
+    fontWeight: "600",
+    marginBottom: 2,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  planName: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#fff",
+    marginBottom: 16,
+    letterSpacing: -0.5,
+  },
+  planMetrics: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  planMetric: {
+    flex: 1,
+    alignItems: "center",
+  },
+  metricValue: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#fff",
+    marginBottom: 2,
+    letterSpacing: -0.3,
+  },
+  metricLabel: {
+    fontSize: 10,
+    color: "#888",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  planMetricDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  progressBarContainer: {
+    gap: 6,
+  },
+  progressBarBg: {
+    height: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  progressText: {
+    fontSize: 11,
+    color: "#888",
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  noPlanCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 20,
+    padding: 40,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    marginBottom: 20,
+  },
+  noPlanTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#fff",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  noPlanText: {
+    fontSize: 14,
+    color: "#888",
+    textAlign: "center",
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  browsePlansButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    backgroundColor: "rgba(0, 212, 170, 0.15)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 170, 0.3)",
+  },
+  browsePlansText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#00D4AA",
+    letterSpacing: -0.3,
   },
 });
