@@ -1,7 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
 // MOCK DATA: In your app, you'll pass this data in as a prop.
@@ -9,32 +8,23 @@ const MOCK_WORKOUTS = [
   {
     id: "1",
     name: "Pull Day - Back & Biceps",
-    details: "2 days ago • 42 mins",
-    highlight: "+5 lbs",
-    highlightColor: "#4ecdc4",
-    IconComponent: FontAwesome5,
-    iconName: "weight-lifter",
-    color: ["#2193b0", "#6dd5ed"], // Blue gradient
+    date: "2 days ago",
+    duration: "42 min",
+    calories: 320,
   },
   {
     id: "2",
     name: "Leg Day - Quads & Glutes",
-    details: "4 days ago • 55 mins",
-    highlight: "PR!",
-    highlightColor: "#ffd93d",
-    IconComponent: FontAwesome5,
-    iconName: "running",
-    color: ["#ffd93d", "#f7b733"], // Yellow gradient
+    date: "4 days ago",
+    duration: "55 min",
+    calories: 450,
   },
   {
     id: "3",
     name: "Push Day - Chest & Triceps",
-    details: "6 days ago • 38 mins",
-    highlight: "Complete",
-    highlightColor: "#00b894",
-    IconComponent: MaterialCommunityIcons,
-    iconName: "chest-expander",
-    color: ["#00b894", "#42e695"], // Green gradient
+    date: "6 days ago",
+    duration: "38 min",
+    calories: 280,
   },
 ];
 
@@ -51,12 +41,9 @@ export default function RecentWorkouts({ workouts = MOCK_WORKOUTS }) {
       return {
         id: workout.id,
         name: workout.title,
-        details: `${timeAgo} • ${workout.duration} mins`,
-        highlight: workout.personalRecords > 0 ? "PR!" : `${workout.completionRate}%`,
-        highlightColor: workout.personalRecords > 0 ? "#ffd93d" : "#4ecdc4",
-        IconComponent: FontAwesome5,
-        iconName: workout.icon,
-        color: workout.gradient
+        date: timeAgo,
+        duration: `${workout.duration} min`,
+        calories: workout.caloriesBurned || 0,
       };
     }
     // Fallback to existing structure
@@ -64,6 +51,13 @@ export default function RecentWorkouts({ workouts = MOCK_WORKOUTS }) {
   };
 
   const displayWorkouts = workouts.map(transformWorkout);
+
+  const getWorkoutHighlight = (workout) => {
+    const parts = [];
+    if (workout.calories) parts.push(`${workout.calories} cal`);
+    if (workout.duration) parts.push(workout.duration);
+    return parts.join(" • ");
+  };
 
   const handleViewAll = () => {
     router.push("/activity?filter=workout");
@@ -74,23 +68,19 @@ export default function RecentWorkouts({ workouts = MOCK_WORKOUTS }) {
       {/* Header */}
       <View style={styles.headerRow}>
         <Text style={styles.title}>Recent Workouts</Text>
-        <FontAwesome5 name="history" size={18} color="#fff" />
+        <Ionicons name="barbell-outline" size={18} color="#fff" />
       </View>
 
-      {/* Dynamic list of recent workouts */}
-      {displayWorkouts.slice(0, 3).map((item) => (
-        <Pressable key={item.id} style={styles.item}>
-          <LinearGradient colors={item.color} style={styles.iconContainer}>
-            <item.IconComponent name={item.iconName} size={16} color="#fff" />
-          </LinearGradient>
-
+      {/* Dynamic list of workouts */}
+      {displayWorkouts.slice(0, 4).map((item, idx) => (
+        <Pressable key={idx} style={styles.item}>
           <View style={styles.workoutInfo}>
             <Text style={styles.name}>{item.name}</Text>
-            <Text style={styles.details}>{item.details}</Text>
+            <Text style={styles.details}>{item.date} • {item.duration}</Text>
           </View>
 
-          <Text style={[styles.highlight, { color: item.highlightColor }]}>
-            {item.highlight}
+          <Text style={styles.highlight}>
+            {getWorkoutHighlight(item)}
           </Text>
         </Pressable>
       ))}
@@ -109,7 +99,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 22,
     marginBottom: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.08)", // Matched your card style
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderWidth: 1,
   },
   headerRow: {
     marginBottom: 10,
@@ -118,7 +110,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   title: {
-    fontSize: 18, // Slightly larger to match your other titles
+    fontSize: 18,
     fontWeight: "600",
     color: "#fff",
   },
@@ -128,14 +120,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.06)",
-  },
-  iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    marginRight: 12,
-    justifyContent: "center",
-    alignItems: "center",
   },
   workoutInfo: {
     flex: 1,
@@ -153,12 +137,13 @@ const styles = StyleSheet.create({
   highlight: {
     fontSize: 12,
     fontWeight: "700",
+    color: "#fff",
   },
   footer: {
     fontSize: 13,
     marginTop: 12,
     textAlign: "right",
-    color: "#74b9ff", // Matched your "See All" color
+    color: "#74b9ff",
     fontWeight: "500",
   },
 });

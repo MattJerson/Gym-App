@@ -37,7 +37,7 @@ const Arc = ({ radius, progress, startAngle, totalAngle, color }) => {
   );
 };
 
-export default function MacroProgressSummary({ macroGoals }) {
+export default function MacroProgressSummary({ macroGoals, selectedDate }) {
   const { calories, protein, carbs, fats } = macroGoals;
 
   const carbsProgress = Math.min(carbs.current / carbs.target, 1);
@@ -72,12 +72,39 @@ export default function MacroProgressSummary({ macroGoals }) {
     },
   ];
 
+  // Use selectedDate prop or default to today
+  const displayDate = selectedDate || new Date();
   const currentDate = new Date();
-  const day = String(currentDate.getDate()).padStart(2, '0');
-  const month = currentDate.toLocaleDateString('en-US', { month: 'short' });
+  const isToday = displayDate.toDateString() === currentDate.toDateString();
+  
+  const day = String(displayDate.getDate()).padStart(2, '0');
+  const month = displayDate.toLocaleDateString('en-US', { month: 'short' });
+  const fullDate = displayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+  // Check if all macros are completed
+  const allMacrosComplete = carbsProgress >= 1 && proteinProgress >= 1 && fatsProgress >= 1;
 
   return (
-    <View style={styles.card}>
+    <View style={styles.outerContainer}>
+      {/* Date Header Section */}
+      <View style={styles.headerSection}>
+        <View style={styles.dateSection}>
+          <Text style={styles.todayLabel}>{isToday ? 'Today' : 'Selected Date'}</Text>
+          <Text style={styles.dateText}>{fullDate}</Text>
+        </View>
+        
+        {allMacrosComplete && (
+          <View style={styles.completeBadgeContainer}>
+            <View style={styles.completeIcon}>
+              <Text style={styles.completeIconText}>✓</Text>
+            </View>
+            <Text style={styles.completeLabel}>Complete</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Macro Progress Card */}
+      <View style={styles.card}>
       {/* Subtle gradient overlay */}
       <View style={styles.gradientOverlay} />
       
@@ -147,15 +174,65 @@ export default function MacroProgressSummary({ macroGoals }) {
         ))}
       </View>
     </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    marginBottom: 25,
+  },
+  headerSection: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  dateSection: {
+    flex: 1,
+  },
+  todayLabel: {
+    fontSize: 12,
+    color: "#999",
+    fontWeight: "500",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  dateText: {
+    fontSize: 18,
+    color: "#fff",
+    fontWeight: "bold",
+    marginTop: 2,
+  },
+  completeBadgeContainer: {
+    alignItems: "center",
+  },
+  completeIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#00D4AA",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  completeIconText: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  completeLabel: {
+    fontSize: 10,
+    color: "#00D4AA",
+    marginTop: 4,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
   card: {
     paddingVertical: 25,
     paddingHorizontal: 20,
     borderRadius: 25,
-    marginBottom: 25,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",

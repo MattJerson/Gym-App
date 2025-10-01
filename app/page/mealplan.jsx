@@ -146,48 +146,47 @@ export default function Mealplan() {
           </View>
         ) : (
           <>
-            {/* Macro Progress Summary */}
+            {/* Macro Progress Summary with Date Header and Weekly Calendar */}
             {macroGoals && (
-              <MacroProgressSummary macroGoals={macroGoals} />
+              <View style={styles.macroSection}>
+                <MacroProgressSummary 
+                  macroGoals={macroGoals} 
+                  selectedDate={selectedDate}
+                />
+                
+                {/* Weekly Calendar Strip */}
+                <View style={styles.weeklyStrip}>
+                  <View style={styles.weekRow}>
+                    {weeklyPlan.map((day, index) => (
+                      <Pressable
+                        key={index}
+                        style={[
+                          styles.dayButton, 
+                          day.active && styles.activeDayButton,
+                          day.isCompleted && styles.completedDayButton
+                        ]}
+                        onPress={() => handleDaySelect(day)}
+                      >
+                        <Text
+                          style={[
+                            styles.dayText, 
+                            day.active && styles.activeDayText,
+                            day.isCompleted && styles.completedDayText
+                          ]}
+                        >
+                          {day.day}
+                        </Text>
+                        {day.mealsPlanned > 0 && (
+                          <View style={styles.mealIndicator}>
+                            <Text style={styles.mealCount}>{day.mealsPlanned}</Text>
+                          </View>
+                        )}
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              </View>
             )}
-
-            {/* Weekly Calendar */}
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>Weekly Plan</Text>
-                <Text style={styles.dateText}>
-                  {MealPlanDataService.formatDate(selectedDate)}
-                </Text>
-              </View>
-              <View style={styles.weekRow}>
-                {weeklyPlan.map((day, index) => (
-                  <Pressable
-                    key={index}
-                    style={[
-                      styles.dayButton, 
-                      day.active && styles.activeDayButton,
-                      day.isCompleted && styles.completedDayButton
-                    ]}
-                    onPress={() => handleDaySelect(day)}
-                  >
-                    <Text
-                      style={[
-                        styles.dayText, 
-                        day.active && styles.activeDayText,
-                        day.isCompleted && styles.completedDayText
-                      ]}
-                    >
-                      {day.day}
-                    </Text>
-                    {day.mealsPlanned > 0 && (
-                      <View style={styles.mealIndicator}>
-                        <Text style={styles.mealCount}>{day.mealsPlanned}</Text>
-                      </View>
-                    )}
-                  </Pressable>
-                ))}
-              </View>
-            </View>
 
             {/* Today's Meals Component */}
             <TodaysMeals 
@@ -267,6 +266,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     opacity: 0.7,
   },
+  macroSection: {
+    marginBottom: 20,
+  },
+  weeklyStrip: {
+    paddingHorizontal: 4,
+    paddingVertical: 16,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
   card: {
     padding: 20,
     borderRadius: 20,
@@ -299,25 +309,30 @@ const styles = StyleSheet.create({
   weekRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    paddingHorizontal: 8,
   },
   dayButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
-    backgroundColor: "#333",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   activeDayButton: {
-    backgroundColor: "#1E3A5F",
+    backgroundColor: "#8e44ad",
+    borderColor: "#8e44ad",
   },
   completedDayButton: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: "#00D4AA",
+    borderColor: "#00D4AA",
   },
   dayText: {
-    fontSize: 12,
+    fontSize: 13,
     color: "#999",
-    fontWeight: "bold",
+    fontWeight: "700",
   },
   activeDayText: {
     color: "#fff",
@@ -327,19 +342,21 @@ const styles = StyleSheet.create({
   },
   mealIndicator: {
     position: "absolute",
-    top: -2,
-    right: -2,
-    backgroundColor: "#1E3A5F",
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
+    top: -4,
+    right: -4,
+    backgroundColor: "#ff9f43",
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#0B0B0B",
   },
   mealCount: {
     fontSize: 10,
     color: "#fff",
-    fontWeight: "bold",
+    fontWeight: "800",
   },
   actionGrid: {
     gap: 10,
