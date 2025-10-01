@@ -21,6 +21,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from "react"
 import { Ionicons } from "@expo/vector-icons";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from "expo-linear-gradient";
 import DropDownPicker from "react-native-dropdown-picker";
 import * as Haptics from 'expo-haptics';
@@ -173,8 +174,14 @@ export default function BasicInfo() {
 
   // Save form data locally (debounced)
   useEffect(() => {
-    // In a real app, you would save to AsyncStorage or similar
-    // AsyncStorage.setItem('registrationFormData', JSON.stringify(debouncedFormData));
+    // Persist registration step data so it can be completed later
+    (async () => {
+      try {
+        await AsyncStorage.setItem('onboarding:registration', JSON.stringify(debouncedFormData));
+      } catch (e) {
+        console.warn('Failed to persist registration data', e);
+      }
+    })();
     console.log('Form data auto-saved:', debouncedFormData);
   }, [debouncedFormData]);
 

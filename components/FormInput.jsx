@@ -14,6 +14,8 @@ const FormInput = forwardRef(({
   onSubmitEditing,
   onBlur,
   textContentType,
+  // accept any other TextInput props (autoComplete, importantForAutofill, etc.)
+  ...props
 }, ref) => {
   const [focused, setFocused] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -49,6 +51,7 @@ const FormInput = forwardRef(({
           keyboardType={keyboardType}
           returnKeyType={returnKeyType}
           textContentType={textContentType}
+          {...props}
           autoCapitalize="none"
           onFocus={() => setFocused(true)}
           onBlur={handleBlur}

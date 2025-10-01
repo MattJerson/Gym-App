@@ -17,6 +17,8 @@ import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useStripe } from "@stripe/stripe-react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../../services/supabase';
 
 export default function SubscriptionPackages() {
   const router = useRouter();
@@ -92,10 +94,71 @@ export default function SubscriptionPackages() {
   };
 
   const handleFreeTrial = () => {
-    console.log("Free Trial Pressed");
-    // Navigate or start free trial flow
-    router.push("/page/home");
+    // Start onboarding completion: read locally saved registration and bodyfat then call RPC
+    (async () => {
+      setIsProcessing(true);
+      try {
+        const regRaw = await AsyncStorage.getItem('onboarding:registration');
+        const bodyRaw = await AsyncStorage.getItem('onboarding:bodyfat');
+        const registration = regRaw ? JSON.parse(regRaw) : null;
+        const bodyfat = bodyRaw ? JSON.parse(bodyRaw) : null;
+
+        if (!registration || !bodyfat) {
+          alert('Incomplete onboarding data. Please complete all steps before starting the trial.');
+          setIsProcessing(false);
+          return;
+        }
+
+        const user = await supabase.auth.getUser();
+        const userId = user?.data?.user?.id;
+        if (!userId) {
+          alert('You must be signed in to complete onboarding.');
+          setIsProcessing(false);
+          return;
+        }
+
+        // Use a default/package placeholder for trial - in real flow you'd select the actual package id
+        const packagesResp = await supabase.from('subscription_packages').select('id').limit(1);
+        const packageId = packagesResp.data?.[0]?.id;
+
+        if (!packageId) {
+          alert('No subscription packages configured on the server.');
+          setIsProcessing(false);
+          return;
+        }
+
+        // Build payload for RPC
+        const payload = {
+          p_user_id: userId,
+          p_registration: registration,
+          p_bodyfat: { currentBodyFat: bodyfat.currentBodyFat, goalBodyFat: bodyfat.goalBodyFat },
+          p_subscription: { package_id: packageId, status: 'pending' }
+        };
+
+        const { data, error } = await supabase.rpc('complete_onboarding', payload);
+        if (error || data?.status === 'error') {
+          console.error('Onboarding RPC error', error || data);
+          alert('Failed to complete onboarding: ' + (error?.message || data?.message || 'Unknown error'));
+          setIsProcessing(false);
+          return;
+        }
+
+        // Clean up local onboarding keys
+        await AsyncStorage.removeItem('onboarding:registration');
+        await AsyncStorage.removeItem('onboarding:bodyfat');
+
+        // Navigate to home on success
+        router.push('/page/home');
+      } catch (err) {
+        console.error('Onboarding completion error', err);
+        alert('An unexpected error occurred while completing onboarding.');
+      } finally {
+        setIsProcessing(false);
+      }
+    })();
   };
+
+  const [isProcessing, setIsProcessing] = useState(false);
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>

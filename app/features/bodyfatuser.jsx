@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from "expo-router";
 import { useState, useEffect, useRef } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -69,17 +70,25 @@ export default function BodyFatUser() {
   };
   const handleNext = () => {
     if (currentStep === 0) {
-      setCurrentStep(1);
+  setCurrentStep(1);
     } else {
       // Show confirmation dialog instead of immediately submitting
-      setShowConfirmation(true);
+  setShowConfirmation(true);
     }
   };
   const handleConfirm = () => {
     setShowConfirmation(false);
     console.log("Current Body Fat:", `${Math.round(currentBodyFat)}%`);
     console.log("Goal Body Fat:", `${Math.round(goalBodyFat)}%`);
-    router.push("features/subscriptionpackages");
+    // persist bodyfat data for final onboarding
+    (async () => {
+      try {
+        await AsyncStorage.setItem('onboarding:bodyfat', JSON.stringify({ currentBodyFat: Math.round(currentBodyFat), goalBodyFat: Math.round(goalBodyFat) }));
+      } catch (e) {
+        console.warn('Failed to persist bodyfat data', e);
+      }
+      router.push("features/subscriptionpackages");
+    })();
   };
 
   const handleCancel = () => {

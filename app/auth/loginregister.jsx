@@ -14,9 +14,11 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import React, { useState, useRef, useEffect } from "react";
+import { Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import FormInput from "../../components/FormInput";
+import { supabase } from "../../services/supabase";
 
 /* -------------------- REGISTER SCREEN -------------------- */
 export default function Register() {
@@ -126,6 +128,10 @@ export default function Register() {
       if (password !== confirmPassword) {
         newErrors.confirmPassword = "Passwords do not match.";
       }
+      // enforce minimum password length before calling Supabase
+      if (!password || password.length < 6) {
+        newErrors.password = "Password must be at least 6 characters.";
+      }
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -139,17 +145,43 @@ export default function Register() {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
       if (isRegistering) {
-        console.log("Registering:", { nickname, email, password });
+        // Sign up using Supabase
+        const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { nickname } } });
+        if (error) {
+          // map common errors to friendly messages
+          if (error instanceof Error && error.message?.includes("Password should be at least")) {
+            throw new Error("Password must be at least 6 characters.");
+          }
+          throw error;
+        }
+
+        // If signup succeeded, update the user's display name / metadata
+        try {
+          // supabase.auth.updateUser requires a valid session; signUp may or may not return a session depending on settings.
+          // Attempt to update the user's metadata (full_name) using the returned data if available.
+          if (data?.user) {
+            await supabase.auth.updateUser({ data: { full_name: nickname, nickname } });
+          }
+        } catch (upErr) {
+          console.warn("Failed to update user metadata:", upErr);
+          // non-fatal; continue to registration process
+        }
+
+        // Redirect to registration process (if you have extra steps)
         router.push("/features/registrationprocess");
       } else {
-        console.log("Logging in:", { email, password });
-        router.push("/page/home");
+        // Sign in using Supabase
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+
+        // On success navigate to app home
+        router.replace("/");
       }
     } catch (error) {
       console.error("Authentication error:", error);
+      // show friendly alert
+      Alert.alert("Authentication error", error.message || "An error occurred");
     } finally {
       setIsLoading(false);
     }
@@ -178,6 +210,8 @@ export default function Register() {
                     }),
                   },
                 ],
+                // Allow touches to pass through header (prevents iOS autofill or overlay from blocking inputs)
+                pointerEvents: "none",
               },
             ]}
           >
@@ -235,6 +269,10 @@ export default function Register() {
               onChangeText={setPassword}
               isPassword
               errorMessage={errors.password}
+              // opt-out of iOS/Android autofill for the password field
+              textContentType="none"
+              autoComplete="off"
+              importantForAutofill="no"
             />
 
             {/* Password Strength Bar */}
@@ -268,6 +306,9 @@ export default function Register() {
                 onChangeText={setConfirmPassword}
                 isPassword
                 errorMessage={errors.confirmPassword}
+                textContentType="none"
+                autoComplete="off"
+                importantForAutofill="no"
               />
             )}
 
