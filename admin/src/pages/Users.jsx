@@ -1,58 +1,90 @@
-import {
-  Eye,
-  Plus,
-  Edit,
-  Search,
-  Trash2,
-  Filter,
-  Download,
-} from "lucide-react";
-import { useState } from "react";
+import { Plus, Edit, Search, Trash2, Filter, Download, X } from "lucide-react";
+import { useState, useEffect } from "react";
 
 const Users = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [users, setUsers] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    subscription: "Basic",
+    status: "Active",
+    joinDate: "",
+  });
 
-  const users = [
-    {
-      id: 1,
-      name: "John Smith",
-      email: "john@email.com",
-      subscription: "Premium",
-      status: "Active",
-      joinDate: "2024-01-15",
-    },
-    {
-      id: 2,
-      name: "Sarah Johnson",
-      email: "sarah@email.com",
-      subscription: "Basic",
-      status: "Active",
-      joinDate: "2024-02-20",
-    },
-    {
-      id: 3,
-      name: "Mike Davis",
-      email: "mike@email.com",
-      subscription: "Premium",
-      status: "Cancelled",
-      joinDate: "2023-12-10",
-    },
-  ];
+  // Load from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("users");
+    if (stored) setUsers(JSON.parse(stored));
+  }, []);
 
+  // Save to localStorage
+  useEffect(() => {
+    localStorage.setItem("users", JSON.stringify(users));
+  }, [users]);
+
+  // Search
   const filteredUsers = users.filter(
     (user) =>
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Open Modal (Add/Edit)
+  const openModal = (user = null) => {
+    if (user) {
+      setEditingUser(user);
+      setFormData(user);
+    } else {
+      setEditingUser(null);
+      setFormData({
+        name: "",
+        email: "",
+        subscription: "Basic",
+        status: "Active",
+        joinDate: "",
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  // Save User
+  const handleSave = () => {
+    if (editingUser) {
+      setUsers((prev) =>
+        prev.map((u) => (u.id === editingUser.id ? { ...formData } : u))
+      );
+    } else {
+      setUsers((prev) => [...prev, { ...formData, id: Date.now() }]);
+    }
+    setIsModalOpen(false);
+  };
+
+  // Delete User
+  const handleDelete = (id) => {
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+  };
+
+  // Status colors
+  const statusColors = {
+    Active: "text-green-600 font-medium",
+    Cancelled: "text-red-600 font-medium",
+    Suspended: "text-yellow-600 font-medium",
+  };
+
   return (
-    <div className="space-y-4 sm:space-y-6 p-0 sm:p-0">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <h2 className="text-xl md:text-left text-center sm:text-2xl font-bold text-gray-900">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
           User Management
         </h2>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700 w-full sm:w-auto">
+        <button
+          onClick={() => openModal()}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700 w-full sm:w-auto"
+        >
           <Plus className="h-4 w-4" />
           Add User
         </button>
@@ -72,78 +104,19 @@ const Users = () => {
             />
           </div>
           <div className="flex gap-2 sm:gap-3">
-            <button className="flex-1 sm:flex-none px-3 sm:px-4 py-2 border border-gray-400 rounded-lg flex items-center justify-center gap-2 hover:bg-gray-50">
+            <button className="px-3 sm:px-4 py-2 border border-gray-400 rounded-lg flex items-center justify-center gap-2 hover:bg-gray-50">
               <Filter className="h-4 w-4" />
               <span className="text-sm">Filter</span>
             </button>
-            <button className="flex-1 sm:flex-none px-3 sm:px-4 py-2 border border-gray-400 rounded-lg flex items-center justify-center gap-2 hover:bg-gray-50">
+            <button className="px-3 sm:px-4 py-2 border border-gray-400 rounded-lg flex items-center justify-center gap-2 hover:bg-gray-50">
               <Download className="h-4 w-4" />
               <span className="text-sm">Export</span>
             </button>
           </div>
         </div>
 
-        {/* Mobile Card View */}
-        <div className="block sm:hidden">
-          {filteredUsers.map((user) => (
-            <div
-              key={user.id}
-              className="p-4 border border-gray-200 rounded-lg mb-3 last:mb-0"
-            >
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex-1">
-                  <h4 className="font-medium text-gray-900 mb-1">
-                    {user.name}
-                  </h4>
-                  <p className="text-sm text-gray-600 mb-2">{user.email}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <span
-                      className={`px-2 py-1 rounded text-xs ${
-                        user.subscription === "Premium"
-                          ? "bg-purple-100 text-purple-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
-                    >
-                      {user.subscription}
-                    </span>
-                    <span
-                      className={`px-2 py-1 rounded text-xs ${
-                        user.status === "Active"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {user.status}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex gap-1 ml-2">
-                  <button className="p-2 text-blue-600 hover:bg-blue-50 rounded">
-                    <Eye className="h-4 w-4" />
-                  </button>
-                  <button className="p-2 text-green-600 hover:bg-green-50 rounded">
-                    <Edit className="h-4 w-4" />
-                  </button>
-                  <button className="p-2 text-red-600 hover:bg-red-50 rounded">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-              <div className="text-xs text-gray-500">
-                Joined: {user.joinDate}
-              </div>
-            </div>
-          ))}
-
-          {filteredUsers.length === 0 && (
-            <div className="text-center py-8 text-gray-500 italic">
-              No users found
-            </div>
-          )}
-        </div>
-
-        {/* Desktop Table View */}
-        <div className="hidden sm:block overflow-x-auto">
+        {/* Table */}
+        <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200">
@@ -163,45 +136,33 @@ const Users = () => {
                 >
                   <td className="py-3 px-4 font-medium">{user.name}</td>
                   <td className="py-3 px-4 text-gray-600">{user.email}</td>
-                  <td className="py-3 px-4">
-                    <span
-                      className={`px-2 py-1 rounded text-xs ${
-                        user.subscription === "Premium"
-                          ? "bg-purple-100 text-purple-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
-                    >
-                      {user.subscription}
-                    </span>
+                  <td className="py-3 px-4">{user.subscription}</td>
+                  <td
+                    className={`py-3 px-4 ${
+                      statusColors[user.status] || "text-gray-600"
+                    }`}
+                  >
+                    {user.status}
                   </td>
-                  <td className="py-3 px-4">
-                    <span
-                      className={`px-2 py-1 rounded text-xs ${
-                        user.status === "Active"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}
-                    >
-                      {user.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-gray-600">{user.joinDate}</td>
+                  <td className="py-3 px-4">{user.joinDate}</td>
                   <td className="py-3 px-4">
                     <div className="flex gap-2">
-                      <button className="p-1 text-blue-600 hover:bg-blue-50 rounded">
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      <button className="p-1 text-green-600 hover:bg-green-50 rounded">
+                      <button
+                        onClick={() => openModal(user)}
+                        className="p-1 text-green-600 hover:bg-green-50 rounded"
+                      >
                         <Edit className="h-4 w-4" />
                       </button>
-                      <button className="p-1 text-red-600 hover:bg-red-50 rounded">
+                      <button
+                        onClick={() => handleDelete(user.id)}
+                        className="p-1 text-red-600 hover:bg-red-50 rounded"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
                 </tr>
               ))}
-
               {filteredUsers.length === 0 && (
                 <tr>
                   <td
@@ -216,6 +177,113 @@ const Users = () => {
           </table>
         </div>
       </div>
+
+      {/* Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 relative">
+            <button
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <h2 className="text-xl font-bold mb-6">
+              {editingUser ? "Edit User" : "Add User"}
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Full Name *</label>
+                <input
+                  type="text"
+                  placeholder="e.g., John Smith"
+                  className="w-full border rounded-lg px-3 py-2 mt-1"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Email *</label>
+                <input
+                  type="email"
+                  placeholder="e.g., john@email.com"
+                  className="w-full border rounded-lg px-3 py-2 mt-1"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, email: e.target.value }))
+                  }
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Subscription *</label>
+                <select
+                  className="w-full border rounded-lg px-3 py-2 mt-1"
+                  value={formData.subscription}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      subscription: e.target.value,
+                    }))
+                  }
+                >
+                  <option>Basic</option>
+                  <option>Premium</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Status *</label>
+                <select
+                  className="w-full border rounded-lg px-3 py-2 mt-1"
+                  value={formData.status}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      status: e.target.value,
+                    }))
+                  }
+                >
+                  <option>Active</option>
+                  <option>Cancelled</option>
+                  <option>Suspended</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium">Join Date *</label>
+                <input
+                  type="date"
+                  className="w-full border rounded-lg px-3 py-2 mt-1"
+                  value={formData.joinDate}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      joinDate: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              >
+                {editingUser ? "Save Changes" : "Create User"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
