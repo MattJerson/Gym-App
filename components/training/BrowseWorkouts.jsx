@@ -90,6 +90,21 @@ const MOCK_CATEGORIES = [
 
 // Category Card Component - cleaner design matching MyWorkouts style
 const CategoryCardItem = ({ item, onPress }) => {
+  // Map database image_url to local images (fallback to image1)
+  const getImageSource = (imageUrl) => {
+    if (!imageUrl) return WORKOUT_IMAGES.image1;
+    
+    // If using Unsplash URLs from seed data, map to local images
+    if (imageUrl.includes('photo-1583454110551')) return WORKOUT_IMAGES.image1; // Strength
+    if (imageUrl.includes('photo-1476480862126')) return WORKOUT_IMAGES.image2; // Cardio
+    if (imageUrl.includes('photo-1552196563')) return WORKOUT_IMAGES.image3; // Endurance
+    if (imageUrl.includes('photo-1544367567')) return WORKOUT_IMAGES.image4; // Flexibility
+    if (imageUrl.includes('photo-1549060279')) return WORKOUT_IMAGES.image5; // HIIT
+    if (imageUrl.includes('photo-1571019613454')) return WORKOUT_IMAGES.image1; // Functional
+    
+    return WORKOUT_IMAGES.image1; // Default fallback
+  };
+
   return (
     <Pressable 
       style={({ pressed }) => [
@@ -104,7 +119,7 @@ const CategoryCardItem = ({ item, onPress }) => {
         
         {/* Workout image - background layer */}
         <Image 
-          source={item.image}
+          source={getImageSource(item.image_url)}
           style={styles.workoutImage}
           resizeMode="cover"
         />
@@ -130,9 +145,9 @@ const CategoryCardItem = ({ item, onPress }) => {
           {/* Category info */}
           <View style={styles.infoContainer}>
             <Text style={styles.categoryName} numberOfLines={1}>
-              {item.name}
+              {item.name.toUpperCase()}
             </Text>
-            <Text style={styles.workoutCount}>{item.workoutCount} workouts</Text>
+            <Text style={styles.workoutCount}>{item.workout_count} workouts</Text>
           </View>
 
           {/* Arrow button */}
@@ -146,9 +161,22 @@ const CategoryCardItem = ({ item, onPress }) => {
 };
 
 export default function BrowseWorkouts({
-  categories = MOCK_CATEGORIES,
+  categories = [],
   onSelectCategory = () => {},
 }) {
+  // If no categories, show empty state
+  if (!categories || categories.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Browse Workouts</Text>
+        <View style={styles.emptyState}>
+          <Ionicons name="barbell-outline" size={48} color="#444" />
+          <Text style={styles.emptyText}>No workout categories available</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Browse Workouts</Text>
@@ -182,6 +210,21 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     marginBottom: 16,
     letterSpacing: 0.3,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  emptyText: {
+    color: '#888',
+    fontSize: 14,
+    marginTop: 12,
   },
   listContentContainer: {
     paddingRight: PADDING_HORIZONTAL * 2,

@@ -39,3 +39,6 @@ credentials.env
 # typescript
 *.tsbuildinfo
 .env
+supabase/migrations/001_workout_templates_schema.sql
+supabase/migrations/002_workout_templates_seed.sql
+supabase/migrations/003_workout_templates_complete.sql

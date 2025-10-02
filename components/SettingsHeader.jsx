@@ -22,8 +22,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 60,
-    paddingBottom: 20,
+  // removed large top padding; parent SafeAreaView handles inset
+  paddingTop: 12,
+  paddingBottom: 12,
     paddingHorizontal: 20,
     width: '100%',
   },

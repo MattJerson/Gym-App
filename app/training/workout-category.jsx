@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { BrowseWorkoutsDataService } from "../../services/BrowseWorkoutsDataService";
+import { supabase } from "../../services/supabase";
 
 export default function WorkoutCategory() {
   const router = useRouter();
@@ -17,8 +17,21 @@ export default function WorkoutCategory() {
   const loadCategoryWorkouts = async () => {
     try {
       setIsLoading(true);
-      const data = await BrowseWorkoutsDataService.fetchCategoryWorkouts(categoryId);
-      setWorkouts(data);
+      
+      // Fetch workouts from Supabase
+      const { data, error } = await supabase
+        .from('workout_templates')
+        .select('*')
+        .eq('category_id', categoryId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error("Error loading workouts:", error);
+        throw error;
+      }
+
+      setWorkouts(data || []);
     } catch (error) {
       console.error("Error loading workouts:", error);
     } finally {
@@ -31,7 +44,12 @@ export default function WorkoutCategory() {
   };
 
   const getDifficultyColor = (difficulty) => {
-    return BrowseWorkoutsDataService.getDifficultyColor(difficulty);
+    const colors = {
+      'Beginner': '#10B981',
+      'Intermediate': '#F59E0B',
+      'Advanced': '#EF4444'
+    };
+    return colors[difficulty] || '#10B981';
   };
 
   return (
@@ -84,11 +102,11 @@ export default function WorkoutCategory() {
                   <View style={styles.statsRow}>
                     <View style={styles.statItem}>
                       <Ionicons name="time-outline" size={14} color="#71717A" />
-                      <Text style={styles.statText}>{workout.duration} min</Text>
+                      <Text style={styles.statText}>{workout.duration_minutes} min</Text>
                     </View>
                     <View style={styles.statItem}>
                       <Ionicons name="barbell-outline" size={14} color="#71717A" />
-                      <Text style={styles.statText}>{workout.exercises} exercises</Text>
+                      <Text style={styles.statText}>{workout.muscle_groups?.length || 0} muscle groups</Text>
                     </View>
                   </View>
 
@@ -97,7 +115,7 @@ export default function WorkoutCategory() {
                     <View style={styles.caloriesContainer}>
                       <Ionicons name="flame-outline" size={16} color={categoryColor || "#A3E635"} />
                       <Text style={[styles.caloriesText, { color: categoryColor || "#A3E635" }]}>
-                        {workout.calories}
+                        {workout.estimated_calories || 0}
                       </Text>
                       <Text style={styles.caloriesLabel}>kcal</Text>
                     </View>

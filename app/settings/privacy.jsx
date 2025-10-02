@@ -15,29 +15,7 @@ export default function PrivacySecurity() {
       <SafeAreaView style={{ flex: 1 }}>
         <SettingsHeader title="Privacy & Security" />
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          
-          {/* Account Privacy Section */}
-          <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="lock-closed-outline" size={24} color="#3498db" />
-              <Text style={styles.sectionTitle}>Account Privacy</Text>
-            </View>
-            
-            <View style={styles.card}>
-              <View style={styles.switchRow}>
-                <Text style={styles.label}>Private Account</Text>
-                <Switch
-                  trackColor={{ false: "rgba(255, 255, 255, 0.1)", true: "#00D4AA" }}
-                  thumbColor={isPrivate ? "#fff" : "#ccc"}
-                  onValueChange={() => setIsPrivate(previousState => !previousState)}
-                  value={isPrivate}
-                />
-              </View>
-              <Text style={styles.helperText}>
-                When enabled, only approved followers can see your fitness activity
-              </Text>
-            </View>
-          </View>
+        
 
           {/* Visibility Settings Section */}
           <View style={styles.sectionContainer}>

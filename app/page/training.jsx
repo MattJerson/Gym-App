@@ -20,7 +20,7 @@ import RecentWorkouts from "../../components/training/RecentWorkouts";
 import NotificationBar from "../../components/NotificationBar";
 import { TrainingDataService } from "../../services/TrainingDataService";
 import { WorkoutSessionService } from "../../services/WorkoutSessionService";
-import { BrowseWorkoutsDataService } from "../../services/BrowseWorkoutsDataService";
+import { supabase } from "../../services/supabase";
 
 export default function Training() {
   const router = useRouter();
@@ -45,20 +45,30 @@ export default function Training() {
     try {
       setIsLoading(true);
       
-      // Load all training data in parallel (removed exercise library)
+      // Fetch workout categories from Supabase
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('workout_categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+
+      if (categoriesError) {
+        console.error("Error fetching workout categories:", categoriesError);
+        throw categoriesError;
+      }
+      
+      // Load other training data in parallel
       const [
         notificationsData,
         progressData,
         continueData,
         todaysData,
-        categoriesData,
         recentData,
       ] = await Promise.all([
         TrainingDataService.fetchUserNotifications(userId),
         TrainingDataService.fetchWorkoutProgress(userId),
         TrainingDataService.fetchContinueWorkout(userId),
         TrainingDataService.fetchTodaysWorkout(userId),
-        BrowseWorkoutsDataService.fetchWorkoutCategories(),
         TrainingDataService.fetchRecentWorkouts(userId),
       ]);
 
@@ -67,7 +77,7 @@ export default function Training() {
       setWorkoutProgress(progressData);
       setContinueWorkout(continueData);
       setTodaysWorkout(todaysData);
-      setWorkoutCategories(categoriesData);
+      setWorkoutCategories(categoriesData || []);
       setRecentWorkouts(recentData);
       
     } catch (error) {

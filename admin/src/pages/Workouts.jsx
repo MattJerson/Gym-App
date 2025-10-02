@@ -7,20 +7,110 @@ import {
   Calendar,
   Dumbbell,
   Activity,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase using root .env via Vite
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL;
+const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+
+const supabaseKey = SUPABASE_SERVICE || SUPABASE_ANON || '';
+const supabase = createClient(SUPABASE_URL, supabaseKey);
 
 const Workouts = () => {
-  // ✅ Load saved plans from localStorage
-  const [workoutPlans, setWorkoutPlans] = useState(() => {
-    const saved = localStorage.getItem("workoutPlans");
-    return saved ? JSON.parse(saved) : [];
-  });
+  // State for Supabase data
+  const [categories, setCategories] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [exercises, setExercises] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [expandedCategories, setExpandedCategories] = useState({});
+  const [expandedTemplates, setExpandedTemplates] = useState({});
 
-  // ✅ Save to localStorage whenever plans update
+  // Fetch data from Supabase
   useEffect(() => {
-    localStorage.setItem("workoutPlans", JSON.stringify(workoutPlans));
-  }, [workoutPlans]);
+    fetchWorkoutData();
+  }, []);
+
+  // Fetch data from Supabase
+  useEffect(() => {
+    fetchWorkoutData();
+  }, []);
+
+  const fetchWorkoutData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch categories
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from('workout_categories')
+        .select('*')
+        .order('display_order', { ascending: true });
+
+      if (categoriesError) throw categoriesError;
+
+      // Fetch templates
+      const { data: templatesData, error: templatesError } = await supabase
+        .from('workout_templates')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (templatesError) throw templatesError;
+
+      // Fetch exercises
+      const { data: exercisesData, error: exercisesError } = await supabase
+        .from('workout_exercises')
+        .select('*')
+        .order('order_index', { ascending: true });
+
+      if (exercisesError) throw exercisesError;
+
+      setCategories(categoriesData || []);
+      setTemplates(templatesData || []);
+      setExercises(exercisesData || []);
+    } catch (err) {
+      console.error('Error fetching workout data:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleCategory = (categoryId) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [categoryId]: !prev[categoryId]
+    }));
+  };
+
+  const toggleTemplate = (templateId) => {
+    setExpandedTemplates(prev => ({
+      ...prev,
+      [templateId]: !prev[templateId]
+    }));
+  };
+
+  const getCategoryTemplates = (categoryId) => {
+    return templates.filter(t => t.category_id === categoryId);
+  };
+
+  const getTemplateExercises = (templateId) => {
+    return exercises.filter(e => e.template_id === templateId);
+  };
+
+  const getDifficultyColor = (difficulty) => {
+    const colors = {
+      'Beginner': 'bg-green-100 text-green-800',
+      'Intermediate': 'bg-yellow-100 text-yellow-800',
+      'Advanced': 'bg-red-100 text-red-800'
+    };
+    return colors[difficulty] || 'bg-gray-100 text-gray-800';
+  };
 
   const [isOpen, setIsOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
@@ -95,33 +185,19 @@ const Workouts = () => {
     }
   };
 
-  // ✅ Create or update workout plan
+  // ✅ Create or update workout plan (kept for future admin functionality)
   const handleSubmit = (e) => {
     e.preventDefault();
-
-    if (editingId) {
-      setWorkoutPlans((prev) =>
-        prev.map((plan) =>
-          plan.id === editingId ? { ...plan, ...formData } : plan
-        )
-      );
-    } else {
-      const newPlan = {
-        id: Date.now(),
-        ...formData,
-      };
-      setWorkoutPlans((prev) => [...prev, newPlan]);
-    }
-
+    // Future: Save to Supabase instead of localStorage
     handleCancel();
   };
 
-  // ✅ Delete workout plan
+  // ✅ Delete workout plan (kept for future admin functionality)
   const handleDelete = (id) => {
-    setWorkoutPlans((prev) => prev.filter((plan) => plan.id !== id));
+    // Future: Delete from Supabase
   };
 
-  // ✅ Edit workout plan
+  // ✅ Edit workout plan (kept for future admin functionality)
   const handleEdit = (plan) => {
     setEditingId(plan.id);
     setFormData(plan);
@@ -152,115 +228,182 @@ const Workouts = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <h2 className="text-2xl font-bold text-gray-900">Workout Planning</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Workout Management</h2>
         <button
           onClick={() => setIsOpen(true)}
           className="w-full sm:w-auto bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-orange-700"
         >
           <Plus className="h-4 w-4" />
-          Create Workout Plan
+          Create Workout (Coming Soon)
         </button>
       </div>
 
       {/* Dashboard Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-          <h4 className="text-lg font-semibold mb-2">Total Plans</h4>
+          <h4 className="text-lg font-semibold mb-2">Total Categories</h4>
           <p className="text-3xl font-bold text-orange-600">
-            {workoutPlans.length}
+            {categories.length}
           </p>
-          <p className="text-sm text-gray-600">+1 when you add a new plan</p>
+          <p className="text-sm text-gray-600">Active workout categories</p>
         </div>
         <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-          <h4 className="text-lg font-semibold mb-2">Most Popular</h4>
-          <p className="text-blue-600 text-xl font-bold">Full Body HIIT</p>
-          <p className="text-sm text-gray-600">2,341 completions</p>
+          <h4 className="text-lg font-semibold mb-2">Total Workouts</h4>
+          <p className="text-blue-600 text-3xl font-bold">{templates.length}</p>
+          <p className="text-sm text-gray-600">Workout templates</p>
         </div>
         <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-          <h4 className="text-lg font-semibold mb-2">Completion Rate</h4>
-          <p className="text-3xl font-bold text-green-600">76.8%</p>
-          <p className="text-sm text-gray-600">+3.2% vs last month</p>
+          <h4 className="text-lg font-semibold mb-2">Total Exercises</h4>
+          <p className="text-3xl font-bold text-green-600">{exercises.length}</p>
+          <p className="text-sm text-gray-600">Exercise variations</p>
         </div>
       </div>
 
-      {/* Workout Plans List */}
-      <div className="bg-white p-4 rounded-lg shadow-md">
-        <h3 className="text-lg font-semibold mb-4">Workout Plans</h3>
-        {workoutPlans.length === 0 ? (
-          <p className="text-gray-500">No workout plans yet. Create one!</p>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {workoutPlans.map((plan) => (
-              <div
-                key={plan.id}
-                className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-semibold text-lg">{plan.name}</h4>
-                  <span
-                    className={`px-2 py-1 rounded text-xs ${
-                      plan.active
-                        ? "bg-green-100 text-green-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {plan.active ? "Active" : "Inactive"}
-                  </span>
-                </div>
-                <div className="space-y-2 mb-4">
-                  <p className="text-sm text-gray-600">
-                    <Calendar className="inline h-4 w-4 mr-1" />
-                    Duration: {plan.duration}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    <Dumbbell className="inline h-4 w-4 mr-1" />
-                    Exercises: {plan.exercises}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    <Activity className="inline h-4 w-4 mr-1" />
-                    Difficulty: {plan.difficulty}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    <Upload className="inline h-4 w-4 mr-1" />
-                    Video:{" "}
-                    {plan.video?.name ? plan.video.name : "No video uploaded"}
-                  </p>
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+          <strong>Error:</strong> {error}
+        </div>
+      )}
 
-                  {plan.video?.thumbnail && (
-                    <img
-                      src={plan.video.thumbnail}
-                      alt="Video thumbnail"
-                      className="mt-2 w-full h-40 object-cover rounded-lg border"
-                    />
-                  )}
-                </div>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                  <button
-                    onClick={() => handleViewDetails(plan)}
-                    className="w-full sm:w-auto px-3 py-1 bg-blue-100 text-blue-800 rounded text-sm hover:bg-blue-200"
-                  >
-                    View Details
-                  </button>
-                  <div className="flex gap-1">
-                    <button
-                      onClick={() => handleEdit(plan)}
-                      className="p-1 text-green-600 hover:bg-green-50 rounded"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(plan.id)}
-                      className="p-1 text-red-600 hover:bg-red-50 rounded"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
+      {/* Loading State */}
+      {loading ? (
+        <div className="bg-white p-8 rounded-lg shadow-md text-center">
+          <p className="text-gray-500">Loading workout data...</p>
+        </div>
+      ) : (
+        <>
+          {/* Workout Categories & Templates */}
+          <div className="bg-white p-4 rounded-lg shadow-md">
+            <h3 className="text-lg font-semibold mb-4">Workout Database</h3>
+            {categories.length === 0 ? (
+              <p className="text-gray-500">No workout categories found. Import data from Supabase!</p>
+            ) : (
+              <div className="space-y-4">
+                {categories.map((category) => {
+                  const categoryTemplates = getCategoryTemplates(category.id);
+                  const isExpanded = expandedCategories[category.id];
+                  
+                  return (
+                    <div key={category.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                      {/* Category Header */}
+                      <div 
+                        onClick={() => toggleCategory(category.id)}
+                        className="flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{category.emoji}</span>
+                          <div>
+                            <h4 className="font-semibold text-lg">{category.name}</h4>
+                            <p className="text-sm text-gray-600">{category.description}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="text-sm font-medium" style={{ color: category.color }}>
+                              {categoryTemplates.length} workouts
+                            </p>
+                            <span className={`px-2 py-1 rounded text-xs ${category.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                              {category.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                          {isExpanded ? <ChevronDown className="h-5 w-5 text-gray-400" /> : <ChevronRight className="h-5 w-5 text-gray-400" />}
+                        </div>
+                      </div>
+
+                      {/* Templates List (Expandable) */}
+                      {isExpanded && (
+                        <div className="p-4 space-y-3 bg-white">
+                          {categoryTemplates.length === 0 ? (
+                            <p className="text-sm text-gray-500 italic">No workouts in this category yet.</p>
+                          ) : (
+                            categoryTemplates.map((template) => {
+                              const templateExercises = getTemplateExercises(template.id);
+                              const isTemplateExpanded = expandedTemplates[template.id];
+                              
+                              return (
+                                <div key={template.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                                  {/* Template Header */}
+                                  <div 
+                                    onClick={() => toggleTemplate(template.id)}
+                                    className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors"
+                                  >
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <h5 className="font-semibold">{template.name}</h5>
+                                        <span className={`px-2 py-1 rounded text-xs ${getDifficultyColor(template.difficulty)}`}>
+                                          {template.difficulty}
+                                        </span>
+                                      </div>
+                                      <p className="text-sm text-gray-600 mb-2">{template.description}</p>
+                                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                                        <span className="flex items-center gap-1">
+                                          <Calendar className="h-3 w-3" />
+                                          {template.duration_minutes} min
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                          <Activity className="h-3 w-3" />
+                                          {template.estimated_calories} kcal
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                          <Dumbbell className="h-3 w-3" />
+                                          {templateExercises.length} exercises
+                                        </span>
+                                      </div>
+                                    </div>
+                                    {isTemplateExpanded ? <ChevronDown className="h-4 w-4 text-gray-400" /> : <ChevronRight className="h-4 w-4 text-gray-400" />}
+                                  </div>
+
+                                  {/* Exercises List (Expandable) */}
+                                  {isTemplateExpanded && (
+                                    <div className="p-3 bg-white space-y-2">
+                                      {templateExercises.length === 0 ? (
+                                        <p className="text-xs text-gray-500 italic">No exercises added yet.</p>
+                                      ) : (
+                                        <div className="space-y-2">
+                                          {templateExercises.map((exercise, idx) => (
+                                            <div key={exercise.id} className="flex items-start gap-3 p-2 bg-gray-50 rounded border border-gray-200">
+                                              <span className="flex-shrink-0 w-6 h-6 bg-orange-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                                                {exercise.order_index}
+                                              </span>
+                                              <div className="flex-1">
+                                                <h6 className="text-sm font-semibold">{exercise.exercise_name}</h6>
+                                                <p className="text-xs text-gray-600 mb-1">{exercise.description}</p>
+                                                <div className="flex items-center gap-3 text-xs text-gray-500">
+                                                  <span>{exercise.sets} sets</span>
+                                                  <span>×</span>
+                                                  <span>{exercise.reps} reps</span>
+                                                  <span>•</span>
+                                                  <span>{exercise.rest_seconds}s rest</span>
+                                                  <span>•</span>
+                                                  <span>{exercise.calories_per_set} kcal/set</span>
+                                                </div>
+                                                {exercise.tips && Array.isArray(exercise.tips) && exercise.tips.length > 0 && (
+                                                  <div className="mt-1">
+                                                    <p className="text-xs text-gray-500 italic">💡 {exercise.tips[0]}</p>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Create/Edit Workout Plan Modal */}
       {isOpen && (
