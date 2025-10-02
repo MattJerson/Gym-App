@@ -3,10 +3,10 @@ import {
   Plus,
   Edit,
   Trash2,
+  Upload,
   Calendar,
   Dumbbell,
   Activity,
-  Upload,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -48,6 +48,17 @@ const Workouts = () => {
 
       reader.onloadend = () => {
         const videoURL = reader.result;
+
+        // ✅ Immediately store name + data
+        setFormData((prev) => ({
+          ...prev,
+          [name]: {
+            name: file.name,
+            data: videoURL,
+            thumbnail: null, // placeholder until we extract it
+          },
+        }));
+
         const videoElement = document.createElement("video");
         videoElement.src = videoURL;
 
@@ -64,12 +75,11 @@ const Workouts = () => {
 
           const thumbnail = canvas.toDataURL("image/png");
 
-          // ✅ store safe object for localStorage
+          // ✅ Update state with thumbnail (without losing existing data)
           setFormData((prev) => ({
             ...prev,
             [name]: {
-              name: file.name,
-              data: videoURL,
+              ...prev[name],
               thumbnail,
             },
           }));
@@ -153,25 +163,23 @@ const Workouts = () => {
       </div>
 
       {/* Dashboard Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <h4 className="text-sm font-medium text-gray-500">Total Plans</h4>
-          <p className="text-2xl font-bold text-orange-600">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+          <h4 className="text-lg font-semibold mb-2">Total Plans</h4>
+          <p className="text-3xl font-bold text-orange-600">
             {workoutPlans.length}
           </p>
-          <p className="text-xs text-gray-500">+1 when you add a new plan</p>
+          <p className="text-sm text-gray-600">+1 when you add a new plan</p>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <h4 className="text-sm font-medium text-gray-500">Most Popular</h4>
-          <p className="text-blue-600 font-semibold cursor-pointer">
-            Full Body HIIT
-          </p>
-          <p className="text-xs text-gray-500">2,341 completions</p>
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+          <h4 className="text-lg font-semibold mb-2">Most Popular</h4>
+          <p className="text-blue-600 text-xl font-bold">Full Body HIIT</p>
+          <p className="text-sm text-gray-600">2,341 completions</p>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <h4 className="text-sm font-medium text-gray-500">Completion Rate</h4>
-          <p className="text-2xl font-bold text-green-600">76.8%</p>
-          <p className="text-xs text-gray-500">+3.2% vs last month</p>
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+          <h4 className="text-lg font-semibold mb-2">Completion Rate</h4>
+          <p className="text-3xl font-bold text-green-600">76.8%</p>
+          <p className="text-sm text-gray-600">+3.2% vs last month</p>
         </div>
       </div>
 
@@ -212,17 +220,18 @@ const Workouts = () => {
                     <Activity className="inline h-4 w-4 mr-1" />
                     Difficulty: {plan.difficulty}
                   </p>
+                  <p className="text-sm text-gray-600">
+                    <Upload className="inline h-4 w-4 mr-1" />
+                    Video:{" "}
+                    {plan.video?.name ? plan.video.name : "No video uploaded"}
+                  </p>
+
                   {plan.video?.thumbnail && (
                     <img
                       src={plan.video.thumbnail}
                       alt="Video thumbnail"
                       className="mt-2 w-full h-40 object-cover rounded-lg border"
                     />
-                  )}
-                  {plan.video?.name && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {plan.video.name}
-                    </p>
                   )}
                 </div>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">

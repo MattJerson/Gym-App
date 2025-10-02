@@ -5,33 +5,43 @@ import {
   Trash2,
   Calendar,
   Activity,
-  Dumbbell,
+  UtensilsCrossed,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
-const Workouts = () => {
-  // ✅ Load workout plans from localStorage
-  const [workoutPlans, setWorkoutPlans] = useState(() => {
-    const saved = localStorage.getItem("workoutPlans");
+const Meals = () => {
+  const [mealPlans, setMealPlans] = useState(() => {
+    const saved = localStorage.getItem("mealPlans");
     return saved ? JSON.parse(saved) : [];
   });
 
-  // ✅ Persist to localStorage when workoutPlans changes
   useEffect(() => {
-    localStorage.setItem("workoutPlans", JSON.stringify(workoutPlans));
-  }, [workoutPlans]);
+    localStorage.setItem("mealPlans", JSON.stringify(mealPlans));
+  }, [mealPlans]);
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+
   const [formData, setFormData] = useState({
     name: "",
     duration: "",
-    exercises: "",
-    difficulty: "Beginner",
+    calories: "",
+    type: "Balanced",
     active: true,
   });
 
-  const difficulties = ["Beginner", "Intermediate", "Advanced"];
+  const mealTypes = [
+    "Balanced",
+    "High Protein",
+    "Low Carb",
+    "Keto",
+    "Vegan",
+    "Vegetarian",
+    "Mediterranean",
+    "Paleo",
+  ];
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -41,51 +51,46 @@ const Workouts = () => {
     }));
   };
 
-  // ✅ Add or Update workout plan
   const handleSubmit = (e) => {
     e.preventDefault();
-
     if (editingId) {
-      setWorkoutPlans((prev) =>
+      setMealPlans((prev) =>
         prev.map((plan) =>
           plan.id === editingId ? { ...plan, ...formData } : plan
         )
       );
     } else {
-      const newPlan = {
-        id: Date.now(),
-        ...formData,
-        exercises: Number(formData.exercises),
-      };
-      setWorkoutPlans((prev) => [...prev, newPlan]);
+      const newPlan = { id: Date.now(), ...formData };
+      setMealPlans((prev) => [...prev, newPlan]);
     }
-
     handleCancel();
   };
 
-  // ✅ Delete workout plan
   const handleDelete = (id) => {
-    setWorkoutPlans((prev) => prev.filter((plan) => plan.id !== id));
+    setMealPlans((prev) => prev.filter((plan) => plan.id !== id));
   };
 
-  // ✅ Edit workout plan
   const handleEdit = (plan) => {
     setEditingId(plan.id);
     setFormData(plan);
     setIsOpen(true);
   };
 
-  // ✅ Cancel modal
   const handleCancel = () => {
     setIsOpen(false);
     setEditingId(null);
     setFormData({
       name: "",
       duration: "",
-      exercises: "",
-      difficulty: "Beginner",
+      calories: "",
+      type: "Balanced",
       active: true,
     });
+  };
+
+  const handleViewDetails = (plan) => {
+    setSelectedPlan(plan);
+    setIsDetailsOpen(true);
   };
 
   return (
@@ -93,46 +98,46 @@ const Workouts = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <h2 className="text-2xl md:text-left text-center font-bold text-gray-900">
-          Workout Planning
+          Meal Planning
         </h2>
         <button
           onClick={() => setIsOpen(true)}
-          className="w-full sm:w-auto bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-orange-700"
+          className="w-full sm:w-auto bg-green-600 text-white px-4 py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-green-700"
         >
           <Plus className="h-4 w-4" />
-          Create Workout Plan
+          Create Meal Plan
         </button>
       </div>
 
-      {/* Stats Overview */}
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
         <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold mb-2">Total Plans</h3>
-          <p className="text-3xl font-bold text-orange-600">
-            {workoutPlans.length}
+          <p className="text-3xl font-bold text-green-600">
+            {mealPlans.length}
           </p>
           <p className="text-sm text-gray-600">+1 when you add new plan</p>
         </div>
         <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
           <h3 className="text-lg font-semibold mb-2">Most Popular</h3>
-          <p className="text-xl font-bold text-blue-600">Full Body HIIT</p>
-          <p className="text-sm text-gray-600">2,341 completions</p>
+          <p className="text-xl font-bold text-blue-600">Weight Loss</p>
+          <p className="text-sm text-gray-600">1,897 followers</p>
         </div>
         <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold mb-2">Completion Rate</h3>
-          <p className="text-3xl font-bold text-green-600">76.8%</p>
-          <p className="text-sm text-gray-600">+3.2% vs last month</p>
+          <h3 className="text-lg font-semibold mb-2">Adherence Rate</h3>
+          <p className="text-3xl font-bold text-purple-600">84.2%</p>
+          <p className="text-sm text-gray-600">+5.1% vs last month</p>
         </div>
       </div>
 
-      {/* Workout Plans */}
+      {/* Meal Plans */}
       <div className="bg-white p-4 rounded-lg shadow-md">
-        <h3 className="text-lg font-semibold mb-4">Workout Plans</h3>
-        {workoutPlans.length === 0 ? (
-          <p className="text-gray-500">No workout plans yet. Create one!</p>
+        <h3 className="text-lg font-semibold mb-4">Meal Plans</h3>
+        {mealPlans.length === 0 ? (
+          <p className="text-gray-500">No meal plans yet. Create one!</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {workoutPlans.map((plan) => (
+            {mealPlans.map((plan) => (
               <div
                 key={plan.id}
                 className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
@@ -155,16 +160,20 @@ const Workouts = () => {
                     Duration: {plan.duration}
                   </p>
                   <p className="text-sm text-gray-600">
-                    <Dumbbell className="inline h-4 w-4 mr-1" />
-                    Exercises: {plan.exercises}
+                    <UtensilsCrossed className="inline h-4 w-4 mr-1" />
+                    Calories: {plan.calories}/day
                   </p>
                   <p className="text-sm text-gray-600">
                     <Activity className="inline h-4 w-4 mr-1" />
-                    Difficulty: {plan.difficulty}
+                    Type: {plan.type}
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                  <button className="w-full sm:w-auto px-3 py-1 bg-orange-100 text-orange-800 rounded text-sm hover:bg-orange-200">
+                  {/* ✅ View Details button */}
+                  <button
+                    onClick={() => handleViewDetails(plan)}
+                    className="w-full sm:w-auto px-3 py-1 bg-green-100 text-green-800 rounded text-sm hover:bg-green-200"
+                  >
                     View Details
                   </button>
                   <div className="flex gap-1">
@@ -188,26 +197,63 @@ const Workouts = () => {
         )}
       </div>
 
-      {/* Create/Edit Workout Plan Modal */}
-      {isOpen && (
+      {/* ✅ View Details Modal */}
+      {isDetailsOpen && selectedPlan && (
         <div className="fixed inset-0 flex items-center justify-center p-4 z-50 bg-black/40">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h3 className="text-xl font-bold text-gray-900">
-                {editingId ? "Edit Workout Plan" : "Create Workout Plan"}
+                Meal Plan Details
               </h3>
               <button
-                onClick={handleCancel}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                onClick={() => setIsDetailsOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
+            <div className="p-6 space-y-3">
+              <p>
+                <strong>Name:</strong> {selectedPlan.name}
+              </p>
+              <p>
+                <strong>Duration:</strong> {selectedPlan.duration}
+              </p>
+              <p>
+                <strong>Calories:</strong> {selectedPlan.calories} / day
+              </p>
+              <p>
+                <strong>Type:</strong> {selectedPlan.type}
+              </p>
+              <p>
+                <strong>Status:</strong>{" "}
+                {selectedPlan.active ? (
+                  <span className="text-green-600">Active ✅</span>
+                ) : (
+                  <span className="text-red-600">Inactive ❌</span>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
-            {/* Modal Body */}
+      {/* Create/Edit Modal */}
+      {isOpen && (
+        <div className="fixed inset-0 flex items-center justify-center p-4 z-50 bg-black/40">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900">
+                {editingId ? "Edit Meal Plan" : "Create Meal Plan"}
+              </h3>
+              <button
+                onClick={handleCancel}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              {/* Plan Name */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Plan Name *
@@ -217,16 +263,13 @@ const Workouts = () => {
                   name="name"
                   value={formData.name}
                   onChange={handleInputChange}
-                  placeholder="e.g., Beginner Full Body"
+                  placeholder="e.g., Muscle Building"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                 />
               </div>
-
-              {/* Duration */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Calendar className="inline h-4 w-4 mr-1" />
                   Duration *
                 </label>
                 <input
@@ -234,78 +277,65 @@ const Workouts = () => {
                   name="duration"
                   value={formData.duration}
                   onChange={handleInputChange}
-                  placeholder="e.g., 4 weeks, 6 weeks"
+                  placeholder="e.g., 4 weeks"
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                 />
               </div>
-
-              {/* Exercises */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Dumbbell className="inline h-4 w-4 mr-1" />
-                  Number of Exercises *
+                  Daily Calories *
                 </label>
                 <input
                   type="number"
-                  name="exercises"
-                  value={formData.exercises}
+                  name="calories"
+                  value={formData.calories}
                   onChange={handleInputChange}
-                  placeholder="e.g., 10"
+                  placeholder="e.g., 2000"
                   required
-                  min="1"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                 />
               </div>
-
-              {/* Difficulty */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Activity className="inline h-4 w-4 mr-1" />
-                  Difficulty *
+                  Type *
                 </label>
                 <select
-                  name="difficulty"
-                  value={formData.difficulty}
+                  name="type"
+                  value={formData.type}
                   onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none bg-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 bg-white"
                 >
-                  {difficulties.map((diff) => (
-                    <option key={diff} value={diff}>
-                      {diff}
+                  {mealTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
                     </option>
                   ))}
                 </select>
               </div>
-
-              {/* Active */}
               <div className="flex items-center">
                 <input
                   type="checkbox"
                   name="active"
-                  id="active"
                   checked={formData.active}
                   onChange={handleInputChange}
-                  className="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
                 />
-                <label htmlFor="active" className="ml-2 text-sm text-gray-700">
+                <label className="ml-2 text-sm text-gray-700">
                   Set as active plan
                 </label>
               </div>
-
-              {/* Modal Footer */}
               <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                 >
                   {editingId ? "Update Plan" : "Create Plan"}
                 </button>
@@ -318,4 +348,4 @@ const Workouts = () => {
   );
 };
 
-export default Workouts;
+export default Meals;
