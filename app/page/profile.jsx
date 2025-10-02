@@ -43,6 +43,7 @@ export default function Profile() {
   const router = useRouter();
   const pathname = usePathname();
   const [notifications] = useState(3);
+  const [selectedTheme, setSelectedTheme] = useState('dark');
 
   const handlePress = (path) => {
     if (pathname !== path) {
@@ -64,7 +65,6 @@ export default function Profile() {
       title: "Settings",
       items: [
         { icon: "notifications-outline", color: "#e74c3c", label: "Notifications", path: "../settings/notifications" },
-        { icon: "color-palette-outline", color: "#9b59b6", label: "Appearance", path: "../settings/appearance" },
         { icon: "help-circle-outline", color: "#1abc9c", label: "Help & Support", path: "../settings/helpsupport" },
       ],
     },
@@ -79,7 +79,9 @@ export default function Profile() {
           <View style={styles.headerRow}>
             <Text style={styles.headerText}>Profile</Text>
             <NotificationBar notifications={notifications} />
-          </View>          {/* Profile Header */}
+          </View>
+          
+          {/* Profile Header */}
           <View style={styles.profileHeader}>
             <View style={styles.avatarContainer}>
               <View style={styles.avatarIcon}>
@@ -89,7 +91,9 @@ export default function Profile() {
             <Text style={styles.userName}>{user.name}</Text>
             <Text style={styles.userHandle}>{user.username}</Text>
             <Text style={styles.joinDate}>{user.joinDate}</Text>
-          </View>          {/* Stats & Achievements Combined */}
+          </View>
+          
+          {/* Stats & Achievements Combined */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>⚡ Stats & Achievements</Text>
             
@@ -136,7 +140,9 @@ export default function Profile() {
                 </View>
               ))}
             </View>
-          </View>          {/* Leaderboard Section */}
+          </View>
+          
+          {/* Leaderboard Section */}
           <View style={styles.card}>
             <View style={styles.leaderboardHeader}>
               <Text style={styles.cardTitle}>🏁 Weekly Leaderboard</Text>
@@ -238,21 +244,71 @@ export default function Profile() {
             </View>
           </View>
           
-          {/* Menu Sections */}
-          {menuItems.map((section, index) => (
-            <View key={index} style={styles.card}>
-              <Text style={styles.cardTitle}>{section.title}</Text>
-              {section.items.map((item, itemIndex) => (
-                 <Pressable key={itemIndex} style={styles.menuRow} onPress={() => handlePress(item.path)}>
-                   <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-                     <Ionicons name={item.icon} size={20} color="#fff" />
-                   </View>
-                   <Text style={styles.menuLabel}>{item.label}</Text>
-                   <Ionicons name="chevron-forward" size={22} color="#555" />
-                 </Pressable>
-              ))}
+          {/* Account Section */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{menuItems[0].title}</Text>
+            {menuItems[0].items.map((item, itemIndex) => (
+               <Pressable key={itemIndex} style={styles.menuRow} onPress={() => handlePress(item.path)}>
+                 <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
+                   <Ionicons name={item.icon} size={20} color="#fff" />
+                 </View>
+                 <Text style={styles.menuLabel}>{item.label}</Text>
+                 <Ionicons name="chevron-forward" size={22} color="#555" />
+               </Pressable>
+            ))}
+          </View>
+
+          {/* Appearance Section */}
+          <View style={styles.card}>
+            <View style={styles.appearanceHeader}>
+              <Ionicons name="color-palette-outline" size={22} color="#9b59b6" />
+              <Text style={styles.cardTitle}>Appearance</Text>
             </View>
-          ))}
+            
+            <View style={styles.themeContainer}>
+              <Pressable 
+                style={[styles.themeBox, selectedTheme === 'light' && styles.themeBoxSelected]} 
+                onPress={() => setSelectedTheme('light')}
+              >
+                <Ionicons name="sunny-outline" size={28} color={selectedTheme === 'light' ? '#fff' : '#aaa'} />
+                <Text style={[styles.themeLabel, selectedTheme === 'light' && styles.themeLabelSelected]}>Light</Text>
+              </Pressable>
+              
+              <Pressable 
+                style={[styles.themeBox, selectedTheme === 'dark' && styles.themeBoxSelected]} 
+                onPress={() => setSelectedTheme('dark')}
+              >
+                <Ionicons name="moon-outline" size={28} color={selectedTheme === 'dark' ? '#fff' : '#aaa'} />
+                <Text style={[styles.themeLabel, selectedTheme === 'dark' && styles.themeLabelSelected]}>Dark</Text>
+              </Pressable>
+              
+              <Pressable 
+                style={[styles.themeBox, selectedTheme === 'system' && styles.themeBoxSelected]} 
+                onPress={() => setSelectedTheme('system')}
+              >
+                <Ionicons name="cog-outline" size={28} color={selectedTheme === 'system' ? '#fff' : '#aaa'} />
+                <Text style={[styles.themeLabel, selectedTheme === 'system' && styles.themeLabelSelected]}>System</Text>
+              </Pressable>
+            </View>
+            
+            <Text style={styles.themeHelperText}>
+              Dark theme is recommended for low-light gym sessions and reduces eye strain during late-night meal planning
+            </Text>
+          </View>
+
+          {/* Settings Section */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{menuItems[1].title}</Text>
+            {menuItems[1].items.map((item, itemIndex) => (
+               <Pressable key={itemIndex} style={styles.menuRow} onPress={() => handlePress(item.path)}>
+                 <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
+                   <Ionicons name={item.icon} size={20} color="#fff" />
+                 </View>
+                 <Text style={styles.menuLabel}>{item.label}</Text>
+                 <Ionicons name="chevron-forward" size={22} color="#555" />
+               </Pressable>
+            ))}
+          </View>
 
 
           {/* Logout Button */}
@@ -328,10 +384,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   card: {
-    padding: 15,
-    borderRadius: 24,
+    padding: 20,
+    borderRadius: 20,
     marginBottom: 20,
     backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   cardTitle: {
     fontSize: 18,
@@ -648,5 +706,46 @@ const styles = StyleSheet.create({
     color: "#aaa",
     fontWeight: "500",
     fontStyle: "italic",
+  },
+  // Appearance/Theme styles
+  appearanceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 15,
+  },
+  themeContainer: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    gap: 10, 
+    marginBottom: 12,
+  },
+  themeBox: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    padding: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
+    gap: 8,
+  },
+  themeBoxSelected: {
+    borderColor: '#f7971e',
+    backgroundColor: 'rgba(247, 151, 30, 0.2)',
+  },
+  themeLabel: { 
+    fontSize: 13, 
+    color: '#aaa', 
+    fontWeight: '600',
+  },
+  themeLabelSelected: { 
+    color: '#fff',
+  },
+  themeHelperText: {
+    color: '#666',
+    fontSize: 12,
+    lineHeight: 17,
+    paddingHorizontal: 5,
   },
 });

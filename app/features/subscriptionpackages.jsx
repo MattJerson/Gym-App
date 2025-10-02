@@ -98,39 +98,58 @@ export default function SubscriptionPackages() {
     (async () => {
       setIsProcessing(true);
       try {
-        const regRaw = await AsyncStorage.getItem('onboarding:registration');
-        const bodyRaw = await AsyncStorage.getItem('onboarding:bodyfat');
-        const registration = regRaw ? JSON.parse(regRaw) : null;
-        const bodyfat = bodyRaw ? JSON.parse(bodyRaw) : null;
-
-        if (!registration || !bodyfat) {
-          alert('Incomplete onboarding data. Please complete all steps before starting the trial.');
-          setIsProcessing(false);
-          return;
-        }
-
-        const user = await supabase.auth.getUser();
-        const userId = user?.data?.user?.id;
+        // get current user first (needed for server fallbacks)
+        const userResp = await supabase.auth.getUser();
+        const userId = userResp?.data?.user?.id;
         if (!userId) {
           alert('You must be signed in to complete onboarding.');
           setIsProcessing(false);
           return;
         }
 
-        // Use a default/package placeholder for trial - in real flow you'd select the actual package id
+        // attempt to read local data first
+        const regRaw = await AsyncStorage.getItem('onboarding:registration');
+        const bodyRaw = await AsyncStorage.getItem('onboarding:bodyfat');
+        let registration = regRaw ? JSON.parse(regRaw) : null;
+        let bodyfat = bodyRaw ? JSON.parse(bodyRaw) : null;
+
+        // If missing locally, try server-side stored rows (user may have resumed)
+        if (!registration) {
+          const regResp = await supabase.from('registration_profiles').select('*').eq('user_id', userId).single();
+          if (!regResp.error && regResp.data) {
+            registration = regResp.data;
+          } else {
+            registration = {}; // allow empty registration
+          }
+        }
+
+        if (!bodyfat) {
+          const bodyResp = await supabase.from('bodyfat_profiles').select('current_body_fat, goal_body_fat').eq('user_id', userId).single();
+          if (!bodyResp.error && bodyResp.data) {
+            bodyfat = { currentBodyFat: bodyResp.data.current_body_fat, goalBodyFat: bodyResp.data.goal_body_fat };
+          }
+        }
+
+        // bodyfat is required for onboarding RPC
+        if (!bodyfat) {
+          alert('Missing body fat data. Please complete the body fat step before starting the trial.');
+          setIsProcessing(false);
+          return;
+        }
+
+        // pick a package id (first available) - better: let user select
         const packagesResp = await supabase.from('subscription_packages').select('id').limit(1);
         const packageId = packagesResp.data?.[0]?.id;
-
         if (!packageId) {
           alert('No subscription packages configured on the server.');
           setIsProcessing(false);
           return;
         }
 
-        // Build payload for RPC
+        // Build payload for RPC (ensure simple shapes)
         const payload = {
           p_user_id: userId,
-          p_registration: registration,
+          p_registration: registration || {},
           p_bodyfat: { currentBodyFat: bodyfat.currentBodyFat, goalBodyFat: bodyfat.goalBodyFat },
           p_subscription: { package_id: packageId, status: 'pending' }
         };

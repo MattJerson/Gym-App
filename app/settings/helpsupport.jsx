@@ -1,49 +1,113 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, SafeAreaView, Pressable } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import SettingsHeader from '../../components/SettingsHeader'; // Adjust path if needed
-
-const SupportItem = ({ label, iconName, color }) => (
-    <Pressable style={styles.menuRow}>
-        <View style={[styles.iconContainer, { backgroundColor: color }]}>
-            <Ionicons name={iconName} size={20} color="#fff" />
-        </View>
-        <Text style={styles.menuLabel}>{label}</Text>
-        <Ionicons name="chevron-forward" size={22} color="#555" />
-    </Pressable>
-);
+import SettingsHeader from '../../components/SettingsHeader';
 
 export default function HelpSupport() {
   return (
-    <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
+    <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <SafeAreaView style={{ flex: 1 }}>
         <SettingsHeader title="Help & Support" />
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.card}>
-            <SupportItem label="FAQ" iconName="help-circle-outline" color="#1abc9c" />
-            <SupportItem label="Contact Us" iconName="mail-outline" color="#3498db" />
-            <SupportItem label="Terms of Service" iconName="document-text-outline" color="#9b59b6" />
-            <SupportItem label="Privacy Policy" iconName="shield-checkmark-outline" color="#2ecc71" />
+          
+          {/* Support Section */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="help-circle-outline" size={24} color="#1abc9c" />
+              <Text style={styles.sectionTitle}>Support</Text>
+            </View>
+            
+            <View style={styles.card}>
+              <Pressable style={styles.linkButton}>
+                <Text style={styles.linkButtonText}>FAQ</Text>
+                <Ionicons name="chevron-forward" size={20} color="#f7971e" />
+              </Pressable>
+              
+              <Pressable style={styles.linkButton}>
+                <Text style={styles.linkButtonText}>Contact Support</Text>
+                <Ionicons name="chevron-forward" size={20} color="#f7971e" />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Resources Section */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="book-outline" size={24} color="#3498db" />
+              <Text style={styles.sectionTitle}>Resources</Text>
+            </View>
+            
+            <View style={styles.card}>
+              <Pressable style={styles.linkButton}>
+                <Text style={styles.linkButtonText}>Training Guides</Text>
+                <Ionicons name="chevron-forward" size={20} color="#f7971e" />
+              </Pressable>
+              
+              <Pressable style={styles.linkButton}>
+                <Text style={styles.linkButtonText}>Nutrition Tips</Text>
+                <Ionicons name="chevron-forward" size={20} color="#f7971e" />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Legal Section */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="document-text-outline" size={24} color="#9b59b6" />
+              <Text style={styles.sectionTitle}>Legal</Text>
+            </View>
+            
+            <View style={styles.card}>
+              <Pressable style={styles.linkButton}>
+                <Text style={styles.linkButtonText}>Terms of Service</Text>
+                <Ionicons name="chevron-forward" size={20} color="#f7971e" />
+              </Pressable>
+              
+              <Pressable style={styles.linkButton}>
+                <Text style={styles.linkButtonText}>Privacy Policy</Text>
+                <Ionicons name="chevron-forward" size={20} color="#f7971e" />
+              </Pressable>
+            </View>
           </View>
         </ScrollView>
       </SafeAreaView>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
-  card: { padding: 15, borderRadius: 24, backgroundColor: "rgba(255, 255, 255, 0.05)" },
-  menuRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 5 },
-  iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 15,
+  scrollContent: { paddingTop: 10, paddingHorizontal: 20, paddingBottom: 40 },
+  sectionContainer: {
+    marginBottom: 24,
   },
-  menuLabel: { flex: 1, fontSize: 16, color: "#eee", fontWeight: '500' },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+    paddingHorizontal: 5,
+  },
+  sectionTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  card: { 
+    padding: 20, 
+    borderRadius: 24, 
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  linkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 5,
+  },
+  linkButtonText: {
+    fontSize: 16,
+    color: '#f7971e',
+    fontWeight: '500',
+  },
 });

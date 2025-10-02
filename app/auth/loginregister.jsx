@@ -176,7 +176,7 @@ export default function Register() {
         if (error) throw error;
 
         // On success navigate to app home
-        router.replace("/");
+        router.replace("/page/home");
       }
     } catch (error) {
       console.error("Authentication error:", error);

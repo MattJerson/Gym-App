@@ -22,6 +22,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../../services/supabase';
+import { Alert } from 'react-native';
 import { LinearGradient } from "expo-linear-gradient";
 import DropDownPicker from "react-native-dropdown-picker";
 import * as Haptics from 'expo-haptics';
@@ -50,7 +52,7 @@ const formConfig = [
       { name: "trainingLocation", label: "Where do you train?", type: "dropdown", placeholder: "Select Location", zIndex: 5000, items: [{ label: "At Home", value: "home" }, { label: "At the Gym", value: "gym" }] },
       { name: "trainingDuration", label: "How long do you train?", type: "dropdown", placeholder: "Select Duration", zIndex: 4000, items: [{ label: "20 mins", value: "20" }, { label: "30 mins", value: "30" }, { label: "45 mins", value: "45" }, { label: "60 mins", value: "60" }, { label: "90+ mins", value: "90+" }] },
       { name: "muscleFocus", label: "Interested in growing a specific muscle?", type: "dropdown", placeholder: "Select Muscle Group", zIndex: 3000, items: [{ label: "General Growth", value: "general" }, { label: "Legs and Glutes", value: "legs_glutes" }, { label: "Back", value: "back" }, { label: "Chest", value: "chest" }, { label: "Shoulders and Arms", value: "shoulders_arms" }, { label: "Core", value: "core" }] },
-      { name: "injuries", label: "Any current injuries?", type: "dropdown", placeholder: "Select Injuries (if any)", zIndex: 2000, multiple: true, items: [{ label: "Lower Back", value: "lower_back" }, { label: "Knees", value: "knees" }, { label: "Shoulder", value: "shoulder" }, { label: "No Injuries", value: "none" }] },
+      { name: "injuries", label: "Any current injuries?", type: "dropdown", placeholder: "Select Injuries (Leave Blank if empty)", zIndex: 2000, multiple: true, items: [{ label: "Lower Back", value: "lower_back" }, { label: "Knees", value: "knees" }, { label: "Shoulder", value: "shoulder" }, { label: "Wrist", value: "wrist" }, { label: "Ankle", value: "ankle" }] },
       { name: "trainingFrequency", label: "How often do you want to train?", type: "dropdown", placeholder: "Select Frequency", zIndex: 1000, items: [{ label: "2 days/week", value: "2" }, { label: "3 days/week", value: "3" }, { label: "4 days/week", value: "4" }, { label: "5 days/week", value: "5" }, { label: "6 days/week", value: "6" }] },
     ],
   },
@@ -154,6 +156,7 @@ export default function BasicInfo() {
   const [openDropdown, setOpenDropdown] = useState('');
   const [foodInput, setFoodInput] = useState("");
   const [foods, setFoods] = useState([]);
+  const [foodError, setFoodError] = useState("");
   
   // Input refs for navigation
   const inputRefs = useRef({});
@@ -173,17 +176,7 @@ export default function BasicInfo() {
   }, []);
 
   // Save form data locally (debounced)
-  useEffect(() => {
-    // Persist registration step data so it can be completed later
-    (async () => {
-      try {
-        await AsyncStorage.setItem('onboarding:registration', JSON.stringify(debouncedFormData));
-      } catch (e) {
-        console.warn('Failed to persist registration data', e);
-      }
-    })();
-    console.log('Form data auto-saved:', debouncedFormData);
-  }, [debouncedFormData]);
+  // NOTE: persistence will occur when the user presses Continue to avoid frequent writes.
 
   // Reset slide animation when step changes
   useEffect(() => {
@@ -248,16 +241,46 @@ export default function BasicInfo() {
   }, [openDropdown, lightHaptic]);
 
   const addFood = useCallback(() => {
-    if (!foodInput.trim()) return;
+    const trimmed = foodInput.trim();
+    
+    // Clear previous errors
+    setFoodError("");
+    
+    // Don't add if empty
+    if (!trimmed) return;
+    
+    // Check if only numbers
+    if (/^\d+$/.test(trimmed)) {
+      setFoodError("Food name cannot be only numbers");
+      return;
+    }
+    
+    // Check for duplicates (case-insensitive)
+    const isDuplicate = foods.some(
+      (food) => food.toLowerCase() === trimmed.toLowerCase()
+    );
+    
+    if (isDuplicate) {
+      setFoodError("You've already added this food");
+      return;
+    }
+    
+    // All good - add the food
     lightHaptic();
-    setFoods((prev) => [...prev, foodInput.trim()]);
+    setFoods((prev) => [...prev, trimmed]);
     setFoodInput("");
-  }, [foodInput, lightHaptic]);
+    setFoodError("");
+  }, [foodInput, foods, lightHaptic]);
 
   const removeFood = useCallback((index) => {
     lightHaptic();
     setFoods((prev) => prev.filter((_, i) => i !== index));
   }, [lightHaptic]);
+
+  const handleFoodInputChange = useCallback((text) => {
+    setFoodInput(text);
+    if (foodError) setFoodError("");
+  }, [foodError]);
 
   const validateCurrentStep = useCallback(() => {
     const currentStep = formConfig[step];
@@ -289,6 +312,14 @@ export default function BasicInfo() {
       return;
     }
     
+    // Persist current step data when user presses Continue to reduce frequent writes
+    try {
+      const toSave = { ...formData, favoriteFoods: foods };
+      await AsyncStorage.setItem('onboarding:registration', JSON.stringify(toSave));
+    } catch (e) {
+      console.warn('Failed to persist registration data on Continue', e);
+    }
+
     // Animate step transition
     Animated.timing(slideAnim, {
       toValue: -width,
@@ -300,8 +331,65 @@ export default function BasicInfo() {
           ...formData,
           favoriteFoods: foods,
         };
-        console.log("--- Final Form Data ---", finalData);
-        router.replace('../features/bodyfatuser');
+          console.log("--- Final Form Data ---", finalData);
+
+          // Persist locally (already done on Continue) and attempt to save to Supabase if user is signed in
+          (async () => {
+            try {
+              // ensure user session
+              const userResp = await supabase.auth.getUser();
+              const userId = userResp?.data?.user?.id;
+              if (!userId) {
+                console.log('No authenticated user - skipping remote save.');
+                router.replace('../features/bodyfatuser');
+                return;
+              }
+
+              // Build payload matching DB columns and collect extra fields into `details` JSONB
+              const payload = {
+                user_id: userId,
+                gender: finalData.gender || null,
+                age: finalData.age ? parseInt(finalData.age, 10) : null,
+                height_cm: finalData.height ? parseInt(finalData.height, 10) : null,
+                weight_kg: finalData.weight ? parseFloat(finalData.weight) : null,
+                use_metric: finalData.useMetric === undefined ? true : !!finalData.useMetric,
+                activity_level: finalData.activityLevel || null,
+                fitness_goal: finalData.fitnessGoal || null,
+                favorite_foods: finalData.favoriteFoods || null,
+                // Promote dropdown fields to top-level columns so each can be queried directly
+                fitness_level: finalData.fitnessLevel || null,
+                training_location: finalData.trainingLocation || null,
+                training_duration: finalData.trainingDuration ? (finalData.trainingDuration === '90+' ? 90 : parseInt(finalData.trainingDuration, 10)) : null,
+                muscle_focus: finalData.muscleFocus || null,
+                injuries: finalData.injuries || null,
+                training_frequency: finalData.trainingFrequency || null,
+                meal_type: finalData.mealType || null,
+                restrictions: finalData.restrictions || null,
+                meals_per_day: finalData.mealsPerDay ? parseInt(finalData.mealsPerDay, 10) : null,
+                calorie_goal: finalData.calorieGoal ? parseInt(finalData.calorieGoal, 10) : null,
+                // Keep a small details object for anything truly miscellaneous
+                details: {
+                  // leave empty or add future free-form fields
+                }
+              };
+
+              console.log('Saving registration to Supabase for user', userId);
+              const { data, error } = await supabase.from('registration_profiles').upsert(payload, { returning: 'minimal' });
+              if (error) {
+                console.error('Failed to save registration_profiles:', error);
+                Alert.alert('Save failed', error.message || 'Failed to save registration to server');
+              } else {
+                console.log('Registration saved to Supabase');
+                // optionally clear local copy
+                await AsyncStorage.removeItem('onboarding:registration');
+              }
+            } catch (err) {
+              console.error('Unexpected error saving registration:', err);
+              Alert.alert('Save error', 'Unexpected error saving registration');
+            } finally {
+              router.replace('../features/bodyfatuser');
+            }
+          })();
       } else {
         setStep(prev => prev + 1);
         slideAnim.setValue(width);
@@ -397,12 +485,18 @@ export default function BasicInfo() {
                     mode={field.multiple ? "BADGE" : "SIMPLE"} 
                     placeholder={`${field.placeholder}`}
                     style={styles.dropdownInput} 
-                    dropDownContainerStyle={styles.dropdownContainer} 
+                    dropDownContainerStyle={[
+                      styles.dropdownContainer,
+                      field.multiple && { minHeight: 150 }
+                    ]}
                     textStyle={{ color: "#fff", fontSize: 16 }} 
                     labelStyle={{ color: "#fff", fontSize: 16 }} 
                     placeholderStyle={{ color: "#666", fontSize: 16 }}
                     arrowIconStyle={{ tintColor: "#1E3A5F" }}
                     tickIconStyle={{ tintColor: "#1E3A5F" }}
+                    badgeTextStyle={{ color: "#fff", fontSize: 13 }}
+                    badgeDotStyle={{ backgroundColor: "#1E3A5F" }}
+                    searchable={false}
                     zIndex={field.zIndex}
                   />
                 </View>
@@ -500,7 +594,6 @@ export default function BasicInfo() {
                 </View>
               </View>
             </View>
-
           );
           return;
         }
@@ -539,7 +632,7 @@ export default function BasicInfo() {
               <Pressable 
                 onPress={handlePreviousStep}
                 style={styles.backButton}
-                hitSlop={10}
+                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
               >
                 <MaterialCommunityIcons name="arrow-left" size={24} color="#fff" />
               </Pressable>
@@ -566,7 +659,69 @@ export default function BasicInfo() {
               </View>
             </View>
 
-            <Animated.ScrollView
+            <Animated.FlatList
+              data={[{ key: 'form' }]}
+              keyExtractor={(item) => item.key}
+              renderItem={() => (
+                <View style={styles.formSection}>
+                  {formConfig[step].subtitle && (
+                    <Text style={styles.sectionSubtitle}>{formConfig[step].subtitle}</Text>
+                  )}
+                  <View style={styles.fieldsContainer}>
+                    {renderCustomLayouts()}
+                  </View>
+
+                  {/* Food input section for last step */}
+                  {step === formConfig.length - 1 && (
+                    <View style={styles.foodSection}>
+                      <Text style={styles.questionLabel}>What foods do you enjoy?</Text>
+                      <View style={styles.foodRow}>
+                        <View style={{ flex: 1 }}>
+                          <FormInput
+                            placeholder="Add a food you like (leave blank if none)"
+                            value={foodInput}
+                            onChangeText={handleFoodInputChange}
+                            returnKeyType="done"
+                            onSubmitEditing={addFood}
+                            errorMessage={foodError}
+                          />
+                        </View>
+                        <Pressable 
+                          style={styles.addButton} 
+                          onPress={addFood}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        >
+                          <View style={styles.addButtonSolid}>
+                            <MaterialCommunityIcons name="plus" size={24} color="#fff" />
+                          </View>
+                        </Pressable>
+                      </View>
+                      
+                      {foods.length > 0 && (
+                        <View style={styles.foodTagsContainer}>
+                          {foods.map((item, index) => (
+                            <View key={`${item}-${index}`} style={styles.foodTag}>
+                              <MaterialCommunityIcons name="food-apple" size={14} color="#1E3A5F" />
+                              <Text style={styles.foodTagText}>{item}</Text>
+                              <Pressable 
+                                onPress={() => removeFood(index)}
+                                style={styles.removeTagButton}
+                                hitSlop={8}
+                              >
+                                <Ionicons name="close" size={14} color="#666" />
+                              </Pressable>
+                            </View>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  )}
+                  
+                  <Text style={styles.disclaimer}>
+                    Want to change something? You can customize everything later in your profile.
+                  </Text>
+                </View>
+              )}
               contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
@@ -581,65 +736,7 @@ export default function BasicInfo() {
                   ],
                 },
               ]}
-            >
-              <View style={styles.formSection}>
-                {formConfig[step].subtitle && (
-                  <Text style={styles.sectionSubtitle}>{formConfig[step].subtitle}</Text>
-                )}
-                <View style={styles.fieldsContainer}>
-                  {renderCustomLayouts()}
-                </View>
-
-                {/* Food input section for last step */}
-                {step === formConfig.length - 1 && (
-                  <View style={styles.foodSection}>
-                    <Text style={styles.questionLabel}>What foods do you enjoy?</Text>
-                    <View style={styles.foodRow}>
-                      <View style={{ flex: 1 }}>
-                        <FormInput
-                          placeholder="Add a food you like"
-                          value={foodInput}
-                          onChangeText={setFoodInput}
-                          returnKeyType="done"
-                          onSubmitEditing={addFood}
-                        />
-                      </View>
-                      <Pressable style={styles.addButton} onPress={addFood}>
-                        <View style={styles.addButtonSolid}>
-                          <MaterialCommunityIcons name="plus" size={20} color="#fff" />
-                        </View>
-                      </Pressable>
-                    </View>
-                    
-                    {foods.length > 0 && (
-                      <FlatList
-                        data={foods}
-                        keyExtractor={(item, index) => `${item}-${index}`}
-                        renderItem={({ item, index }) => (
-                          <View style={styles.foodItem}>
-                            <MaterialCommunityIcons name="food-apple" size={16} color="#1E3A5F" />
-                            <Text style={styles.foodText}>{item}</Text>
-                            <Pressable 
-                              onPress={() => removeFood(index)}
-                              style={styles.removeButton}
-                            >
-                              <Ionicons name="close" size={16} color="#666" />
-                            </Pressable>
-                          </View>
-                        )}
-                        style={styles.foodsList}
-                        scrollEnabled={false}
-                        showsVerticalScrollIndicator={false}
-                      />
-                    )}
-                  </View>
-                )}
-                
-                <Text style={styles.disclaimer}>
-                  Want to change something? You can customize everything later in your profile.
-                </Text>
-              </View>
-            </Animated.ScrollView>
+            />
 
             {/* Submit Button */}
             <Pressable
@@ -705,10 +802,9 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     borderRadius: 24,
-    padding: 12,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
     alignItems: "center",
     justifyContent: "center",
@@ -907,15 +1003,48 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   addButtonSolid: {
-    backgroundColor: "#1E3A5F", // pick your solid color
-    borderRadius: 12,
-    padding: 24,
+    backgroundColor: "#1E3A5F",
+    borderRadius: 16,
+    width: "100%",
+    height: "100%",
     alignItems: "center",
     justifyContent: "center",
   },
   foodsList: {
     maxHeight: 150,
     width: "100%",
+  },
+  foodTagsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    width: "100%",
+    marginTop: 8,
+  },
+  foodTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    gap: 6,
+  },
+  foodTagText: {
+    fontSize: 14,
+    color: "#fff",
+    fontWeight: "500",
+  },
+  removeTagButton: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 2,
   },
   foodItem: {
     flexDirection: "row",
