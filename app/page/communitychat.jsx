@@ -9,6 +9,7 @@ import {
   Dimensions,
   StyleSheet,
   KeyboardAvoidingView,
+  Modal,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useState, useRef, useEffect } from "react";
@@ -21,8 +22,11 @@ export default function CommunityChat() {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [activeChannel, setActiveChannel] = useState("general");
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [activeDM, setActiveDM] = useState(null);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [viewMode, setViewMode] = useState("channels"); // 'channels' or 'dms'
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(-280)).current;
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -32,7 +36,96 @@ export default function CommunityChat() {
     }).start();
   }, []);
 
-  // Channel categories matching your app's style
+  useEffect(() => {
+    Animated.timing(slideAnim, {
+      toValue: showSidebar ? 0 : -280,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [showSidebar]);
+
+  // Direct Messages
+  const directMessages = [
+    {
+      id: "dm1",
+      user: "FitMike92",
+      avatar: "👨‍💼",
+      lastMessage: "Thanks for the workout tips!",
+      timestamp: "2m ago",
+      isOnline: true,
+      unread: 2,
+    },
+    {
+      id: "dm2",
+      user: "HealthyHannah",
+      avatar: "👩‍🦰",
+      lastMessage: "Did you see the new challenge?",
+      timestamp: "1h ago",
+      isOnline: true,
+      unread: 0,
+    },
+    {
+      id: "dm3",
+      user: "ProteinPaul",
+      avatar: "🧔",
+      lastMessage: "Let's do a workout together tomorrow",
+      timestamp: "3h ago",
+      isOnline: false,
+      unread: 1,
+    },
+  ];
+
+  // DM conversation data
+  const dmConversations = {
+    dm1: [
+      {
+        id: 1,
+        user: "FitMike92",
+        avatar: "👨‍💼",
+        text: "Hey! I saw your progress post, amazing work! 💪",
+        timestamp: "10:30 AM",
+        isMe: false,
+      },
+      {
+        id: 2,
+        user: "You",
+        avatar: "😊",
+        text: "Thanks so much! Been working really hard on it",
+        timestamp: "10:32 AM",
+        isMe: true,
+      },
+      {
+        id: 3,
+        user: "FitMike92",
+        avatar: "👨‍💼",
+        text: "Thanks for the workout tips!",
+        timestamp: "10:35 AM",
+        isMe: false,
+      },
+    ],
+    dm2: [
+      {
+        id: 1,
+        user: "HealthyHannah",
+        avatar: "👩‍🦰",
+        text: "Did you see the new challenge?",
+        timestamp: "1 hour ago",
+        isMe: false,
+      },
+    ],
+    dm3: [
+      {
+        id: 1,
+        user: "ProteinPaul",
+        avatar: "🧔",
+        text: "Let's do a workout together tomorrow",
+        timestamp: "3 hours ago",
+        isMe: false,
+      },
+    ],
+  };
+
+  // Channel categories
   const channelCategories = [
     {
       name: "FITNESS",
@@ -148,17 +241,51 @@ export default function CommunityChat() {
     ],
   };
 
-  const currentMessages = channelMessages[activeChannel] || [];
+  const currentMessages = activeDM
+    ? dmConversations[activeDM] || []
+    : channelMessages[activeChannel] || [];
 
   const sendMessage = () => {
     if (message.trim()) {
-      console.log(`Sending message to #${activeChannel}: ${message}`);
+      console.log(
+        `Sending message to ${
+          activeDM ? activeDM : `#${activeChannel}`
+        }: ${message}`
+      );
       setMessage("");
     }
   };
 
   const toggleSidebar = () => {
     setShowSidebar(!showSidebar);
+  };
+
+  const closeSidebar = () => {
+    setShowSidebar(false);
+  };
+
+  const switchToChannels = () => {
+    setViewMode("channels");
+    setActiveDM(null);
+  };
+
+  const switchToDMs = () => {
+    setViewMode("dms");
+    setActiveChannel("");
+  };
+
+  const openDM = (dmId) => {
+    setActiveDM(dmId);
+    setActiveChannel("");
+    setViewMode("dms");
+    closeSidebar();
+  };
+
+  const openChannel = (channelId) => {
+    setActiveChannel(channelId);
+    setActiveDM(null);
+    setViewMode("channels");
+    closeSidebar();
   };
 
   const renderChannelCategory = ({ item }) => (
@@ -171,7 +298,7 @@ export default function CommunityChat() {
             styles.channelItem,
             activeChannel === channel.id && styles.activeChannelItem,
           ]}
-          onPress={() => setActiveChannel(channel.id)}
+          onPress={() => openChannel(channel.id)}
         >
           <MaterialCommunityIcons
             name={channel.icon}
@@ -197,33 +324,94 @@ export default function CommunityChat() {
     </View>
   );
 
-  const renderMessage = ({ item }) => (
-    <View style={styles.messageContainer}>
-      <View style={styles.messageCard}>
-        <View style={styles.messageHeader}>
-          <View style={styles.userInfo}>
-            <View style={styles.avatarContainer}>
-              <Text style={styles.userAvatar}>{item.avatar}</Text>
-              {item.isOnline && <View style={styles.onlineIndicator} />}
-            </View>
-            <Text style={styles.userName}>{item.user}</Text>
-            <Text style={styles.messageTimestamp}>{item.timestamp}</Text>
-          </View>
-        </View>
-        <Text style={styles.messageText}>{item.text}</Text>
-        {item.reactions && item.reactions.length > 0 && (
-          <View style={styles.reactionsContainer}>
-            {item.reactions.map((reaction, idx) => (
-              <View key={idx} style={styles.reactionItem}>
-                <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
-                <Text style={styles.reactionCount}>{reaction.count}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+  const renderDMItem = ({ item }) => (
+    <Pressable
+      style={[styles.dmItem, activeDM === item.id && styles.activeDMItem]}
+      onPress={() => openDM(item.id)}
+    >
+      <View style={styles.dmAvatarContainer}>
+        <Text style={styles.dmAvatar}>{item.avatar}</Text>
+        {item.isOnline && <View style={styles.onlineIndicator} />}
       </View>
-    </View>
+      <View style={styles.dmContent}>
+        <View style={styles.dmHeader}>
+          <Text style={styles.dmUsername}>{item.user}</Text>
+          <Text style={styles.dmTimestamp}>{item.timestamp}</Text>
+        </View>
+        <Text style={styles.dmLastMessage} numberOfLines={1}>
+          {item.lastMessage}
+        </Text>
+      </View>
+      {item.unread > 0 && (
+        <View style={styles.dmUnreadBadge}>
+          <Text style={styles.unreadCount}>{item.unread}</Text>
+        </View>
+      )}
+    </Pressable>
   );
+
+  const renderMessage = ({ item }) => {
+    const isDM = activeDM !== null;
+    const isMyMessage = isDM && item.isMe;
+
+    return (
+      <View
+        style={[
+          styles.messageContainer,
+          isMyMessage && styles.myMessageContainer,
+        ]}
+      >
+        <View style={[styles.messageCard, isMyMessage && styles.myMessageCard]}>
+          {!isMyMessage && (
+            <View style={styles.messageHeader}>
+              <View style={styles.userInfo}>
+                <View style={styles.avatarContainer}>
+                  <Text style={styles.userAvatar}>{item.avatar}</Text>
+                  {item.isOnline && <View style={styles.onlineIndicator} />}
+                </View>
+                <Text style={styles.userName}>{item.user}</Text>
+                <Text style={styles.messageTimestamp}>{item.timestamp}</Text>
+              </View>
+            </View>
+          )}
+          <Text
+            style={[styles.messageText, isMyMessage && styles.myMessageText]}
+          >
+            {item.text}
+          </Text>
+          {isMyMessage && (
+            <Text style={styles.myMessageTimestamp}>{item.timestamp}</Text>
+          )}
+          {item.reactions && item.reactions.length > 0 && (
+            <View style={styles.reactionsContainer}>
+              {item.reactions.map((reaction, idx) => (
+                <View key={idx} style={styles.reactionItem}>
+                  <Text style={styles.reactionEmoji}>{reaction.emoji}</Text>
+                  <Text style={styles.reactionCount}>{reaction.count}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  const getHeaderTitle = () => {
+    if (activeDM) {
+      const dm = directMessages.find((d) => d.id === activeDM);
+      return dm ? dm.user : "Direct Message";
+    }
+    return "Community Chat";
+  };
+
+  const getHeaderSubtitle = () => {
+    if (activeDM) {
+      const dm = directMessages.find((d) => d.id === activeDM);
+      return dm?.isOnline ? "Online" : "Offline";
+    }
+    return `#${activeChannel}`;
+  };
 
   return (
     <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
@@ -231,49 +419,27 @@ export default function CommunityChat() {
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        {/* Header matching your app's style */}
+        {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Pressable onPress={() => router.back()} style={styles.backButton}>
               <Ionicons name="arrow-back" size={22} color="#fff" />
             </Pressable>
             <View style={styles.headerTitleContainer}>
-              <Text style={styles.headerTitle}>Community Chat</Text>
-              <Text style={styles.headerSubtitle}>#{activeChannel}</Text>
+              <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
+              <Text style={styles.headerSubtitle}>{getHeaderSubtitle()}</Text>
             </View>
           </View>
           <View style={styles.headerRight}>
             <Pressable onPress={toggleSidebar} style={styles.headerButton}>
-              <MaterialCommunityIcons
-                name={showSidebar ? "menu-open" : "menu"}
-                size={24}
-                color="#fff"
-              />
+              <MaterialCommunityIcons name="menu" size={24} color="#fff" />
             </Pressable>
           </View>
         </View>
 
         <Animated.View style={[styles.mainContent, { opacity: fadeAnim }]}>
-          {/* Sidebar */}
-          {showSidebar && (
-            <View style={styles.sidebar}>
-              <View style={styles.sidebarHeader}>
-                <MaterialCommunityIcons name="forum" size={20} color="#fff" />
-                <Text style={styles.sidebarTitle}>Channels</Text>
-              </View>
-              <FlatList
-                data={channelCategories}
-                renderItem={renderChannelCategory}
-                keyExtractor={(item) => item.name}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.channelsList}
-              />
-            </View>
-          )}
-
           {/* Chat Area */}
           <View style={styles.chatArea}>
-            {/* Messages */}
             <FlatList
               style={styles.messagesList}
               data={currentMessages}
@@ -282,29 +448,32 @@ export default function CommunityChat() {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.messagesContainer}
               ListHeaderComponent={
-                <View style={styles.channelIntro}>
-                  <View style={styles.channelIconLarge}>
-                    <MaterialCommunityIcons
-                      name={
-                        channelCategories
-                          .flatMap((c) => c.channels)
-                          .find((ch) => ch.id === activeChannel)?.icon || "chat"
-                      }
-                      size={32}
-                      color="#fff"
-                    />
+                !activeDM && (
+                  <View style={styles.channelIntro}>
+                    <View style={styles.channelIconLarge}>
+                      <MaterialCommunityIcons
+                        name={
+                          channelCategories
+                            .flatMap((c) => c.channels)
+                            .find((ch) => ch.id === activeChannel)?.icon ||
+                          "chat"
+                        }
+                        size={32}
+                        color="#fff"
+                      />
+                    </View>
+                    <Text style={styles.channelIntroTitle}>
+                      Welcome to #{activeChannel}!
+                    </Text>
+                    <Text style={styles.channelIntroText}>
+                      This is the start of the #{activeChannel} channel.
+                    </Text>
                   </View>
-                  <Text style={styles.channelIntroTitle}>
-                    Welcome to #{activeChannel}!
-                  </Text>
-                  <Text style={styles.channelIntroText}>
-                    This is the start of the #{activeChannel} channel.
-                  </Text>
-                </View>
+                )
               }
             />
 
-            {/* Input matching your app's style */}
+            {/* Input */}
             <View style={styles.inputContainer}>
               <View style={styles.inputWrapper}>
                 <Pressable style={styles.attachButton}>
@@ -316,7 +485,13 @@ export default function CommunityChat() {
                 </Pressable>
                 <TextInput
                   style={styles.textInput}
-                  placeholder={`Message #${activeChannel}...`}
+                  placeholder={
+                    activeDM
+                      ? `Message ${
+                          directMessages.find((d) => d.id === activeDM)?.user
+                        }...`
+                      : `Message #${activeChannel}...`
+                  }
                   placeholderTextColor="#888"
                   value={message}
                   onChangeText={setMessage}
@@ -351,6 +526,103 @@ export default function CommunityChat() {
             </View>
           </View>
         </Animated.View>
+
+        {/* Discord-style Sidebar Overlay */}
+        <Modal
+          visible={showSidebar}
+          transparent
+          animationType="none"
+          onRequestClose={closeSidebar}
+        >
+          <Pressable style={styles.overlay} onPress={closeSidebar}>
+            <Animated.View
+              style={[
+                styles.sidebar,
+                { transform: [{ translateX: slideAnim }] },
+              ]}
+              onStartShouldSetResponder={() => true}
+            >
+              <View style={styles.sidebarHeader}>
+                <Text style={styles.sidebarTitle}>Fitness Community</Text>
+                <Pressable onPress={closeSidebar} style={styles.closeButton}>
+                  <Ionicons name="close" size={24} color="#fff" />
+                </Pressable>
+              </View>
+
+              {/* Mode Switcher */}
+              <View style={styles.modeSwitcher}>
+                <Pressable
+                  style={[
+                    styles.modeButton,
+                    viewMode === "channels" && styles.activeModeButton,
+                  ]}
+                  onPress={switchToChannels}
+                >
+                  <MaterialCommunityIcons
+                    name="forum"
+                    size={20}
+                    color={viewMode === "channels" ? "#fff" : "#888"}
+                  />
+                  <Text
+                    style={[
+                      styles.modeButtonText,
+                      viewMode === "channels" && styles.activeModeButtonText,
+                    ]}
+                  >
+                    Channels
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[
+                    styles.modeButton,
+                    viewMode === "dms" && styles.activeModeButton,
+                  ]}
+                  onPress={switchToDMs}
+                >
+                  <MaterialCommunityIcons
+                    name="message"
+                    size={20}
+                    color={viewMode === "dms" ? "#fff" : "#888"}
+                  />
+                  <Text
+                    style={[
+                      styles.modeButtonText,
+                      viewMode === "dms" && styles.activeModeButtonText,
+                    ]}
+                  >
+                    Messages
+                  </Text>
+                  {directMessages.filter((dm) => dm.unread > 0).length > 0 && (
+                    <View style={styles.modeBadge}>
+                      <Text style={styles.unreadCount}>
+                        {directMessages.reduce((sum, dm) => sum + dm.unread, 0)}
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
+              </View>
+
+              {/* Content */}
+              {viewMode === "channels" ? (
+                <FlatList
+                  data={channelCategories}
+                  renderItem={renderChannelCategory}
+                  keyExtractor={(item) => item.name}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.channelsList}
+                />
+              ) : (
+                <FlatList
+                  data={directMessages}
+                  renderItem={renderDMItem}
+                  keyExtractor={(item) => item.id}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.dmList}
+                />
+              )}
+            </Animated.View>
+          </Pressable>
+        </Modal>
       </KeyboardAvoidingView>
     </LinearGradient>
   );
@@ -411,34 +683,86 @@ const styles = StyleSheet.create({
 
   mainContent: {
     flex: 1,
-    flexDirection: "row",
   },
 
+  // Discord-style Sidebar
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+  },
   sidebar: {
-    width: 180,
-    padding: 15,
-    marginLeft: 20,
-    marginRight: 10,
-    borderRadius: 32,
-    marginBottom: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    width: 280,
+    height: "100%",
+    backgroundColor: "#1a1a1a",
+    paddingTop: 60,
+    shadowColor: "#000",
+    shadowOffset: { width: 2, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 5,
   },
   sidebarHeader: {
-    marginBottom: 20,
-    paddingBottom: 15,
-    borderBottomWidth: 1,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   sidebarTitle: {
-    fontSize: 18,
+    fontSize: 20,
     color: "#fff",
-    marginLeft: 10,
     fontWeight: "bold",
   },
+  closeButton: {
+    padding: 5,
+  },
+
+  // Mode Switcher
+  modeSwitcher: {
+    flexDirection: "row",
+    padding: 15,
+    gap: 10,
+  },
+  modeButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  activeModeButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+  },
+  modeButtonText: {
+    fontSize: 14,
+    color: "#888",
+    marginLeft: 8,
+    fontWeight: "600",
+  },
+  activeModeButtonText: {
+    color: "#fff",
+  },
+  modeBadge: {
+    height: 18,
+    minWidth: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    paddingHorizontal: 5,
+    justifyContent: "center",
+    backgroundColor: "#e74c3c",
+    marginLeft: -10,
+    top: -15,
+    right: -10,
+  },
+
   channelsList: {
-    paddingBottom: 10,
+    paddingHorizontal: 15,
+    paddingBottom: 20,
   },
 
   // Channel Categories
@@ -456,14 +780,14 @@ const styles = StyleSheet.create({
   },
   channelItem: {
     marginBottom: 4,
-    borderRadius: 16,
+    borderRadius: 12,
     paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
   },
   activeChannelItem: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
   },
   channelIcon: {
     marginRight: 10,
@@ -491,6 +815,62 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#fff",
     fontWeight: "bold",
+  },
+
+  // DM List
+  dmList: {
+    paddingHorizontal: 15,
+    paddingTop: 10,
+  },
+  dmItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginBottom: 4,
+    borderRadius: 12,
+  },
+  activeDMItem: {
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+  },
+  dmAvatarContainer: {
+    marginRight: 12,
+    position: "relative",
+  },
+  dmAvatar: {
+    fontSize: 24,
+  },
+  dmContent: {
+    flex: 1,
+  },
+  dmHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  dmUsername: {
+    fontSize: 15,
+    color: "#fff",
+    fontWeight: "600",
+  },
+  dmTimestamp: {
+    fontSize: 11,
+    color: "#888",
+  },
+  dmLastMessage: {
+    fontSize: 13,
+    color: "#aaa",
+  },
+  dmUnreadBadge: {
+    height: 20,
+    minWidth: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    paddingHorizontal: 6,
+    justifyContent: "center",
+    backgroundColor: "#e74c3c",
+    marginLeft: 8,
   },
 
   // Chat Area
@@ -528,7 +908,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // Messages matching your card style
+  // Messages
   messagesList: {
     flex: 1,
   },
@@ -538,10 +918,17 @@ const styles = StyleSheet.create({
   messageContainer: {
     marginBottom: 12,
   },
+  myMessageContainer: {
+    alignItems: "flex-end",
+  },
   messageCard: {
     padding: 16,
     borderRadius: 16,
     backgroundColor: "rgba(255, 255, 255, 0.05)",
+    maxWidth: "85%",
+  },
+  myMessageCard: {
+    backgroundColor: "rgba(78, 205, 196, 0.2)",
   },
   messageHeader: {
     marginBottom: 10,
@@ -582,6 +969,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     color: "#fff",
+  },
+  myMessageText: {
+    color: "#fff",
+  },
+  myMessageTimestamp: {
+    fontSize: 11,
+    color: "#ccc",
+    marginTop: 6,
+    textAlign: "right",
   },
 
   // Reactions

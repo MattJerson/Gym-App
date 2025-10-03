@@ -15,10 +15,10 @@ import {
 import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { supabase } from '../../services/supabase';
 import { LinearGradient } from "expo-linear-gradient";
 import { useStripe } from "@stripe/stripe-react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../../services/supabase';
 
 export default function SubscriptionPackages() {
   const router = useRouter();
