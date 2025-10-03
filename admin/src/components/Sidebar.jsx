@@ -21,7 +21,6 @@ const Sidebar = () => {
 
   const sidebarItems = [
     { label: "Dashboard", icon: BarChart3, path: "/" },
-    { label: "User Chat", icon: MessageCircle, path: "/chat" },
     { label: "Meal Plans", icon: UtensilsCrossed, path: "/meals" },
     { label: "Workout Plans", icon: Dumbbell, path: "/workouts" },
     { label: "Notifications", icon: Bell, path: "/notifications" },

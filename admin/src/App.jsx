@@ -26,7 +26,6 @@ function App() {
             <Route path="users" element={<Users />} />
             <Route path="subscriptions" element={<Subscriptions />} />
             <Route path="analytics" element={<Analytics />} />
-            <Route path="chat" element={<Chat />} />
             <Route path="notifications" element={<Notifications />} />
             <Route path="badges" element={<Badges />} />
             <Route path="workouts" element={<Workouts />} />
