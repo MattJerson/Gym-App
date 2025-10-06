@@ -17,12 +17,15 @@ import {
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useState, useEffect } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import React from "react";
 // Import components
 import MacroProgressSummary from "../../components/mealplan/MacroProgressSummary";
 import TodaysMeals from "../../components/mealplan/TodaysMeals";
 import RecentMeals from "../../components/mealplan/RecentMeals";
 import NotificationBar from "../../components/NotificationBar";
 import { MealPlanDataService } from "../../services/MealPlanDataService";
+import { supabase } from "../../services/supabase";
 
 const router = useRouter();
 
@@ -38,12 +41,32 @@ export default function Mealplan() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
 
-  // 🔄 Load data on component mount - Replace with actual user ID
-  const userId = "user123";
+  // 🔄 Get actual user ID from Supabase
+  const [userId, setUserId] = useState(null);
+
+  // Get user session on mount
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUserId(user?.id || null);
+    };
+    getUser();
+  }, []);
 
   useEffect(() => {
-    loadMealPlanData();
-  }, []);
+    if (userId) {
+      loadMealPlanData();
+    }
+  }, [userId]);
+
+  // Reload data when screen comes into focus (e.g., after adding food)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (userId) {
+        loadMealPlanData();
+      }
+    }, [userId, selectedDate])
+  );
 
   const loadMealPlanData = async () => {
     try {
@@ -54,23 +77,26 @@ export default function Mealplan() {
         notificationsData,
         macroData,
         weeklyData,
-        mealsData,
+        mealLogsData, // Changed from mealsData
         recentData,
         actionsData
       ] = await Promise.all([
         MealPlanDataService.fetchUserNotifications(userId),
         MealPlanDataService.fetchMacroProgress(userId, selectedDate),
         MealPlanDataService.fetchWeeklyPlan(userId, selectedDate),
-        MealPlanDataService.fetchTodaysMeals(userId, selectedDate),
+        MealPlanDataService.getMealLogsForDate(userId, selectedDate), // Use real data
         MealPlanDataService.fetchRecentMeals(userId),
         MealPlanDataService.fetchQuickActions(userId)
       ]);
+
+      // Transform meal logs to TodaysMeals format
+      const transformedMeals = transformMealLogs(mealLogsData);
 
       // Update state with fetched data
       setNotifications(notificationsData.count);
       setMacroGoals(macroData);
       setWeeklyPlan(weeklyData);
-      setTodaysMeals(mealsData);
+      setTodaysMeals(transformedMeals);
       setRecentMeals(recentData);
       setQuickActions(actionsData);
 
@@ -103,6 +129,64 @@ export default function Mealplan() {
     }
   };
 
+  /**
+   * Transform database meal logs to TodaysMeals component format
+   */
+  const transformMealLogs = (mealLogs) => {
+    return mealLogs.map(log => ({
+      id: log.id,
+      meal: capitalizeFirst(log.meal_type), // "breakfast" -> "Breakfast"
+      name: log.food.name,
+      calories: Math.round(log.calories),
+      protein: Math.round(log.protein * 10) / 10,
+      carbs: Math.round(log.carbs * 10) / 10,
+      fats: Math.round(log.fats * 10) / 10,
+      time: formatTime(log.meal_time),
+      serving: `${log.quantity} × ${log.serving_size}${log.serving_unit}`,
+      icon: getCategoryIcon(log.food.category),
+      isCompleted: true,
+      brand: log.food.brand
+    }));
+  };
+
+  /**
+   * Helper: Capitalize first letter
+   */
+  const capitalizeFirst = (str) => {
+    if (!str) return "";
+    return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+  };
+
+  /**
+   * Helper: Format time from 24h to 12h format
+   */
+  const formatTime = (timeString) => {
+    if (!timeString) return "";
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+
+  /**
+   * Helper: Get emoji icon for food category
+   */
+  const getCategoryIcon = (category) => {
+    const icons = {
+      protein: "🥩",
+      grain: "🍚",
+      vegetable: "🥦",
+      fruit: "🍎",
+      dairy: "🥛",
+      nuts: "🥜",
+      healthy_fat: "🥑",
+      supplement: "💊",
+      other: "🍽️"
+    };
+    return icons[category] || "🍽️";
+  };
+
   const handleAddFood = async (mealType) => {
     try {
       console.log(`Add food to ${mealType}`);
@@ -113,14 +197,44 @@ export default function Mealplan() {
     }
   };
 
-  const handleEditMeal = async () => {
+  const handleDeleteFood = async (logId) => {
     try {
-      console.log("Edit meals");
-      // Navigate to meal editing screen
-      // router.push('/meal-plan/edit');
+      const success = await MealPlanDataService.deleteMealLog(userId, logId);
+      
+      if (success) {
+        // Reload meal plan data to refresh the UI
+        loadMealPlanData();
+      } else {
+        Alert.alert("Error", "Failed to delete food. Please try again.");
+      }
     } catch (error) {
-      Alert.alert("Error", "Failed to edit meal. Please try again.");
+      console.error("❌ Error deleting food:", error);
+      Alert.alert("Error", "Failed to delete food. Please try again.");
     }
+  };
+
+  const handleEditFood = (item) => {
+    // Navigate to add-food screen with the item data pre-filled
+    router.push({
+      pathname: "/meal-plan/add-food",
+      params: {
+        mealType: item.mealType,
+        editMode: true,
+        logId: item.id,
+        foodData: JSON.stringify({
+          fdcId: item.fdcId,
+          name: item.name,
+          brand: item.brand || "",
+          servingSize: item.servingSize,
+          servingUnit: item.servingUnit,
+          quantity: item.quantity,
+          calories: item.calories,
+          protein: item.protein,
+          carbs: item.carbs,
+          fats: item.fats,
+        }),
+      },
+    });
   };
 
   const handleDaySelect = async (day) => {
@@ -129,12 +243,14 @@ export default function Mealplan() {
       setSelectedDate(newDate);
       
       // Load meals for selected date
-      const [mealsData, macroData] = await Promise.all([
-        MealPlanDataService.fetchTodaysMeals(userId, newDate),
+      const [mealLogsData, macroData] = await Promise.all([
+        MealPlanDataService.getMealLogsForDate(userId, newDate),
         MealPlanDataService.fetchMacroProgress(userId, newDate)
       ]);
       
-      setTodaysMeals(mealsData);
+      const transformedMeals = transformMealLogs(mealLogsData);
+      
+      setTodaysMeals(transformedMeals);
       setMacroGoals(macroData);
       
       // Update weekly plan with new active day
@@ -270,7 +386,8 @@ export default function Mealplan() {
             <TodaysMeals 
               meals={todaysMeals}
               onAddFood={handleAddFood}
-              onEditMeal={handleEditMeal}
+              onDeleteFood={handleDeleteFood}
+              onEditFood={handleEditFood}
             />
 
             {/* My Meal Plan Section */}

@@ -1,4 +1,7 @@
-// 🔄 Meal Plan Data Service - Replace these with actual API calls
+import { supabase } from "./supabase";
+import { FoodDataService } from "./FoodDataService";
+
+// 🔄 Meal Plan Data Service - Hybrid approach using Supabase + FoodData API
 export const MealPlanDataService = {
   // User & Notifications
   async fetchUserNotifications(userId) {
@@ -15,51 +18,77 @@ export const MealPlanDataService = {
 
   // Macro Progress & Goals
   async fetchMacroProgress(userId, date = new Date()) {
-    // Replace with: const response = await fetch(`/api/users/${userId}/macros?date=${date.toISOString()}`);
-    return {
-      calories: { 
-        current: 1500, 
-        target: 2200, 
-        percentage: 68,
-        remaining: 700,
-        unit: "kcal"
-      },
-      protein: { 
-        current: 109, 
-        target: 140, 
-        percentage: 78,
-        remaining: 31,
-        unit: "g"
-      },
-      carbs: { 
-        current: 145, 
-        target: 200, 
-        percentage: 73,
-        remaining: 55,
-        unit: "g"
-      },
-      fats: { 
-        current: 68, 
-        target: 85, 
-        percentage: 80,
-        remaining: 17,
-        unit: "g"
-      },
-      fiber: {
-        current: 22,
-        target: 30,
-        percentage: 73,
-        remaining: 8,
-        unit: "g"
-      },
-      sugar: {
-        current: 45,
-        target: 60,
-        percentage: 75,
-        remaining: 15,
-        unit: "g"
-      }
-    };
+    try {
+      // Get actual totals from meal logs
+      const totals = await this.getDailyMacroTotals(userId, date);
+
+      // TODO: Get user's macro goals from user profile table
+      // For now using default goals
+      const goals = {
+        calories: 2200,
+        protein: 140,
+        carbs: 200,
+        fats: 85,
+        fiber: 30,
+        sugar: 60
+      };
+
+      return {
+        calories: { 
+          current: Math.round(totals.calories), 
+          target: goals.calories, 
+          percentage: Math.round((totals.calories / goals.calories) * 100),
+          remaining: Math.max(0, goals.calories - totals.calories),
+          unit: "kcal"
+        },
+        protein: { 
+          current: Math.round(totals.protein), 
+          target: goals.protein, 
+          percentage: Math.round((totals.protein / goals.protein) * 100),
+          remaining: Math.max(0, goals.protein - totals.protein),
+          unit: "g"
+        },
+        carbs: { 
+          current: Math.round(totals.carbs), 
+          target: goals.carbs, 
+          percentage: Math.round((totals.carbs / goals.carbs) * 100),
+          remaining: Math.max(0, goals.carbs - totals.carbs),
+          unit: "g"
+        },
+        fats: { 
+          current: Math.round(totals.fats), 
+          target: goals.fats, 
+          percentage: Math.round((totals.fats / goals.fats) * 100),
+          remaining: Math.max(0, goals.fats - totals.fats),
+          unit: "g"
+        },
+        fiber: {
+          current: Math.round(totals.fiber),
+          target: goals.fiber,
+          percentage: Math.round((totals.fiber / goals.fiber) * 100),
+          remaining: Math.max(0, goals.fiber - totals.fiber),
+          unit: "g"
+        },
+        sugar: {
+          current: Math.round(totals.sugar),
+          target: goals.sugar,
+          percentage: Math.round((totals.sugar / goals.sugar) * 100),
+          remaining: Math.max(0, goals.sugar - totals.sugar),
+          unit: "g"
+        }
+      };
+    } catch (error) {
+      console.error("❌ Error fetching macro progress:", error);
+      // Return default values on error
+      return {
+        calories: { current: 0, target: 2200, percentage: 0, remaining: 2200, unit: "kcal" },
+        protein: { current: 0, target: 140, percentage: 0, remaining: 140, unit: "g" },
+        carbs: { current: 0, target: 200, percentage: 0, remaining: 200, unit: "g" },
+        fats: { current: 0, target: 85, percentage: 0, remaining: 85, unit: "g" },
+        fiber: { current: 0, target: 30, percentage: 0, remaining: 30, unit: "g" },
+        sugar: { current: 0, target: 60, percentage: 0, remaining: 60, unit: "g" }
+      };
+    }
   },
 
   async updateMacroGoals(userId, macroGoals) {
@@ -308,6 +337,300 @@ export const MealPlanDataService = {
         isAvailable: true
       }
     ];
+  },
+
+  // ============================================================
+  // FOOD DATABASE & LOGGING (Supabase + API Integration)
+  // ============================================================
+
+  /**
+   * Get popular foods from database (cached from all users)
+   */
+  async getPopularFoods(limit = 10) {
+    try {
+      const { data, error } = await supabase
+        .rpc('get_popular_foods', { limit_count: limit });
+
+      if (error) throw error;
+
+      return data.map(food => ({
+        ...food,
+        source: "database",
+        mode: "popular"
+      }));
+    } catch (error) {
+      console.error("❌ Error fetching popular foods:", error);
+      return [];
+    }
+  },
+
+  /**
+   * Get user's recent foods from history
+   */
+  async getUserRecentFoods(userId, limit = 10) {
+    try {
+      const { data, error } = await supabase
+        .rpc('get_user_recent_foods', { 
+          p_user_id: userId,
+          limit_count: limit 
+        });
+
+      if (error) throw error;
+
+      return data.map(food => ({
+        ...food,
+        source: "database",
+        mode: "recent"
+      }));
+    } catch (error) {
+      console.error("❌ Error fetching user recent foods:", error);
+      return [];
+    }
+  },
+
+  /**
+   * Search foods from API
+   */
+  async searchFoodsAPI(query, pageSize = 12, pageNumber = 1) {
+    try {
+      const result = await FoodDataService.searchFoods(query, pageSize, pageNumber);
+      return result;
+    } catch (error) {
+      console.error("❌ Error searching foods from API:", error);
+      return { foods: [], totalHits: 0, currentPage: 1 };
+    }
+  },
+
+  /**
+   * Get or create food in database from API data
+   */
+  async getOrCreateFoodFromAPI(fdcId) {
+    try {
+      // Check if food already exists in database
+      const { data: existingFood, error: searchError } = await supabase
+        .from('food_database')
+        .select('*')
+        .eq('fdc_id', fdcId)
+        .single();
+
+      if (existingFood && !searchError) {
+        return existingFood;
+      }
+
+      // Food doesn't exist, fetch from API and cache it
+      const foodDetails = await FoodDataService.getFoodDetails(fdcId);
+
+      // Insert into database
+      const { data: newFood, error: insertError } = await supabase
+        .from('food_database')
+        .insert([{
+          fdc_id: foodDetails.fdc_id,
+          name: foodDetails.name,
+          brand: foodDetails.brand,
+          description: foodDetails.description,
+          calories: foodDetails.calories,
+          protein: foodDetails.protein,
+          carbs: foodDetails.carbs,
+          fats: foodDetails.fats,
+          fiber: foodDetails.fiber || 0,
+          sugar: foodDetails.sugar || 0,
+          sodium: foodDetails.sodium || 0,
+          serving_size: foodDetails.serving_size,
+          serving_unit: foodDetails.serving_unit,
+          category: foodDetails.category,
+          is_custom: false
+        }])
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      return newFood;
+    } catch (error) {
+      console.error("❌ Error getting/creating food from API:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Log food to user's meal
+   */
+  async logFoodToMeal(userId, mealType, foodId, quantity, servingSize, date = new Date()) {
+    try {
+      // Get food details from database
+      const { data: food, error: foodError } = await supabase
+        .from('food_database')
+        .select('*')
+        .eq('id', foodId)
+        .single();
+
+      if (foodError) throw foodError;
+
+      // Calculate nutrition based on quantity
+      const multiplier = (quantity * servingSize) / 100;
+      const calculatedNutrition = {
+        calories: Math.round(food.calories * multiplier * 10) / 10,
+        protein: Math.round(food.protein * multiplier * 10) / 10,
+        carbs: Math.round(food.carbs * multiplier * 10) / 10,
+        fats: Math.round(food.fats * multiplier * 10) / 10,
+        fiber: Math.round(food.fiber * multiplier * 10) / 10,
+        sugar: Math.round(food.sugar * multiplier * 10) / 10,
+        sodium: Math.round(food.sodium * multiplier * 10) / 10
+      };
+
+      // Insert meal log
+      const { data: mealLog, error: logError } = await supabase
+        .from('user_meal_logs')
+        .insert([{
+          user_id: userId,
+          food_id: foodId,
+          meal_type: mealType,
+          meal_date: date.toISOString().split('T')[0],
+          meal_time: new Date().toTimeString().split(' ')[0],
+          quantity: quantity,
+          serving_size: servingSize,
+          serving_unit: food.serving_unit,
+          ...calculatedNutrition
+        }])
+        .select()
+        .single();
+
+      if (logError) throw logError;
+
+      console.log("✅ Food logged successfully:", mealLog);
+      return mealLog;
+    } catch (error) {
+      console.error("❌ Error logging food to meal:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get user's meal logs for a specific date
+   */
+  async getMealLogsForDate(userId, date = new Date()) {
+    try {
+      const dateStr = date.toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('user_meal_logs')
+        .select(`
+          *,
+          food:food_database(*)
+        `)
+        .eq('user_id', userId)
+        .eq('meal_date', dateStr)
+        .order('meal_time', { ascending: true });
+
+      if (error) throw error;
+
+      return data;
+    } catch (error) {
+      console.error("❌ Error fetching meal logs:", error);
+      return [];
+    }
+  },
+
+  /**
+   * Delete meal log entry
+   */
+  async deleteMealLog(userId, logId) {
+    try {
+      const { error } = await supabase
+        .from('user_meal_logs')
+        .delete()
+        .eq('id', logId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      console.log("✅ Meal log deleted successfully");
+      return true;
+    } catch (error) {
+      console.error("❌ Error deleting meal log:", error);
+      return false;
+    }
+  },
+
+  /**
+   * Update meal log quantity
+   */
+  async updateMealLog(logId, updates) {
+    try {
+      const { quantity, serving_size } = updates;
+      
+      // Recalculate nutrition based on new quantity
+      const { data: log, error: fetchError } = await supabase
+        .from('user_meal_logs')
+        .select('food_id, food_database(calories, protein, carbs, fats, fiber, sugar)')
+        .eq('id', logId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const food = log.food_database;
+      const servingMultiplier = (quantity * serving_size) / 100;
+
+      const { error: updateError } = await supabase
+        .from('user_meal_logs')
+        .update({
+          quantity,
+          serving_size,
+          calories: Math.round(food.calories * servingMultiplier),
+          protein: Math.round(food.protein * servingMultiplier * 10) / 10,
+          carbs: Math.round(food.carbs * servingMultiplier * 10) / 10,
+          fats: Math.round(food.fats * servingMultiplier * 10) / 10,
+          fiber: Math.round((food.fiber || 0) * servingMultiplier * 10) / 10,
+          sugar: Math.round((food.sugar || 0) * servingMultiplier * 10) / 10,
+        })
+        .eq('id', logId);
+
+      if (updateError) throw updateError;
+
+      console.log("✅ Meal log updated successfully");
+      return true;
+    } catch (error) {
+      console.error("❌ Error updating meal log:", error);
+      return false;
+    }
+  },
+
+  /**
+   * Calculate daily macro totals from meal logs
+   */
+  async getDailyMacroTotals(userId, date = new Date()) {
+    try {
+      const dateStr = date.toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('user_meal_logs')
+        .select('calories, protein, carbs, fats, fiber, sugar')
+        .eq('user_id', userId)
+        .eq('meal_date', dateStr);
+
+      if (error) throw error;
+
+      const totals = data.reduce((acc, meal) => ({
+        calories: acc.calories + (meal.calories || 0),
+        protein: acc.protein + (meal.protein || 0),
+        carbs: acc.carbs + (meal.carbs || 0),
+        fats: acc.fats + (meal.fats || 0),
+        fiber: acc.fiber + (meal.fiber || 0),
+        sugar: acc.sugar + (meal.sugar || 0)
+      }), {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fats: 0,
+        fiber: 0,
+        sugar: 0
+      });
+
+      return totals;
+    } catch (error) {
+      console.error("❌ Error calculating daily macros:", error);
+      return { calories: 0, protein: 0, carbs: 0, fats: 0, fiber: 0, sugar: 0 };
+    }
   },
 
   // Food Database & Search

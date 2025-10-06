@@ -1,18 +1,16 @@
 import React from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  Pressable,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import SwipeableFoodItem from "./SwipeableFoodItem";
 
-const MealSection = ({ mealType, mealItems, onAddFood }) => {
-  const getMealIcon = (type) => {
-    switch (type) {
-      case "Breakfast": return "breakfast";
-      case "Lunch": return "restaurant";
-      case "Snack": return "local-cafe";
-      case "Dinner": return "dinner-dining";
-      default: return "restaurant";
-    }
-  };
-
+const MealSection = ({ mealType, mealItems, onAddFood, onDeleteFood, onEditFood }) => {
   const getMealColor = (type) => {
     switch (type) {
       case "Breakfast": return "#FF9500";
@@ -29,29 +27,34 @@ const MealSection = ({ mealType, mealItems, onAddFood }) => {
   const totalFats = mealItems.reduce((sum, item) => sum + (item.fats || 0), 0);
   const mealColor = getMealColor(mealType);
 
+  const handleEdit = (item) => {
+    if (onEditFood) {
+      onEditFood(item);
+    }
+  };
+
+  const handleDelete = (item) => {
+    Alert.alert(
+      "Remove Food",
+      `Remove ${item.name} from ${mealType}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Remove", 
+          style: "destructive",
+          onPress: () => onDeleteFood(item.id)
+        }
+      ]
+    );
+  };
+
   return (
     <View style={styles.mealSection}>
       {/* Meal Header with Color Accent */}
       <View style={[styles.colorAccent, { backgroundColor: mealColor }]} />
       
       <View style={styles.mealSectionHeader}>
-        <View style={styles.mealTitleRow}>
-          <View style={[styles.mealIconBadge, { backgroundColor: `${mealColor}20` }]}>
-            <MaterialIcons name={getMealIcon(mealType)} size={24} color={mealColor} />
-          </View>
-          <View style={styles.mealTitleContainer}>
-            <Text style={styles.mealSectionTitle}>{mealType}</Text>
-            {mealItems.length > 0 && (
-              <View style={styles.macroRow}>
-                <Text style={[styles.macroText, { color: mealColor }]}>
-                  {totalCalories} cal
-                </Text>
-                <View style={styles.macroDivider} />
-                <Text style={styles.macroText}>{totalProtein}g protein</Text>
-              </View>
-            )}
-          </View>
-        </View>
+        <Text style={styles.mealSectionTitle}>{mealType}</Text>
         <Pressable 
           style={[styles.addButton, { backgroundColor: `${mealColor}15`, borderColor: `${mealColor}30` }]} 
           onPress={() => onAddFood(mealType)}
@@ -60,46 +63,17 @@ const MealSection = ({ mealType, mealItems, onAddFood }) => {
         </Pressable>
       </View>
 
-      {mealItems.length === 0 ? (
-        <Pressable style={styles.emptyMealContainer} onPress={() => onAddFood(mealType)}>
-          <View style={[styles.emptyIconCircle, { backgroundColor: `${mealColor}15` }]}>
-            <Ionicons name="add-circle-outline" size={24} color={mealColor} />
-          </View>
-          <Text style={styles.emptyMealText}>Add your first food</Text>
-        </Pressable>
-      ) : (
+      {mealItems.length > 0 && (
         <View style={styles.mealItems}>
           {mealItems.map((item, index) => (
-            <Pressable 
-              key={index} 
-              style={[
-                styles.mealItem, 
-                index === mealItems.length - 1 && styles.lastMealItem
-              ]}
-            >
-              <View style={styles.mealItemLeft}>
-                <View style={styles.foodIconCircle}>
-                  <Text style={styles.foodIcon}>{item.icon}</Text>
-                </View>
-                <View style={styles.mealItemDetails}>
-                  <Text style={styles.foodName}>{item.name}</Text>
-                  <View style={styles.foodMetaRow}>
-                    <Text style={styles.foodTime}>{item.time}</Text>
-                    {item.serving && (
-                      <>
-                        <View style={styles.metaDot} />
-                        <Text style={styles.foodServing}>{item.serving}</Text>
-                      </>
-                    )}
-                  </View>
-                </View>
-              </View>
-              <View style={styles.mealItemRight}>
-                <Text style={styles.foodCalories}>{item.calories}</Text>
-                <Text style={styles.caloriesLabel}>cal</Text>
-                <Ionicons name="chevron-forward" size={16} color="#666" style={styles.chevron} />
-              </View>
-            </Pressable>
+            <SwipeableFoodItem
+              key={index}
+              item={item}
+              mealColor={mealColor}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              isLast={index === mealItems.length - 1}
+            />
           ))}
         </View>
       )}
@@ -107,6 +81,11 @@ const MealSection = ({ mealType, mealItems, onAddFood }) => {
       {/* Meal Summary Footer (only show if there are items) */}
       {mealItems.length > 0 && (
         <View style={[styles.mealFooter, { backgroundColor: `${mealColor}08` }]}>
+          <View style={styles.footerMacro}>
+            <Text style={styles.footerMacroValue}>{totalCalories}</Text>
+            <Text style={styles.footerMacroLabel}>Calories</Text>
+          </View>
+          <View style={[styles.footerDivider, { backgroundColor: `${mealColor}20` }]} />
           <View style={styles.footerMacro}>
             <Text style={styles.footerMacroValue}>{totalCarbs}g</Text>
             <Text style={styles.footerMacroLabel}>Carbs</Text>
@@ -127,7 +106,12 @@ const MealSection = ({ mealType, mealItems, onAddFood }) => {
   );
 };
 
-export default function TodaysMeals({ meals, onAddFood, onEditMeal }) {
+export default function TodaysMeals({ 
+  meals, 
+  onDeleteFood, 
+  onEditFood,
+  onAddFood
+}) {
   // Group meals by type
   const mealsByType = {
     Breakfast: meals.filter(meal => meal.meal === "Breakfast"),
@@ -140,9 +124,6 @@ export default function TodaysMeals({ meals, onAddFood, onEditMeal }) {
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>Today's Meals</Text>
-        <Pressable onPress={onEditMeal}>
-          <MaterialIcons name="edit" size={20} color="#4CAF50" />
-        </Pressable>
       </View>
 
       {Object.entries(mealsByType).map(([mealType, mealItems]) => (
@@ -151,6 +132,8 @@ export default function TodaysMeals({ meals, onAddFood, onEditMeal }) {
           mealType={mealType}
           mealItems={mealItems}
           onAddFood={onAddFood}
+          onDeleteFood={onDeleteFood}
+          onEditFood={onEditFood}
         />
       ))}
     </View>
@@ -203,44 +186,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 17,
   },
-  mealTitleRow: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  mealIconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  mealTitleContainer: {
-    flex: 1,
-  },
   mealSectionTitle: {
     fontSize: 18,
     color: "#fff",
     fontWeight: "700",
-    marginBottom: 4,
     letterSpacing: 0.3,
-  },
-  macroRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  macroText: {
-    fontSize: 12,
-    color: "#aaa",
-    fontWeight: "600",
-  },
-  macroDivider: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: "#666",
   },
   addButton: {
     width: 36,
@@ -250,106 +200,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderWidth: 1,
   },
-  emptyMealContainer: {
-    paddingVertical: 40,
-    paddingHorizontal: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  emptyMealText: {
-    fontSize: 14,
-    color: "#999",
-    fontWeight: "500",
-  },
   mealItems: {
     backgroundColor: "transparent",
-  },
-  mealItem: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.06)",
-  },
-  lastMealItem: {
-    borderBottomWidth: 0,
-  },
-  mealItemLeft: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  foodIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  foodIcon: {
-    fontSize: 20,
-  },
-  mealItemDetails: {
-    flex: 1,
-  },
-  foodName: {
-    fontSize: 15,
-    color: "#fff",
-    fontWeight: "600",
-    marginBottom: 4,
-    letterSpacing: 0.2,
-  },
-  foodMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  foodTime: {
-    fontSize: 12,
-    color: "#888",
-    fontWeight: "500",
-  },
-  metaDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: "#666",
-  },
-  foodServing: {
-    fontSize: 12,
-    color: "#888",
-    fontWeight: "500",
-  },
-  mealItemRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  foodCalories: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "800",
-    letterSpacing: -0.3,
-  },
-  caloriesLabel: {
-    fontSize: 11,
-    color: "#888",
-    fontWeight: "500",
-  },
-  chevron: {
-    marginLeft: 4,
   },
   mealFooter: {
     flexDirection: "row",
@@ -362,6 +214,7 @@ const styles = StyleSheet.create({
   },
   footerMacro: {
     alignItems: "center",
+    flex: 1,
   },
   footerMacroValue: {
     fontSize: 15,
@@ -371,7 +224,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   footerMacroLabel: {
-    fontSize: 10,
+    fontSize: 9,
     color: "#888",
     fontWeight: "600",
     textTransform: "uppercase",
