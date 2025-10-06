@@ -1,4 +1,4 @@
-import Chat from "./pages/Chat";
+/*import Chat from "./pages/Chat";*/
 import Users from "./pages/Users";
 import Meals from "./pages/Meals";
 import Badges from "./pages/Badges";
