@@ -23,6 +23,8 @@ import React from "react";
 import MacroProgressSummary from "../../components/mealplan/MacroProgressSummary";
 import TodaysMeals from "../../components/mealplan/TodaysMeals";
 import RecentMeals from "../../components/mealplan/RecentMeals";
+import MealPlans from "../../components/mealplan/MealPlans";
+import PlanActionSheet from "../../components/mealplan/PlanActionSheet";
 import NotificationBar from "../../components/NotificationBar";
 import { MealPlanDataService } from "../../services/MealPlanDataService";
 import { supabase } from "../../services/supabase";
@@ -38,6 +40,8 @@ export default function Mealplan() {
   const [recentMeals, setRecentMeals] = useState([]);
   const [quickActions, setQuickActions] = useState([]);
   const [currentPlan, setCurrentPlan] = useState(null);
+  const [dailyProgress, setDailyProgress] = useState(null);
+  const [actionSheetVisible, setActionSheetVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
 
@@ -77,16 +81,20 @@ export default function Mealplan() {
         notificationsData,
         macroData,
         weeklyData,
-        mealLogsData, // Changed from mealsData
+        mealLogsData,
         recentData,
-        actionsData
+        actionsData,
+        activePlanData,
+        dailyTrackingData
       ] = await Promise.all([
         MealPlanDataService.fetchUserNotifications(userId),
         MealPlanDataService.fetchMacroProgress(userId, selectedDate),
         MealPlanDataService.fetchWeeklyPlan(userId, selectedDate),
-        MealPlanDataService.getMealLogsForDate(userId, selectedDate), // Use real data
+        MealPlanDataService.getMealLogsForDate(userId, selectedDate),
         MealPlanDataService.fetchRecentMeals(userId),
-        MealPlanDataService.fetchQuickActions(userId)
+        MealPlanDataService.fetchQuickActions(userId),
+        MealPlanDataService.getUserActivePlan(userId),
+        MealPlanDataService.getDailyTracking(userId, selectedDate)
       ]);
 
       // Transform meal logs to TodaysMeals format
@@ -99,27 +107,8 @@ export default function Mealplan() {
       setTodaysMeals(transformedMeals);
       setRecentMeals(recentData);
       setQuickActions(actionsData);
-
-      // Static current plan data (not connected to backend yet)
-      setCurrentPlan({
-        id: "2",
-        name: "Weight Loss",
-        duration: "8 weeks",
-        progress: "Week 3 of 8",
-        weekNumber: 3,
-        totalWeeks: 8,
-        calories: 1800,
-        type: "Balanced",
-        startDate: "Sep 10, 2024",
-        color: "#00D4AA",
-        icon: "run-fast",
-        stats: {
-          daysCompleted: 15,
-          totalDays: 56,
-          adherence: 89,
-          avgCalories: 1750,
-        }
-      });
+      setCurrentPlan(activePlanData);
+      setDailyProgress(dailyTrackingData);
       
     } catch (error) {
       console.error("Error loading meal plan data:", error);
@@ -269,59 +258,61 @@ export default function Mealplan() {
   };
 
   const handlePlanOptions = () => {
+    setActionSheetVisible(true);
+  };
+
+  const handleChangePlan = () => {
+    router.push("/meal-plan/browse-plans");
+  };
+
+  const handleViewDetails = () => {
+    if (!currentPlan) return;
+    
     Alert.alert(
-      "Meal Plan Options",
-      "Choose an action",
+      currentPlan.plan_name,
+      `Type: ${formatPlanType(currentPlan.plan_type)}\n\n` +
+      `Calories: ${currentPlan.daily_calories} kcal\n` +
+      `Protein: ${currentPlan.daily_protein}g\n` +
+      `Carbs: ${currentPlan.daily_carbs}g\n` +
+      `Fats: ${currentPlan.daily_fats}g\n\n` +
+      `Duration: ${currentPlan.duration_weeks} weeks\n` +
+      `Progress: ${currentPlan.progress_percentage?.toFixed(1)}%\n` +
+      `Adherence: ${currentPlan.adherence_score?.toFixed(1)}%`,
+      [{ text: "OK" }]
+    );
+  };
+
+  const handleRemovePlan = async () => {
+    if (!currentPlan) return;
+
+    Alert.alert(
+      "Remove Meal Plan",
+      "Are you sure you want to deactivate your current meal plan?",
       [
+        { text: "Cancel", style: "cancel" },
         {
-          text: "Edit Plan",
-          onPress: () => {
-            console.log("Edit current plan");
-            Alert.alert("Edit Plan", "Customize your meal plan settings");
-          },
-        },
-        {
-          text: "Change Plan",
-          onPress: () => {
-            console.log("Change meal plan");
-            Alert.alert("Change Plan", "Browse and select a different meal plan");
-          },
-        },
-        {
-          text: "View Details",
-          onPress: () => {
-            console.log("View plan details");
-            Alert.alert("Plan Details", "See full breakdown of your meal plan");
-          },
-        },
-        {
-          text: "Remove Plan",
+          text: "Remove",
           style: "destructive",
-          onPress: () => {
-            Alert.alert(
-              "Remove Plan",
-              "Are you sure you want to remove this meal plan?",
-              [
-                { text: "Cancel", style: "cancel" },
-                {
-                  text: "Remove",
-                  style: "destructive",
-                  onPress: () => {
-                    console.log("Remove plan");
-                    setCurrentPlan(null);
-                    Alert.alert("Success", "Meal plan removed");
-                  },
-                },
-              ]
-            );
+          onPress: async () => {
+            try {
+              await MealPlanDataService.removeMealPlan(userId, currentPlan.user_plan_id);
+              setCurrentPlan(null);
+              Alert.alert("Success", "Meal plan removed successfully");
+            } catch (error) {
+              console.error("Error removing plan:", error);
+              Alert.alert("Error", "Failed to remove meal plan");
+            }
           },
-        },
-        {
-          text: "Cancel",
-          style: "cancel",
         },
       ]
     );
+  };
+
+  const formatPlanType = (planType) => {
+    return planType
+      ?.split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ') || '';
   };
 
   return (
@@ -393,65 +384,22 @@ export default function Mealplan() {
             {/* My Meal Plan Section */}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>My Meal Plan</Text>
-              <Pressable 
-                style={styles.optionsButton}
-                onPress={handlePlanOptions}
-              >
-                <Ionicons name="ellipsis-horizontal" size={20} color="#fff" />
-              </Pressable>
+              {currentPlan && (
+                <Pressable 
+                  style={styles.optionsButton}
+                  onPress={handlePlanOptions}
+                >
+                  <Ionicons name="ellipsis-horizontal" size={20} color="#fff" />
+                </Pressable>
+              )}
             </View>
 
             {currentPlan ? (
-              <View style={styles.currentPlanCard}>
-                <View style={[styles.planColorAccent, { backgroundColor: currentPlan.color }]} />
-                
-                <View style={styles.planCardHeader}>
-                  <View style={[styles.planIconBadge, { backgroundColor: `${currentPlan.color}20` }]}>
-                    <MaterialCommunityIcons name={currentPlan.icon} size={20} color={currentPlan.color} />
-                  </View>
-                  <View style={styles.planBadge}>
-                    <Text style={[styles.planBadgeText, { color: currentPlan.color }]}>ACTIVE</Text>
-                  </View>
-                </View>
-
-                <Text style={styles.planCardTitle}>Current Plan</Text>
-                <Text style={styles.planName}>{currentPlan.name}</Text>
-                
-                <View style={styles.planMetrics}>
-                  <View style={styles.planMetric}>
-                    <Text style={styles.metricValue}>{currentPlan.progress}</Text>
-                    <Text style={styles.metricLabel}>Progress</Text>
-                  </View>
-                  <View style={styles.planMetricDivider} />
-                  <View style={styles.planMetric}>
-                    <Text style={styles.metricValue}>{currentPlan.calories}</Text>
-                    <Text style={styles.metricLabel}>Cal/Day</Text>
-                  </View>
-                  <View style={styles.planMetricDivider} />
-                  <View style={styles.planMetric}>
-                    <Text style={styles.metricValue}>{currentPlan.stats.adherence}%</Text>
-                    <Text style={styles.metricLabel}>Adherence</Text>
-                  </View>
-                </View>
-
-                {/* Progress Bar */}
-                <View style={styles.progressBarContainer}>
-                  <View style={styles.progressBarBg}>
-                    <View 
-                      style={[
-                        styles.progressBarFill, 
-                        { 
-                          width: `${(currentPlan.weekNumber / currentPlan.totalWeeks) * 100}%`,
-                          backgroundColor: currentPlan.color 
-                        }
-                      ]} 
-                    />
-                  </View>
-                  <Text style={styles.progressText}>
-                    {currentPlan.stats.daysCompleted} of {currentPlan.stats.totalDays} days
-                  </Text>
-                </View>
-              </View>
+              <MealPlans 
+                activePlan={currentPlan}
+                dailyProgress={dailyProgress}
+                isLoading={isLoading}
+              />
             ) : (
               <View style={styles.noPlanCard}>
                 <MaterialCommunityIcons name="food-apple" size={48} color="#666" />
@@ -459,51 +407,31 @@ export default function Mealplan() {
                 <Text style={styles.noPlanText}>
                   Choose a meal plan to start tracking your nutrition goals
                 </Text>
-                <Pressable style={styles.browsePlansButton}>
+                <Pressable 
+                  style={styles.browsePlansButton}
+                  onPress={() => router.push("/meal-plan/browse-plans")}
+                >
                   <Text style={styles.browsePlansText}>Browse Meal Plans</Text>
                   <Ionicons name="arrow-forward" size={18} color="#00D4AA" />
                 </Pressable>
               </View>
             )}
 
-            {/* Quick Actions */}
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Quick Actions</Text>
-              <View style={styles.actionGrid}>
-                {quickActions.map((action, index) => {
-                  const IconComponent = action.iconLibrary === 'FontAwesome5' 
-                    ? FontAwesome5 
-                    : MaterialCommunityIcons;
-                  
-                  return (
-                    <Pressable 
-                      key={action.id}
-                      style={styles.actionButton}
-                      onPress={() => handleQuickAction(action)}
-                      disabled={!action.isAvailable}
-                    >
-                      <IconComponent
-                        name={action.icon}
-                        size={24}
-                        color={action.isAvailable ? action.color : "#666"}
-                      />
-                      <Text style={[
-                        styles.actionText,
-                        !action.isAvailable && styles.disabledActionText
-                      ]}>
-                        {action.title}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
             {/* Recent Meals */}
             <RecentMeals meals={recentMeals} />
           </>
         )}
       </ScrollView>
+
+      {/* Action Sheet Modal */}
+      <PlanActionSheet 
+        visible={actionSheetVisible}
+        onClose={() => setActionSheetVisible(false)}
+        onChangePlan={handleChangePlan}
+        onViewDetails={handleViewDetails}
+        onRemovePlan={handleRemovePlan}
+        planName={currentPlan?.plan_name || "Current Plan"}
+      />
     </View>
   );
 }

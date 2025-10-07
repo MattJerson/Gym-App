@@ -1011,5 +1011,228 @@ export const MealPlanDataService = {
       carbs: totals.carbs + (meal.carbs || 0),
       fats: totals.fats + (meal.fats || 0)
     }), { calories: 0, protein: 0, carbs: 0, fats: 0 });
+  },
+
+  // ============================================================
+  // MEAL PLAN TEMPLATES & USER PLANS
+  // ============================================================
+
+  /**
+   * Get all available meal plan templates
+   */
+  async getMealPlanTemplates() {
+    try {
+      const { data, error } = await supabase
+        .from('meal_plan_templates')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data || [];
+    } catch (error) {
+      console.error("❌ Error fetching meal plan templates:", error);
+      return [];
+    }
+  },
+
+  /**
+   * Get user's active meal plan with details
+   */
+  async getUserActivePlan(userId) {
+    try {
+      const { data, error } = await supabase
+        .from('v_active_meal_plans')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No active plan found
+          return null;
+        }
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("❌ Error fetching user active plan:", error);
+      return null;
+    }
+  },
+
+  /**
+   * Enroll user in a meal plan
+   */
+  async enrollInMealPlan(userId, planId, customTargets = null) {
+    try {
+      // Deactivate any existing active plans
+      await supabase
+        .from('user_meal_plans')
+        .update({ is_active: false })
+        .eq('user_id', userId)
+        .eq('is_active', true);
+
+      // Enroll in new plan
+      const enrollment = {
+        user_id: userId,
+        plan_id: planId,
+        start_date: new Date().toISOString().split('T')[0],
+        is_active: true
+      };
+
+      // Add custom targets if provided
+      if (customTargets) {
+        if (customTargets.calories) enrollment.custom_calories = customTargets.calories;
+        if (customTargets.protein) enrollment.custom_protein = customTargets.protein;
+        if (customTargets.carbs) enrollment.custom_carbs = customTargets.carbs;
+        if (customTargets.fats) enrollment.custom_fats = customTargets.fats;
+      }
+
+      const { data, error } = await supabase
+        .from('user_meal_plans')
+        .insert([enrollment])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log("✅ User enrolled in meal plan successfully:", data);
+      return data;
+    } catch (error) {
+      console.error("❌ Error enrolling in meal plan:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Update user's meal plan (change plan or modify targets)
+   */
+  async updateUserMealPlan(userPlanId, updates) {
+    try {
+      const { data, error } = await supabase
+        .from('user_meal_plans')
+        .update(updates)
+        .eq('id', userPlanId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      console.log("✅ Meal plan updated successfully:", data);
+      return data;
+    } catch (error) {
+      console.error("❌ Error updating meal plan:", error);
+      throw error;
+    }
+  },
+
+  /**
+   * Remove/deactivate user's meal plan
+   */
+  async removeMealPlan(userId, userPlanId) {
+    try {
+      const { error } = await supabase
+        .from('user_meal_plans')
+        .update({ is_active: false, completed_at: new Date().toISOString() })
+        .eq('id', userPlanId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      console.log("✅ Meal plan removed successfully");
+      return true;
+    } catch (error) {
+      console.error("❌ Error removing meal plan:", error);
+      return false;
+    }
+  },
+
+  /**
+   * Get daily tracking for a specific date
+   */
+  async getDailyTracking(userId, date = new Date()) {
+    try {
+      const dateStr = date.toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('daily_meal_tracking')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('tracking_date', dateStr)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No tracking for this date yet
+          return null;
+        }
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("❌ Error fetching daily tracking:", error);
+      return null;
+    }
+  },
+
+  /**
+   * Get weekly analytics
+   */
+  async getWeeklyAnalytics(userId, weekStartDate = null) {
+    try {
+      // If no date provided, get current week
+      if (!weekStartDate) {
+        const today = new Date();
+        const dayOfWeek = today.getDay();
+        const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust when day is Sunday
+        weekStartDate = new Date(today.setDate(diff));
+      }
+
+      const weekStartStr = weekStartDate.toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('meal_plan_analytics')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('week_start_date', weekStartStr)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No analytics for this week yet
+          return null;
+        }
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("❌ Error fetching weekly analytics:", error);
+      return null;
+    }
+  },
+
+  /**
+   * Get meal plan template by ID
+   */
+  async getMealPlanById(planId) {
+    try {
+      const { data, error } = await supabase
+        .from('meal_plan_templates')
+        .select('*')
+        .eq('id', planId)
+        .single();
+
+      if (error) throw error;
+
+      return data;
+    } catch (error) {
+      console.error("❌ Error fetching meal plan:", error);
+      return null;
+    }
   }
 };
