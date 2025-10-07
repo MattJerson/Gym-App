@@ -1,222 +1,331 @@
+import { supabase } from './supabase';
 
-// 🔄 Calendar Data Service - Replace these with actual API calls
+// 🔄 Calendar Data Service - Supabase Implementation
 export const CalendarDataService = {
   // User & Notifications
   async fetchUserNotifications(userId) {
-    // Replace with: const response = await fetch(`/api/users/${userId}/notifications`);
-    return {
-      count: 3,
-      messages: [
-        { id: 1, title: "Workout Reminder", message: "Time for your evening workout!", type: "reminder" },
-        { id: 2, title: "Goal Achieved", message: "You've hit your weekly step goal!", type: "achievement" },
-        { id: 3, title: "New Feature", message: "Check out our new progress tracking!", type: "feature" }
-      ]
-    };
+    try {
+      // For now, return static data - you can implement real notifications later
+      return {
+        count: 3,
+        messages: [
+          { id: 1, title: "Workout Reminder", message: "Time for your evening workout!", type: "reminder" },
+          { id: 2, title: "Goal Achieved", message: "You've hit your weekly step goal!", type: "achievement" },
+          { id: 3, title: "New Feature", message: "Check out our new progress tracking!", type: "feature" }
+        ]
+      };
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      return { count: 0, messages: [] };
+    }
   },
 
   // Workout Data Management
   async fetchWorkoutCalendar(userId, startDate, endDate) {
-    // Replace with: const response = await fetch(`/api/workouts/${userId}/calendar?start=${startDate}&end=${endDate}`);
-    return {
-      "2025-09-15": { 
-        id: "w1", 
-        type: "strength", 
-        completed: true, 
-        streak: true, 
-        note: "Great session!",
-        duration: 75,
-        exercises: ["Bench Press", "Squats", "Deadlifts"]
-      },
-      "2025-09-14": { 
-        id: "w2", 
-        type: "cardio", 
-        completed: true, 
-        streak: true, 
-        note: "5K run",
-        duration: 45,
-        distance: 5.2,
-        pace: "8:30"
-      },
-      "2025-09-13": { 
-        id: "w3", 
-        type: "rest", 
-        completed: true, 
-        streak: true,
-        recovery: "full",
-        sleep: 8.5
-      },
-      "2025-09-12": { 
-        id: "w4", 
-        type: "strength", 
-        completed: true, 
-        streak: true,
-        duration: 80,
-        exercises: ["Pull-ups", "Rows", "Bicep Curls"]
-      },
-      "2025-09-16": { 
-        id: "w5", 
-        type: "yoga", 
-        completed: false, 
-        planned: true,
-        scheduledTime: "18:00",
-        instructor: "Sarah"
-      },
-      "2025-09-17": { 
-        id: "w6", 
-        type: "strength", 
-        completed: false, 
-        planned: true,
-        scheduledTime: "07:00",
-        focusAreas: ["Legs", "Glutes"]
-      },
-      "2025-08-30": { 
-        id: "w7", 
-        type: "cardio", 
-        completed: true, 
-        streak: false,
-        duration: 30,
-        calories: 280
-      },
-      "2025-08-31": { 
-        id: "w8", 
-        type: "strength", 
-        completed: true, 
-        streak: false,
-        duration: 60,
-        personalRecords: ["Deadlift PR: 225lbs"]
-      },
-      "2025-10-01": { 
-        id: "w9", 
-        type: "yoga", 
-        completed: false, 
-        planned: true,
-        scheduledTime: "19:00",
-        difficulty: "Beginner"
-      },
-      "2025-10-02": { 
-        id: "w10", 
-        type: "cardio", 
-        completed: false, 
-        planned: true,
-        scheduledTime: "06:30",
-        targetDistance: 3.5
-      },
-    };
+    try {
+      const { data, error } = await supabase.rpc('get_workout_logs', {
+        p_user_id: userId,
+        p_start_date: startDate,
+        p_end_date: endDate
+      });
+
+      if (error) throw error;
+
+      // Transform array of workouts into date-keyed object
+      const workoutMap = {};
+      if (data) {
+        data.forEach(workout => {
+          const dateKey = workout.log_date;
+          workoutMap[dateKey] = workout.workout_data;
+        });
+      }
+
+      return workoutMap;
+    } catch (error) {
+      console.error('Error fetching workout calendar:', error);
+      return {};
+    }
   },
 
   async createWorkout(userId, workoutData) {
-    // Replace with: const response = await fetch(`/api/workouts/${userId}`, { method: 'POST', body: JSON.stringify(workoutData) });
-    return {
-      id: `w_${Date.now()}`,
-      ...workoutData,
-      createdAt: new Date().toISOString(),
-      userId: userId
-    };
+    try {
+      const { data, error } = await supabase
+        .from('workout_logs')
+        .insert([{
+          user_id: userId,
+          log_date: workoutData.date,
+          workout_type: workoutData.type,
+          status: 'completed',
+          duration_minutes: workoutData.duration || 0,
+          notes: workoutData.note,
+          is_part_of_streak: workoutData.streak !== false,
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return {
+        id: data.id,
+        type: data.workout_type,
+        completed: data.status === 'completed',
+        streak: data.is_part_of_streak,
+        note: data.notes,
+        duration: data.duration_minutes,
+        date: data.log_date,
+        createdAt: data.created_at
+      };
+    } catch (error) {
+      console.error('Error creating workout:', error);
+      throw error;
+    }
   },
 
   async updateWorkout(userId, workoutId, updates) {
-    // Replace with: const response = await fetch(`/api/workouts/${userId}/${workoutId}`, { method: 'PUT', body: JSON.stringify(updates) });
-    return {
-      id: workoutId,
-      ...updates,
-      updatedAt: new Date().toISOString()
-    };
+    try {
+      const { data, error } = await supabase
+        .from('workout_logs')
+        .update(updates)
+        .eq('id', workoutId)
+        .eq('user_id', userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return {
+        id: data.id,
+        ...updates,
+        updatedAt: data.updated_at
+      };
+    } catch (error) {
+      console.error('Error updating workout:', error);
+      throw error;
+    }
   },
 
   async deleteWorkout(userId, workoutId) {
-    // Replace with: const response = await fetch(`/api/workouts/${userId}/${workoutId}`, { method: 'DELETE' });
-    return { success: true, deletedId: workoutId };
+    try {
+      const { error } = await supabase
+        .from('workout_logs')
+        .delete()
+        .eq('id', workoutId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      return { success: true, deletedId: workoutId };
+    } catch (error) {
+      console.error('Error deleting workout:', error);
+      throw error;
+    }
   },
 
   // Recent Activities
   async fetchRecentActivities(userId, limit = 4) {
-    // Replace with: const response = await fetch(`/api/activities/${userId}/recent?limit=${limit}`);
-    return [
-      { 
-        id: "a1",
-        label: "Morning Run", 
-        duration: "45 min", 
-        icon: "walk", 
-        color: ["#FF5722", "#FF9800"],
-        calories: 420,
-        distance: 5.2,
-        date: "2025-09-15",
-        type: "cardio"
-      },
-      { 
-        id: "a2",
-        label: "Upper Body Strength", 
-        duration: "1 hour 15 min", 
-        icon: "barbell", 
-        color: ["#4CAF50", "#8BC34A"],
-        exercises: 8,
-        sets: 24,
-        date: "2025-09-14",
-        type: "strength"
-      },
-      { 
-        id: "a3",
-        label: "Evening Yoga", 
-        duration: "30 min", 
-        icon: "body", 
-        color: ["#9C27B0", "#E1BEE7"],
-        poses: 12,
-        flexibility: "+15%",
-        date: "2025-09-13",
-        type: "yoga"
-      },
-      { 
-        id: "a4",
-        label: "Rest Day", 
-        duration: "Full day", 
-        icon: "bed", 
-        color: ["#607D8B", "#90A4AE"],
-        sleep: "8.5 hrs",
-        recovery: "100%",
-        date: "2025-09-12",
-        type: "rest"
-      },
-    ];
+    try {
+      const { data, error } = await supabase
+        .from('workout_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('status', 'completed')
+        .order('log_date', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+
+      // Transform to expected format
+      return (data || []).map(workout => ({
+        id: workout.id,
+        label: this.getWorkoutLabel(workout),
+        duration: workout.duration_minutes ? `${workout.duration_minutes} min` : 'N/A',
+        icon: this.getWorkoutIcon(workout.workout_type),
+        color: this.getWorkoutColors(workout.workout_type),
+        calories: workout.calories_burned,
+        distance: workout.distance_km,
+        date: workout.log_date,
+        type: workout.workout_type,
+        exercises: workout.exercises?.length || 0,
+      }));
+    } catch (error) {
+      console.error('Error fetching recent activities:', error);
+      return [];
+    }
+  },
+
+  getWorkoutLabel(workout) {
+    const labels = {
+      'strength': 'Strength Training',
+      'cardio': 'Cardio Workout',
+      'yoga': 'Yoga Session',
+      'rest': 'Rest Day',
+      'hiit': 'HIIT Workout',
+      'functional': 'Functional Training'
+    };
+    return workout.notes || labels[workout.workout_type] || 'Workout';
+  },
+
+  getWorkoutIcon(type) {
+    const icons = {
+      'strength': 'barbell',
+      'cardio': 'walk',
+      'yoga': 'body',
+      'rest': 'bed',
+      'hiit': 'flash',
+      'functional': 'fitness'
+    };
+    return icons[type] || 'fitness';
+  },
+
+  getWorkoutColors(type) {
+    const colors = {
+      'strength': ["#1E3A5F", "#2E5A8F"],
+      'cardio': ["#FF5722", "#FF9800"],
+      'yoga': ["#9C27B0", "#E1BEE7"],
+      'rest': ["#607D8B", "#90A4AE"],
+      'hiit': ["#F44336", "#FF5252"],
+      'functional': ["#4CAF50", "#8BC34A"]
+    };
+    return colors[type] || ["#1E3A5F", "#2E5A8F"];
   },
 
   // Progress Data
-  async fetchProgressChart(userId, metric, period = "week") {
-    // Replace with: const response = await fetch(`/api/progress/${userId}/${metric}?period=${period}`);
-    return {
-      title: "Weight Progress",
-      labels: ["08/01", "08/02", "08/03", "08/04", "08/05", "08/06", "08/07"],
-      values: [70, 71, 71.5, 71, 70.8, 70.5, 70.2],
-      color: (opacity = 1) => `rgba(30, 58, 95, ${opacity})`, // #1E3A5F color
-      unit: "kg",
-      goal: 68,
-      trend: "decreasing"
-    };
+  async fetchProgressChart(userId, metric = "weight", period = "week") {
+    try {
+      const daysBack = period === "week" ? 7 : 30;
+      
+      const { data, error } = await supabase
+        .from('weight_tracking')
+        .select('measurement_date, weight_kg')
+        .eq('user_id', userId)
+        .gte('measurement_date', new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+        .order('measurement_date', { ascending: true });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        return {
+          title: "Weight Progress",
+          labels: [],
+          values: [],
+          color: (opacity = 1) => `rgba(30, 58, 95, ${opacity})`,
+          unit: "kg",
+          goal: 70,
+          trend: "stable"
+        };
+      }
+
+      // Transform data
+      const labels = data.map(d => {
+        const date = new Date(d.measurement_date);
+        return `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`;
+      });
+      
+      const values = data.map(d => parseFloat(d.weight_kg));
+
+      // Determine trend
+      const trend = values.length >= 2 
+        ? (values[values.length - 1] < values[0] ? "decreasing" : 
+           values[values.length - 1] > values[0] ? "increasing" : "stable")
+        : "stable";
+
+      // Get user's weight goal
+      const { data: goalData } = await supabase
+        .from('user_goals')
+        .select('target_value')
+        .eq('user_id', userId)
+        .eq('goal_type', 'weight')
+        .eq('status', 'active')
+        .limit(1)
+        .single();
+
+      return {
+        title: "Weight Progress",
+        labels,
+        values,
+        color: (opacity = 1) => `rgba(30, 58, 95, ${opacity})`,
+        unit: "kg",
+        goal: goalData?.target_value || 70,
+        trend
+      };
+    } catch (error) {
+      console.error('Error fetching progress chart:', error);
+      return {
+        title: "Weight Progress",
+        labels: [],
+        values: [],
+        color: (opacity = 1) => `rgba(30, 58, 95, ${opacity})`,
+        unit: "kg",
+        goal: 70,
+        trend: "stable"
+      };
+    }
   },
 
   async fetchStepsData(userId, period = "month") {
-    // Replace with: const response = await fetch(`/api/steps/${userId}?period=${period}`);
-    return {
-      dates: [
-        "08/01","08/02","08/03","08/04","08/05","08/06","08/07",
-        "08/08","08/09","08/10","08/11","08/12","08/13","08/14",
-        "08/15","08/16","08/17","08/18","08/19","08/20","08/21",
-        "08/22","08/23","08/24","08/25","08/26","08/27","08/28",
-        "08/29","08/30","08/31"
-      ],
-      values: [
-        12539, 5776, 2782, 10673, 4430,
-        13029, 6263, 4226, 42300, 2783,
-        1021, 7563, 8863, 4992, 13332,
-        3661, 4324, 2226, 3688, 10773,
-        5792, 6960, 9021, 6642, 1876,
-        11528, 4474, 11983, 9385, 11111,
-        7701
-      ],
-      goal: 10000,
-      average: 8750,
-      totalDays: 31,
-      goalsAchieved: 18
-    };
+    try {
+      const daysBack = 31;
+      
+      const { data, error } = await supabase.rpc('get_steps_data', {
+        p_user_id: userId,
+        p_days_back: daysBack
+      });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        return {
+          dates: [],
+          values: [],
+          goal: 10000,
+          average: 0,
+          totalDays: 0,
+          goalsAchieved: 0
+        };
+      }
+
+      // Aggregate results (the function returns one row per date)
+      const dates = [];
+      const values = [];
+      let goal = 10000;
+      let average = 0;
+      let totalDays = 0;
+      let goalsAchieved = 0;
+
+      data.forEach((row, index) => {
+        if (index === 0) {
+          // Get aggregate values from first row
+          goal = row.goal || 10000;
+          average = row.average || 0;
+          totalDays = row.total_days || 0;
+          goalsAchieved = row.goals_achieved || 0;
+        }
+        
+        // Add date and step count
+        const date = new Date(row.tracking_date);
+        dates.push(`${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}`);
+        values.push(row.step_count);
+      });
+
+      return {
+        dates,
+        values,
+        goal,
+        average,
+        totalDays,
+        goalsAchieved
+      };
+    } catch (error) {
+      console.error('Error fetching steps data:', error);
+      return {
+        dates: [],
+        values: [],
+        goal: 10000,
+        average: 0,
+        totalDays: 0,
+        goalsAchieved: 0
+      };
+    }
   },
 
   // Workout Types Configuration
@@ -289,16 +398,53 @@ export const CalendarDataService = {
 
   // Analytics
   async fetchCalendarAnalytics(userId, period = "month") {
-    // Replace with: const response = await fetch(`/api/analytics/${userId}/calendar?period=${period}`);
-    return {
-      totalWorkouts: 18,
-      completionRate: 85,
-      currentStreak: 5,
-      longestStreak: 12,
-      favoriteWorkoutType: "strength",
-      avgWorkoutDuration: 62,
-      caloriesBurned: 3240,
-      progressToGoal: 78
-    };
+    try {
+      const periodDays = period === "week" ? 7 : 30;
+      
+      const { data, error } = await supabase.rpc('get_calendar_analytics', {
+        p_user_id: userId,
+        p_period_days: periodDays
+      });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        return {
+          totalWorkouts: 0,
+          completionRate: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+          favoriteWorkoutType: "strength",
+          avgWorkoutDuration: 0,
+          caloriesBurned: 0,
+          progressToGoal: 0
+        };
+      }
+
+      const analytics = data[0];
+      
+      return {
+        totalWorkouts: parseInt(analytics.total_workouts) || 0,
+        completionRate: parseInt(analytics.completion_rate) || 0,
+        currentStreak: parseInt(analytics.current_streak) || 0,
+        longestStreak: parseInt(analytics.longest_streak) || 0,
+        favoriteWorkoutType: analytics.favorite_workout_type || "strength",
+        avgWorkoutDuration: parseInt(analytics.avg_workout_duration) || 0,
+        caloriesBurned: parseInt(analytics.calories_burned) || 0,
+        progressToGoal: parseInt(analytics.progress_to_goal) || 0
+      };
+    } catch (error) {
+      console.error('Error fetching calendar analytics:', error);
+      return {
+        totalWorkouts: 0,
+        completionRate: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        favoriteWorkoutType: "strength",
+        avgWorkoutDuration: 0,
+        caloriesBurned: 0,
+        progressToGoal: 0
+      };
+    }
   }
 };

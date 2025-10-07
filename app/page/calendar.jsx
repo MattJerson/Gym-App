@@ -26,6 +26,7 @@ import StepsBarGraph from "../../components/calendar/StepsBarGraph";
 import CalendarAnalytics from "../../components/calendar/CalendarAnalytics";
 import NotificationBar from "../../components/NotificationBar";
 import { CalendarDataService } from "../../services/CalendarDataService";
+import { supabase } from "../../services/supabase";
 
 export default function Calendar() {
   const router = useRouter();
@@ -51,12 +52,32 @@ export default function Calendar() {
   const [stepsData, setStepsData] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState(null);
 
-  const userId = "user123";
+  // Get authenticated user
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        if (user) {
+          setUserId(user.id);
+        } else {
+          Alert.alert('Error', 'Please sign in to view calendar');
+        }
+      } catch (error) {
+        console.error('Error getting user:', error);
+        Alert.alert('Error', 'Failed to get user session');
+      }
+    };
+    getUser();
+  }, []);
 
   useEffect(() => {
-    loadCalendarData();
-  }, []);
+    if (userId) {
+      loadCalendarData();
+    }
+  }, [userId]);
 
   const loadCalendarData = async () => {
     try {

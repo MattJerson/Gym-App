@@ -449,57 +449,135 @@ export const TrainingDataService = {
 
   // Custom Workout Management
   async createCustomWorkout(userId, workoutData) {
-    // Replace with: const response = await fetch(`/api/users/${userId}/custom-workouts`, { method: 'POST', body: JSON.stringify(workoutData) });
-    return {
-      id: `custom_workout_${Date.now()}`,
-      ...workoutData,
-      userId: userId,
-      createdAt: new Date().toISOString(),
-      isCustom: true,
-      timesCompleted: 0,
-      lastCompleted: null
-    };
-  },
+    try {
+      // Map UI category names to database category names
+      const categoryMapping = {
+        'strength': 'Strength Training',
+        'cardio': 'Cardio',
+        'hiit': 'High Intensity',
+        'yoga': 'Flexibility',
+        'core': 'Core Training',
+        'functional': 'Functional Training'
+      };
 
-  async fetchCustomWorkouts(userId) {
-    // Replace with: const response = await fetch(`/api/users/${userId}/custom-workouts`);
-    return [
-      {
-        id: "custom_1",
-        name: "My Upper Body Blast",
-        description: "Custom upper body strength routine",
-        category: "strength",
-        duration: 45,
-        difficulty: "intermediate",
-        exercises: 8,
-        isCustom: true,
-        createdAt: "2025-09-01T10:00:00Z",
-        timesCompleted: 3,
-        lastCompleted: "2025-09-05T18:30:00Z"
-      },
-      {
-        id: "custom_2", 
-        name: "Quick Core Burner",
-        description: "High intensity core workout",
-        category: "core",
-        duration: 20,
-        difficulty: "advanced",
-        exercises: 6,
-        isCustom: true,
-        createdAt: "2025-08-28T15:30:00Z",
-        timesCompleted: 7,
-        lastCompleted: "2025-09-04T07:15:00Z"
+      const categoryName = categoryMapping[workoutData.category.toLowerCase()] || workoutData.category;
+
+      // Get category ID from category name
+      const { data: categories, error: categoryError } = await supabase
+        .from('workout_categories')
+        .select('id')
+        .ilike('name', categoryName)
+        .limit(1)
+        .single();
+
+      if (categoryError || !categories) {
+        console.error('Category lookup error:', categoryError);
+        throw new Error(`Invalid category: ${workoutData.category}`);
       }
-    ];
+
+      // Transform exercises to match database format
+      const exercises = workoutData.exercises.map(ex => ({
+        name: ex.name || ex.exercise_name,
+        description: ex.description || '',
+        sets: ex.sets || 3,
+        reps: ex.reps || '10',
+        rest_seconds: parseInt(ex.restTime) || 60,
+        muscle_groups: ex.muscle_groups || [],
+        equipment: ex.equipment || []
+      }));
+
+      const { data, error } = await supabase.rpc('create_custom_workout', {
+        p_user_id: userId,
+        p_name: workoutData.name,
+        p_description: workoutData.description || '',
+        p_category_id: categories.id,
+        p_difficulty: workoutData.difficulty.charAt(0).toUpperCase() + workoutData.difficulty.slice(1),
+        p_duration_minutes: parseInt(workoutData.duration) || 45,
+        p_estimated_calories: workoutData.estimatedCalories || (parseInt(workoutData.duration) * 6),
+        p_exercises: exercises
+      });
+
+      if (error) {
+        console.error('Error creating custom workout:', error);
+        throw error;
+      }
+
+      return {
+        id: data,
+        ...workoutData,
+        isCustom: true,
+        createdAt: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error creating custom workout:', error);
+      throw error;
+    }
   },
 
-  async updateCustomWorkout(userId, workoutId, updates) {
-    // Replace with: const response = await fetch(`/api/users/${userId}/custom-workouts/${workoutId}`, { method: 'PUT', body: JSON.stringify(updates) });
-    return {
-      id: workoutId,
-      ...updates,
-      updatedAt: new Date().toISOString()
-    };
+  async updateCustomWorkout(userId, templateId, workoutData) {
+    try {
+      // Map UI category names to database category names
+      const categoryMapping = {
+        'strength': 'Strength Training',
+        'cardio': 'Cardio',
+        'hiit': 'High Intensity',
+        'yoga': 'Flexibility',
+        'core': 'Core Training',
+        'functional': 'Functional Training'
+      };
+
+      const categoryName = categoryMapping[workoutData.category.toLowerCase()] || workoutData.category;
+
+      // Get category ID from category name
+      const { data: categories, error: categoryError } = await supabase
+        .from('workout_categories')
+        .select('id')
+        .ilike('name', categoryName)
+        .limit(1)
+        .single();
+
+      if (categoryError || !categories) {
+        console.error('Category lookup error:', categoryError);
+        throw new Error(`Invalid category: ${workoutData.category}`);
+      }
+
+      // Transform exercises to match database format
+      const exercises = workoutData.exercises.map(ex => ({
+        name: ex.name || ex.exercise_name,
+        description: ex.description || '',
+        sets: ex.sets || 3,
+        reps: ex.reps || '10',
+        rest_seconds: parseInt(ex.restTime || ex.rest_seconds) || 60,
+        muscle_groups: ex.muscle_groups || [],
+        equipment: ex.equipment || []
+      }));
+
+      const { data, error } = await supabase.rpc('update_custom_workout', {
+        p_user_id: userId,
+        p_template_id: templateId,
+        p_name: workoutData.name,
+        p_description: workoutData.description || '',
+        p_category_id: categories.id,
+        p_difficulty: workoutData.difficulty.charAt(0).toUpperCase() + workoutData.difficulty.slice(1),
+        p_duration_minutes: parseInt(workoutData.duration) || 45,
+        p_estimated_calories: workoutData.estimatedCalories || (parseInt(workoutData.duration) * 6),
+        p_exercises: exercises
+      });
+
+      if (error) {
+        console.error('Error updating custom workout:', error);
+        throw error;
+      }
+
+      return {
+        id: templateId,
+        ...workoutData,
+        updatedAt: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error updating custom workout:', error);
+      throw error;
+    }
   },
 
   async deleteCustomWorkout(userId, workoutId) {

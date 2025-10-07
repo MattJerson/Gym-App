@@ -7,9 +7,12 @@ import {
   FlatList,
   Dimensions,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
+import WorkoutOptionsModal from "./WorkoutOptionsModal";
 
 // Get screen dimensions
 const { width } = Dimensions.get("window");
@@ -43,6 +46,11 @@ const WorkoutCardItem = ({ item, onPress, onOptions }) => {
     ? item.scheduled_day_name 
     : null;
   
+  // Determine if custom workout
+  const isCustom = item.is_custom === true;
+  const workoutTypeLabel = isCustom ? 'CUSTOM' : (item.workout_type ? item.workout_type.toUpperCase() : 'PRE-MADE');
+  const typeBadgeColor = isCustom ? '#3B82F6' : (item.category_color || item.color);
+  
   return (
     <Pressable 
       style={({ pressed }) => [
@@ -53,17 +61,17 @@ const WorkoutCardItem = ({ item, onPress, onOptions }) => {
     >
       <View style={styles.cardInner}>
         {/* Color accent stripe at top */}
-        <View style={[styles.colorAccent, { backgroundColor: item.category_color || item.color }]} />
+        <View style={[styles.colorAccent, { backgroundColor: typeBadgeColor }]} />
         
         {/* Header with workout type badge */}
         <View style={styles.headerRow}>
           <View style={styles.badgeRow}>
             <View style={[styles.typeBadge, { 
-              backgroundColor: `${item.category_color || item.color}12`,
-              borderColor: `${item.category_color || item.color}25`,
+              backgroundColor: `${typeBadgeColor}${isCustom ? '20' : '12'}`,
+              borderColor: `${typeBadgeColor}${isCustom ? '40' : '25'}`,
             }]}>
-              <Text style={[styles.typeText, { color: item.category_color || item.color }]}>
-                {item.workout_type ? item.workout_type.toUpperCase() : 'PRE-MADE'}
+              <Text style={[styles.typeText, { color: typeBadgeColor }]}>
+                {workoutTypeLabel}
               </Text>
             </View>
             {dayLabel && (
@@ -140,9 +148,12 @@ export default function MyWorkouts({
   onSelectWorkout = () => {},
   onWorkoutOptions = () => {},
 }) {
+  const router = useRouter();
   const [userId, setUserId] = useState(null);
   const [workouts, setWorkouts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedWorkout, setSelectedWorkout] = useState(null);
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
 
   useEffect(() => {
     getUser();
@@ -178,6 +189,7 @@ export default function MyWorkouts({
       // Transform database response to match card format
       const transformedWorkouts = (data || []).map(workout => ({
         id: workout.id,
+        schedule_id: workout.id, // This is the schedule ID for editing/deleting
         workout_name: workout.workout_name,
         workout_type: workout.workout_type,
         category_color: workout.category_color,
@@ -188,8 +200,10 @@ export default function MyWorkouts({
         times_completed: workout.times_completed,
         is_scheduled: workout.is_scheduled,
         scheduled_day_name: workout.scheduled_day_name,
+        scheduled_day_of_week: workout.day_of_week,
         is_favorite: workout.is_favorite,
         template_id: workout.template_id,
+        is_custom: workout.is_custom, // FIX: Include is_custom flag
       }));
       
       setWorkouts(transformedWorkouts);
@@ -198,6 +212,33 @@ export default function MyWorkouts({
       Alert.alert('Error', 'Failed to load your workouts');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleWorkoutOptions = (workoutId) => {
+    const workout = workouts.find(w => w.id === workoutId);
+    if (workout) {
+      setSelectedWorkout(workout);
+      setShowOptionsModal(true);
+    }
+  };
+
+  const handleModalClose = () => {
+    setShowOptionsModal(false);
+    setSelectedWorkout(null);
+  };
+
+  const handleWorkoutUpdate = () => {
+    // Reload workouts after update
+    loadMyWorkouts();
+  };
+
+  const handleEditCustomWorkout = async (workout) => {
+    // Navigate to edit screen with workout data
+    if (workout.template_id) {
+      router.push(`/training/edit-workout?templateId=${workout.template_id}`);
+    } else {
+      Alert.alert("Error", "Unable to edit this workout");
     }
   };
 
@@ -248,7 +289,7 @@ export default function MyWorkouts({
           <WorkoutCardItem
             item={item}
             onPress={() => onSelectWorkout(item.template_id)}
-            onOptions={onWorkoutOptions}
+            onOptions={handleWorkoutOptions}
           />
         )}
         keyExtractor={(item) => item.id.toString()}
@@ -258,6 +299,15 @@ export default function MyWorkouts({
         snapToInterval={CARD_WIDTH + CARD_MARGIN_RIGHT}
         decelerationRate="fast"
         snapToAlignment="start"
+      />
+
+      {/* Workout Options Modal */}
+      <WorkoutOptionsModal
+        visible={showOptionsModal}
+        workout={selectedWorkout}
+        onClose={handleModalClose}
+        onUpdate={handleWorkoutUpdate}
+        onEditCustom={handleEditCustomWorkout}
       />
     </View>
   );

@@ -11,6 +11,7 @@ import {
   StatusBar,
   TouchableOpacity,
   Animated,
+  ActivityIndicator,
 } from "react-native";
 import {
   Ionicons,
@@ -18,17 +19,20 @@ import {
   MaterialIcons,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useState, useEffect, useRef } from "react";
 import { TrainingDataService } from "../../services/TrainingDataService";
 import { supabase } from "../../services/supabase";
 
-export default function CreateWorkout() {
+export default function EditWorkout() {
   const router = useRouter();
+  const { templateId } = useLocalSearchParams();
   
-  // 🔄 Workout creation state
+  // State management
   const [userId, setUserId] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [workoutName, setWorkoutName] = useState("");
   const [workoutDescription, setWorkoutDescription] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("strength");
@@ -37,14 +41,12 @@ export default function CreateWorkout() {
   const [exercises, setExercises] = useState([]);
   const [showExerciseModal, setShowExerciseModal] = useState(false);
   const [exerciseLibrary, setExerciseLibrary] = useState([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [expandedExerciseId, setExpandedExerciseId] = useState(null);
 
   // Animation
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Workout categories with updated colors
+  // Workout categories
   const categories = [
     { id: "strength", name: "Strength", icon: "dumbbell", color: "#3B82F6" },
     { id: "cardio", name: "Cardio", icon: "flash", color: "#EF4444" },
@@ -54,7 +56,7 @@ export default function CreateWorkout() {
     { id: "functional", name: "Functional", icon: "body", color: "#F59E0B" }
   ];
 
-  // Difficulty levels with updated colors
+  // Difficulty levels
   const difficultyLevels = [
     { id: "beginner", name: "Beginner", icon: "trending-up", color: "#10B981" },
     { id: "intermediate", name: "Intermediate", icon: "flash", color: "#F59E0B" },
@@ -63,7 +65,6 @@ export default function CreateWorkout() {
 
   useEffect(() => {
     getUser();
-    loadExerciseLibrary();
     
     // Fade in animation
     Animated.timing(fadeAnim, {
@@ -73,13 +74,20 @@ export default function CreateWorkout() {
     }).start();
   }, []);
 
+  useEffect(() => {
+    if (userId && templateId) {
+      loadWorkoutData();
+      loadExerciseLibrary();
+    }
+  }, [userId, templateId]);
+
   const getUser = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
       } else {
-        Alert.alert('Error', 'Please sign in to create workouts');
+        Alert.alert('Error', 'Please sign in to edit workouts');
         router.back();
       }
     } catch (error) {
@@ -89,21 +97,94 @@ export default function CreateWorkout() {
     }
   };
 
+  const loadWorkoutData = async () => {
+    try {
+      setIsLoading(true);
+
+      // Fetch workout template details
+      const { data: template, error: templateError } = await supabase
+        .from('workout_templates')
+        .select('*')
+        .eq('id', templateId)
+        .single();
+
+      if (templateError) throw templateError;
+
+      // Verify user owns this workout
+      if (!template.is_custom || template.created_by_user_id !== userId) {
+        Alert.alert('Error', 'You can only edit your own custom workouts');
+        router.back();
+        return;
+      }
+
+      // Fetch exercises for this template
+      const { data: exercisesData, error: exercisesError } = await supabase
+        .from('workout_exercises')
+        .select('*')
+        .eq('template_id', templateId)
+        .order('order_index');
+
+      if (exercisesError) throw exercisesError;
+
+      // Get category info to map to UI category
+      const { data: categoryData } = await supabase
+        .from('workout_categories')
+        .select('name')
+        .eq('id', template.category_id)
+        .single();
+
+      // Map category name to UI category ID
+      const categoryMapping = {
+        'Strength Training': 'strength',
+        'Cardio': 'cardio',
+        'High Intensity': 'hiit',
+        'Flexibility': 'yoga',
+        'Core Training': 'core',
+        'Functional Training': 'functional'
+      };
+
+      const categoryId = categoryMapping[categoryData?.name] || 'strength';
+
+      // Set form data
+      setWorkoutName(template.name);
+      setWorkoutDescription(template.description || '');
+      setSelectedCategory(categoryId);
+      setEstimatedDuration(template.duration_minutes.toString());
+      setDifficulty(template.difficulty.toLowerCase());
+
+      // Transform exercises to match the format used in create-workout
+      const transformedExercises = exercisesData.map((ex, index) => ({
+        id: `${ex.id}_${Date.now()}_${index}`,
+        exercise_id: ex.id,
+        name: ex.exercise_name,
+        description: ex.description || '',
+        sets: ex.sets,
+        reps: ex.reps,
+        weight: '',
+        restTime: ex.rest_seconds.toString(),
+        muscle_groups: ex.muscle_groups || [],
+        equipment: ex.equipment || [],
+        notes: ''
+      }));
+
+      setExercises(transformedExercises);
+    } catch (error) {
+      console.error('Error loading workout:', error);
+      Alert.alert('Error', 'Failed to load workout details');
+      router.back();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const loadExerciseLibrary = async () => {
     try {
-      if (!userId) return;
       const library = await TrainingDataService.fetchExerciseLibrary(userId);
       setExerciseLibrary(library.featured || []);
     } catch (error) {
       console.error("Error loading exercise library:", error);
     }
   };
-
-  useEffect(() => {
-    if (userId) {
-      loadExerciseLibrary();
-    }
-  }, [userId]);
 
   const handleAddExercise = (exercise) => {
     const newExercise = {
@@ -142,13 +223,13 @@ export default function CreateWorkout() {
       return;
     }
 
-    if (!userId) {
-      Alert.alert("Authentication Error", "User session not found. Please sign in again.");
+    if (!userId || !templateId) {
+      Alert.alert("Error", "Missing required information");
       return;
     }
 
     try {
-      setIsLoading(true);
+      setIsSaving(true);
       
       const workoutData = {
         name: workoutName.trim(),
@@ -165,36 +246,40 @@ export default function CreateWorkout() {
           muscle_groups: ex.muscle_groups || [],
           equipment: ex.equipment || []
         })),
-        isCustom: true
       };
 
-      // Save using TrainingDataService with real user ID
-      const savedWorkout = await TrainingDataService.createCustomWorkout(userId, workoutData);
-      console.log("Custom workout saved:", savedWorkout);
+      await TrainingDataService.updateCustomWorkout(userId, templateId, workoutData);
       
       Alert.alert(
-        "Workout Created! 🎉", 
-        `${workoutName} has been saved to My Workouts`,
+        "Workout Updated! 🎉", 
+        `${workoutName} has been successfully updated`,
         [
           {
-            text: "View Workouts",
-            onPress: () => router.push('/page/training')
+            text: "Done",
+            onPress: () => router.back()
           }
         ]
       );
       
     } catch (error) {
-      console.error("Error saving workout:", error);
-      Alert.alert("Save Failed", error.message || "Failed to save workout. Please try again.");
+      console.error("Error updating workout:", error);
+      Alert.alert("Update Failed", error.message || "Failed to update workout. Please try again.");
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
-  const filteredExercises = exerciseLibrary.filter(exercise =>
-    exercise.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    exercise.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
+        <StatusBar barStyle="light-content" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#A3E635" />
+          <Text style={styles.loadingText}>Loading workout...</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -206,8 +291,8 @@ export default function CreateWorkout() {
           <Ionicons name="arrow-back" size={24} color="#FAFAFA" />
         </Pressable>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Create Workout</Text>
-          <Text style={styles.headerSubtitle}>Build your custom routine</Text>
+          <Text style={styles.headerTitle}>Edit Workout</Text>
+          <Text style={styles.headerSubtitle}>Update your custom routine</Text>
         </View>
         <View style={styles.headerRight}>
           {exercises.length > 0 && (
@@ -238,7 +323,7 @@ export default function CreateWorkout() {
           <View style={[styles.stepDot, workoutName.trim() && exercises.length > 0 && styles.stepDotActive]}>
             <Ionicons name="save-outline" size={16} color={workoutName.trim() && exercises.length > 0 ? "#0B0B0B" : "#71717A"} />
           </View>
-          <Text style={styles.stepLabel}>Save</Text>
+          <Text style={styles.stepLabel}>Update</Text>
         </View>
       </View>
 
@@ -393,7 +478,7 @@ export default function CreateWorkout() {
               </View>
               <Text style={styles.emptyStateText}>No exercises yet</Text>
               <Text style={styles.emptyStateSubtext}>
-                Start building your workout by adding exercises
+                Add exercises to your workout
               </Text>
               <Pressable
                 style={styles.emptyStateButton}
@@ -406,7 +491,7 @@ export default function CreateWorkout() {
                   end={{ x: 1, y: 0 }}
                 >
                   <Ionicons name="add-circle" size={20} color="#0B0B0B" />
-                  <Text style={styles.emptyStateButtonText}>Add First Exercise</Text>
+                  <Text style={styles.emptyStateButtonText}>Add Exercise</Text>
                 </LinearGradient>
               </Pressable>
             </View>
@@ -439,25 +524,25 @@ export default function CreateWorkout() {
         {workoutName.trim() && exercises.length > 0 && (
           <Animated.View style={{ opacity: fadeAnim }}>
             <Pressable 
-              style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}
+              style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
               onPress={handleSaveWorkout}
-              disabled={isLoading}
+              disabled={isSaving}
             >
               <LinearGradient
-                colors={isLoading ? ["#52525B", "#52525B"] : ["#A3E635", "#84CC16"]}
+                colors={isSaving ? ["#52525B", "#52525B"] : ["#3B82F6", "#2563EB"]}
                 style={styles.saveButtonGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
               >
-                {isLoading ? (
+                {isSaving ? (
                   <>
-                    <MaterialCommunityIcons name="loading" size={24} color="#0B0B0B" />
-                    <Text style={styles.saveButtonText}>Saving...</Text>
+                    <MaterialCommunityIcons name="loading" size={24} color="#FFFFFF" />
+                    <Text style={styles.saveButtonText}>Updating...</Text>
                   </>
                 ) : (
                   <>
-                    <Ionicons name="checkmark-circle" size={24} color="#0B0B0B" />
-                    <Text style={styles.saveButtonText}>Save Custom Workout</Text>
+                    <Ionicons name="checkmark-circle" size={24} color="#FFFFFF" />
+                    <Text style={styles.saveButtonText}>Update Workout</Text>
                   </>
                 )}
               </LinearGradient>
@@ -479,7 +564,7 @@ export default function CreateWorkout() {
   );
 }
 
-// Exercise Card Component
+// Exercise Card Component (same as create-workout)
 function ExerciseCard({ exercise, index, isExpanded, onToggle, onUpdate, onRemove }) {
   return (
     <View style={exerciseCardStyles.card}>
@@ -702,7 +787,7 @@ const exerciseCardStyles = StyleSheet.create({
   },
 });
 
-// Exercise Selection Modal Component
+// Exercise Selection Modal Component (same as create-workout)
 function ExerciseSelectionModal({ visible, onClose, exerciseLibrary, onSelectExercise }) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -922,10 +1007,22 @@ const modalStyles = StyleSheet.create({
   },
 });
 
+// Main styles (same structure as create-workout)
 const styles = StyleSheet.create({
   container: { 
     flex: 1,
     backgroundColor: "#0B0B0B",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 16,
+  },
+  loadingText: {
+    color: "#FAFAFA",
+    fontSize: 16,
+    fontWeight: "600",
   },
   header: {
     flexDirection: "row",
@@ -972,12 +1069,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#A3E635",
+    backgroundColor: "#3B82F6",
     alignItems: "center",
     justifyContent: "center",
   },
   exerciseCountText: {
-    color: "#0B0B0B",
+    color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "700",
   },
@@ -1265,7 +1362,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
   },
   saveButtonText: {
-    color: "#0B0B0B",
+    color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "700",
   },
