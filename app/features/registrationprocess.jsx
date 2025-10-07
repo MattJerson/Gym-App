@@ -40,7 +40,7 @@ const formConfig = [
       { name: "height", label: "What is your height?", type: "text", placeholder: ["Height", "Height"], unit: ["cm", "ft"], dependsOn: "useMetric", keyboardType: "numeric", validation: { min: 100, max: 250, minImperial: 36, maxImperial: 96, required: false }, returnKeyType: "next" },
       { name: "weight", label: "What is your weight?", type: "text", placeholder: ["Weight", "Weight"], unit: ["kg", "lbs"], dependsOn: "useMetric", keyboardType: "numeric", validation: { min: 30, max: 300, minImperial: 66, maxImperial: 660, required: false }, returnKeyType: "next" },
       { name: "useMetric", label: "Use Metric Units", type: "switch" },
-      { name: "activityLevel", label: "Select your activity level", type: "dropdown", placeholder: "Activity Level", zIndex: 2000, items: [{ label: "Sedentary", value: "sedentary" }, { label: "Lightly Active", value: "light" }, { label: "Moderately Active", value: "moderate" }, { label: "Very Active", value: "active" }, { label: "Extra Active", value: "extra" }] },
+      { name: "activityLevel", label: "Select your activity level", type: "dropdown", placeholder: "Activity Level", zIndex: 2000, items: [{ label: "Sedentary", value: "sedentary" }, { label: "Lightly Active", value: "light" }, { label: "Moderately Active", value: "moderate" }, { label: "Very Active", value: "active" }] },
       { name: "fitnessGoal", label: "What is your fitness goal?", type: "dropdown", placeholder: "Fitness Goal", zIndex: 1000, items: [{ label: "Lose Weight", value: "lose" }, { label: "Maintain Weight", value: "maintain" }, { label: "Gain Muscle", value: "gain" }] },
     ],
   },
@@ -51,7 +51,7 @@ const formConfig = [
       { name: "fitnessLevel", label: "What's your fitness level?", type: "dropdown", placeholder: "Select Fitness Level", zIndex: 6000, items: [{ label: "Beginner", value: "basic" }, { label: "Intermediate", value: "intermediate" }, { label: "Advanced", value: "advanced" }] },
       { name: "trainingLocation", label: "Where do you train?", type: "dropdown", placeholder: "Select Location", zIndex: 5000, items: [{ label: "At Home", value: "home" }, { label: "At the Gym", value: "gym" }] },
       { name: "trainingDuration", label: "How long do you train?", type: "dropdown", placeholder: "Select Duration", zIndex: 4000, items: [{ label: "20 mins", value: "20" }, { label: "30 mins", value: "30" }, { label: "45 mins", value: "45" }, { label: "60 mins", value: "60" }, { label: "90+ mins", value: "90+" }] },
-      { name: "muscleFocus", label: "Interested in growing a specific muscle?", type: "dropdown", placeholder: "Select Muscle Group", zIndex: 3000, items: [{ label: "General Growth", value: "general" }, { label: "Legs and Glutes", value: "legs_glutes" }, { label: "Back", value: "back" }, { label: "Chest", value: "chest" }, { label: "Shoulders and Arms", value: "shoulders_arms" }, { label: "Core", value: "core" }] },
+      { name: "muscleFocus", label: "Interested in growing specific muscles?", type: "multi-button", placeholder: "Select Muscle Groups", items: [{ label: "General Growth", value: "general" }, { label: "Legs & Glutes", value: "legs_glutes" }, { label: "Back", value: "back" }, { label: "Chest", value: "chest" }, { label: "Shoulders & Arms", value: "shoulders_arms" }, { label: "Core", value: "core" }] },
       { name: "injuries", label: "Any current injuries?", type: "dropdown", placeholder: "Select Injuries (Leave Blank if empty)", zIndex: 2000, multiple: true, items: [{ label: "Lower Back", value: "lower_back" }, { label: "Knees", value: "knees" }, { label: "Shoulder", value: "shoulder" }, { label: "Wrist", value: "wrist" }, { label: "Ankle", value: "ankle" }] },
       { name: "trainingFrequency", label: "How often do you want to train?", type: "dropdown", placeholder: "Select Frequency", zIndex: 1000, items: [{ label: "2 days/week", value: "2" }, { label: "3 days/week", value: "3" }, { label: "4 days/week", value: "4" }, { label: "5 days/week", value: "5" }, { label: "6 days/week", value: "6" }] },
     ],
@@ -61,9 +61,9 @@ const formConfig = [
     subtitle: "Nutrition preferences",
     fields: [
       { name: "mealType", label: "What's your meal preference?", type: "dropdown", placeholder: "Meal Preference", zIndex: 3000, items: [{ label: "Omnivore", value: "omnivore" }, { label: "Vegetarian", value: "vegetarian" }, { label: "Vegan", value: "vegan" }, { label: "Pescatarian", value: "pescatarian" }] },
+      { name: "calorieGoal", label: "What is your daily calorie goal?", type: "text", placeholder: "Daily Calorie Goal", keyboardType: "numeric", validation: { min: 800, max: 5000, required: false }, returnKeyType: "next" },
+      { name: "mealsPerDay", label: "How many meals per day?", type: "text", placeholder: "Meals per Day", keyboardType: "numeric", validation: { min: 1, max: 8, required: false }, returnKeyType: "next" },
       { name: "restrictions", label: "Any dietary restrictions?", type: "dropdown", placeholder: "Dietary Restrictions", zIndex: 2000, multiple: true, items: [{ label: "Gluten-Free", value: "gluten-free" }, { label: "Dairy-Free", value: "dairy-free" }, { label: "Nut-Free", value: "nut-free" }, { label: "Soy-Free", value: "soy-free" }] },
-      { name: "calorieGoal", type: "text", placeholder: "Daily Calorie Goal", keyboardType: "numeric", validation: { min: 800, max: 5000, required: false }, returnKeyType: "next" },
-      { name: "mealsPerDay", type: "text", placeholder: "Meals per Day", keyboardType: "numeric", validation: { min: 1, max: 8, required: false }, returnKeyType: "done" },
     ],
   },
 ];
@@ -122,7 +122,7 @@ const getInitialState = () => {
     formConfig.forEach(step => {
         step.fields.forEach(field => {
             if (field.type === 'switch') initialState[field.name] = true;
-            else if (field.multiple) initialState[field.name] = [];
+            else if (field.multiple || field.type === 'multi-button') initialState[field.name] = [];
             else initialState[field.name] = '';
         });
     });
@@ -521,6 +521,46 @@ export default function BasicInfo() {
                 />
               </View>
             );
+        case 'multi-button':
+            return (
+              <View key={field.name} style={styles.fieldWrapper}>
+                <View style={styles.multiButtonGrid}>
+                  {field.items.map((item) => {
+                    const isSelected = formData[field.name]?.includes(item.value);
+                    return (
+                      <Pressable
+                        key={item.value}
+                        style={[
+                          styles.multiButton,
+                          isSelected && styles.multiButtonSelected
+                        ]}
+                        onPress={() => {
+                          lightHaptic();
+                          const currentValues = formData[field.name] || [];
+                          const newValues = isSelected
+                            ? currentValues.filter(v => v !== item.value)
+                            : [...currentValues, item.value];
+                          handleInputChange(field.name, newValues);
+                        }}
+                      >
+                        <Text style={[
+                          styles.multiButtonText,
+                          isSelected && styles.multiButtonTextSelected
+                        ]}>
+                          {item.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                {fieldError && (
+                  <View style={styles.errorContainer}>
+                    <Ionicons name="alert-circle" size={16} color="#F44336" />
+                    <Text style={styles.errorText}>{fieldError}</Text>
+                  </View>
+                )}
+              </View>
+            );
         default:
             return null;
     }  
@@ -567,30 +607,6 @@ export default function BasicInfo() {
                 </View>
                 <View style={[styles.twoColumnField, { zIndex: openDropdown === weightField.name ? 9999 : (weightField.zIndex || 1000 - currentFields.indexOf(weightField)) }]}>
                   {renderField(weightField, currentFields.indexOf(weightField))}
-                </View>
-              </View>
-            </View>
-          );
-          return;
-        }
-      }
-
-      // Calorie Goal & Meals Per Day two-column layout
-      if (field.name === 'calorieGoal') {
-        const mealsField = currentFields.find(f => f.name === 'mealsPerDay');
-        if (mealsField) {
-          renderedFields.add('calorieGoal');
-          renderedFields.add('mealsPerDay');
-          
-          layouts.push(
-            <View key="calorie-meals-section" style={styles.twoColumnSection}>
-              <Text style={styles.twoColumnLabel}>Daily Intake</Text>
-              <View style={styles.twoColumnContainer}>
-                <View style={styles.twoColumnField}>
-                  {renderField(field, index)}
-                </View>
-                <View style={styles.twoColumnField}>
-                  {renderField(mealsField, currentFields.indexOf(mealsField))}
                 </View>
               </View>
             </View>
@@ -1131,6 +1147,35 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "600",
     flex: 1,
+  },
+  multiButtonGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    width: "100%",
+    marginBottom: 8,
+  },
+  multiButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    minWidth: "30%",
+    alignItems: "center",
+  },
+  multiButtonSelected: {
+    backgroundColor: "#1E3A5F",
+    borderColor: "#1E3A5F",
+  },
+  multiButtonText: {
+    fontSize: 14,
+    color: "#999",
+    fontWeight: "600",
+  },
+  multiButtonTextSelected: {
+    color: "#fff",
   },
   submitButton: {
     width: "100%",

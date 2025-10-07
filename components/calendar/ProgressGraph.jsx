@@ -7,18 +7,37 @@ const screenWidth = Dimensions.get("window").width;
 export default function ProgressGraph({ chart }) {
   // Data is filtered for the 7-day view
   const filteredData = useMemo(() => {
-    if (!chart?.labels || !chart?.values) return { labels: [], values: [] };
+    if (!chart?.labels || !chart?.values || chart.labels.length === 0 || chart.values.length === 0) {
+      return { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], values: [0, 0, 0, 0, 0, 0, 0] };
+    }
+    
+    // Filter out any invalid values (null, undefined, NaN, Infinity)
+    const validValues = chart.values.map(v => {
+      const num = parseFloat(v);
+      return (!isNaN(num) && isFinite(num)) ? num : 0;
+    });
+    
+    const validLabels = chart.labels.slice(-7).map(label => label.substring(3, 5) || 'N/A');
+    const finalValues = validValues.slice(-7);
+    
+    // Ensure we have at least some data points
+    if (finalValues.length === 0) {
+      return { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], values: [0, 0, 0, 0, 0, 0, 0] };
+    }
+    
     return {
-      labels: chart.labels.slice(-7).map(label => label.substring(3, 5)), // Show only day, e.g., "Mon"
-      values: chart.values.slice(-7),
+      labels: validLabels,
+      values: finalValues,
     };
   }, [chart]);
   
   // Calculate weekly average to display in the header
   const weeklyAverage = useMemo(() => {
      if (!filteredData.values || filteredData.values.length === 0) return 0;
-     const total = filteredData.values.reduce((sum, value) => sum + value, 0);
-     return Math.round(total / filteredData.values.length);
+     const validValues = filteredData.values.filter(v => !isNaN(v) && isFinite(v));
+     if (validValues.length === 0) return 0;
+     const total = validValues.reduce((sum, value) => sum + value, 0);
+     return Math.round(total / validValues.length);
   }, [filteredData.values]);
 
 const aestheticChartConfig = {
@@ -61,21 +80,29 @@ const aestheticChartConfig = {
       </View>
 
       {/* Chart with Gradient Fill */}
-      <LineChart
-        data={{
-          labels: filteredData.labels,
-          datasets: [{ data: filteredData.values }],
-        }}
-        width={screenWidth - 48} // Adjusted for new padding
-        height={220}
-        chartConfig={aestheticChartConfig}
-        bezier
-        withInnerLines={true}
-        withShadow={true} // This adds the nice gradient fill under the line
-        style={styles.chartStyle}
-        formatYLabel={formatLabel}
-        fromZero={false}
-      />
+      {filteredData.values.length > 0 && filteredData.labels.length > 0 ? (
+        <LineChart
+          data={{
+            labels: filteredData.labels,
+            datasets: [{ 
+              data: filteredData.values.length > 0 ? filteredData.values : [0] 
+            }],
+          }}
+          width={screenWidth - 48} // Adjusted for new padding
+          height={220}
+          chartConfig={aestheticChartConfig}
+          bezier
+          withInnerLines={true}
+          withShadow={true} // This adds the nice gradient fill under the line
+          style={styles.chartStyle}
+          formatYLabel={formatLabel}
+          fromZero={false}
+        />
+      ) : (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>No data available</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -121,5 +148,18 @@ const styles = StyleSheet.create({
   },
   chartStyle: {
     borderRadius: 16,
+  },
+  emptyState: {
+    height: 220,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+    marginHorizontal: 14,
+  },
+  emptyText: {
+    color: 'rgba(235, 235, 245, 0.6)',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

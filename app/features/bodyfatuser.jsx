@@ -158,17 +158,23 @@ export default function BodyFatUser() {
             <View style={styles.mainContent}>
               {currentStep === 0 ? (
                 // Current Body Fat Step
-                <>                  <Text style={styles.subtitle}>
-                    What's your current body fat percentage?
-                  </Text>
+                <>
+                  <View style={styles.titleSection}>
+                    <Text style={styles.mainTitle}>Current Body Fat</Text>
+                    <Text style={styles.subtitle}>
+                      Slide to select your current body fat percentage
+                    </Text>
+                  </View>
 
                   <View style={styles.imageContainer}>
-                    <Image
-                      source={getBodyImage(currentBodyFat)}
-                      style={styles.bodyImage}
-                    />
+                    <View style={styles.imageBorder}>
+                      <Image
+                        source={getBodyImage(currentBodyFat)}
+                        style={styles.bodyImage}
+                      />
+                    </View>
                     <LinearGradient
-                      colors={["transparent", "rgba(0,0,0,0.4)"]}
+                      colors={["transparent", "rgba(11,11,11,0.3)"]}
                       style={styles.imageOverlay}
                     />
                   </View>
@@ -178,34 +184,51 @@ export default function BodyFatUser() {
                       <Text style={styles.valueText}>
                         {Math.round(currentBodyFat)}%
                       </Text>
-                      <Text style={styles.valueLabel}>Current</Text>
+                      <Text style={styles.valueLabel}>Body Fat Percentage</Text>
+                      <View style={styles.categoryBadge}>
+                        <Text style={styles.categoryText}>
+                          {currentBodyFat >= 25 ? "Higher Range" : 
+                           currentBodyFat >= 18 ? "Moderate" :
+                           currentBodyFat >= 12 ? "Healthy" : "Athletic"}
+                        </Text>
+                      </View>
                     </View>
-                      <Slider
+                    <Slider
                       style={styles.slider}
                       minimumValue={3}
                       maximumValue={40}
                       value={currentBodyFat}
                       onValueChange={(value) => handleSliderChange(value, false)}
                       minimumTrackTintColor="#4A9EFF"
-                      maximumTrackTintColor="rgba(255, 255, 255, 0.2)"
-                      thumbTintColor="#ffffff"
+                      maximumTrackTintColor="rgba(255, 255, 255, 0.15)"
+                      thumbTintColor="#4A9EFF"
                       thumbStyle={styles.sliderThumb}
                     />
+                    <View style={styles.sliderLabels}>
+                      <Text style={styles.sliderLabelText}>3%</Text>
+                      <Text style={styles.sliderLabelText}>40%</Text>
+                    </View>
                   </View>
                 </>
               ) : (
                 // Goal Body Fat Step
-                <>                  <Text style={styles.subtitle}>
-                    What's your target body fat percentage?
-                  </Text>
+                <>
+                  <View style={styles.titleSection}>
+                    <Text style={styles.mainTitle}>Goal Body Fat</Text>
+                    <Text style={styles.subtitle}>
+                      Set your target body fat percentage
+                    </Text>
+                  </View>
 
                   <View style={styles.imageContainer}>
-                    <Image
-                      source={getBodyImage(goalBodyFat)}
-                      style={styles.bodyImage}
-                    />
+                    <View style={styles.imageBorder}>
+                      <Image
+                        source={getBodyImage(goalBodyFat)}
+                        style={styles.bodyImage}
+                      />
+                    </View>
                     <LinearGradient
-                      colors={["transparent", "rgba(0,0,0,0.4)"]}
+                      colors={["transparent", "rgba(11,11,11,0.3)"]}
                       style={styles.imageOverlay}
                     />
                   </View>
@@ -215,18 +238,30 @@ export default function BodyFatUser() {
                       <Text style={styles.valueText}>
                         {Math.round(goalBodyFat)}%
                       </Text>
-                      <Text style={styles.valueLabel}>Goal</Text>
+                      <Text style={styles.valueLabel}>Target Body Fat</Text>
+                      <View style={[styles.categoryBadge, styles.categoryBadgeGoal]}>
+                        <Text style={styles.categoryText}>
+                          {goalBodyFat >= 25 ? "Higher Range" : 
+                           goalBodyFat >= 18 ? "Moderate" :
+                           goalBodyFat >= 12 ? "Healthy" : "Athletic"}
+                        </Text>
+                      </View>
                     </View>
-                      <Slider
+                    <Slider
                       style={styles.slider}
                       minimumValue={3}
                       maximumValue={40}
                       value={goalBodyFat}
                       onValueChange={(value) => handleSliderChange(value, true)}
-                      minimumTrackTintColor="#FF6B6B"
-                      maximumTrackTintColor="rgba(255, 255, 255, 0.2)"
-                      thumbTintColor="#ffffff"                      thumbStyle={styles.sliderThumb}
+                      minimumTrackTintColor="#00D4AA"
+                      maximumTrackTintColor="rgba(255, 255, 255, 0.15)"
+                      thumbTintColor="#00D4AA"
+                      thumbStyle={styles.sliderThumb}
                     />
+                    <View style={styles.sliderLabels}>
+                      <Text style={styles.sliderLabelText}>3%</Text>
+                      <Text style={styles.sliderLabelText}>40%</Text>
+                    </View>
                   </View>
                 </>
               )}
@@ -276,7 +311,9 @@ export default function BodyFatUser() {
                   <Text style={styles.modalDetailText}>
                     {currentBodyFat > goalBodyFat 
                       ? `${Math.abs(Math.round(currentBodyFat - goalBodyFat))}% to lose`
-                      : `${Math.abs(Math.round(goalBodyFat - currentBodyFat))}% to gain`
+                      : currentBodyFat < goalBodyFat
+                      ? `${Math.abs(Math.round(goalBodyFat - currentBodyFat))}% to gain`
+                      : 'Maintain current body fat'
                     }
                   </Text>
                   
@@ -367,26 +404,45 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-start",
     paddingTop: 10,
-  },  subtitle: {
-    fontSize: 18,
-    color: "rgba(255, 255, 255, 0.8)",
+  },
+  titleSection: {
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  mainTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#fff",
     textAlign: "center",
-    marginTop: 10,
-    marginBottom: 25,
-    lineHeight: 24,
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: "rgba(255, 255, 255, 0.7)",
+    textAlign: "center",
+    lineHeight: 22,
     paddingHorizontal: 20,
     fontWeight: "500",
-  },  imageContainer: {
+  },
+  imageContainer: {
     width: "100%",
-    height: 280,
-    borderRadius: 25,
+    height: 240,
+    borderRadius: 20,
     overflow: "hidden",
-    marginBottom: 25,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 12,
+    marginBottom: 30,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  imageBorder: {
+    width: "90%",
+    height: "100%",
+    borderRadius: 20,
+    overflow: "hidden",
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   bodyImage: {
     width: "100%",
@@ -398,39 +454,80 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: "40%",
-  },  sliderSection: {
+    height: "30%",
+  },
+  sliderSection: {
     width: "100%",
     alignItems: "center",
     marginBottom: 15,
+    paddingHorizontal: 10,
   },
   valueDisplay: {
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 30,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    paddingVertical: 20,
+    paddingHorizontal: 30,
+    borderRadius: 16,
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   valueText: {
-    fontSize: 48,
-    fontWeight: "bold",
+    fontSize: 56,
+    fontWeight: "900",
     color: "#fff",
-    marginBottom: 4,
+    marginBottom: 8,
+    letterSpacing: -2,
   },
   valueLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: "rgba(255, 255, 255, 0.6)",
     textTransform: "uppercase",
-    letterSpacing: 1,
-    fontWeight: "600",
-  },  slider: {
+    letterSpacing: 1.5,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  categoryBadge: {
+    backgroundColor: "rgba(74, 158, 255, 0.2)",
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(74, 158, 255, 0.3)",
+  },
+  categoryBadgeGoal: {
+    backgroundColor: "rgba(0, 212, 170, 0.2)",
+    borderColor: "rgba(0, 212, 170, 0.3)",
+  },
+  categoryText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#fff",
+    letterSpacing: 0.5,
+  },
+  slider: {
     width: "100%",
-    height: 60,
-    marginBottom: 10,
+    height: 50,
+    marginBottom: 8,
+  },
+  sliderLabels: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 5,
+  },
+  sliderLabelText: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.4)",
+    fontWeight: "600",
   },
   sliderThumb: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     backgroundColor: "#fff",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,    elevation: 6,
   },  

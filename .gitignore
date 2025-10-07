@@ -49,3 +49,5 @@ supabase/migrations/013_workout_session_tracking.sql
 supabase/migrations/014_fix_exercise_completion_and_calories.sql
 supabase/migrations/014_update_my_workouts_function.sql
 supabase/migrations/015_custom_workouts_system.sql
+supabase/migrations/016_onboarding_and_user_preferences.sql
+supabase/migrations/017_calendar_analytics_functions.sql

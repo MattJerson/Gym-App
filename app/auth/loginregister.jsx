@@ -175,6 +175,22 @@ export default function Register() {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
+        // Check if user has completed registration process
+        if (data?.user?.id) {
+          const { data: profileData, error: profileError } = await supabase
+            .from('registration_profiles')
+            .select('*')
+            .eq('user_id', data.user.id)
+            .single();
+          
+          // If no profile exists or profile is incomplete, redirect to registration
+          if (profileError || !profileData || !profileData.gender || !profileData.fitness_goal) {
+            console.log('Registration incomplete, redirecting to registration process');
+            router.replace("/features/registrationprocess");
+            return;
+          }
+        }
+
         // On success navigate to app home
         router.replace("/page/home");
       }

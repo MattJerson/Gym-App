@@ -8,7 +8,16 @@ export default function StepsBarGraph({ dailyData }) {
   const [range, setRange] = useState("1M");
 
   const filteredData = useMemo(() => {
-    if (!dailyData?.dates || !dailyData?.values) return { labels: [], values: [] };
+    if (!dailyData?.dates || !dailyData?.values || dailyData.dates.length === 0 || dailyData.values.length === 0) {
+      // Return default empty data
+      return { labels: ['W1', 'W2', 'W3', 'W4'], values: [0, 0, 0, 0] };
+    }
+    
+    // Filter out any invalid values (null, undefined, NaN, Infinity)
+    const validValues = dailyData.values.map(v => {
+      const num = parseFloat(v);
+      return (!isNaN(num) && isFinite(num)) ? num : 0;
+    });
     
     // This function is now more robust to prevent "Invalid Date" errors.
     const getDayLabel = (dateStr) => {
@@ -28,19 +37,26 @@ export default function StepsBarGraph({ dailyData }) {
       case "1W":
         return {
           labels: dailyData.dates.slice(-7).map(getDayLabel),
-          values: dailyData.values.slice(-7),
+          values: validValues.slice(-7).map(v => v || 0),
         };
 
       case "1M": {
         const weeks = [];
-        for (let i = 0; i < dailyData.values.length; i += 7) {
-          weeks.push(dailyData.values.slice(i, i + 7));
+        for (let i = 0; i < validValues.length; i += 7) {
+          weeks.push(validValues.slice(i, i + 7));
+        }
+        if (weeks.length === 0) {
+          return { labels: ['W1', 'W2', 'W3', 'W4'], values: [0, 0, 0, 0] };
         }
         return {
           labels: weeks.map((_, idx) => `W${idx + 1}`),
-          values: weeks.map(
-            (w) => w.length > 0 ? Math.round(w.reduce((a, b) => a + b, 0) / w.length) : 0
-          ),
+          values: weeks.map((w) => {
+            if (!w || w.length === 0) return 0;
+            const validWeekValues = w.filter(v => !isNaN(v) && isFinite(v));
+            return validWeekValues.length > 0 
+              ? Math.round(validWeekValues.reduce((a, b) => a + b, 0) / validWeekValues.length) 
+              : 0;
+          }),
         };
       }
 
@@ -49,27 +65,36 @@ export default function StepsBarGraph({ dailyData }) {
         dailyData.dates.forEach((date, idx) => {
           const month = date.split("/")[0].padStart(2, "0");
           if (allMonths[month]) {
-            allMonths[month].push(dailyData.values[idx]);
+            const value = validValues[idx];
+            if (!isNaN(value) && isFinite(value)) {
+              allMonths[month].push(value);
+            }
           }
         });
         const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
         return {
           labels: monthNames,
-          values: Object.values(allMonths).map((vals) =>
-            vals.length > 0 ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0
-          ),
+          values: Object.values(allMonths).map((vals) => {
+            if (!vals || vals.length === 0) return 0;
+            const validMonthValues = vals.filter(v => !isNaN(v) && isFinite(v));
+            return validMonthValues.length > 0 
+              ? Math.round(validMonthValues.reduce((a, b) => a + b, 0) / validMonthValues.length) 
+              : 0;
+          }),
         };
       }
 
       default:
-        return { labels: [], values: [] };
+        return { labels: ['W1', 'W2', 'W3', 'W4'], values: [0, 0, 0, 0] };
     }
   }, [range, dailyData]);
   
   const { averageValue, averageLabel } = useMemo(() => {
      if (!filteredData.values || filteredData.values.length === 0) return { averageValue: 0, averageLabel: 'Avg' };
-     const total = filteredData.values.reduce((sum, value) => sum + value, 0);
-     const avg = Math.round(total / filteredData.values.length);
+     const validValues = filteredData.values.filter(v => !isNaN(v) && isFinite(v));
+     if (validValues.length === 0) return { averageValue: 0, averageLabel: 'Avg' };
+     const total = validValues.reduce((sum, value) => sum + value, 0);
+     const avg = Math.round(total / validValues.length);
      
      let label = 'Daily Avg.';
      if (range === '1M') label = 'Weekly Avg.';
@@ -128,22 +153,28 @@ const aestheticChartConfig = {
       </View>
 
       {/* Chart */}
-      <BarChart
-        data={{
-          labels: filteredData.labels,
-          datasets: [{ data: filteredData.values }],
-        }}
-        width={screenWidth - 48}
-        height={220}
-        fromZero
-        withInnerLines={true}
-        showBarTops={false}
-        chartConfig={aestheticChartConfig}
-        style={styles.chartStyle}
-        yAxisLabel=""
-        yAxisSuffix=""
-        formatYLabel={formatLabel}
-      />
+      {filteredData.values.length > 0 && filteredData.labels.length > 0 ? (
+        <BarChart
+          data={{
+            labels: filteredData.labels,
+            datasets: [{ data: filteredData.values.length > 0 ? filteredData.values : [0] }],
+          }}
+          width={screenWidth - 48}
+          height={220}
+          fromZero
+          withInnerLines={true}
+          showBarTops={false}
+          chartConfig={aestheticChartConfig}
+          style={styles.chartStyle}
+          yAxisLabel=""
+          yAxisSuffix=""
+          formatYLabel={formatLabel}
+        />
+      ) : (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyText}>No step data available</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -210,6 +241,20 @@ const styles = StyleSheet.create({
   },
   rangeTextActive: {
     color: "#1C1C1E",
+  },
+  emptyState: {
+    height: 220,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 16,
+    marginHorizontal: 14,
+    marginTop: 10,
+  },
+  emptyText: {
+    color: 'rgba(235, 235, 245, 0.6)',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 
