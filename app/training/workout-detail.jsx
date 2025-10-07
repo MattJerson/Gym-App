@@ -10,12 +10,33 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { BrowseWorkoutsDataService } from "../../services/BrowseWorkoutsDataService";
+import { supabase } from "../../services/supabase";
+import SaveWorkoutModal from "../../components/training/SaveWorkoutModal";
 
 export default function WorkoutDetail() {
   const router = useRouter();
   const { workoutId } = useLocalSearchParams();
   const [workout, setWorkout] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [userId, setUserId] = useState(null);
+
+  useEffect(() => {
+    getUser();
+  }, []);
+
+  const getUser = async () => {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      if (user) {
+        setUserId(user.id);
+      }
+    } catch (error) {
+      console.error('Error getting user:', error);
+    }
+  };
 
   useEffect(() => {
     loadWorkoutDetail();
@@ -35,8 +56,56 @@ export default function WorkoutDetail() {
   };
 
   const handleStartWorkout = () => {
-    // Navigate to workout session
-    router.push(`/workout/${workoutId}`);
+    // Show save workout modal instead of starting directly
+    setShowSaveModal(true);
+  };
+
+  const handleSaveWorkout = async ({ scheduledDay, startNow }) => {
+    if (!userId) {
+      Alert.alert("Error", "Please sign in to save workouts");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      // Call the save_workout_to_library function
+      const { data, error } = await supabase.rpc('save_workout_to_library', {
+        p_user_id: userId,
+        p_template_id: workoutId,
+        p_scheduled_day: scheduledDay,
+        p_start_now: startNow
+      });
+
+      if (error) throw error;
+
+      // Return success - modal will handle animation
+      return { success: true, data, startNow };
+
+    } catch (error) {
+      console.error("Error saving workout:", error);
+      Alert.alert("Error", "Failed to save workout. Please try again.");
+      setIsSaving(false);
+      throw error; // Re-throw to prevent animation
+    }
+  };
+
+  const handleSaveComplete = ({ data, startNow }) => {
+    // Called after animation completes
+    setIsSaving(false);
+    
+    if (startNow && data && data.length > 0) {
+      // Navigate to workout session if starting now
+      router.push(`/workout/${workoutId}`);
+    } else {
+      // Go back to training page and trigger reload
+      router.back();
+    }
+  };
+
+  const getDayName = (dayNumber) => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return days[dayNumber] || 'Unknown';
   };
 
   const getDifficultyColor = (difficulty) => {
@@ -286,10 +355,20 @@ export default function WorkoutDetail() {
       {/* Fixed Start Button */}
       <View style={styles.buttonContainer}>
         <Pressable style={styles.startButton} onPress={handleStartWorkout}>
-          <Ionicons name="play" size={20} color="#0B0B0B" />
-          <Text style={styles.startButtonText}>Start Workout</Text>
+          <Ionicons name="bookmark" size={20} color="#0B0B0B" />
+          <Text style={styles.startButtonText}>Save Workout</Text>
         </Pressable>
       </View>
+
+      {/* Save Workout Modal */}
+      <SaveWorkoutModal
+        visible={showSaveModal}
+        onClose={() => setShowSaveModal(false)}
+        onSave={handleSaveWorkout}
+        onSaveComplete={handleSaveComplete}
+        workoutName={workout?.name || ""}
+        isLoading={isSaving}
+      />
     </View>
   );
 }

@@ -1,54 +1,97 @@
-// 🔄 Training Data Service - Replace these with actual API calls
+// 🔄 Training Data Service - Database-driven workout tracking
+import { supabase } from './supabase';
+
 export const TrainingDataService = {
   // User & Notifications
   async fetchUserNotifications(userId) {
-    // Replace with: const response = await fetch(`/api/users/${userId}/notifications`);
+    // TODO: Implement notifications system
     return {
-      count: 3,
-      messages: [
-        { id: 1, title: "Workout Reminder", message: "Time for your leg day!", type: "reminder" },
-        { id: 2, title: "New PR!", message: "You hit a new bench press record!", type: "achievement" },
-        { id: 3, title: "Rest Day", message: "Don't forget your recovery day tomorrow", type: "tip" }
-      ]
+      count: 0,
+      messages: []
     };
   },
 
   // Workout Progress Data
   async fetchWorkoutProgress(userId) {
-    // Replace with: const response = await fetch(`/api/users/${userId}/progress`);
-    return {
-      workoutData: { value: 3, max: 5, unit: "workouts", label: "Weekly Goal" },
-      stepsData: { value: 8500, max: 10000, unit: "steps", label: "Daily Steps" },
-      caloriesData: { value: 420, max: 500, unit: "kcal", label: "Calories Burned" },
-      weeklyStreak: 4,
-      totalWorkouts: 23,
-      avgDuration: 68
-    };
+    try {
+      // Fetch today's activity data
+      const { data, error } = await supabase
+        .rpc('get_user_daily_stats', { 
+          p_user_id: userId,
+          p_date: new Date().toISOString().split('T')[0]
+        });
+
+      if (error) throw error;
+
+      const stats = data && data.length > 0 ? data[0] : null;
+
+      return {
+        workoutData: { 
+          value: stats?.workouts_completed || 0, 
+          max: stats?.workouts_goal || 1, 
+          unit: "workouts", 
+          label: "Daily Goal" 
+        },
+        stepsData: { 
+          value: stats?.steps_count || 0, 
+          max: stats?.steps_goal || 10000, 
+          unit: "steps", 
+          label: "Daily Steps" 
+        },
+        caloriesData: { 
+          value: stats?.calories_burned || 0, 
+          max: stats?.calories_goal || 500, 
+          unit: "kcal", 
+          label: "Calories Burned" 
+        },
+        weeklyStreak: 0, // TODO: Calculate weekly streak
+        totalWorkouts: stats?.workouts_completed || 0,
+        avgDuration: 0
+      };
+    } catch (error) {
+      console.error('Error fetching workout progress:', error);
+      return {
+        workoutData: { value: 0, max: 1, unit: "workouts", label: "Daily Goal" },
+        stepsData: { value: 0, max: 10000, unit: "steps", label: "Daily Steps" },
+        caloriesData: { value: 0, max: 500, unit: "kcal", label: "Calories Burned" },
+        weeklyStreak: 0,
+        totalWorkouts: 0,
+        avgDuration: 0
+      };
+    }
   },
 
-  // Current/Continue Workout
+  // Current/Continue Workout (In-progress session)
   async fetchContinueWorkout(userId) {
-    // Replace with: const response = await fetch(`/api/users/${userId}/current-workout`);
-    return {
-      id: "workout_123",
-      workoutName: "Push Day",
-      workoutType: "Custom Workout",
-      completedExercises: 4,
-      totalExercises: 6,
-      timeElapsed: 15,
-      progress: 0.67,
-      exercises: [
-        { name: "Bench Press", sets: "3/4", completed: true },
-        { name: "Incline Dumbbell Press", sets: "3/3", completed: true },
-        { name: "Shoulder Press", sets: "2/3", completed: false },
-        { name: "Tricep Dips", sets: "0/3", completed: false }
-      ],
-      startedAt: "2025-09-06T09:30:00Z"
-    };
+    try {
+      const { data, error } = await supabase
+        .rpc('get_continue_workout', { p_user_id: userId });
+
+      if (error) throw error;
+      
+      if (!data || data.length === 0) return null;
+
+      const session = data[0];
+      
+      return {
+        id: session.template_id,
+        sessionId: session.session_id,
+        workoutName: session.workout_name,
+        workoutType: session.workout_type,
+        completedExercises: session.completed_exercises,
+        totalExercises: session.total_exercises,
+        timeElapsed: Math.floor(session.elapsed_seconds / 60), // Convert to minutes
+        progress: session.progress_percentage / 100,
+        caloriesBurned: session.calories_burned || 0
+      };
+    } catch (error) {
+      console.error('Error fetching continue workout:', error);
+      return null;
+    }
   },
 
   async updateWorkoutProgress(userId, workoutId, exerciseData) {
-    // Replace with: const response = await fetch(`/api/workouts/${workoutId}/progress`, { method: 'PUT', body: JSON.stringify(exerciseData) });
+    // This will be handled by WorkoutSessionService
     return {
       success: true,
       updatedAt: new Date().toISOString(),
@@ -58,27 +101,45 @@ export const TrainingDataService = {
 
   // Today's Planned Workout
   async fetchTodaysWorkout(userId) {
-    // Replace with: const response = await fetch(`/api/users/${userId}/todays-workout`);
-    return {
-      id: "workout_124",
-      workoutName: "Pull Day",
-      workoutType: "Custom Workout",
-      totalExercises: 8,
-      estimatedDuration: 60,
-      difficulty: "Intermediate",
-      muscleGroups: ["Back", "Biceps", "Rear Delts"],
-      exercises: [
-        { name: "Pull-ups", sets: 4, reps: "8-12" },
-        { name: "Barbell Rows", sets: 4, reps: "8-10" },
-        { name: "Lat Pulldowns", sets: 3, reps: "10-12" },
-        { name: "Cable Rows", sets: 3, reps: "10-12" },
-        { name: "Barbell Curls", sets: 3, reps: "10-12" },
-        { name: "Hammer Curls", sets: 3, reps: "10-12" },
-        { name: "Face Pulls", sets: 3, reps: "12-15" },
-        { name: "Reverse Flyes", sets: 3, reps: "12-15" }
-      ],
-      scheduledTime: "18:00"
-    };
+    try {
+      const { data, error } = await supabase
+        .rpc('get_todays_scheduled_workout', { p_user_id: userId });
+
+      if (error) {
+        console.error('Error calling get_todays_scheduled_workout:', error);
+        throw error;
+      }
+      
+      if (!data || data.length === 0) {
+        console.log('No scheduled workout for today');
+        return null;
+      }
+
+      const workout = data[0];
+      
+      // Don't show today's workout if there's already an active session for it
+      if (workout.has_active_session) {
+        console.log('Workout already has active session');
+        return null;
+      }
+
+      console.log('Today\'s workout found:', workout);
+
+      return {
+        id: workout.template_id,
+        workoutName: workout.workout_name,
+        workoutType: workout.workout_type,
+        totalExercises: workout.total_exercises,
+        estimatedDuration: workout.estimated_duration,
+        difficulty: workout.difficulty_level || workout.difficulty,
+        caloriesEstimate: workout.estimated_calories || 0,
+        categoryColor: workout.category_color || "#A3E635",
+        categoryIcon: workout.category_icon || "dumbbell"
+      };
+    } catch (error) {
+      console.error('Error fetching today\'s workout:', error);
+      return null;
+    }
   },
 
   async startWorkout(userId, workoutId) {

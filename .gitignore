@@ -42,3 +42,6 @@ credentials.env
 supabase/migrations/001_workout_templates_schema.sql
 supabase/migrations/002_workout_templates_seed.sql
 supabase/migrations/003_workout_templates_complete.sql
+supabase/migrations/010_user_workout_schedule_system.sql
+supabase/migrations/011_seed_user_workout_schedule.sql
+supabase/migrations/012_fix_rls_and_my_workouts.sql

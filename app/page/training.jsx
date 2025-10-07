@@ -9,8 +9,8 @@ import {
 import {
   Ionicons,
 } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { useState, useEffect } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useState, useEffect, useCallback } from "react";
 import WorkoutProgressBar from "../../components/training/WorkoutProgressBar";
 import ContinueWorkoutCard from "../../components/training/ContinueWorkoutCard";
 import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
@@ -33,13 +33,40 @@ export default function Training() {
   const [workoutCategories, setWorkoutCategories] = useState([]);
   const [recentWorkouts, setRecentWorkouts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState(null);
 
-  // 🔄 Load data on component mount - Replace with actual user ID
-  const userId = "user123";
+  // Get authenticated user
+  useEffect(() => {
+    getUser();
+  }, []);
+
+  const getUser = async () => {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      if (user) {
+        setUserId(user.id);
+      }
+    } catch (error) {
+      console.error('Error getting user:', error);
+      Alert.alert('Error', 'Failed to get user session');
+    }
+  };
 
   useEffect(() => {
-    loadTrainingData();
-  }, []);
+    if (userId) {
+      loadTrainingData();
+    }
+  }, [userId]);
+
+  // Reload data when screen comes into focus (after saving workout)
+  useFocusEffect(
+    useCallback(() => {
+      if (userId) {
+        loadTrainingData();
+      }
+    }, [userId])
+  );
 
   const loadTrainingData = async () => {
     try {
@@ -179,7 +206,11 @@ export default function Training() {
                 workoutName={todaysWorkout.workoutName}
                 workoutType={todaysWorkout.workoutType}
                 totalExercises={todaysWorkout.totalExercises}
-                timeElapsed={todaysWorkout.estimatedDuration}
+                estimatedDuration={todaysWorkout.estimatedDuration}
+                difficulty={todaysWorkout.difficulty}
+                caloriesEstimate={todaysWorkout.caloriesEstimate}
+                categoryColor={todaysWorkout.categoryColor || "#A3E635"}
+                categoryIcon={todaysWorkout.categoryIcon || "dumbbell"}
                 onContinue={handleStartTodaysWorkout}
               />
             )}

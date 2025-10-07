@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,67 +6,21 @@ import {
   Pressable,
   FlatList,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { supabase } from "../../services/supabase";
 
 // Get screen dimensions
 const { width } = Dimensions.get("window");
 
-// Card dimensions - larger, more prominent cards
+// Card dimensions - more compact
 const PADDING_HORIZONTAL = 20;
 const CARD_MARGIN_RIGHT = 14;
 const VISIBLE_CARDS = 1.3; // Show more of next card
 
 const CARD_WIDTH = (width - 40 - CARD_MARGIN_RIGHT) / VISIBLE_CARDS;
-const CARD_HEIGHT = 200;
-
-// Mock user workouts data
-const MOCK_MY_WORKOUTS = [
-  {
-    id: "1",
-    name: "Full Body Strength",
-    exercises: 8,
-    duration: 45,
-    difficulty: "Intermediate",
-    calories: 320,
-    workoutType: "Custom Workout",
-    color: "#10B981",
-    icon: "dumbbell",
-  },
-  {
-    id: "2",
-    name: "Upper Body Focus",
-    exercises: 6,
-    duration: 35,
-    difficulty: "Beginner",
-    calories: 240,
-    workoutType: "Pre-made Workout",
-    color: "#8B5CF6",
-    icon: "arm-flex",
-  },
-  {
-    id: "3",
-    name: "HIIT Cardio Blast",
-    exercises: 10,
-    duration: 30,
-    difficulty: "Advanced",
-    calories: 400,
-    workoutType: "Custom Workout",
-    color: "#F59E0B",
-    icon: "run-fast",
-  },
-  {
-    id: "4",
-    name: "Cardio & Core",
-    exercises: 7,
-    duration: 40,
-    difficulty: "Intermediate",
-    calories: 300,
-    workoutType: "Pre-made Workout",
-    color: "#EF4444",
-    icon: "heart-pulse",
-  },
-];
+const CARD_HEIGHT = 180; // Reduced from 200
 
 // Difficulty badge colors
 const getDifficultyColor = (difficulty) => {
@@ -85,6 +39,9 @@ const getDifficultyColor = (difficulty) => {
 // Workout Card Component - Refined design with color coding
 const WorkoutCardItem = ({ item, onPress, onOptions }) => {
   const difficultyColor = getDifficultyColor(item.difficulty);
+  const dayLabel = item.is_scheduled && item.scheduled_day_name 
+    ? item.scheduled_day_name 
+    : null;
   
   return (
     <Pressable 
@@ -96,17 +53,30 @@ const WorkoutCardItem = ({ item, onPress, onOptions }) => {
     >
       <View style={styles.cardInner}>
         {/* Color accent stripe at top */}
-        <View style={[styles.colorAccent, { backgroundColor: item.color }]} />
+        <View style={[styles.colorAccent, { backgroundColor: item.category_color || item.color }]} />
         
         {/* Header with workout type badge */}
         <View style={styles.headerRow}>
-          <View style={[styles.typeBadge, { 
-            backgroundColor: `${item.color}12`,
-            borderColor: `${item.color}25`,
-          }]}>
-            <Text style={[styles.typeText, { color: item.color }]}>
-              {item.workoutType.toUpperCase()}
-            </Text>
+          <View style={styles.badgeRow}>
+            <View style={[styles.typeBadge, { 
+              backgroundColor: `${item.category_color || item.color}12`,
+              borderColor: `${item.category_color || item.color}25`,
+            }]}>
+              <Text style={[styles.typeText, { color: item.category_color || item.color }]}>
+                {item.workout_type ? item.workout_type.toUpperCase() : 'PRE-MADE'}
+              </Text>
+            </View>
+            {dayLabel && (
+              <View style={[styles.dayBadge, { 
+                backgroundColor: 'rgba(163, 230, 53, 0.12)',
+                borderColor: 'rgba(163, 230, 53, 0.25)',
+              }]}>
+                <Ionicons name="calendar-outline" size={9} color="#A3E635" />
+                <Text style={[styles.dayText, { color: '#A3E635' }]}>
+                  {dayLabel.substring(0, 3).toUpperCase()}
+                </Text>
+              </View>
+            )}
           </View>
           <Pressable 
             style={styles.optionsButton}
@@ -115,17 +85,17 @@ const WorkoutCardItem = ({ item, onPress, onOptions }) => {
               onOptions(item.id);
             }}
           >
-            <Ionicons name="ellipsis-horizontal" size={18} color="#999" />
+            <Ionicons name="ellipsis-horizontal" size={16} color="#999" />
           </Pressable>
         </View>
 
         {/* Workout name with icon */}
         <View style={styles.nameRow}>
-          <View style={[styles.iconBadge, { backgroundColor: `${item.color}20` }]}>
-            <MaterialCommunityIcons name={item.icon} size={24} color={item.color} />
+          <View style={[styles.iconBadge, { backgroundColor: `${item.category_color || item.color}20` }]}>
+            <MaterialCommunityIcons name={item.icon || "dumbbell"} size={20} color={item.category_color || item.color} />
           </View>
           <Text style={styles.workoutName} numberOfLines={2}>
-            {item.name}
+            {item.workout_name || item.name}
           </Text>
         </View>
 
@@ -137,21 +107,27 @@ const WorkoutCardItem = ({ item, onPress, onOptions }) => {
 
         {/* Metrics - TodaysWorkoutCard style */}
         <View style={[styles.metricsContainer, {
-          backgroundColor: `${item.color}08`,
-          borderColor: `${item.color}15`,
+          backgroundColor: `${item.category_color || item.color}08`,
+          borderColor: `${item.category_color || item.color}15`,
         }]}>
           <View style={styles.metricItem}>
-            <Text style={[styles.metricNum, { color: item.color }]}>{item.exercises}</Text>
-            <Text style={styles.metricLabel}>exercises</Text>
+            <Text style={[styles.metricNum, { color: item.category_color || item.color }]}>
+              {item.times_completed || 0}
+            </Text>
+            <Text style={styles.metricLabel}>done</Text>
           </View>
-          <View style={[styles.metricDivider, { backgroundColor: `${item.color}25` }]} />
+          <View style={[styles.metricDivider, { backgroundColor: `${item.category_color || item.color}25` }]} />
           <View style={styles.metricItem}>
-            <Text style={[styles.metricNum, { color: item.color }]}>{item.duration}</Text>
+            <Text style={[styles.metricNum, { color: item.category_color || item.color }]}>
+              {item.duration_minutes || item.duration}
+            </Text>
             <Text style={styles.metricLabel}>min</Text>
           </View>
-          <View style={[styles.metricDivider, { backgroundColor: `${item.color}25` }]} />
+          <View style={[styles.metricDivider, { backgroundColor: `${item.category_color || item.color}25` }]} />
           <View style={styles.metricItem}>
-            <Text style={[styles.metricNum, { color: item.color }]}>{item.calories}</Text>
+            <Text style={[styles.metricNum, { color: item.category_color || item.color }]}>
+              {item.estimated_calories || item.calories}
+            </Text>
             <Text style={styles.metricLabel}>kcal</Text>
           </View>
         </View>
@@ -161,10 +137,101 @@ const WorkoutCardItem = ({ item, onPress, onOptions }) => {
 };
 
 export default function MyWorkouts({
-  workouts = MOCK_MY_WORKOUTS,
   onSelectWorkout = () => {},
   onWorkoutOptions = () => {},
 }) {
+  const [userId, setUserId] = useState(null);
+  const [workouts, setWorkouts] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    getUser();
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      loadMyWorkouts();
+    }
+  }, [userId]);
+
+  const getUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    } catch (error) {
+      console.error('Error getting user:', error);
+      setIsLoading(false);
+    }
+  };
+
+  const loadMyWorkouts = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase.rpc('get_my_workouts', { 
+        p_user_id: userId 
+      });
+      
+      if (error) throw error;
+      
+      // Transform database response to match card format
+      const transformedWorkouts = (data || []).map(workout => ({
+        id: workout.id,
+        workout_name: workout.workout_name,
+        workout_type: workout.workout_type,
+        category_color: workout.category_color,
+        category_icon: workout.category_icon,
+        difficulty: workout.difficulty_level,
+        duration_minutes: workout.duration_minutes,
+        estimated_calories: workout.estimated_calories,
+        times_completed: workout.times_completed,
+        is_scheduled: workout.is_scheduled,
+        scheduled_day_name: workout.scheduled_day_name,
+        is_favorite: workout.is_favorite,
+        template_id: workout.template_id,
+      }));
+      
+      setWorkouts(transformedWorkouts);
+    } catch (error) {
+      console.error('Error loading my workouts:', error);
+      Alert.alert('Error', 'Failed to load your workouts');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>My Workouts</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#A3E635" />
+          <Text style={styles.loadingText}>Loading your workouts...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (workouts.length === 0) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>My Workouts</Text>
+        </View>
+        <View style={styles.emptyContainer}>
+          <MaterialCommunityIcons name="weight-lifter" size={64} color="#444" />
+          <Text style={styles.emptyTitle}>No Saved Workouts</Text>
+          <Text style={styles.emptyText}>
+            Browse workouts and save them to build your personal library
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.titleRow}>
@@ -180,11 +247,11 @@ export default function MyWorkouts({
         renderItem={({ item }) => (
           <WorkoutCardItem
             item={item}
-            onPress={() => onSelectWorkout(item.id)}
+            onPress={() => onSelectWorkout(item.template_id)}
             onOptions={onWorkoutOptions}
           />
         )}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.id.toString()}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.listContentContainer}
@@ -239,7 +306,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 20,
-    padding: 16,
+    padding: 12,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
     justifyContent: 'space-between',
@@ -262,60 +329,79 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
-    marginTop: 6,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  badgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   typeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: 6,
     borderWidth: 1,
     alignSelf: "flex-start",
   },
   typeText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "800",
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
+  },
+  dayBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  dayText: {
+    fontSize: 8,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
+    gap: 8,
+    marginBottom: 8,
   },
   iconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   optionsButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: "rgba(255, 255, 255, 0.04)",
     alignItems: "center",
     justifyContent: "center",
   },
   workoutName: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "800",
     color: "#FFFFFF",
-    letterSpacing: 0.3,
-    lineHeight: 22,
+    letterSpacing: 0.2,
+    lineHeight: 20,
   },
   difficultyBadge: {
     alignSelf: "flex-start",
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 10,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
     borderWidth: 1,
-    marginBottom: 14,
+    marginBottom: 8,
   },
   difficultyDot: {
     width: 6,
@@ -331,30 +417,29 @@ const styles = StyleSheet.create({
   metricsContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 6,
     borderWidth: 1,
-    marginBottom: 14,
   },
   metricItem: {
     flexDirection: "row",
     alignItems: "baseline",
-    gap: 4,
+    gap: 3,
   },
   metricNum: {
     fontWeight: "800",
-    fontSize: 16,
+    fontSize: 14,
   },
   metricLabel: {
     color: "#A1A1AA",
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "500",
   },
   metricDivider: {
     width: 1,
-    height: 16,
+    height: 14,
   },
   progressSection: {
     marginTop: 'auto',
@@ -403,5 +488,42 @@ const styles = StyleSheet.create({
     color: "#666",
     fontWeight: "500",
     letterSpacing: 0.2,
+  },
+  loadingContainer: {
+    height: CARD_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  loadingText: {
+    color: '#888',
+    fontSize: 14,
+    marginTop: 12,
+  },
+  emptyContainer: {
+    height: CARD_HEIGHT,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 32,
+  },
+  emptyTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+  },
+  emptyText: {
+    color: '#888',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
   },
 });
