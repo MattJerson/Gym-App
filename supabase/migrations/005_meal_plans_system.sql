@@ -153,10 +153,17 @@ CREATE INDEX idx_analytics_user_week ON meal_plan_analytics(user_id, week_start_
 -- Function: Update user_meal_plans end_date based on duration
 CREATE OR REPLACE FUNCTION calculate_meal_plan_end_date()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_duration_weeks INTEGER;
 BEGIN
-  SELECT start_date + (duration_weeks * 7) INTO NEW.end_date
+  -- Get the duration_weeks from the meal plan template
+  SELECT duration_weeks INTO v_duration_weeks
   FROM meal_plan_templates
   WHERE id = NEW.plan_id;
+  
+  -- Calculate end_date using NEW.start_date (from the new row being inserted)
+  NEW.end_date := NEW.start_date + (v_duration_weeks * 7);
+  
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

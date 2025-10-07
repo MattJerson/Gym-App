@@ -1,10 +1,50 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { TrainingProgressService } from "../../services/TrainingProgressService";
+import { supabase } from "../../services/supabase";
 
-export default function WorkoutProgressBar({
-  workoutData = { value: 2, max: 5 },
-  stepsData = { value: 6600, max: 4400 },
-}) {
+export default function WorkoutProgressBar() {
+  const [userId, setUserId] = useState(null);
+  const [workoutData, setWorkoutData] = useState({ value: 0, max: 1 });
+  const [stepsData, setStepsData] = useState({ value: 0, max: 10000 });
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Get authenticated user
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        if (user) {
+          setUserId(user.id);
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+      }
+    };
+    getUser();
+  }, []);
+
+  // Load progress data when user is available
+  useEffect(() => {
+    if (userId) {
+      loadProgressData();
+    }
+  }, [userId]);
+
+  const loadProgressData = async () => {
+    try {
+      setIsLoading(true);
+      const progressData = await TrainingProgressService.getTodayProgress(userId);
+      setWorkoutData(progressData.workoutData);
+      setStepsData(progressData.stepsData);
+    } catch (error) {
+      console.error("Error loading progress data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const workoutProgress = Math.min(workoutData.value / workoutData.max, 1);
   const stepsProgress = Math.min(stepsData.value / stepsData.max, 1);
   const totalProgress = Math.round(((workoutProgress + stepsProgress) / 2) * 100);
@@ -12,6 +52,15 @@ export default function WorkoutProgressBar({
   const currentDate = new Date();
   const day = String(currentDate.getDate()).padStart(2, '0');
   const month = currentDate.toLocaleDateString('en-US', { month: 'short' });
+
+  if (isLoading) {
+    return (
+      <View style={[styles.mainCard, styles.loadingCard]}>
+        <ActivityIndicator size="large" color="#30d158" />
+        <Text style={styles.loadingText}>Loading your progress...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.mainCard}>
@@ -275,6 +324,17 @@ const styles = StyleSheet.create({
   statGoal: {
     fontSize: 10,
     color: '#666',
+    fontWeight: '500',
+  },
+  loadingCard: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 200,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#888',
+    marginTop: 12,
     fontWeight: '500',
   },
 });

@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Svg, { Path, Circle } from "react-native-svg";
+import { supabase } from "../../services/supabase";
 
 // Helper functions remain the same
 const describeArc = (x, y, radius, startAngle, endAngle) => {
@@ -38,12 +39,72 @@ const Arc = ({ radius, progress, startAngle, totalAngle, color }) => {
 };
 
 export default function MacroProgressSummary({ macroGoals, selectedDate }) {
+  const [activePlan, setActivePlan] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch user's active meal plan on mount
+  useEffect(() => {
+    fetchActiveMealPlan();
+  }, []);
+
+  const fetchActiveMealPlan = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('v_active_meal_plans')
+        .select('daily_calories, daily_protein, daily_carbs, daily_fats')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          // No active plan - use default goals
+          setActivePlan(null);
+        } else {
+          console.error("❌ Error fetching active meal plan:", error);
+        }
+      } else {
+        setActivePlan(data);
+      }
+    } catch (error) {
+      console.error("❌ Error in fetchActiveMealPlan:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Use active plan targets if available, otherwise use macroGoals prop or defaults
+  const getTargets = () => {
+    if (activePlan) {
+      return {
+        calories: activePlan.daily_calories,
+        protein: activePlan.daily_protein,
+        carbs: activePlan.daily_carbs,
+        fats: activePlan.daily_fats,
+      };
+    }
+    
+    // Fallback to macroGoals prop or defaults
+    return {
+      calories: macroGoals?.calories?.target || 2200,
+      protein: macroGoals?.protein?.target || 140,
+      carbs: macroGoals?.carbs?.target || 200,
+      fats: macroGoals?.fats?.target || 85,
+    };
+  };
+
+  const targets = getTargets();
   const { calories, protein, carbs, fats } = macroGoals;
 
-  const carbsProgress = Math.min(carbs.current / carbs.target, 1);
-  const proteinProgress = Math.min(protein.current / protein.target, 1);
-  const fatsProgress = Math.min(fats.current / fats.target, 1);
-  const caloriesProgress = Math.min(calories.current / calories.target, 1);
+  const carbsProgress = Math.min(carbs.current / targets.carbs, 1);
+  const proteinProgress = Math.min(protein.current / targets.protein, 1);
+  const fatsProgress = Math.min(fats.current / targets.fats, 1);
+  const caloriesProgress = Math.min(calories.current / targets.calories, 1);
 
   const ARC_GAP = 12;
   const ARC_SEGMENT_ANGLE = (360 - (3 * ARC_GAP)) / 3;
@@ -51,24 +112,30 @@ export default function MacroProgressSummary({ macroGoals, selectedDate }) {
   const macroDetails = [
     {
       label: 'Carbs',
-      ...carbs,
+      current: carbs.current,
+      target: targets.carbs,
       progress: carbsProgress,
       color: '#ff9f43',
-      icon: '🍞'
+      icon: '🍞',
+      unit: carbs.unit
     },
     {
       label: 'Protein',
-      ...protein,
+      current: protein.current,
+      target: targets.protein,
       progress: proteinProgress,
       color: '#8e44ad',
-      icon: '🥩'
+      icon: '🥩',
+      unit: protein.unit
     },
     {
       label: 'Fats',
-      ...fats,
+      current: fats.current,
+      target: targets.fats,
       progress: fatsProgress,
       color: '#1abc9c',
-      icon: '🥑'
+      icon: '🥑',
+      unit: fats.unit
     },
   ];
 
@@ -86,22 +153,15 @@ export default function MacroProgressSummary({ macroGoals, selectedDate }) {
 
   return (
     <View style={styles.outerContainer}>
-      {/* Date Header Section */}
-      <View style={styles.headerSection}>
-        <View style={styles.dateSection}>
-          <Text style={styles.todayLabel}>{isToday ? 'Today' : 'Selected Date'}</Text>
-          <Text style={styles.dateText}>{fullDate}</Text>
-        </View>
-        
-        {allMacrosComplete && (
-          <View style={styles.completeBadgeContainer}>
-            <View style={styles.completeIcon}>
-              <Text style={styles.completeIconText}>✓</Text>
-            </View>
-            <Text style={styles.completeLabel}>Complete</Text>
+      {/* Header Section - Only show Meal Plan Active badge */}
+      {activePlan && (
+        <View style={styles.headerSection}>
+          <View style={styles.planActiveBadge}>
+            <Text style={styles.planActiveDot}>●</Text>
+            <Text style={styles.planActiveText}>Meal Plan Active</Text>
           </View>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Macro Progress Card */}
       <View style={styles.card}>
@@ -130,7 +190,9 @@ export default function MacroProgressSummary({ macroGoals, selectedDate }) {
               <Text style={styles.circlePercentage}>{Math.round(caloriesProgress * 100)}</Text>
               <Text style={styles.percentSymbol}>%</Text>
             </View>
-            <Text style={styles.calorieLabel}>calories</Text>
+            <Text style={styles.calorieLabel}>
+              {Math.round(calories.current)}/{targets.calories} cal
+            </Text>
           </View>
         </View>
       </View>
@@ -184,50 +246,31 @@ const styles = StyleSheet.create({
   },
   headerSection: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     alignItems: "center",
     marginBottom: 16,
     paddingHorizontal: 4,
   },
-  dateSection: {
-    flex: 1,
-  },
-  todayLabel: {
-    fontSize: 12,
-    color: "#999",
-    fontWeight: "500",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  dateText: {
-    fontSize: 18,
-    color: "#fff",
-    fontWeight: "bold",
-    marginTop: 2,
-  },
-  completeBadgeContainer: {
+  planActiveBadge: {
+    flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: "rgba(142, 68, 173, 0.15)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(142, 68, 173, 0.3)",
   },
-  completeIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#00D4AA",
-    justifyContent: "center",
-    alignItems: "center",
+  planActiveDot: {
+    fontSize: 8,
+    color: "#8e44ad",
+    marginRight: 4,
   },
-  completeIconText: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "bold",
-  },
-  completeLabel: {
+  planActiveText: {
     fontSize: 10,
-    color: "#00D4AA",
-    marginTop: 4,
+    color: "#8e44ad",
     fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   card: {
     paddingVertical: 25,

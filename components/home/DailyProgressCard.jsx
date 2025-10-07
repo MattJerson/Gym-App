@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
 import { useState, useEffect } from "react";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import moment from "moment";
@@ -6,24 +6,110 @@ import moment from "moment";
 import CalendarStrip from "./dailyprogresscard/CalendarStrip";
 import TotalProgressBar from "./dailyprogresscard/TotalProgressBar";
 import ProgressCirclesGroup from "./dailyprogresscard/ProgressCirclesGroup";
+import { TrainingProgressService } from "../../services/TrainingProgressService";
+import { supabase } from "../../services/supabase";
 
-export default function DailyProgressCard({
-  totalProgress = 60,
-  workoutData,
-  stepsData,
-  calorieData,
-  streakData = {
-    current: 5,
-    goal: 7,
-    lastWorkout: "Yesterday",
-    bestStreak: 12,
-  },
-}) {
-  // Calendar state (changes only once/day or when user clicks a date)
+export default function DailyProgressCard() {
+  // User state
+  const [userId, setUserId] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Calendar state
   const [selectedDate, setSelectedDate] = useState(moment());
   const [isGoalCompleted, setIsGoalCompleted] = useState(false);
+  
+  // Progress data
+  const [totalProgress, setTotalProgress] = useState(0);
+  const [workoutData, setWorkoutData] = useState({ value: 0, max: 1 });
+  const [stepsData, setStepsData] = useState({ value: 0, max: 10000 });
+  const [calorieData, setCalorieData] = useState({ value: 0, max: 500 });
+  const [streakData, setStreakData] = useState({
+    current: 0,
+    goal: 7,
+    lastWorkout: "No workouts yet",
+    bestStreak: 0,
+  });
 
-  // Use passed streak data or defaults
+  // Get authenticated user
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        if (user) {
+          setUserId(user.id);
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+      }
+    };
+    getUser();
+  }, []);
+
+  // Load progress data when user changes or date changes
+  useEffect(() => {
+    if (userId) {
+      loadProgressData();
+    }
+  }, [userId, selectedDate]);
+
+  const loadProgressData = async () => {
+    try {
+      setIsLoading(true);
+      const dateToFetch = selectedDate.toDate();
+      
+      // Fetch today's progress
+      const progressData = await TrainingProgressService.getTodayProgress(userId, dateToFetch);
+      
+      setWorkoutData(progressData.workoutData);
+      setStepsData(progressData.stepsData);
+      setCalorieData({
+        value: progressData.caloriesData?.value || 0,
+        max: progressData.caloriesData?.max || 500,
+      });
+      setTotalProgress(progressData.totalProgress);
+      
+      // Fetch streak data from user stats
+      await loadStreakData();
+    } catch (error) {
+      console.error("Error loading progress data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadStreakData = async () => {
+    try {
+      // Fetch user stats for streak information
+      const { data, error } = await supabase
+        .from('user_stats')
+        .select('current_streak, longest_streak, last_workout_date')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) {
+        if (error.code !== 'PGRST116') { // Ignore "not found" error
+          throw error;
+        }
+        return; // No stats yet, keep defaults
+      }
+
+      if (data) {
+        setStreakData({
+          current: data.current_streak || 0,
+          goal: 7,
+          lastWorkout: data.last_workout_date 
+            ? moment(data.last_workout_date).fromNow()
+            : "No workouts yet",
+          bestStreak: data.longest_streak || 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading streak data:", error);
+    }
+  };
+
+  // Use streak data
   const currentStreak = streakData.current;
   const streakGoal = streakData.goal;
 
@@ -34,6 +120,16 @@ export default function DailyProgressCard({
     const caloriesComplete = calorieData?.value >= calorieData?.max;
     setIsGoalCompleted(workoutComplete && stepsComplete && caloriesComplete);
   }, [workoutData, stepsData, calorieData]);
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <View style={[styles.card, styles.loadingCard, { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}>
+        <ActivityIndicator size="large" color="#FF6B35" />
+        <Text style={styles.loadingText}>Loading your progress...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.card, { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}>
@@ -149,5 +245,16 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "500",
     opacity: 0.9,
+  },
+  loadingCard: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 300,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#888',
+    marginTop: 12,
+    fontWeight: '500',
   },
 });

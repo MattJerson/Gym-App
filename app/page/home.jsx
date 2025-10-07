@@ -1,238 +1,102 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import DailyProgressCard from "../../components/home/DailyProgressCard"; // 👈 Import new component
+import DailyProgressCard from "../../components/home/DailyProgressCard";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
-import { View, Text, Pressable, StyleSheet, ScrollView } from "react-native";
+import { View, Text, Pressable, StyleSheet, ScrollView, Alert } from "react-native";
 import QuickStart from "../../components/home/QuickStart";
 import RecentActivity from "../../components/home/RecentActivity";
 import FeaturedVideo from "../../components/home/FeaturedVideo";
 import NotificationBar from "../../components/NotificationBar";
-
-// 🔄 API Service Functions - Replace these with actual API calls
-const HomeDataService = {
-  async fetchUserData(userId) {
-    // Replace with: const response = await fetch(`/api/users/${userId}`);
-    return {
-      name: "Matt",
-      notifications: 3,
-    };
-  },
-
-  async fetchDailyProgress(userId, date) {
-    // Replace with: const response = await fetch(`/api/progress/${userId}?date=${date}`);
-    return {
-      streak: {
-        current: 5,
-        goal: 7,
-        lastWorkout: "Yesterday",
-        bestStreak: 12,
-      },
-      metrics: {
-        workout: { value: 1, max: 1, unit: "Done" },
-        calories: { value: 420, max: 500, unit: "kcal" },
-        steps: { value: 8500, max: 10000, unit: "steps" },
-      },
-    };
-  },
-
-  async fetchWorkoutCategories() {
-    // Replace with: const response = await fetch('/api/workout-categories');
-    return [
-      {
-        id: 1,
-        title: "Push Day",
-        subtitle: "Chest, Shoulders, Triceps",
-        gradient: ["#FF6B6B", "#4ECDC4"],
-        icon: "fitness",
-        difficulty: "Intermediate",
-      },
-      {
-        id: 2,
-        title: "Cardio Blast",
-        subtitle: "HIIT Training Session",
-        gradient: ["#A8E6CF", "#88D8C0"],
-        icon: "flash",
-        difficulty: "Beginner",
-      },
-      {
-        id: 3,
-        title: "Full Body",
-        subtitle: "Complete Workout",
-        gradient: ["#FFD93D", "#6BCF7F"],
-        icon: "body",
-        difficulty: "Advanced",
-      },
-    ];
-  },
-
-  async fetchFeaturedContent() {
-    // Replace with: const response = await fetch('/api/featured-content');
-    return {
-      title: "Complete Core Transformation",
-      subtitle: "Science-Based Training",
-      author: "Dr. Mike Fitness",
-      views: "2.1M",
-      category: "Education",
-      thumbnail: "https://img.youtube.com/vi/2tM1LFFxeKg/hqdefault.jpg",
-      duration: "12 min read",
-    };
-  },
-
-  async fetchRecentActivities(userId, limit = 4) {
-    // Replace with: const response = await fetch(`/api/activities/${userId}?limit=${limit}`);
-    return [
-      {
-        id: 1,
-        label: "Chest + Triceps",
-        duration: "45 mins",
-        icon: "barbell",
-        color: ["#ff7e5f", "#feb47b"],
-        date: "Today",
-        calories: 280,
-      },
-      {
-        id: 2,
-        label: "Morning Cardio",
-        duration: "30 mins",
-        icon: "walk",
-        color: ["#43cea2", "#185a9d"],
-        date: "Yesterday",
-        calories: 220,
-      },
-      {
-        id: 3,
-        label: "Evening Yoga",
-        duration: "20 mins",
-        icon: "leaf-outline",
-        color: ["#a18cd1", "#fbc2eb"],
-        date: "2 days ago",
-        calories: 120,
-      },
-      {
-        id: 4,
-        label: "Cycling Session",
-        duration: "25 mins",
-        icon: "bicycle",
-        color: ["#36d1dc", "#5b86e5"],
-        date: "3 days ago",
-        calories: 310,
-      },
-    ];
-  },
-};
+import { HomeDataService } from "../../services/HomeDataService";
+import { supabase } from "../../services/supabase";
 
 export default function Home() {
   const router = useRouter();
   const pathname = usePathname();
-  const [notifications] = useState(3);
   
-  // 🔄 Centralized data - replace with API calls later
-  const homeData = {
-    user: {
-      name: "Matt",
-      notifications: 3,
-    },
-    dailyProgress: {
-      streak: {
-        current: 5,
-        goal: 7,
-        lastWorkout: "Yesterday",
-        bestStreak: 12,
-      },
-      totalProgress: 65, // Will be calculated from individual metrics
-      metrics: {
-        workout: { value: 1, max: 1, unit: "Done" },
-        calories: { value: 420, max: 500, unit: "kcal" },
-        steps: { value: 8500, max: 10000, unit: "steps" },
-      },
-    },
-    quickStart: {
-      categories: [
-        {
-          id: 1,
-          title: "Push Day",
-          subtitle: "Chest, Shoulders, Triceps",
-          gradient: ["#FF6B6B", "#4ECDC4"],
-          icon: "fitness",
-          difficulty: "Intermediate",
-        },
-        {
-          id: 2,
-          title: "Cardio Blast",
-          subtitle: "HIIT Training Session",
-          gradient: ["#A8E6CF", "#88D8C0"],
-          icon: "flash",
-          difficulty: "Beginner",
-        },
-        {
-          id: 3,
-          title: "Full Body",
-          subtitle: "Complete Workout",
-          gradient: ["#FFD93D", "#6BCF7F"],
-          icon: "body",
-          difficulty: "Advanced",
-        },
-      ],
-    },
-    featuredContent: {
-      title: "Complete Core Transformation",
-      subtitle: "Science-Based Training",
-      author: "Dr. Mike Fitness",
-      views: "2.1M",
-      category: "Education",
-      thumbnail: "https://img.youtube.com/vi/2tM1LFFxeKg/hqdefault.jpg",
-      duration: "12 min read",
-    },
-    recentActivities: [
-      {
-        id: 1,
-        label: "Chest + Triceps",
-        duration: "45 mins",
-        icon: "barbell",
-        color: ["#ff7e5f", "#feb47b"],
-        date: "Today",
-        calories: 280,
-      },
-      {
-        id: 2,
-        label: "Morning Cardio",
-        duration: "30 mins",
-        icon: "walk",
-        color: ["#43cea2", "#185a9d"],
-        date: "Yesterday",
-        calories: 220,
-      },
-      {
-        id: 3,
-        label: "Evening Yoga",
-        duration: "20 mins",
-        icon: "leaf-outline",
-        color: ["#a18cd1", "#fbc2eb"],
-        date: "2 days ago",
-        calories: 120,
-      },
-      {
-        id: 4,
-        label: "Cycling Session",
-        duration: "25 mins",
-        icon: "bicycle",
-        color: ["#36d1dc", "#5b86e5"],
-        date: "3 days ago",
-        calories: 310,
-      },
-    ],
+  // User state
+  const [userId, setUserId] = useState(null);
+  const [userName, setUserName] = useState("User");
+  const [notifications, setNotifications] = useState(0);
+  
+  // Data state
+  const [dailyProgress, setDailyProgress] = useState(null);
+  const [quickStartCategories, setQuickStartCategories] = useState([]);
+  const [featuredContent, setFeaturedContent] = useState(null);
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Get authenticated user
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        
+        if (user) {
+          setUserId(user.id);
+          // Get user name from metadata or email
+          setUserName(user.user_metadata?.name || user.email?.split('@')[0] || 'User');
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+      }
+    };
+    getUser();
+  }, []);
+
+  // Load home data when user is available
+  useEffect(() => {
+    if (userId) {
+      loadHomeData();
+    }
+  }, [userId]);
+
+  const loadHomeData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch all home data in parallel
+      const [
+        userStatsData,
+        featuredData,
+        activitiesData,
+        categoriesData,
+        notificationsData,
+      ] = await Promise.all([
+        HomeDataService.fetchUserDailyStats(userId),
+        HomeDataService.fetchFeaturedContent(),
+        HomeDataService.fetchRecentActivities(userId, 4),
+        HomeDataService.fetchQuickStartCategories(),
+        HomeDataService.fetchUserNotifications(userId),
+      ]);
+
+      // Update state with real data
+      setDailyProgress(userStatsData);
+      setFeaturedContent(featuredData);
+      setRecentActivities(activitiesData);
+      setQuickStartCategories(categoriesData);
+      setNotifications(notificationsData.count);
+      
+    } catch (error) {
+      console.error("Error loading home data:", error);
+      Alert.alert("Error", "Failed to load home data. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Calculate total progress from metrics
   const calculateTotalProgress = (metrics) => {
+    if (!metrics) return 0;
     const workoutPercent = (metrics.workout.value / metrics.workout.max) * 100;
     const caloriePercent = (metrics.calories.value / metrics.calories.max) * 100;
     const stepsPercent = (metrics.steps.value / metrics.steps.max) * 100;
     return (workoutPercent + caloriePercent + stepsPercent) / 3;
   };
 
-  const totalProgress = calculateTotalProgress(homeData.dailyProgress.metrics);
+  const totalProgress = dailyProgress ? calculateTotalProgress(dailyProgress.metrics) : 0;
 
   const handlePress = (path) => {
     if (pathname !== path) {
@@ -246,34 +110,44 @@ export default function Home() {
 
         {/* Header */}
         <View style={styles.headerRow}>
-          <Text style={styles.headerText}>Welcome, {homeData.user.name}! 💪</Text>
-          <NotificationBar notifications={homeData.user.notifications} />
+          <Text style={styles.headerText}>Welcome, {userName}! 💪</Text>
+          <NotificationBar notifications={notifications} />
         </View>
 
-        {/* ✅ Daily Progress Card Component */}
-        <DailyProgressCard
-          totalProgress={totalProgress}
-          workoutData={homeData.dailyProgress.metrics.workout}
-          calorieData={homeData.dailyProgress.metrics.calories}
-          stepsData={homeData.dailyProgress.metrics.steps}
-          streakData={homeData.dailyProgress.streak}
-        />
-        
-        <QuickStart categories={homeData.quickStart.categories} />
-        
-        <FeaturedVideo
-          title={homeData.featuredContent.title}
-          subtitle={homeData.featuredContent.subtitle}
-          author={homeData.featuredContent.author}
-          views={homeData.featuredContent.views}
-          category={homeData.featuredContent.category}
-          thumbnail={homeData.featuredContent.thumbnail}
-          duration={homeData.featuredContent.duration}
-        />
+        {/* Loading State */}
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading your home data...</Text>
+          </View>
+        ) : (
+          <>
+            {/* ✅ Daily Progress Card Component - Now fetches its own data */}
+            <DailyProgressCard />
+            
+            {/* Quick Start Section */}
+            {quickStartCategories.length > 0 && (
+              <QuickStart categories={quickStartCategories} />
+            )}
+            
+            {/* Featured Video */}
+            {featuredContent && (
+              <FeaturedVideo
+                title={featuredContent.title}
+                subtitle={featuredContent.subtitle}
+                author={featuredContent.author}
+                views={featuredContent.views}
+                category={featuredContent.category}
+                thumbnail={featuredContent.thumbnail}
+                duration={featuredContent.duration}
+              />
+            )}
 
-        {/* Recent Activity */}
-        <RecentActivity activities={homeData.recentActivities} />
-        {/* Featured Video */}
+            {/* Recent Activity */}
+            {recentActivities.length > 0 && (
+              <RecentActivity activities={recentActivities} />
+            )}
+          </>
+        )}
 
       </ScrollView>
     </View>
@@ -410,6 +284,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+  },
+  loadingContainer: {
+    flex: 1,
+    minHeight: 400,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#888',
+    marginTop: 12,
   },
   activityLabel: {
     fontSize: 16,

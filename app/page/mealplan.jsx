@@ -331,46 +331,12 @@ export default function Mealplan() {
           </View>
         ) : (
           <>
-            {/* Macro Progress Summary with Date Header and Weekly Calendar */}
+            {/* Macro Progress Summary */}
             {macroGoals && (
-              <View style={styles.macroSection}>
-                <MacroProgressSummary 
-                  macroGoals={macroGoals} 
-                  selectedDate={selectedDate}
-                />
-                
-                {/* Weekly Calendar Strip */}
-                <View style={styles.weeklyStrip}>
-                  <View style={styles.weekRow}>
-                    {weeklyPlan.map((day, index) => (
-                      <Pressable
-                        key={index}
-                        style={[
-                          styles.dayButton, 
-                          day.active && styles.activeDayButton,
-                          day.isCompleted && styles.completedDayButton
-                        ]}
-                        onPress={() => handleDaySelect(day)}
-                      >
-                        <Text
-                          style={[
-                            styles.dayText, 
-                            day.active && styles.activeDayText,
-                            day.isCompleted && styles.completedDayText
-                          ]}
-                        >
-                          {day.day}
-                        </Text>
-                        {day.mealsPlanned > 0 && (
-                          <View style={styles.mealIndicator}>
-                            <Text style={styles.mealCount}>{day.mealsPlanned}</Text>
-                          </View>
-                        )}
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-              </View>
+              <MacroProgressSummary 
+                macroGoals={macroGoals} 
+                selectedDate={selectedDate}
+              />
             )}
 
             {/* Today's Meals Component */}
@@ -465,17 +431,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     opacity: 0.7,
   },
-  macroSection: {
-    marginBottom: 20,
-  },
-  weeklyStrip: {
-    paddingHorizontal: 4,
-    paddingVertical: 16,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
   card: {
     padding: 20,
     borderRadius: 20,
@@ -504,58 +459,6 @@ const styles = StyleSheet.create({
   dateText: {
     fontSize: 14,
     color: "#999",
-  },
-  weekRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 8,
-  },
-  dayButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  activeDayButton: {
-    backgroundColor: "#8e44ad",
-    borderColor: "#8e44ad",
-  },
-  completedDayButton: {
-    backgroundColor: "#00D4AA",
-    borderColor: "#00D4AA",
-  },
-  dayText: {
-    fontSize: 13,
-    color: "#999",
-    fontWeight: "700",
-  },
-  activeDayText: {
-    color: "#fff",
-  },
-  completedDayText: {
-    color: "#fff",
-  },
-  mealIndicator: {
-    position: "absolute",
-    top: -4,
-    right: -4,
-    backgroundColor: "#ff9f43",
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#0B0B0B",
-  },
-  mealCount: {
-    fontSize: 10,
-    color: "#fff",
-    fontWeight: "800",
   },
   actionGrid: {
     gap: 10,

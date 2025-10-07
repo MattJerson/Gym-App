@@ -11,6 +11,7 @@ import {
   UtensilsCrossed,
   Menu,
   X,
+  Star,
 } from "lucide-react";
 import logo from "../assets/logo.png";
 import { NavLink } from "react-router-dom";
@@ -23,6 +24,7 @@ const Sidebar = () => {
     { label: "Dashboard", icon: BarChart3, path: "/" },
     { label: "Meal Plans", icon: UtensilsCrossed, path: "/meals" },
     { label: "Workout Plans", icon: Dumbbell, path: "/workouts" },
+    { label: "Featured Content", icon: Star, path: "/featured" },
     { label: "Notifications", icon: Bell, path: "/notifications" },
     { label: "Subscriptions", icon: CreditCard, path: "/subscriptions" },
     { label: "User Management", icon: Users, path: "/users" },

@@ -8,6 +8,7 @@ import Analytics from "./pages/Analytics";
 import Sidebar from "./components/Sidebar";
 import Subscriptions from "./pages/Subscriptions";
 import Notifications from "./pages/Notifications";
+import FeaturedContent from "./pages/FeaturedContent";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
             <Route path="badges" element={<Badges />} />
             <Route path="workouts" element={<Workouts />} />
             <Route path="meals" element={<Meals />} />
+            <Route path="featured" element={<FeaturedContent />} />
           </Routes>
         </main>
       </div>
