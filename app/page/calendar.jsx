@@ -223,22 +223,44 @@ export default function Calendar() {
   const monthlyStats = useMemo(() => {
     const currentMonth = currentDate.getMonth();
     const currentYear = currentDate.getFullYear();
-    let workouts = 0, maxStreak = 0, currentStreak = 0;
-    Object.entries(workoutData)
-      .sort((a, b) => new Date(a[0]) - new Date(b[0]))
-      .forEach(([dateKey, workout]) => {
-        const [year, month] = dateKey.split("-").map(Number);
-        if (year === currentYear && month - 1 === currentMonth && workout.completed) workouts++;
-        if (workout.streak && workout.completed) {
-          currentStreak++;
-          maxStreak = Math.max(maxStreak, currentStreak);
-        } else {
-          currentStreak = 0;
+    let workouts = 0;
+    
+    // Count workouts in current month
+    Object.entries(workoutData).forEach(([dateKey, workout]) => {
+      const [year, month] = dateKey.split("-").map(Number);
+      if (year === currentYear && month - 1 === currentMonth && workout.completed) {
+        workouts++;
+      }
+    });
+    
+    // Calculate current active streak (from today backwards)
+    let currentStreakCount = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Check each day going backwards from today
+    for (let i = 0; i < 365; i++) { // Max 365 days check
+      const checkDate = new Date(today);
+      checkDate.setDate(today.getDate() - i);
+      const dateKey = formatDateKey(checkDate);
+      
+      const workout = workoutData[dateKey];
+      
+      if (workout && workout.completed) {
+        currentStreakCount++;
+      } else {
+        // If it's today or yesterday and no workout, continue checking
+        // This allows for "grace period" - streak doesn't break until you miss 2 days
+        if (i === 0) {
+          continue; // Today - keep checking backwards
         }
-      });
+        break; // Streak broken
+      }
+    }
+    
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     const goalPercentage = Math.round((workouts / daysInMonth) * 100);
-    return { workouts, streak: maxStreak, goalPercentage };
+    return { workouts, streak: currentStreakCount, goalPercentage };
   }, [currentDate, workoutData]);
 
 

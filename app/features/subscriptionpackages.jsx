@@ -12,6 +12,7 @@ import {
   StatusBar,
   ActivityIndicator,
   Dimensions,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useState, useEffect, useRef } from "react";
@@ -194,10 +195,55 @@ export default function SubscriptionPackages() {
     setIsProcessing(true);
 
     try {
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        Alert.alert('Error', 'Please log in to subscribe');
+        setIsProcessing(false);
+        return;
+      }
+
       // Free trial - no payment needed
       if (subscription.price === 0 || subscription.slug === 'free-trial') {
         console.log('Starting free trial...');
-        // TODO: Create free trial subscription in database
+        
+        // Get the subscription package ID
+        const { data: packageData, error: packageError } = await supabase
+          .from('subscription_packages')
+          .select('id')
+          .eq('slug', subscription.slug)
+          .single();
+
+        if (packageError) {
+          console.error('Error fetching package:', packageError);
+          Alert.alert('Error', 'Failed to start free trial');
+          setIsProcessing(false);
+          return;
+        }
+
+        // Create free trial subscription in database
+        const startDate = new Date();
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + 7); // 7-day free trial
+
+        const { error: subscriptionError } = await supabase
+          .from('user_subscriptions')
+          .insert({
+            user_id: user.id,
+            package_id: packageData.id,
+            status: 'active',
+            started_at: startDate.toISOString(),
+            expires_at: endDate.toISOString()
+          });
+
+        if (subscriptionError) {
+          console.error('Error creating subscription:', subscriptionError);
+          Alert.alert('Error', 'Failed to create subscription');
+          setIsProcessing(false);
+          return;
+        }
+
+        console.log('Free trial created successfully!');
         router.push('/features/selectworkouts');
         return;
       }

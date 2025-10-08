@@ -24,8 +24,8 @@ export default function CalendarStatsCard({ monthlyStats, currentDate }) {
           <Ionicons name="flame" size={16} color="#fff" />
         </View>
         <View style={styles.statTextContainer}>
-          <Text style={styles.statLabel}>Best Streak</Text>
-          <Text style={styles.statValue}>{monthlyStats.streak} days</Text>
+          <Text style={styles.statLabel}>Current Streak</Text>
+          <Text style={styles.statValue}>{monthlyStats.streak} {monthlyStats.streak === 1 ? 'day' : 'days'}</Text>
         </View>
       </View>
       
