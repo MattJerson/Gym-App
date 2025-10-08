@@ -1,0 +1,172 @@
+╔════════════════════════════════════════════════════════════════╗
+║                     🎯 QUICK REFERENCE CARD                     ║
+║                   Leaderboard Implementation                    ║
+╚════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────┐
+│ 📍 START HERE: Fix Database First                              │
+└─────────────────────────────────────────────────────────────────┘
+
+1. Open: https://supabase.com/dashboard/project/hjytowwfhgngbilousri/sql
+2. Paste: ALTER TABLE public.user_stats ADD COLUMN IF NOT EXISTS total_steps integer DEFAULT 0;
+3. Click: RUN
+4. See: ✅ Column added!
+
+┌─────────────────────────────────────────────────────────────────┐
+│ 🚀 Test Mobile App                                              │
+└─────────────────────────────────────────────────────────────────┘
+
+PowerShell:
+  npx expo start
+
+Check:
+  ✓ No total_steps error
+  ✓ Shows your nickname (not "Athlete A (You)")
+  ✓ Shows active challenge title (if exists)
+
+┌─────────────────────────────────────────────────────────────────┐
+│ 🎨 Test Admin Dashboard                                         │
+└─────────────────────────────────────────────────────────────────┘
+
+PowerShell:
+  cd admin
+  npm run dev
+
+Check:
+  ✓ Shows real names (not "Anonymous")
+  ✓ Shows email addresses
+  ✓ Shows active challenge title (if exists)
+
+┌─────────────────────────────────────────────────────────────────┐
+│ 📊 What Changed                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+Database:
+  + Added total_steps column to user_stats
+
+Admin Dashboard:
+  + Now queries weekly_leaderboard (PII view) for real names
+  + Shows active challenge title
+  + Displays email under user name
+
+Mobile App:
+  + Fetches user nickname from profile
+  + Shows "YourName (You)" instead of "Athlete A (You)"
+  + Displays active challenge title in leaderboard header
+
+┌─────────────────────────────────────────────────────────────────┐
+│ 🎯 Expected Results                                             │
+└─────────────────────────────────────────────────────────────────┘
+
+Mobile App:
+  🏁 Weekly Leaderboard
+  🎯 Weekly Warrior Challenge
+  
+  🥇  John (You)          150 pts  7🔥
+  🥈  Sarah              120 pts  5🔥
+  🥉  Athlete A           50 pts  3🔥
+
+Admin Dashboard:
+  🏆 Weekly Leaderboard
+  🎯 Active: Weekly Warrior Challenge
+  
+  🥇  John Doe
+      john@example.com
+      150 points
+  
+  🥈  Sarah Smith
+      sarah@example.com
+      120 points
+
+┌─────────────────────────────────────────────────────────────────┐
+│ 🐛 Quick Fixes                                                  │
+└─────────────────────────────────────────────────────────────────┘
+
+Still see errors?
+  → Restart: npx expo start -c
+
+Still "Anonymous"?
+  → Hard refresh: Ctrl + Shift + R
+
+No nickname showing?
+  SQL: UPDATE profiles SET nickname = 'Name' WHERE id = 'USER_ID';
+
+No challenge showing?
+  → Create/activate one in admin dashboard
+
+┌─────────────────────────────────────────────────────────────────┐
+│ 📁 Important Files                                              │
+└─────────────────────────────────────────────────────────────────┘
+
+SQL to Run:
+  db_schema/QUICK_FIX_ADD_TOTAL_STEPS.sql
+
+Documentation:
+  START_HERE.md          ← Complete deployment guide
+  FIXES_APPLIED.md       ← What was fixed and why
+  VISUAL_GUIDE.md        ← Visual examples
+
+Modified Code:
+  admin/src/pages/Badges.jsx     ← Admin leaderboard
+  app/page/profile.jsx           ← Mobile app profile
+
+┌─────────────────────────────────────────────────────────────────┐
+│ ✅ Success Checklist                                            │
+└─────────────────────────────────────────────────────────────────┘
+
+Database:
+  □ Ran SQL to add total_steps column
+  □ Verified column exists
+
+Mobile App:
+  □ No total_steps error
+  □ Shows real nickname for current user
+  □ Shows active challenge (if exists)
+  □ Leaderboard displays athletes
+
+Admin Dashboard:
+  □ Shows real names and emails
+  □ Shows active challenge (if exists)
+  □ Can create/manage badges
+  □ Can create/activate challenges
+
+┌─────────────────────────────────────────────────────────────────┐
+│ 🔐 Privacy Status                                               │
+└─────────────────────────────────────────────────────────────────┘
+
+Mobile App (Client):
+  ✓ Uses safe_weekly_leaderboard
+  ✓ Shows nicknames only
+  ✓ No emails or real IDs
+  ✓ Privacy protected
+
+Admin Dashboard:
+  ✓ Uses weekly_leaderboard (PII)
+  ✓ Shows full names & emails
+  ✓ Requires admin access
+  ✓ RLS protected
+
+┌─────────────────────────────────────────────────────────────────┐
+│ 📞 Quick Help SQL                                               │
+└─────────────────────────────────────────────────────────────────┘
+
+Check column exists:
+  SELECT column_name FROM information_schema.columns 
+  WHERE table_name = 'user_stats' AND column_name = 'total_steps';
+
+Set nickname:
+  UPDATE profiles SET nickname = 'YourName' 
+  WHERE id = 'YOUR_USER_ID';
+
+View safe leaderboard:
+  SELECT * FROM safe_weekly_leaderboard LIMIT 10;
+
+View admin leaderboard:
+  SELECT * FROM weekly_leaderboard LIMIT 10;
+
+Check active challenges:
+  SELECT title, is_active FROM challenges WHERE is_active = true;
+
+╔════════════════════════════════════════════════════════════════╗
+║  🎉 YOU'RE READY! Run the SQL, test, and you're done! 🚀      ║
+╚════════════════════════════════════════════════════════════════╝

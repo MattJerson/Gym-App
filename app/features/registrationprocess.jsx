@@ -343,9 +343,7 @@ export default function BasicInfo() {
                 console.log('No authenticated user - skipping remote save.');
                 router.replace('../features/bodyfatuser');
                 return;
-              }
-
-              // Build payload matching DB columns and collect extra fields into `details` JSONB
+              }              // Build payload matching DB columns and collect extra fields into `details` JSONB
               const payload = {
                 user_id: userId,
                 gender: finalData.gender || null,
@@ -373,13 +371,31 @@ export default function BasicInfo() {
                 }
               };
 
+              console.log('=== REGISTRATION SAVE DEBUG ===');
+              console.log('User ID:', userId);
+              console.log('Payload to save:', JSON.stringify({
+                user_id: payload.user_id,
+                gender: payload.gender,
+                fitness_goal: payload.fitness_goal,
+                height_cm: payload.height_cm,
+                weight_kg: payload.weight_kg,
+                age: payload.age,
+                calorie_goal: payload.calorie_goal
+              }, null, 2));
+
               console.log('Saving registration to Supabase for user', userId);
-              const { data, error } = await supabase.from('registration_profiles').upsert(payload, { returning: 'minimal' });
+              const { data, error } = await supabase.from('registration_profiles').upsert(payload, { 
+                onConflict: 'user_id',
+                returning: 'representation' // Changed to see what was saved
+              });
+              
               if (error) {
-                console.error('Failed to save registration_profiles:', error);
+                console.error('❌ Failed to save registration_profiles:', error);
+                console.error('Error details:', JSON.stringify(error, null, 2));
                 Alert.alert('Save failed', error.message || 'Failed to save registration to server');
               } else {
-                console.log('Registration saved to Supabase');
+                console.log('✅ Registration saved to Supabase successfully!');
+                console.log('Saved data:', data);
                 // optionally clear local copy
                 await AsyncStorage.removeItem('onboarding:registration');
               }

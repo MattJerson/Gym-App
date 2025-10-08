@@ -401,9 +401,44 @@ const GamificationDataService = {
   },
 
   /**
-   * Get weekly leaderboard
+   * Get weekly leaderboard (PRIVACY-SAFE)
+   * Only reads from safe_weekly_leaderboard. No fallback to unsafe views.
    */
   async getWeeklyLeaderboard(limit = 100) {
+    try {
+      const { data, error } = await supabase
+        .from('safe_weekly_leaderboard')
+        .select('*')
+        .limit(limit);
+
+      if (error) {
+        console.error('Error querying safe_weekly_leaderboard:', error);
+        throw error;
+      }
+
+      // Normalize returned rows to a predictable client shape
+      const leaderboard = (data || []).map((row, index) => ({
+        anon_id: row.anon_id || `anon-${index + 1}`,
+        display_name: row.display_name || `User-${index + 1}`,
+        total_points: Number(row.total_points) || 0,
+        current_streak: Number(row.current_streak) || 0,
+        total_workouts: Number(row.total_workouts) || 0,
+        badges_earned: Number(row.badges_earned) || 0,
+        position: row.position ?? index + 1,
+      }));
+
+      return leaderboard;
+    } catch (error) {
+      console.error('Error fetching weekly leaderboard (safe):', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Admin-only: full weekly leaderboard including PII (UNSAFE)
+   * This must only be called from server-side code that verifies admin privileges.
+   */
+  async getAdminWeeklyLeaderboard(limit = 100) {
     try {
       const { data, error } = await supabase
         .from('weekly_leaderboard')
@@ -411,9 +446,157 @@ const GamificationDataService = {
         .limit(limit);
 
       if (error) throw error;
-      return data;
+      return data || [];
     } catch (error) {
-      console.error('Error fetching weekly leaderboard:', error);
+      console.error('Error fetching admin weekly leaderboard (unsafe):', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get user's position in leaderboard (safe)
+   * Computes rank from user_stats so mapping isn't required to the safe anon ids.
+   */
+  async getUserLeaderboardPosition(userId) {
+    try {
+      if (!userId) return null;
+
+      // Ensure the user's stats row exists and is up-to-date
+      const { data: me, error: meErr } = await supabase
+        .from('user_stats')
+        .select('total_points')
+        .eq('user_id', userId)
+        .single();
+
+      if (meErr) {
+        console.error('Error fetching user_stats for position:', meErr);
+        return null;
+      }
+
+      const myPoints = Number(me?.total_points || 0);
+
+      // Count how many users have strictly more points (rank = count + 1)
+      const { count, error: countErr } = await supabase
+        .from('user_stats')
+        .select('user_id', { count: 'exact', head: true })
+        .gt('total_points', myPoints);
+
+      if (countErr) {
+        console.error('Error counting higher-scoring users:', countErr);
+        return null;
+      }
+
+      return (count || 0) + 1;
+    } catch (error) {
+      console.error('Error fetching user position (safe):', error);
+      return null;
+    }
+  },
+
+  /**
+   * Synchronize user_stats from activity tables (workouts, steps, exercise sets, badges)
+   * This aggregates authoritative activity data and writes to user_stats so leaderboard/view can be populated.
+   */
+  async syncUserStatsFromActivity(userId) {
+    try {
+      if (!userId) throw new Error('userId required');
+
+      // 1) Ensure user_stats row exists (getUserStats handles creation)
+      let stats = await this.getUserStats(userId);
+
+      // 2) Aggregate completed workouts and calories
+      const { data: workouts = [], error: wErr } = await supabase
+        .from('workout_logs')
+        .select('calories_burned, completed_at, status')
+        .eq('user_id', userId)
+        .eq('status', 'completed');
+      if (wErr) throw wErr;
+
+      const total_workouts = (workouts || []).length;
+      const total_calories_burned = (workouts || []).reduce((s, r) => s + (Number(r.calories_burned) || 0), 0);
+      const last_workout_date = (workouts || []).reduce((max, r) => {
+        const d = r.completed_at ? new Date(r.completed_at) : null;
+        if (!d) return max;
+        return (!max || d > max) ? d : max;
+      }, null);
+
+      // 3) Aggregate exercise completions
+      const { data: sets = [], error: sErr } = await supabase
+        .from('exercise_sets')
+        .select('actual_reps')
+        .eq('user_id', userId);
+      if (sErr) throw sErr;
+      const total_exercises_completed = (sets || []).reduce((s, r) => s + (Number(r.actual_reps) || 0), 0);
+
+      // 4) Sum badge points and count badges earned
+      const { data: userBadges = [], error: ubErr } = await supabase
+        .from('user_badges')
+        .select('badge_id, badges(points_value)')
+        .eq('user_id', userId);
+      if (ubErr) throw ubErr;
+      const badges_earned = (userBadges || []).length;
+      const badge_points_sum = (userBadges || []).reduce((s, r) => s + (r.badges?.points_value || 0), 0);
+
+      // 5) Steps & daily activity integration
+      const { data: steps = [], error: stepErr } = await supabase
+        .from('steps_tracking')
+        .select('step_count, tracking_date')
+        .eq('user_id', userId);
+      if (stepErr) throw stepErr;
+      const total_steps = (steps || []).reduce((s, r) => s + (Number(r.step_count) || 0), 0);
+
+      // 6) Compute conservative points heuristic (server-authoritative logic can vary)
+      const computed_points = (total_workouts * 10) + Math.floor((total_calories_burned || 0) / 100) + (badge_points_sum || 0) + Math.floor(total_steps / 1000);
+
+      // 7) Compute current streak from unique workout dates
+      let current_streak = stats.current_streak || 0;
+      if (workouts && workouts.length) {
+        const uniqueDates = Array.from(new Set(workouts.map(w => w.completed_at ? new Date(w.completed_at).toISOString().split('T')[0] : null).filter(Boolean))).sort().reverse();
+        let streak = 0;
+        let ref = new Date();
+        for (let i = 0; i < uniqueDates.length; i++) {
+          const d = new Date(uniqueDates[i]);
+          const expected = new Date(ref);
+          expected.setDate(ref.getDate() - i);
+          if (d.toISOString().split('T')[0] === expected.toISOString().split('T')[0]) {
+            streak += 1;
+          } else {
+            break;
+          }
+        }
+        if (streak > 0) current_streak = streak;
+      }
+
+      // 8) Persist updates
+      const updates = {
+        total_workouts,
+        total_calories_burned,
+        total_exercises_completed,
+        badges_earned,
+        total_steps,
+        total_points: computed_points,
+        last_workout_date: last_workout_date ? last_workout_date.toISOString().split('T')[0] : stats.last_workout_date,
+        current_streak,
+        updated_at: new Date().toISOString(),
+      };
+
+      const updated = await this.updateUserStats(userId, updates).catch(async err => {
+        // If update failed because row doesn't exist, insert
+        const { data: inserted, error: insErr } = await supabase
+          .from('user_stats')
+          .insert([{ user_id: userId, ...updates }])
+          .select()
+          .single();
+        if (insErr) throw insErr;
+        return inserted;
+      });
+
+      // 9) Award badges based on recomputed stats
+      await this.checkAndAwardBadges(userId);
+
+      return updated;
+    } catch (error) {
+      console.error('Error syncing user stats from activity:', error);
       throw error;
     }
   },
@@ -461,16 +644,36 @@ const GamificationDataService = {
    */
   async getUserLeaderboardPosition(userId) {
     try {
-      const { data, error } = await supabase
-        .from('weekly_leaderboard')
-        .select('*')
+      if (!userId) return null;
+
+      // Ensure the user's stats row exists and is up-to-date
+      const { data: me, error: meErr } = await supabase
+        .from('user_stats')
+        .select('total_points')
         .eq('user_id', userId)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
-      return data?.position || null;
+      if (meErr) {
+        console.error('Error fetching user_stats for position:', meErr);
+        return null;
+      }
+
+      const myPoints = Number(me?.total_points || 0);
+
+      // Count how many users have strictly more points (rank = count + 1)
+      const { count, error: countErr } = await supabase
+        .from('user_stats')
+        .select('user_id', { count: 'exact', head: true })
+        .gt('total_points', myPoints);
+
+      if (countErr) {
+        console.error('Error counting higher-scoring users:', countErr);
+        return null;
+      }
+
+      return (count || 0) + 1;
     } catch (error) {
-      console.error('Error fetching user position:', error);
+      console.error('Error fetching user position (safe):', error);
       return null;
     }
   },

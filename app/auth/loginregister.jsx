@@ -169,22 +169,49 @@ export default function Register() {
         }
 
         // Redirect to registration process (if you have extra steps)
-        router.push("/features/registrationprocess");
-      } else {
+        router.push("/features/registrationprocess");      } else {
         // Sign in using Supabase
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        // Check if user has completed registration process
+        // Check if user has completed essential registration fields
         if (data?.user?.id) {
+          console.log('Checking registration profile for user:', data.user.id);
+          
           const { data: profileData, error: profileError } = await supabase
             .from('registration_profiles')
             .select('*')
             .eq('user_id', data.user.id)
             .single();
           
-          // If no profile exists or profile is incomplete, redirect to registration
-          if (profileError || !profileData || !profileData.gender || !profileData.fitness_goal) {
+          if (profileError) {
+            console.log('Profile error:', profileError);
+          }
+          if (profileData) {
+            console.log('Profile data found:', {
+              gender: profileData.gender,
+              fitness_goal: profileData.fitness_goal,
+              height_cm: profileData.height_cm,
+              weight_kg: profileData.weight_kg
+            });
+          }
+          
+          // Define essential fields from Basic Info step (first step)
+          const essentialFields = ['gender', 'fitness_goal', 'height_cm', 'weight_kg'];
+          
+          // Check if profile exists and has all essential fields filled
+          const hasEssentialFields = profileData && 
+            essentialFields.every(field => {
+              const value = profileData[field];
+              const isValid = value != null && value !== '';
+              console.log(`Field ${field}: ${value} - Valid: ${isValid}`);
+              return isValid;
+            });
+          
+          console.log('Has essential fields:', hasEssentialFields);
+          
+          // If no profile exists or essential fields are missing, redirect to registration
+          if (profileError || !hasEssentialFields) {
             console.log('Registration incomplete, redirecting to registration process');
             router.replace("/features/registrationprocess");
             return;
@@ -192,6 +219,7 @@ export default function Register() {
         }
 
         // On success navigate to app home
+        console.log('Login successful, navigating to home');
         router.replace("/page/home");
       }
     } catch (error) {

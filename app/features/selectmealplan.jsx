@@ -103,9 +103,7 @@ export default function SelectMealPlan() {
         Alert.alert('Error', 'You must be signed in to complete onboarding.');
         setIsCompleting(false);
         return;
-      }
-
-      // Get locally saved data
+      }      // Get locally saved data
       const regRaw = await AsyncStorage.getItem('onboarding:registration');
       const bodyRaw = await AsyncStorage.getItem('onboarding:bodyfat');
       const workoutsRaw = await AsyncStorage.getItem('onboarding:selectedWorkouts');
@@ -114,46 +112,57 @@ export default function SelectMealPlan() {
       const bodyfat = bodyRaw ? JSON.parse(bodyRaw) : null;
       const selectedWorkouts = workoutsRaw ? JSON.parse(workoutsRaw) : [];
 
+      console.log('=== SELECTMEALPLAN DEBUG ===');
+      console.log('Registration data from AsyncStorage:', registration);
+      console.log('Has registration data?', Object.keys(registration).length > 0);
+
       if (!bodyfat) {
         Alert.alert('Error', 'Missing body fat data. Please restart onboarding.');
         setIsCompleting(false);
         return;
       }
 
-      // Save registration profile
-      const registrationPayload = {
-        user_id: user.id,
-        gender: registration.gender || null,
-        age: registration.age ? parseInt(registration.age, 10) : null,
-        height_cm: registration.height ? parseInt(registration.height, 10) : null,
-        weight_kg: registration.weight ? parseFloat(registration.weight) : null,
-        use_metric: registration.useMetric === undefined ? true : !!registration.useMetric,
-        activity_level: registration.activityLevel || null,
-        fitness_goal: registration.fitnessGoal || null,
-        favorite_foods: registration.favoriteFoods || null,
-        fitness_level: registration.fitnessLevel || null,
-        training_location: registration.trainingLocation || null,
-        training_duration: registration.trainingDuration ? 
-          (registration.trainingDuration === '90+' ? 90 : parseInt(registration.trainingDuration, 10)) : null,
-        muscle_focus: registration.muscleFocus || null,
-        injuries: registration.injuries || null,
-        training_frequency: registration.trainingFrequency || null,
-        meal_type: registration.mealType || null,
-        restrictions: registration.restrictions || null,
-        meals_per_day: registration.mealsPerDay ? parseInt(registration.mealsPerDay, 10) : null,
-        calorie_goal: registration.calorieGoal ? parseInt(registration.calorieGoal, 10) : null,
-        details: {}
-      };
+      // Only save registration profile if we have data (don't overwrite with empty object!)
+      if (Object.keys(registration).length > 0 && registration.gender) {
+        console.log('Saving registration profile...');
+        // Save registration profile
+        const registrationPayload = {
+          user_id: user.id,
+          gender: registration.gender || null,
+          age: registration.age ? parseInt(registration.age, 10) : null,
+          height_cm: registration.height ? parseInt(registration.height, 10) : null,
+          weight_kg: registration.weight ? parseFloat(registration.weight) : null,
+          use_metric: registration.useMetric === undefined ? true : !!registration.useMetric,
+          activity_level: registration.activityLevel || null,
+          fitness_goal: registration.fitnessGoal || null,
+          favorite_foods: registration.favoriteFoods || null,
+          fitness_level: registration.fitnessLevel || null,
+          training_location: registration.trainingLocation || null,
+          training_duration: registration.trainingDuration ? 
+            (registration.trainingDuration === '90+' ? 90 : parseInt(registration.trainingDuration, 10)) : null,
+          muscle_focus: registration.muscleFocus || null,
+          injuries: registration.injuries || null,
+          training_frequency: registration.trainingFrequency || null,
+          meal_type: registration.mealType || null,
+          restrictions: registration.restrictions || null,
+          meals_per_day: registration.mealsPerDay ? parseInt(registration.mealsPerDay, 10) : null,
+          calorie_goal: registration.calorieGoal ? parseInt(registration.calorieGoal, 10) : null,
+          details: {}
+        };
 
-      const { error: regError } = await supabase
-        .from('registration_profiles')
-        .upsert(registrationPayload, { onConflict: 'user_id' });
+        const { error: regError } = await supabase
+          .from('registration_profiles')
+          .upsert(registrationPayload, { onConflict: 'user_id' });
 
-      if (regError) {
-        console.error('Failed to save registration:', regError);
-        Alert.alert('Error', 'Failed to save registration data');
-        setIsCompleting(false);
-        return;
+        if (regError) {
+          console.error('Failed to save registration:', regError);
+          Alert.alert('Error', 'Failed to save registration data');
+          setIsCompleting(false);
+          return;
+        }
+        console.log('✅ Registration profile saved');
+      } else {
+        console.log('⚠️ Skipping registration save - no data in AsyncStorage (already saved in previous step)');
       }
 
       // Save body fat profile
@@ -180,9 +189,7 @@ export default function SelectMealPlan() {
 
       if (mealError) {
         console.error('Failed to assign meal plan:', mealError);
-      }
-
-      // Assign selected workout templates to user (if any)
+      }      // Assign selected workout templates to user (if any)
       if (selectedWorkouts.length > 0) {
         const workoutAssignments = selectedWorkouts.map(templateId => ({
           user_id: user.id,
@@ -191,9 +198,13 @@ export default function SelectMealPlan() {
           is_favorite: true,
         }));
 
+        // Use upsert to handle existing entries gracefully
         const { error: workoutError } = await supabase
           .from('user_saved_workouts')
-          .insert(workoutAssignments);
+          .upsert(workoutAssignments, { 
+            onConflict: 'user_id,template_id',
+            ignoreDuplicates: false // Update existing records
+          });
 
         if (workoutError) {
           console.error('Failed to save workout preferences:', workoutError);

@@ -20,14 +20,16 @@ export default function Profile() {
   const pathname = usePathname();
   const [notifications] = useState(3);
   const [selectedTheme, setSelectedTheme] = useState('dark');
-
   // User data
   const [user, setUser] = useState(null);
   const [userStats, setUserStats] = useState(null);
   const [userBadges, setUserBadges] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [activeChallenge, setActiveChallenge] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentUserPosition, setCurrentUserPosition] = useState(null);
+  const [currentUserNickname, setCurrentUserNickname] = useState(null);
 
   useEffect(() => {
     loadUserData();
@@ -42,9 +44,22 @@ export default function Profile() {
       if (!authUser) {
         router.push('/auth/loginregister');
         return;
-      }
+      }      setCurrentUserId(authUser.id);
 
-      setCurrentUserId(authUser.id);
+      // Get user's profile for nickname
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('nickname, full_name')
+        .eq('id', authUser.id)
+        .single();
+
+      const userNickname = profileData?.nickname || 
+                          profileData?.full_name?.split(' ')[0] || 
+                          authUser.user_metadata?.full_name?.split(' ')[0] ||
+                          authUser.email?.split('@')[0] || 
+                          'User';
+      
+      setCurrentUserNickname(userNickname);
 
       // Set user basic info
       setUser({
@@ -56,16 +71,39 @@ export default function Profile() {
         joinDate: `Joined ${new Date(authUser.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`,
       });
 
-      // Load gamification data
-      const [stats, badges, leaderboardData] = await Promise.all([
+      // Ensure server-side stats are up-to-date from activity (workouts, steps, sets, badges)
+      // This will populate user_stats so the leaderboard view can include the user
+      try {
+        await GamificationDataService.syncUserStatsFromActivity(authUser.id); 
+      } catch (syncErr) {
+        // Non-fatal: continue but log for visibility
+        console.warn('syncUserStatsFromActivity failed', syncErr);
+      }
+
+      // Load gamification data and user's leaderboard position
+      const [stats, badges, leaderboardData, activeChallenges] = await Promise.all([
         GamificationDataService.getUserStats(authUser.id),
         GamificationDataService.getUserBadges(authUser.id),
         GamificationDataService.getWeeklyLeaderboard(100),
+        supabase
+          .from('challenges')
+          .select('*')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1),
       ]);
 
-      setUserStats(stats);
+      // Try to get the user's position (may be null if safe view prevents mapping)
+      let position = null;
+      try {
+        position = await GamificationDataService.getUserLeaderboardPosition(authUser.id);
+      } catch (posErr) {
+        console.warn('Could not fetch user leaderboard position', posErr);
+      }      setUserStats(stats);
       setUserBadges(badges);
-      setLeaderboard(leaderboardData);
+      setLeaderboard(leaderboardData || []);
+      setCurrentUserPosition(position);
+      setActiveChallenge(activeChallenges?.data?.[0] || null);
 
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -244,11 +282,17 @@ export default function Profile() {
               )}
             </View>
           </View>
-          
-          {/* Leaderboard Section */}
+            {/* Leaderboard Section */}
           <View style={styles.card}>
             <View style={styles.leaderboardHeader}>
-              <Text style={styles.cardTitle}>🏁 Weekly Leaderboard</Text>
+              <View>
+                <Text style={styles.cardTitle}>🏁 Weekly Leaderboard</Text>
+                {activeChallenge && (
+                  <Text style={styles.challengeSubtitle}>
+                    🎯 {activeChallenge.title}
+                  </Text>
+                )}
+              </View>
               <View style={styles.leaderboardHeaderRight}>
                 <Text style={styles.leaderboardTimer}>⏱️ {getTimeRemaining()}</Text>
               </View>
@@ -256,9 +300,17 @@ export default function Profile() {
             
             <View style={styles.leaderboardContainer}>
               {leaderboard.slice(0, 10).map((leaderUser, index) => {
-                const isCurrentUser = leaderUser.user_id === currentUserId;
+                const leaderKey = leaderUser.anon_id || leaderUser.user_id || `pos-${leaderUser.position || index}`;
+                const isCurrentUser = currentUserPosition && (leaderUser.position === currentUserPosition);
+                
+                // Determine display name
+                let displayName = leaderUser.display_name || leaderUser.user_name || 'User';
+                if (isCurrentUser && currentUserNickname) {
+                  displayName = currentUserNickname;
+                }
+                
                 return (
-                  <View key={leaderUser.user_id} style={[
+                  <View key={leaderKey} style={[
                     styles.leaderboardRow,
                     isCurrentUser && styles.currentUserRow
                   ]}>
@@ -293,7 +345,7 @@ export default function Profile() {
                             isCurrentUser && styles.currentUserName,
                           ]}
                         >
-                          {leaderUser.user_name || 'Anonymous'}
+                          {displayName}
                           {isCurrentUser && <Text> (You)</Text>}
                         </Text>
                         <View style={styles.progressBar}>
@@ -323,7 +375,7 @@ export default function Profile() {
                         styles.leaderboardPoints,
                         isCurrentUser && styles.currentUserPoints
                       ]}>
-                        {leaderUser.total_points?.toLocaleString() || 0}
+                        { (leaderUser.total_points ?? 0).toLocaleString() }
                       </Text>
                       <View style={styles.trendContainer}>
                         <Ionicons 
@@ -335,7 +387,7 @@ export default function Profile() {
                           styles.trendText,
                           { color: "#FF6B35" }
                         ]}>
-                          {leaderUser.current_streak || 0}
+                          {leaderUser.current_streak ?? 0}
                         </Text>
                       </View>
                     </View>
@@ -693,8 +745,15 @@ const styles = StyleSheet.create({
   leaderboardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginBottom: 15,
+  },
+  challengeSubtitle: {
+    fontSize: 11,
+    color: "#f39c12",
+    fontWeight: "600",
+    marginTop: 4,
+    fontStyle: "italic",
   },
   leaderboardHeaderRight: {
     alignItems: "flex-end",

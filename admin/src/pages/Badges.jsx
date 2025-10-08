@@ -7,6 +7,7 @@ const Badges = () => {
   const [badges, setBadges] = useState([]);
   const [challenges, setChallenges] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [adminLeaderboard, setAdminLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('badges'); // 'badges' or 'challenges'
@@ -108,19 +109,93 @@ const Badges = () => {
 
     setChallenges(transformedChallenges);
   };
-
   const fetchLeaderboard = async () => {
-    const { data, error: fetchError } = await supabase
-      .from('weekly_leaderboard')
-      .select('*')
-      .limit(10);
+    try {
+      // For admin, query the FULL PII leaderboard directly (weekly_leaderboard)
+      // Admin has service role access, so this is allowed
+      const { data, error } = await supabase
+        .from('weekly_leaderboard')
+        .select('*')
+        .limit(100);
 
-    if (fetchError) {
-      console.error('Leaderboard fetch error:', fetchError);
-      return;
+      if (error) {
+        console.warn('Could not fetch admin leaderboard, falling back to safe view:', error);
+        // Fallback to safe view if admin access fails
+        const { data: safeData, error: safeError } = await supabase
+          .from('safe_weekly_leaderboard')
+          .select('*')
+          .limit(100);
+        
+        if (safeError) throw safeError;
+        
+        const normalized = (safeData || []).map((row, index) => ({
+          user_id: row.anon_id,
+          user_name: row.display_name || `Athlete #${index + 1}`,
+          total_points: row.total_points ?? 0,
+          current_streak: row.current_streak ?? 0,
+          total_workouts: row.total_workouts ?? 0,
+          badges_earned: row.badges_earned ?? 0,
+          position: row.position ?? index + 1,
+        }));
+        setLeaderboard(normalized);
+        return;
+      }
+
+      const normalized = (data || []).map((row, index) => ({
+        user_id: row.user_id,
+        user_name: row.user_name || row.email || `User #${index + 1}`,
+        email: row.email,
+        total_points: row.total_points ?? 0,
+        current_streak: row.current_streak ?? 0,
+        total_workouts: row.total_workouts ?? 0,
+        badges_earned: row.badges_earned ?? 0,
+        position: row.position ?? index + 1,
+      }));
+
+      setLeaderboard(normalized);
+
+      // Optionally fetch the full PII leaderboard from a secure server endpoint (admin-only)
+      try {
+        const ADMIN_API = import.meta.env.VITE_ADMIN_API_URL || 'http://localhost:8080/api/admin/weekly-leaderboard';
+        const ADMIN_SECRET = import.meta.env.VITE_ADMIN_SECRET;
+        if (ADMIN_SECRET) {
+          const res = await fetch(`${ADMIN_API}?limit=100`, {
+            headers: {
+              'x-admin-secret': ADMIN_SECRET,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (res.ok) {
+            const json = await res.json();
+            const adminRows = (json?.data || []).map((r, i) => ({
+              user_id: r.user_id,
+              email: r.email || r.user_email || null,
+              full_name: r.user_name || r.full_name || null,
+              total_points: r.total_points ?? 0,
+              current_streak: r.current_streak ?? 0,
+              total_workouts: r.total_workouts ?? 0,
+              badges_earned: r.badges_earned ?? 0,
+              position: r.position ?? i + 1,
+            }));
+            setAdminLeaderboard(adminRows);
+          } else {
+            console.warn('Admin leaderboard fetch failed', res.status);
+            setAdminLeaderboard([]);
+          }
+        } else {
+          setAdminLeaderboard([]);
+        }
+      } catch (adminErr) {
+        console.warn('Error fetching admin leaderboard:', adminErr);
+        setAdminLeaderboard([]);
+      }
+
+    } catch (err) {
+      console.error('Leaderboard fetch error:', err);
+      setLeaderboard([]);
+      setAdminLeaderboard([]);
     }
-
-    setLeaderboard(data || []);
   };
 
   // Badge Handlers
@@ -425,12 +500,18 @@ const Badges = () => {
       )}
 
       {/* Leaderboard + Badge Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Top Performers */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">        {/* Top Performers */}
         <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-          <div className="flex items-center gap-2 mb-4">
-            <Trophy className="h-5 w-5 text-yellow-600" />
-            <h3 className="text-lg font-semibold">Weekly Leaderboard</h3>
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Trophy className="h-5 w-5 text-yellow-600" />
+              <h3 className="text-lg font-semibold">Weekly Leaderboard</h3>
+            </div>
+            {challenges.filter(c => c.is_active).length > 0 && (
+              <p className="text-sm text-purple-600 font-medium">
+                🎯 Active: {challenges.filter(c => c.is_active)[0]?.title}
+              </p>
+            )}
           </div>
           <div className="space-y-3">
             {leaderboard.slice(0, 5).map((user, index) => (
@@ -444,6 +525,9 @@ const Badges = () => {
                   </span>
                   <div>
                     <p className="font-semibold">{user.user_name || 'Anonymous'}</p>
+                    {user.email && (
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                    )}
                     <p className="text-sm text-gray-600">{user.total_points} points</p>
                   </div>
                 </div>
