@@ -12,40 +12,93 @@ export const fetchChannels = async () => {
 
 // Fetch channel messages
 export const fetchChannelMessages = async (channelId, limit = 50) => {
-  const { data, error } = await supabase
+  // Fetch raw messages
+  const { data: messages, error: msgErr } = await supabase
     .from("channel_messages")
-    .select(
-      `
-      *,
-      chats:user_id (username, avatar, is_online),
-      message_reactions (emoji, user_id)
-    `
-    )
+    .select(`*, message_reactions (emoji, user_id)`)
     .eq("channel_id", channelId)
     .order("created_at", { ascending: true })
     .limit(limit);
 
-  return { data, error };
+  if (msgErr) return { data: null, error: msgErr };
+
+  // Collect unique user ids to fetch public profiles
+  const userIds = Array.from(new Set(messages.map((m) => m.user_id).filter(Boolean)));
+
+  let profilesById = {};
+  if (userIds.length) {
+    const { data: profiles, error: profileErr } = await supabase
+      .from("chats_public_with_id")
+      .select("id, username, avatar, is_online")
+      .in("id", userIds);
+
+    if (!profileErr && profiles) {
+      profilesById = profiles.reduce((acc, p) => {
+        acc[p.id] = p;
+        return acc;
+      }, {});
+    } else if (profileErr) {
+      console.warn("[ChatServices] failed to fetch profiles:", profileErr);
+    }
+  }
+
+  // Enrich messages with profile data
+  const enriched = messages.map((msg) => ({
+    ...msg,
+    chats: profilesById[msg.user_id] || { username: 'unknown', avatar: '?', is_online: false },
+  }));
+
+  return { data: enriched, error: null };
 };
 
 // Send channel message
 export const sendChannelMessage = async (channelId, content, userId) => {
-  const { data, error } = await supabase
-    .from("channel_messages")
-    .insert({
-      channel_id: channelId,
-      user_id: userId,
-      content,
-    })
-    .select(
-      `
-      *,
-      chats:user_id (username, avatar, is_online)
-    `
-    )
-    .single();
+  try {
+    console.log(`[ChatServices] sendChannelMessage start`, {
+      channelId,
+      userId,
+      preview: content?.slice(0, 120),
+    });
 
-  return { data, error };
+    const { data, error } = await supabase
+      .from("channel_messages")
+      .insert({
+        channel_id: channelId,
+        user_id: userId,
+        content,
+      })
+      // Return the inserted row only; join queries can fail depending on DB aliases
+      .select("*")
+      .single();
+
+    if (error) {
+      console.error("[ChatServices] sendChannelMessage error:", error);
+      return { data: null, error };
+    }
+
+    console.log("[ChatServices] sendChannelMessage success", {
+      id: data?.id,
+      channelId: data?.channel_id,
+    });
+
+    // Enrich with public profile if possible
+    try {
+      const { data: profile } = await supabase
+        .from("chats_public_with_id")
+        .select("id, username, avatar, is_online")
+        .eq("id", userId)
+        .single();
+
+      const enriched = { ...data, chats: profile || { username: 'unknown', avatar: '?', is_online: false } };
+      return { data: enriched, error: null };
+    } catch (err) {
+      console.warn('[ChatServices] failed to fetch profile after insert', err);
+      return { data, error: null };
+    }
+  } catch (err) {
+    console.error("[ChatServices] sendChannelMessage unexpected error:", err);
+    return { data: null, error: err };
+  }
 };
 
 // Subscribe to channel messages
@@ -60,7 +113,28 @@ export const subscribeToChannelMessages = (channelId, callback) => {
         table: "channel_messages",
         filter: `channel_id=eq.${channelId}`,
       },
-      callback
+      async (payload) => {
+        try {
+          // Fetch the inserted row and its public profile
+          const { data: row } = await supabase
+            .from("channel_messages")
+            .select("*")
+            .eq("id", payload.new.id)
+            .single();
+
+          const { data: profile } = await supabase
+            .from("chats_public_with_id")
+            .select("id, username, avatar, is_online")
+            .eq("id", row.user_id)
+            .single();
+
+          const enriched = { new: { ...row, chats: profile || { username: 'unknown', avatar: '?', is_online: false } } };
+          callback(enriched);
+        } catch (err) {
+          console.warn("[ChatServices] realtime enrichment failed:", err);
+          callback(payload);
+        }
+      }
     )
     .subscribe();
 };
@@ -93,39 +167,89 @@ export const getOrCreateConversation = async (user1Id, user2Id) => {
 
 // Fetch DM messages
 export const fetchDirectMessages = async (conversationId, limit = 50) => {
-  const { data, error } = await supabase
+  const { data: messages, error: msgErr } = await supabase
     .from("direct_messages")
-    .select(
-      `
-      *,
-      chats:sender_id (username, avatar, is_online)
-    `
-    )
+    .select(`*`)
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true })
     .limit(limit);
 
-  return { data, error };
+  if (msgErr) return { data: null, error: msgErr };
+
+  const userIds = Array.from(new Set(messages.map((m) => m.sender_id).filter(Boolean)));
+
+  let profilesById = {};
+  if (userIds.length) {
+    const { data: profiles, error: profileErr } = await supabase
+      .from("chats_public_with_id")
+      .select("id, username, avatar, is_online")
+      .in("id", userIds);
+
+    if (!profileErr && profiles) {
+      profilesById = profiles.reduce((acc, p) => {
+        acc[p.id] = p;
+        return acc;
+      }, {});
+    } else if (profileErr) {
+      console.warn("[ChatServices] failed to fetch profiles:", profileErr);
+    }
+  }
+
+  const enriched = messages.map((msg) => ({
+    ...msg,
+    chats: profilesById[msg.sender_id] || { username: 'unknown', avatar: '?', is_online: false },
+  }));
+
+  return { data: enriched, error: null };
 };
 
 // Send direct message
 export const sendDirectMessage = async (conversationId, senderId, content) => {
-  const { data, error } = await supabase
-    .from("direct_messages")
-    .insert({
-      conversation_id: conversationId,
-      sender_id: senderId,
-      content,
-    })
-    .select(
-      `
-      *,
-      chats:sender_id (username, avatar, is_online)
-    `
-    )
-    .single();
+  try {
+    console.log(`[ChatServices] sendDirectMessage start`, {
+      conversationId,
+      senderId,
+      preview: content?.slice(0, 120),
+    });
 
-  return { data, error };
+    const { data, error } = await supabase
+      .from("direct_messages")
+      .insert({
+        conversation_id: conversationId,
+        sender_id: senderId,
+        content,
+      })
+      // Return the inserted row only; joined selects can break if aliases differ
+      .select("*")
+      .single();
+
+    if (error) {
+      console.error("[ChatServices] sendDirectMessage error:", error);
+      return { data: null, error };
+    }
+
+    console.log("[ChatServices] sendDirectMessage success", {
+      id: data?.id,
+      conversationId: data?.conversation_id,
+    });
+
+    try {
+      const { data: profile } = await supabase
+        .from("chats_public_with_id")
+        .select("id, username, avatar, is_online")
+        .eq("id", senderId)
+        .single();
+
+      const enriched = { ...data, chats: profile || { username: 'unknown', avatar: '?', is_online: false } };
+      return { data: enriched, error: null };
+    } catch (err) {
+      console.warn('[ChatServices] failed to fetch profile after insert', err);
+      return { data, error: null };
+    }
+  } catch (err) {
+    console.error("[ChatServices] sendDirectMessage unexpected error:", err);
+    return { data: null, error: err };
+  }
 };
 
 // Subscribe to DM messages
@@ -140,7 +264,27 @@ export const subscribeToDirectMessages = (conversationId, callback) => {
         table: "direct_messages",
         filter: `conversation_id=eq.${conversationId}`,
       },
-      callback
+      async (payload) => {
+        try {
+          const { data: row } = await supabase
+            .from("direct_messages")
+            .select("*")
+            .eq("id", payload.new.id)
+            .single();
+
+          const { data: profile } = await supabase
+            .from("chats_public_with_id")
+            .select("id, username, avatar, is_online")
+            .eq("id", row.sender_id)
+            .single();
+
+          const enriched = { new: { ...row, chats: profile || { username: 'unknown', avatar: '?', is_online: false } } };
+          callback(enriched);
+        } catch (err) {
+          console.warn("[ChatServices] realtime enrichment failed:", err);
+          callback(payload);
+        }
+      }
     )
     .subscribe();
 };

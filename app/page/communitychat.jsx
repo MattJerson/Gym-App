@@ -117,6 +117,7 @@ export default function CommunityChat() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    console.log("[CommunityChat] getCurrentUser auth user:", user);
     if (user) {
       // Fetch user profile
       const { data: profile } = await supabase
@@ -125,7 +126,55 @@ export default function CommunityChat() {
         .eq("id", user.id)
         .single();
 
-      setCurrentUser(profile);
+      console.log("[CommunityChat] getCurrentUser profile:", profile);
+
+      if (profile) {
+        setCurrentUser(profile);
+      } else {
+        // Create minimal chats profile so joins and displays work correctly
+        console.warn(
+          "[CommunityChat] user profile not found in 'chats' table; creating a minimal profile"
+        );
+
+        try {
+          const username = user.user_metadata?.nickname ||
+            (user.email ? user.email.split("@")[0] : "user");
+
+          const { data: created, error: createErr } = await supabase
+            .from("chats")
+            .insert({
+              id: user.id,
+              username,
+              avatar: user.user_metadata?.avatar || "😊",
+              is_online: true,
+            })
+            .select("*")
+            .single();
+
+          if (createErr) {
+            console.error("[CommunityChat] failed to create chats profile:", createErr);
+            // fallback minimal object to avoid crash
+            setCurrentUser({
+              id: user.id,
+              username,
+              avatar: user.user_metadata?.avatar || "?",
+              is_online: true,
+            });
+          } else {
+            console.log("[CommunityChat] created chats profile:", created);
+            setCurrentUser(created);
+          }
+        } catch (err) {
+          console.error("[CommunityChat] unexpected error creating chats profile:", err);
+          setCurrentUser({
+            id: user.id,
+            username: user.email ? user.email.split("@")[0] : "user",
+            avatar: "?",
+            is_online: true,
+          });
+        }
+      }
+
       loadUserConversations(user.id);
     } else {
       // Redirect to login if not authenticated
@@ -236,30 +285,21 @@ export default function CommunityChat() {
 
     messageSubscription.current = subscribeToChannelMessages(
       activeChannel,
-      async (payload) => {
-        // Fetch the new message with user details
-        const { data } = await supabase
-          .from("channel_messages")
-          .select(
-            `
-            *,
-            chats:user_id (username, avatar, is_online)
-          `
-          )
-          .eq("id", payload.new.id)
-          .single();
-
-        if (data) {
+      (payload) => {
+        try {
+          const data = payload.new;
           const newMessage = {
             id: data.id,
-            user: data.chats.username,
-            avatar: data.chats.avatar,
+            user: data.chats?.username || "unknown",
+            avatar: data.chats?.avatar || "?",
             text: data.content,
             timestamp: formatTimestamp(data.created_at),
-            isOnline: data.chats.is_online,
-            reactions: [],
+            isOnline: data.chats?.is_online || false,
+            reactions: data.message_reactions || [],
           };
           setChannelMessages((prev) => [...prev, newMessage]);
+        } catch (err) {
+          console.warn("[CommunityChat] failed to handle channel realtime payload", err);
         }
       }
     );
@@ -272,61 +312,113 @@ export default function CommunityChat() {
 
     messageSubscription.current = subscribeToDirectMessages(
       activeConversationId,
-      async (payload) => {
-        const { data } = await supabase
-          .from("direct_messages")
-          .select(
-            `
-            *,
-            chats:sender_id (username, avatar, is_online)
-          `
-          )
-          .eq("id", payload.new.id)
-          .single();
-
-        if (data) {
+      (payload) => {
+        try {
+          const data = payload.new;
           const newMessage = {
             id: data.id,
-            user: data.chats.username,
-            avatar: data.chats.avatar,
+            user: data.chats?.username || "unknown",
+            avatar: data.chats?.avatar || "?",
             text: data.content,
             timestamp: formatTimestamp(data.created_at),
-            isOnline: data.chats.is_online,
+            isOnline: data.chats?.is_online || false,
             isMe: data.sender_id === currentUser.id,
           };
           setDmMessages((prev) => [...prev, newMessage]);
+        } catch (err) {
+          console.warn("[CommunityChat] failed to handle DM realtime payload", err);
         }
       }
     );
   };
 
   const handleSendMessage = async () => {
-    if (!message.trim() || sending) return;
+    if (!message.trim()) return;
+    if (sending) {
+      console.warn("[CommunityChat] send ignored - already sending");
+      return;
+    }
 
     setSending(true);
 
-    if (viewMode === "channels") {
-      const { data, error } = await sendChannelMessage(
-        activeChannel,
-        message.trim(),
-        currentUser.id
+    const payloadPreview = message.trim().slice(0, 140);
+    if (!currentUser || !currentUser.id) {
+      console.error(
+        "[CommunityChat] abort send - currentUser missing",
+        currentUser
       );
-      if (error) {
-        Alert.alert("Error", "Failed to send message");
-      }
-    } else if (activeConversationId) {
-      const { data, error } = await sendDirectMessage(
-        activeConversationId,
-        currentUser.id,
-        message.trim()
+      Alert.alert(
+        "Not ready",
+        "Your user profile is not loaded yet. Try again in a moment."
       );
-      if (error) {
-        Alert.alert("Error", "Failed to send message");
+      setMessage("");
+      setSending(false);
+      return;
+    }
+    console.log("[CommunityChat] handleSendMessage start", {
+      viewMode,
+      activeChannel,
+      activeConversationId,
+      userId: currentUser?.id,
+      preview: payloadPreview,
+    });
+
+    // Safety: ensure sending flag clears even if remote call hangs
+    let cleared = false;
+    const clearSending = (reason) => {
+      if (!cleared) {
+        cleared = true;
+        setSending(false);
+        console.log(`[CommunityChat] sending cleared (${reason})`);
       }
+    };
+
+    try {
+      if (viewMode === "channels") {
+        const { data, error } = await sendChannelMessage(
+          activeChannel,
+          message.trim(),
+          currentUser.id
+        );
+
+        if (error) {
+          console.error("[CommunityChat] sendChannelMessage returned error", error);
+          Alert.alert("Error", "Failed to send message");
+        } else {
+          console.log("[CommunityChat] channel message sent", { id: data?.id });
+        }
+      } else if (activeConversationId) {
+        const { data, error } = await sendDirectMessage(
+          activeConversationId,
+          currentUser.id,
+          message.trim()
+        );
+
+        if (error) {
+          console.error("[CommunityChat] sendDirectMessage returned error", error);
+          Alert.alert("Error", "Failed to send message");
+        } else {
+          console.log("[CommunityChat] direct message sent", { id: data?.id });
+        }
+      } else {
+        console.warn("[CommunityChat] no active target to send message to");
+      }
+
+      setMessage("");
+    } catch (err) {
+      console.error("[CommunityChat] unexpected error sending message", err);
+      Alert.alert("Error", "An unexpected error occurred while sending");
+    } finally {
+      clearSending("finished");
     }
 
-    setMessage("");
-    setSending(false);
+    // Fallback timeout: if sending isn't cleared for reason, force clear after 8s
+    setTimeout(() => {
+      if (sending) {
+        console.warn("[CommunityChat] sending flag still true after timeout, forcing clear");
+        clearSending("timeout");
+      }
+    }, 8000);
   };
 
   const startDMWithUser = async (username, userId, avatar, isOnline) => {
