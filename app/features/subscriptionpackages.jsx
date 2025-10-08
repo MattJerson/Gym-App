@@ -39,7 +39,7 @@ export default function SubscriptionPackages() {
     try {
       // 1️⃣ Call your backend to create PaymentIntent, ephemeral key, and customer
       const response = await fetch(
-        "http://192.168.253.138:3000/create-payment-intent",
+        "http://192.168.0.101:3000/create-payment-intent",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

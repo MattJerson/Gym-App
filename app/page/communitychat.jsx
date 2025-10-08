@@ -1,33 +1,64 @@
 import {
   View,
   Text,
+  Modal,
+  Alert,
   Platform,
   FlatList,
   Animated,
   TextInput,
   Pressable,
-  Dimensions,
   StyleSheet,
+  ActivityIndicator,
   KeyboardAvoidingView,
-  Modal,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { supabase } from "../../services/supabase";
 import { useState, useRef, useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-
-const { width } = Dimensions.get("window");
+import {
+  fetchChannels,
+  sendDirectMessage,
+  updateOnlineStatus,
+  sendChannelMessage,
+  fetchDirectMessages,
+  fetchChannelMessages,
+  fetchUserConversations,
+  getOrCreateConversation,
+  subscribeToDirectMessages,
+  subscribeToChannelMessages,
+} from "../../services/ChatServices";
 
 export default function CommunityChat() {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [activeChannel, setActiveChannel] = useState("general");
   const [activeDM, setActiveDM] = useState(null);
+  const [activeConversationId, setActiveConversationId] = useState(null);
   const [showSidebar, setShowSidebar] = useState(false);
-  const [viewMode, setViewMode] = useState("channels"); // 'channels' or 'dms'
+  const [viewMode, setViewMode] = useState("channels");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+
+  // Data states
+  const [channels, setChannels] = useState([]);
+  const [channelMessages, setChannelMessages] = useState([]);
+  const [dmList, setDmList] = useState([]);
+  const [dmMessages, setDmMessages] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(-280)).current;
+  const messageSubscription = useRef(null);
 
+  // Get current user on mount
+  useEffect(() => {
+    getCurrentUser();
+    loadChannels();
+  }, []);
+
+  // Animate on mount
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -36,6 +67,7 @@ export default function CommunityChat() {
     }).start();
   }, []);
 
+  // Sidebar animation
   useEffect(() => {
     Animated.timing(slideAnim, {
       toValue: showSidebar ? 0 : -280,
@@ -44,238 +76,295 @@ export default function CommunityChat() {
     }).start();
   }, [showSidebar]);
 
-  // Direct Messages
-  const directMessages = [
-    {
-      id: "dm1",
-      user: "FitMike92",
-      avatar: "👨‍💼",
-      lastMessage: "Thanks for the workout tips!",
-      timestamp: "2m ago",
-      isOnline: true,
-      unread: 2,
-    },
-    {
-      id: "dm2",
-      user: "HealthyHannah",
-      avatar: "👩‍🦰",
-      lastMessage: "Did you see the new challenge?",
-      timestamp: "1h ago",
-      isOnline: true,
-      unread: 0,
-    },
-    {
-      id: "dm3",
-      user: "ProteinPaul",
-      avatar: "🧔",
-      lastMessage: "Let's do a workout together tomorrow",
-      timestamp: "3h ago",
-      isOnline: false,
-      unread: 1,
-    },
-  ];
+  // Load messages when channel/DM changes
+  useEffect(() => {
+    if (activeChannel && viewMode === "channels") {
+      loadChannelMessages();
+      setupChannelSubscription();
+    }
+    return () => {
+      if (messageSubscription.current) {
+        messageSubscription.current.unsubscribe();
+      }
+    };
+  }, [activeChannel]);
 
-  // DM conversation data
-  const dmConversations = {
-    dm1: [
-      {
-        id: 1,
-        user: "FitMike92",
-        avatar: "👨‍💼",
-        text: "Hey! I saw your progress post, amazing work! 💪",
-        timestamp: "10:30 AM",
-        isMe: false,
-      },
-      {
-        id: 2,
-        user: "You",
-        avatar: "😊",
-        text: "Thanks so much! Been working really hard on it",
-        timestamp: "10:32 AM",
-        isMe: true,
-      },
-      {
-        id: 3,
-        user: "FitMike92",
-        avatar: "👨‍💼",
-        text: "Thanks for the workout tips!",
-        timestamp: "10:35 AM",
-        isMe: false,
-      },
-    ],
-    dm2: [
-      {
-        id: 1,
-        user: "HealthyHannah",
-        avatar: "👩‍🦰",
-        text: "Did you see the new challenge?",
-        timestamp: "1 hour ago",
-        isMe: false,
-      },
-    ],
-    dm3: [
-      {
-        id: 1,
-        user: "ProteinPaul",
-        avatar: "🧔",
-        text: "Let's do a workout together tomorrow",
-        timestamp: "3 hours ago",
-        isMe: false,
-      },
-    ],
-  };
+  useEffect(() => {
+    if (activeConversationId && viewMode === "dms") {
+      loadDMMessages();
+      setupDMSubscription();
+    }
+    return () => {
+      if (messageSubscription.current) {
+        messageSubscription.current.unsubscribe();
+      }
+    };
+  }, [activeConversationId]);
 
-  // Channel categories
-  const channelCategories = [
-    {
-      name: "FITNESS",
-      channels: [
-        { id: "general", name: "General", icon: "chat", unread: 3 },
-        {
-          id: "announcement",
-          name: "Announcement",
-          icon: "megaphone",
-          unread: 0,
-        },
-      ],
-    },
-    {
-      name: "WORKOUTS",
-      channels: [
-        { id: "workouts", name: "Workouts", icon: "dumbbell", unread: 12 },
-        { id: "nutrition", name: "Nutrition", icon: "food-apple", unread: 0 },
-        { id: "progress", name: "Progress", icon: "trending-up", unread: 5 },
-      ],
-    },
-    {
-      name: "COMMUNITY",
-      channels: [
-        { id: "motivation", name: "Motivation", icon: "fire", unread: 8 },
-        { id: "off-topic", name: "Off-topic", icon: "chat-outline", unread: 0 },
-      ],
-    },
-  ];
+  // Update online status
+  useEffect(() => {
+    if (currentUser) {
+      updateOnlineStatus(currentUser.id, true);
 
-  const channelMessages = {
-    general: [
-      {
-        id: 1,
-        user: "FitMike92",
-        avatar: "👨‍💼",
-        text: "Good morning everyone! Ready to crush today's workout? 💪",
-        timestamp: "9:23 AM",
-        isOnline: true,
-        reactions: [
-          { emoji: "💪", count: 5 },
-          { emoji: "🔥", count: 3 },
-        ],
-      },
-      {
-        id: 2,
-        user: "HealthyHannah",
-        avatar: "👩‍🦰",
-        text: "Just finished my morning run! The weather is perfect today 🌅",
-        timestamp: "9:45 AM",
-        isOnline: true,
-        reactions: [
-          { emoji: "🏃‍♀️", count: 2 },
-          { emoji: "☀️", count: 6 },
-        ],
-      },
-      {
-        id: 3,
-        user: "ProteinPaul",
-        avatar: "🧔",
-        text: "Anyone tried the new HIIT workout? Looks intense! 🔥",
-        timestamp: "10:12 AM",
-        isOnline: false,
-        reactions: [{ emoji: "🔥", count: 8 }],
-      },
-    ],
-    workouts: [
-      {
-        id: 1,
-        user: "StrengthSarah",
-        avatar: "💪",
-        text: "PRed my deadlift today! 185lbs x5 💪 Feeling amazing!",
-        timestamp: "8:30 AM",
-        isOnline: true,
-        reactions: [
-          { emoji: "💪", count: 12 },
-          { emoji: "🎉", count: 8 },
-        ],
-      },
-    ],
-    nutrition: [
-      {
-        id: 1,
-        user: "MealPrepMaster",
-        avatar: "🍽️",
-        text: "Sharing my weekly meal prep! High protein, low carb 📸",
-        timestamp: "7:45 AM",
-        isOnline: false,
-        reactions: [{ emoji: "😍", count: 15 }],
-      },
-    ],
-    progress: [
-      {
-        id: 1,
-        user: "TransformTom",
-        avatar: "📈",
-        text: "6 months progress update! Down 30lbs and feeling incredible!",
-        timestamp: "Yesterday",
-        isOnline: false,
-        reactions: [{ emoji: "🎉", count: 25 }],
-      },
-    ],
-    motivation: [
-      {
-        id: 1,
-        user: "MotivationMegan",
-        avatar: "🔥",
-        text: "Remember: You don't have to be perfect, you just have to be consistent! 💯",
-        timestamp: "Yesterday",
-        isOnline: true,
-        reactions: [{ emoji: "💯", count: 30 }],
-      },
-    ],
-  };
+      // Update status to offline when component unmounts
+      return () => {
+        updateOnlineStatus(currentUser.id, false);
+      };
+    }
+  }, [currentUser]);
 
-  const currentMessages = activeDM
-    ? dmConversations[activeDM] || []
-    : channelMessages[activeChannel] || [];
+  const getCurrentUser = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      // Fetch user profile
+      const { data: profile } = await supabase
+        .from("chats")
+        .select("*")
+        .eq("id", user.id)
+        .single();
 
-  const sendMessage = () => {
-    if (message.trim()) {
-      console.log(
-        `Sending message to ${
-          activeDM ? activeDM : `#${activeChannel}`
-        }: ${message}`
-      );
-      setMessage("");
+      setCurrentUser(profile);
+      loadUserConversations(user.id);
+    } else {
+      // Redirect to login if not authenticated
+      Alert.alert("Not authenticated", "Please log in first");
+      router.back();
     }
   };
 
-  const toggleSidebar = () => {
-    setShowSidebar(!showSidebar);
+  const loadChannels = async () => {
+    setLoading(true);
+    const { data, error } = await fetchChannels();
+    if (data) {
+      // Group channels by category
+      const grouped = data.reduce((acc, channel) => {
+        const category = acc.find((c) => c.name === channel.category);
+        if (category) {
+          category.channels.push({
+            id: channel.id,
+            name: channel.name,
+            icon: channel.icon,
+            unread: 0, // TODO: Calculate unread count
+          });
+        } else {
+          acc.push({
+            name: channel.category,
+            channels: [
+              {
+                id: channel.id,
+                name: channel.name,
+                icon: channel.icon,
+                unread: 0,
+              },
+            ],
+          });
+        }
+        return acc;
+      }, []);
+      setChannels(grouped);
+    }
+    setLoading(false);
   };
 
-  const closeSidebar = () => {
-    setShowSidebar(false);
+  const loadChannelMessages = async () => {
+    const { data, error } = await fetchChannelMessages(activeChannel);
+    if (data) {
+      const formattedMessages = data.map((msg) => ({
+        id: msg.id,
+        user: msg.chats.username,
+        avatar: msg.chats.avatar,
+        text: msg.content,
+        timestamp: formatTimestamp(msg.created_at),
+        isOnline: msg.chats.is_online,
+        reactions: groupReactions(msg.message_reactions || []),
+      }));
+      setChannelMessages(formattedMessages);
+    }
   };
 
-  const switchToChannels = () => {
-    setViewMode("channels");
-    setActiveDM(null);
+  const loadUserConversations = async (userId) => {
+    const { data, error } = await fetchUserConversations(userId);
+    if (data) {
+      const formattedDMs = data.map((conv) => {
+        // Determine which user is the other person
+        const otherUser = conv.user1_id === userId ? conv.user2 : conv.user1;
+        const messages = conv.direct_messages || [];
+        const lastMsg = messages[messages.length - 1];
+
+        // Count unread messages
+        const unreadCount = messages.filter(
+          (m) => !m.is_read && m.sender_id !== userId
+        ).length;
+
+        return {
+          id: conv.id,
+          userId: otherUser.id,
+          user: otherUser.username,
+          avatar: otherUser.avatar,
+          lastMessage: lastMsg?.content || "Start chatting...",
+          timestamp: lastMsg ? formatTimestamp(lastMsg.created_at) : "Just now",
+          isOnline: otherUser.is_online,
+          unread: unreadCount,
+        };
+      });
+      setDmList(formattedDMs);
+    }
   };
 
-  const switchToDMs = () => {
-    setViewMode("dms");
-    setActiveChannel("");
+  const loadDMMessages = async () => {
+    const { data, error } = await fetchDirectMessages(activeConversationId);
+    if (data) {
+      const formattedMessages = data.map((msg) => ({
+        id: msg.id,
+        user: msg.chats.username,
+        avatar: msg.chats.avatar,
+        text: msg.content,
+        timestamp: formatTimestamp(msg.created_at),
+        isOnline: msg.chats.is_online,
+        isMe: msg.sender_id === currentUser.id,
+      }));
+      setDmMessages(formattedMessages);
+    }
   };
 
-  const openDM = (dmId) => {
-    setActiveDM(dmId);
+  const setupChannelSubscription = () => {
+    if (messageSubscription.current) {
+      messageSubscription.current.unsubscribe();
+    }
+
+    messageSubscription.current = subscribeToChannelMessages(
+      activeChannel,
+      async (payload) => {
+        // Fetch the new message with user details
+        const { data } = await supabase
+          .from("channel_messages")
+          .select(
+            `
+            *,
+            chats:user_id (username, avatar, is_online)
+          `
+          )
+          .eq("id", payload.new.id)
+          .single();
+
+        if (data) {
+          const newMessage = {
+            id: data.id,
+            user: data.chats.username,
+            avatar: data.chats.avatar,
+            text: data.content,
+            timestamp: formatTimestamp(data.created_at),
+            isOnline: data.chats.is_online,
+            reactions: [],
+          };
+          setChannelMessages((prev) => [...prev, newMessage]);
+        }
+      }
+    );
+  };
+
+  const setupDMSubscription = () => {
+    if (messageSubscription.current) {
+      messageSubscription.current.unsubscribe();
+    }
+
+    messageSubscription.current = subscribeToDirectMessages(
+      activeConversationId,
+      async (payload) => {
+        const { data } = await supabase
+          .from("direct_messages")
+          .select(
+            `
+            *,
+            chats:sender_id (username, avatar, is_online)
+          `
+          )
+          .eq("id", payload.new.id)
+          .single();
+
+        if (data) {
+          const newMessage = {
+            id: data.id,
+            user: data.chats.username,
+            avatar: data.chats.avatar,
+            text: data.content,
+            timestamp: formatTimestamp(data.created_at),
+            isOnline: data.chats.is_online,
+            isMe: data.sender_id === currentUser.id,
+          };
+          setDmMessages((prev) => [...prev, newMessage]);
+        }
+      }
+    );
+  };
+
+  const handleSendMessage = async () => {
+    if (!message.trim() || sending) return;
+
+    setSending(true);
+
+    if (viewMode === "channels") {
+      const { data, error } = await sendChannelMessage(
+        activeChannel,
+        message.trim(),
+        currentUser.id
+      );
+      if (error) {
+        Alert.alert("Error", "Failed to send message");
+      }
+    } else if (activeConversationId) {
+      const { data, error } = await sendDirectMessage(
+        activeConversationId,
+        currentUser.id,
+        message.trim()
+      );
+      if (error) {
+        Alert.alert("Error", "Failed to send message");
+      }
+    }
+
+    setMessage("");
+    setSending(false);
+  };
+
+  const startDMWithUser = async (username, userId, avatar, isOnline) => {
+    // Check if conversation already exists
+    const existingDM = dmList.find((dm) => dm.userId === userId);
+
+    if (existingDM) {
+      openDM(existingDM.id);
+    } else {
+      // Create new conversation
+      const { data, error } = await getOrCreateConversation(
+        currentUser.id,
+        userId
+      );
+
+      if (data) {
+        const newDM = {
+          id: data.id,
+          userId: userId,
+          user: username,
+          avatar: avatar,
+          lastMessage: "Start chatting...",
+          timestamp: "Just now",
+          isOnline: isOnline,
+          unread: 0,
+        };
+
+        setDmList((prev) => [newDM, ...prev]);
+        openDM(data.id);
+      } else {
+        Alert.alert("Error", "Failed to create conversation");
+      }
+    }
+  };
+
+  const openDM = (conversationId) => {
+    setActiveConversationId(conversationId);
+    setActiveDM(conversationId);
     setActiveChannel("");
     setViewMode("dms");
     closeSidebar();
@@ -284,8 +373,70 @@ export default function CommunityChat() {
   const openChannel = (channelId) => {
     setActiveChannel(channelId);
     setActiveDM(null);
+    setActiveConversationId(null);
     setViewMode("channels");
     closeSidebar();
+  };
+
+  const toggleSidebar = () => setShowSidebar(!showSidebar);
+  const closeSidebar = () => setShowSidebar(false);
+
+  const switchToChannels = () => {
+    setViewMode("channels");
+    setActiveDM(null);
+    setActiveConversationId(null);
+  };
+
+  const switchToDMs = () => {
+    setViewMode("dms");
+    setActiveChannel("");
+  };
+
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    return date.toLocaleDateString();
+  };
+
+  const groupReactions = (reactions) => {
+    const grouped = {};
+    reactions.forEach((r) => {
+      if (grouped[r.emoji]) {
+        grouped[r.emoji].count++;
+      } else {
+        grouped[r.emoji] = { emoji: r.emoji, count: 1 };
+      }
+    });
+    return Object.values(grouped);
+  };
+
+  const currentMessages = viewMode === "dms" ? dmMessages : channelMessages;
+
+  const getHeaderTitle = () => {
+    if (activeDM) {
+      const dm = dmList.find((d) => d.id === activeDM);
+      return dm?.user || "Direct Message";
+    }
+    return "Community Chat";
+  };
+
+  const getHeaderSubtitle = () => {
+    if (activeDM) {
+      const dm = dmList.find((d) => d.id === activeDM);
+      return dm?.isOnline ? "Online" : "Offline";
+    }
+    return `#${activeChannel}`;
   };
 
   const renderChannelCategory = ({ item }) => (
@@ -351,7 +502,7 @@ export default function CommunityChat() {
   );
 
   const renderMessage = ({ item }) => {
-    const isDM = activeDM !== null;
+    const isDM = viewMode === "dms";
     const isMyMessage = isDM && item.isMe;
 
     return (
@@ -364,14 +515,27 @@ export default function CommunityChat() {
         <View style={[styles.messageCard, isMyMessage && styles.myMessageCard]}>
           {!isMyMessage && (
             <View style={styles.messageHeader}>
-              <View style={styles.userInfo}>
+              <Pressable
+                style={styles.userInfo}
+                onPress={() => {
+                  if (!isDM && currentUser) {
+                    // Get user ID from the message to start DM
+                    startDMWithUser(
+                      item.user,
+                      item.userId,
+                      item.avatar,
+                      item.isOnline
+                    );
+                  }
+                }}
+              >
                 <View style={styles.avatarContainer}>
                   <Text style={styles.userAvatar}>{item.avatar}</Text>
                   {item.isOnline && <View style={styles.onlineIndicator} />}
                 </View>
                 <Text style={styles.userName}>{item.user}</Text>
                 <Text style={styles.messageTimestamp}>{item.timestamp}</Text>
-              </View>
+              </Pressable>
             </View>
           )}
           <Text
@@ -397,21 +561,13 @@ export default function CommunityChat() {
     );
   };
 
-  const getHeaderTitle = () => {
-    if (activeDM) {
-      const dm = directMessages.find((d) => d.id === activeDM);
-      return dm ? dm.user : "Direct Message";
-    }
-    return "Community Chat";
-  };
-
-  const getHeaderSubtitle = () => {
-    if (activeDM) {
-      const dm = directMessages.find((d) => d.id === activeDM);
-      return dm?.isOnline ? "Online" : "Offline";
-    }
-    return `#${activeChannel}`;
-  };
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#4ECDC4" />
+      </View>
+    );
+  }
 
   return (
     <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
@@ -419,7 +575,6 @@ export default function CommunityChat() {
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Pressable onPress={() => router.back()} style={styles.backButton}>
@@ -438,7 +593,6 @@ export default function CommunityChat() {
         </View>
 
         <Animated.View style={[styles.mainContent, { opacity: fadeAnim }]}>
-          {/* Chat Area */}
           <View style={styles.chatArea}>
             <FlatList
               style={styles.messagesList}
@@ -453,7 +607,7 @@ export default function CommunityChat() {
                     <View style={styles.channelIconLarge}>
                       <MaterialCommunityIcons
                         name={
-                          channelCategories
+                          channels
                             .flatMap((c) => c.channels)
                             .find((ch) => ch.id === activeChannel)?.icon ||
                           "chat"
@@ -473,7 +627,6 @@ export default function CommunityChat() {
               }
             />
 
-            {/* Input */}
             <View style={styles.inputContainer}>
               <View style={styles.inputWrapper}>
                 <Pressable style={styles.attachButton}>
@@ -488,7 +641,7 @@ export default function CommunityChat() {
                   placeholder={
                     activeDM
                       ? `Message ${
-                          directMessages.find((d) => d.id === activeDM)?.user
+                          dmList.find((d) => d.id === activeDM)?.user
                         }...`
                       : `Message #${activeChannel}...`
                   }
@@ -506,12 +659,12 @@ export default function CommunityChat() {
                   />
                 </Pressable>
                 <Pressable
-                  onPress={sendMessage}
+                  onPress={handleSendMessage}
                   style={[
                     styles.sendButton,
-                    { opacity: message.trim() ? 1 : 0.5 },
+                    { opacity: message.trim() && !sending ? 1 : 0.5 },
                   ]}
-                  disabled={!message.trim()}
+                  disabled={!message.trim() || sending}
                 >
                   <LinearGradient
                     colors={["#FF6B6B", "#4ECDC4"]}
@@ -519,7 +672,11 @@ export default function CommunityChat() {
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                   >
-                    <Ionicons name="send" size={18} color="#fff" />
+                    {sending ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Ionicons name="send" size={18} color="#fff" />
+                    )}
                   </LinearGradient>
                 </Pressable>
               </View>
@@ -527,7 +684,6 @@ export default function CommunityChat() {
           </View>
         </Animated.View>
 
-        {/* Discord-style Sidebar Overlay */}
         <Modal
           visible={showSidebar}
           transparent
@@ -549,7 +705,6 @@ export default function CommunityChat() {
                 </Pressable>
               </View>
 
-              {/* Mode Switcher */}
               <View style={styles.modeSwitcher}>
                 <Pressable
                   style={[
@@ -592,20 +747,19 @@ export default function CommunityChat() {
                   >
                     Messages
                   </Text>
-                  {directMessages.filter((dm) => dm.unread > 0).length > 0 && (
+                  {dmList.filter((dm) => dm.unread > 0).length > 0 && (
                     <View style={styles.modeBadge}>
                       <Text style={styles.unreadCount}>
-                        {directMessages.reduce((sum, dm) => sum + dm.unread, 0)}
+                        {dmList.reduce((sum, dm) => sum + dm.unread, 0)}
                       </Text>
                     </View>
                   )}
                 </Pressable>
               </View>
 
-              {/* Content */}
               {viewMode === "channels" ? (
                 <FlatList
-                  data={channelCategories}
+                  data={channels}
                   renderItem={renderChannelCategory}
                   keyExtractor={(item) => item.name}
                   showsVerticalScrollIndicator={false}
@@ -613,7 +767,7 @@ export default function CommunityChat() {
                 />
               ) : (
                 <FlatList
-                  data={directMessages}
+                  data={dmList}
                   renderItem={renderDMItem}
                   keyExtractor={(item) => item.id}
                   showsVerticalScrollIndicator={false}
@@ -631,6 +785,10 @@ export default function CommunityChat() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  centerContent: {
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     paddingTop: 60,
@@ -680,12 +838,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
-
   mainContent: {
     flex: 1,
   },
-
-  // Discord-style Sidebar
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.7)",
@@ -718,8 +873,6 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 5,
   },
-
-  // Mode Switcher
   modeSwitcher: {
     flexDirection: "row",
     padding: 15,
@@ -734,6 +887,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 16,
     backgroundColor: "rgba(255, 255, 255, 0.05)",
+    position: "relative",
   },
   activeModeButton: {
     backgroundColor: "rgba(255, 255, 255, 0.15)",
@@ -755,17 +909,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     justifyContent: "center",
     backgroundColor: "#e74c3c",
-    marginLeft: -10,
-    top: -15,
-    right: -10,
+    position: "absolute",
+    top: -4,
+    right: -4,
   },
-
   channelsList: {
     paddingHorizontal: 15,
     paddingBottom: 20,
   },
-
-  // Channel Categories
   categoryContainer: {
     marginBottom: 20,
   },
