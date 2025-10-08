@@ -1,8 +1,10 @@
-import { View, Text, Image, StyleSheet, Pressable, Alert } from "react-native";
+import { View, Text, Image, StyleSheet, Pressable, Alert, Linking } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { HomeDataService } from "../../services/HomeDataService";
 
 export default function FeaturedVideo({
+  id = null,
   thumbnail = "https://placehold.co/400x225/3498db/ffffff?text=Featured+Video",
   title = "5 Science-Backed Ways to Build Better Habits",
   subtitle = "Discover the psychology behind habit formation and learn practical strategies to create lasting positive changes in your daily routine.",
@@ -10,40 +12,66 @@ export default function FeaturedVideo({
   category = "Personal Growth",
   author = "Dr. Sarah Johnson",
   views = "2.4M",
+  youtubeUrl = null,
+  articleUrl = null,
+  contentType = "video",
 }) {
 
-  const handlePlayVideo = () => {
-    Alert.alert(
-      "Play Video",
-      `Opening "${title}" by ${author}\n\nNote: Video playback functionality will be implemented soon!`,
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "Continue",
-          onPress: () => {
-            console.log("Playing video:", title);
-            // TODO: Implement actual video playback here
-            // Example: router.push(`/video/${videoId}`) or open video player
-          }
+  const handlePlayVideo = async () => {
+    if (contentType === 'video' && youtubeUrl) {
+      try {
+        // Increment view count if we have an ID
+        if (id) {
+          await HomeDataService.incrementFeaturedViews(id);
         }
-      ]
-    );
+        
+        // Open YouTube URL
+        const canOpen = await Linking.canOpenURL(youtubeUrl);
+        if (canOpen) {
+          await Linking.openURL(youtubeUrl);
+        } else {
+          Alert.alert("Error", "Cannot open YouTube link");
+        }
+      } catch (error) {
+        console.error("Error opening video:", error);
+        Alert.alert("Error", "Failed to open video");
+      }
+    } else if (contentType === 'article' && articleUrl) {
+      try {
+        // Increment view count if we have an ID
+        if (id) {
+          await HomeDataService.incrementFeaturedViews(id);
+        }
+        
+        const canOpen = await Linking.canOpenURL(articleUrl);
+        if (canOpen) {
+          await Linking.openURL(articleUrl);
+        } else {
+          Alert.alert("Error", "Cannot open article link");
+        }
+      } catch (error) {
+        console.error("Error opening article:", error);
+        Alert.alert("Error", "Failed to open article");
+      }
+    } else {
+      Alert.alert(
+        "Coming Soon",
+        `${contentType === 'video' ? 'Video' : 'Article'} playback will be available soon!`
+      );
+    }
   };
 
   const handleCardPress = () => {
     Alert.alert(
       "Featured Content",
-      `"${title}"\n\nBy: ${author}\nViews: ${views}\nDuration: ${duration}\nCategory: ${category}\n\nWould you like to watch this video?`,
+      `"${title}"\n\nBy: ${author}\nViews: ${views}\nDuration: ${duration}\nCategory: ${category}\n\nWould you like to ${contentType === 'video' ? 'watch this video' : 'read this article'}?`,
       [
         {
           text: "Not Now",
           style: "cancel"
         },
         {
-          text: "Watch",
+          text: contentType === 'video' ? "Watch" : "Read",
           onPress: handlePlayVideo
         }
       ]
@@ -110,8 +138,14 @@ export default function FeaturedVideo({
               style={styles.primaryButton}
               onPress={handlePlayVideo}
             >
-              <Ionicons name="play-circle" size={18} color="#fff" />
-              <Text style={styles.primaryButtonText}>Watch Now</Text>
+              <Ionicons 
+                name={contentType === 'video' ? "play-circle" : "document-text"} 
+                size={18} 
+                color="#fff" 
+              />
+              <Text style={styles.primaryButtonText}>
+                {contentType === 'video' ? "Watch Now" : "Read Now"}
+              </Text>
             </Pressable>
           </View>
         </View>

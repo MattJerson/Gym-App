@@ -12,6 +12,7 @@ import { useRouter, usePathname } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import NotificationBar from "../../components/NotificationBar";
+import { ProfilePageSkeleton } from "../../components/skeletons/ProfilePageSkeleton";
 import { supabase } from "../../services/supabase";
 import GamificationDataService from "../../services/GamificationDataService";
 
@@ -170,9 +171,14 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: "#0B0B0B", justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#f7971e" />
-        <Text style={{ color: '#fff', marginTop: 10 }}>Loading profile...</Text>
+      <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <View style={styles.headerRow}>
+            <Text style={styles.headerText}>Profile</Text>
+            <NotificationBar notifications={notifications} />
+          </View>
+          <ProfilePageSkeleton />
+        </ScrollView>
       </View>
     );
   }

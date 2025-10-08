@@ -6,13 +6,13 @@ import {
   Pressable,
   FlatList,
   Dimensions,
-  ActivityIndicator,
   Alert,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
 import WorkoutOptionsModal from "./WorkoutOptionsModal";
+import { MyWorkoutsSkeleton } from "../skeletons/MyWorkoutsSkeleton";
 
 // Get screen dimensions
 const { width } = Dimensions.get("window");
@@ -243,17 +243,7 @@ export default function MyWorkouts({
   };
 
   if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title}>My Workouts</Text>
-        </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#A3E635" />
-          <Text style={styles.loadingText}>Loading your workouts...</Text>
-        </View>
-      </View>
-    );
+    return <MyWorkoutsSkeleton />;
   }
 
   if (workouts.length === 0) {

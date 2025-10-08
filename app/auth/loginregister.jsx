@@ -18,6 +18,7 @@ import { Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import FormInput from "../../components/FormInput";
+import SubmitButton from "../../components/SubmitButton";
 import { supabase } from "../../services/supabase";
 
 /* -------------------- REGISTER SCREEN -------------------- */
@@ -357,29 +358,14 @@ export default function Register() {
             )}
 
             {/* Submit Button */}
-            <Pressable
-              style={styles.submitButton}
+            <SubmitButton
+              text={isRegistering ? "Create Account" : "Sign In"}
               onPress={handleSubmit}
-              disabled={isLoading}
-            >
-              <View style={styles.submitButtonSolid}>
-                {isLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Text style={styles.submitButtonText}>
-                      {isRegistering ? "Create Account" : "Sign In"}
-                    </Text>
-                    <Ionicons
-                      name="arrow-forward"
-                      size={20}
-                      color="#fff"
-                      style={styles.submitButtonIcon}
-                    />
-                  </View>
-                )}
-              </View>
-            </Pressable>
+              isLoading={isLoading}
+              loadingText=""
+              icon="arrow-forward"
+              variant="solid"
+            />
 
             {/* Toggle */}
             <Pressable style={styles.toggleContainer} onPress={handleToggle}>
@@ -454,7 +440,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
-    backgroundColor: "#356FB0", // solid middle color
+    backgroundColor: "#5994d7ff", // solid middle color
   },
 
   subtitleText: {
@@ -468,23 +454,6 @@ const styles = StyleSheet.create({
     width: "100%",
     alignItems: "center",
     marginTop: 280,
-  },
-  submitButton: {
-    width: "100%",
-    height: 56,
-    borderRadius: 16,
-    marginTop: 8,
-    marginBottom: 24,
-    overflow: "hidden",
-  },
-  submitButtonText: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#fff",
-    marginRight: 8,
-  },
-  submitButtonIcon: {
-    opacity: 0.8,
   },
   toggleContainer: {
     paddingVertical: 16,

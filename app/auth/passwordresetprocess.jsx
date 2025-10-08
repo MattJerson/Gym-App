@@ -18,6 +18,7 @@ import { useRouter } from "expo-router";
 import React, { useState, useRef, useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import SubmitButton from "../../components/SubmitButton";
 
 const stepsConfig = [
   {
@@ -255,41 +256,16 @@ export default function ForgotPasswordFlow() {
 
           {/* Bottom Section */}
           <View style={styles.bottomSection}>
-            <Pressable
-              style={[styles.submitButton, isLoading && styles.submitButtonLoading]}
+            <SubmitButton
+              text={currentStep.buttonText}
               onPress={handleNextStep}
-              disabled={isLoading}
-            >
-              <LinearGradient
-                colors={isLoading ? ["#666", "#888"] : ["#4A9EFF", "#6BB6FF"]}
-                style={styles.submitButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                {isLoading ? (
-                  <View style={styles.loadingContent}>
-                    <ActivityIndicator 
-                      size="small" 
-                      color="#fff" 
-                      style={styles.loadingSpinner} 
-                    />
-                    <Text style={styles.submitButtonText}>Processing...</Text>
-                  </View>
-                ) : (
-                  <>
-                    <Text style={styles.submitButtonText}>
-                      {currentStep.buttonText}
-                    </Text>
-                    <Ionicons 
-                      name="arrow-forward" 
-                      size={20} 
-                      color="#fff" 
-                      style={styles.submitButtonIcon}
-                    />
-                  </>
-                )}
-              </LinearGradient>
-            </Pressable>
+              isLoading={isLoading}
+              loadingText="Processing..."
+              icon="arrow-forward"
+              variant="gradient"
+              gradientColors={["#4A9EFF", "#6BB6FF"]}
+              loadingGradientColors={["#666", "#888"]}
+            />
           </View>
         </Animated.View>
       </SafeAreaView>
@@ -488,47 +464,8 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   bottomSection: {
-    paddingBottom: 30,
-    paddingTop: 20,
     width: "100%",
+    paddingVertical: 24,
     alignItems: "center",
-  },
-  submitButton: {
-    width: "100%",
-    height: 56,
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#4A9EFF",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  submitButtonGradient: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  submitButtonText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-    marginRight: 8,
-  },
-  submitButtonIcon: {
-    opacity: 0.8,
-  },
-  submitButtonLoading: {
-    opacity: 0.8,
-  },
-  loadingContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingSpinner: {
-    marginRight: 12,
   },
 });

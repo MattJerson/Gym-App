@@ -8,6 +8,7 @@ import QuickStart from "../../components/home/QuickStart";
 import RecentActivity from "../../components/home/RecentActivity";
 import FeaturedVideo from "../../components/home/FeaturedVideo";
 import NotificationBar from "../../components/NotificationBar";
+import { HomePageSkeleton } from "../../components/skeletons/HomePageSkeleton";
 import { HomeDataService } from "../../services/HomeDataService";
 import { supabase } from "../../services/supabase";
 
@@ -116,9 +117,7 @@ export default function Home() {
 
         {/* Loading State */}
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading your home data...</Text>
-          </View>
+          <HomePageSkeleton />
         ) : (
           <>
             {/* ✅ Daily Progress Card Component - Now fetches its own data */}
@@ -132,6 +131,7 @@ export default function Home() {
             {/* Featured Video */}
             {featuredContent && (
               <FeaturedVideo
+                id={featuredContent.id}
                 title={featuredContent.title}
                 subtitle={featuredContent.subtitle}
                 author={featuredContent.author}
@@ -139,6 +139,9 @@ export default function Home() {
                 category={featuredContent.category}
                 thumbnail={featuredContent.thumbnail}
                 duration={featuredContent.duration}
+                youtubeUrl={featuredContent.youtubeUrl}
+                articleUrl={featuredContent.articleUrl}
+                contentType={featuredContent.contentType}
               />
             )}
 
@@ -284,17 +287,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-  },
-  loadingContainer: {
-    flex: 1,
-    minHeight: 400,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#888',
-    marginTop: 12,
   },
   activityLabel: {
     fontSize: 16,

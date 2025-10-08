@@ -25,6 +25,7 @@ import ProgressGraph from "../../components/calendar/ProgressGraph";
 import StepsBarGraph from "../../components/calendar/StepsBarGraph";
 import CalendarAnalytics from "../../components/calendar/CalendarAnalytics";
 import NotificationBar from "../../components/NotificationBar";
+import { CalendarPageSkeleton } from "../../components/skeletons/CalendarPageSkeleton";
 import { CalendarDataService } from "../../services/CalendarDataService";
 import { supabase } from "../../services/supabase";
 
@@ -259,7 +260,7 @@ export default function Calendar() {
         </View>
         
         {isLoading ? (
-          <View style={styles.loadingContainer}><Text style={styles.loadingText}>Loading calendar data...</Text></View>
+          <CalendarPageSkeleton />
         ) : (
           <>
             <View style={styles.calendarCard}>

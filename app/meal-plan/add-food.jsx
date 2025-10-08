@@ -47,6 +47,11 @@ export default function AddFood() {
   const [totalPages, setTotalPages] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  
+  // Filter state
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedDietary, setSelectedDietary] = useState([]);
 
   // Animation values
   const successScale = useRef(new Animated.Value(0)).current;
@@ -66,6 +71,108 @@ export default function AddFood() {
   };
 
   const currentMeal = mealTypeConfig[mealType] || mealTypeConfig.breakfast;
+
+  // Food category filters (based on FoodData Central API categories)
+  const categoryFilters = [
+    { id: "all", label: "All Foods", icon: "restaurant", color: "#4ecdc4" },
+    { id: "protein", label: "Protein", icon: "nutrition", color: "#e74c3c" },
+    { id: "dairy", label: "Dairy", icon: "water", color: "#3498db" },
+    { id: "vegetables", label: "Vegetables", icon: "leaf", color: "#2ecc71" },
+    { id: "fruits", label: "Fruits", icon: "apple", color: "#e67e22" },
+    { id: "grains", label: "Grains", icon: "pizza", color: "#f39c12" },
+    { id: "snacks", label: "Snacks", icon: "fast-food", color: "#9b59b6" },
+  ];
+
+  // Dietary preference filters
+  const dietaryFilters = [
+    { id: "gluten-free", label: "Gluten-Free", icon: "remove-circle" },
+    { id: "dairy-free", label: "Dairy-Free", icon: "water-outline" },
+    { id: "vegan", label: "Vegan", icon: "leaf-outline" },
+    { id: "vegetarian", label: "Vegetarian", icon: "restaurant-outline" },
+    { id: "keto", label: "Keto", icon: "fitness-outline" },
+    { id: "low-carb", label: "Low-Carb", icon: "barbell-outline" },
+  ];
+
+  // Filter foods based on selected filters
+  const filterFoods = (foodsArray) => {
+    return foodsArray.filter(food => {
+      // Category filter
+      if (selectedCategory !== "all") {
+        const category = food.category?.toLowerCase() || "";
+        const foodName = food.name?.toLowerCase() || "";
+        
+        // Map categories to food keywords
+        const categoryMatch = {
+          "protein": ["meat", "chicken", "beef", "pork", "fish", "salmon", "tuna", "egg", "protein"],
+          "dairy": ["milk", "cheese", "yogurt", "butter", "cream", "dairy"],
+          "vegetables": ["vegetable", "lettuce", "tomato", "carrot", "broccoli", "spinach", "kale"],
+          "fruits": ["fruit", "apple", "banana", "orange", "berry", "strawberry", "grape"],
+          "grains": ["bread", "rice", "pasta", "cereal", "grain", "oat", "wheat"],
+          "snacks": ["snack", "chip", "cookie", "candy", "bar", "popcorn"],
+        };
+
+        const keywords = categoryMatch[selectedCategory] || [];
+        const matches = keywords.some(keyword => 
+          category.includes(keyword) || foodName.includes(keyword)
+        );
+        
+        if (!matches) return false;
+      }
+
+      // Dietary filters (can select multiple)
+      if (selectedDietary.length > 0) {
+        const foodName = food.name?.toLowerCase() || "";
+        const category = food.category?.toLowerCase() || "";
+        
+        // Check if food matches any selected dietary preference
+        const dietaryMatch = selectedDietary.every(dietary => {
+          const dietaryKeywords = {
+            "gluten-free": { avoid: ["wheat", "gluten", "bread", "pasta"] },
+            "dairy-free": { avoid: ["milk", "cheese", "yogurt", "butter", "cream", "dairy"] },
+            "vegan": { avoid: ["meat", "chicken", "beef", "pork", "fish", "egg", "dairy", "milk", "cheese"] },
+            "vegetarian": { avoid: ["meat", "chicken", "beef", "pork", "fish"] },
+            "keto": { prefer: ["protein", "fat"], high: "protein" },
+            "low-carb": { high: "carbs" },
+          };
+
+          const criteria = dietaryKeywords[dietary];
+          if (!criteria) return true;
+
+          // Check avoid keywords
+          if (criteria.avoid) {
+            return !criteria.avoid.some(keyword => 
+              foodName.includes(keyword) || category.includes(keyword)
+            );
+          }
+
+          // Check macros for keto/low-carb
+          if (dietary === "keto" && food.carbs > 10) return false;
+          if (dietary === "low-carb" && food.carbs > 20) return false;
+
+          return true;
+        });
+        
+        if (!dietaryMatch) return false;
+      }
+
+      return true;
+    });
+  };
+
+  const toggleDietary = (id) => {
+    setSelectedDietary(prev => 
+      prev.includes(id) 
+        ? prev.filter(item => item !== id)
+        : [...prev, id]
+    );
+  };
+
+  const clearFilters = () => {
+    setSelectedCategory("all");
+    setSelectedDietary([]);
+  };
+
+  const hasActiveFilters = selectedCategory !== "all" || selectedDietary.length > 0;
 
   // Get user session on mount
   useEffect(() => {
@@ -378,37 +485,49 @@ export default function AddFood() {
         );
       }
 
+      const filteredResults = filterFoods(searchResults);
+
       return (
         <>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Search Results</Text>
-            <Text style={styles.sectionCount}>{searchResults.length}</Text>
+            <Text style={styles.sectionCount}>{filteredResults.length}</Text>
           </View>
 
-          {searchResults.map((food, index) => (
-            <FoodItemCard
-              key={`search-${food.fdc_id}-${index}`}
-              food={food}
-              onPress={handleFoodSelect}
-              mode="default"
-            />
-          ))}
+          {filteredResults.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="filter-outline" size={48} color="#666" />
+              <Text style={styles.emptyStateText}>No foods match filters</Text>
+              <Text style={styles.emptyStateSubtext}>Try adjusting your filters</Text>
+            </View>
+          ) : (
+            <>
+              {filteredResults.map((food, index) => (
+                <FoodItemCard
+                  key={`search-${food.fdc_id}-${index}`}
+                  food={food}
+                  onPress={handleFoodSelect}
+                  mode="default"
+                />
+              ))}
 
-          {currentPage < totalPages && (
-            <TouchableOpacity
-              style={styles.loadMoreButton}
-              onPress={handleLoadMore}
-              disabled={isLoadingMore}
-            >
-              {isLoadingMore ? (
-                <ActivityIndicator size="small" color={currentMeal.color} />
-              ) : (
-                <>
-                  <Text style={[styles.loadMoreText, { color: currentMeal.color }]}>Load More</Text>
-                  <Ionicons name="chevron-down" size={18} color={currentMeal.color} />
-                </>
+              {currentPage < totalPages && (
+                <TouchableOpacity
+                  style={styles.loadMoreButton}
+                  onPress={handleLoadMore}
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore ? (
+                    <ActivityIndicator size="small" color={currentMeal.color} />
+                  ) : (
+                    <>
+                      <Text style={[styles.loadMoreText, { color: currentMeal.color }]}>Load More</Text>
+                      <Ionicons name="chevron-down" size={18} color={currentMeal.color} />
+                    </>
+                  )}
+                </TouchableOpacity>
               )}
-            </TouchableOpacity>
+            </>
           )}
         </>
       );
@@ -416,14 +535,17 @@ export default function AddFood() {
 
     // Show content based on active tab
     if (activeTab === "all") {
+      const filteredRecent = filterFoods(recentFoods);
+      const filteredPopular = filterFoods(popularFoods);
+
       return (
         <>
-          {recentFoods.length > 0 && (
+          {filteredRecent.length > 0 && (
             <>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Recent Foods</Text>
               </View>
-              {recentFoods.map((food, index) => (
+              {filteredRecent.map((food, index) => (
                 <FoodItemCard
                   key={`recent-${food.id}-${index}`}
                   food={food}
@@ -434,13 +556,13 @@ export default function AddFood() {
             </>
           )}
 
-          {popularFoods.length > 0 && (
+          {filteredPopular.length > 0 && (
             <>
-              <View style={[styles.sectionHeader, { marginTop: recentFoods.length > 0 ? 20 : 0 }]}>
+              <View style={[styles.sectionHeader, { marginTop: filteredRecent.length > 0 ? 20 : 0 }]}>
                 <Text style={styles.sectionTitle}>Popular Foods</Text>
                 <Text style={styles.sectionSubtitle}>Most logged by users</Text>
               </View>
-              {popularFoods.map((food, index) => (
+              {filteredPopular.map((food, index) => (
                 <FoodItemCard
                   key={`popular-${food.id}-${index}`}
                   food={food}
@@ -449,6 +571,14 @@ export default function AddFood() {
                 />
               ))}
             </>
+          )}
+
+          {filteredRecent.length === 0 && filteredPopular.length === 0 && hasActiveFilters && (
+            <View style={styles.emptyState}>
+              <Ionicons name="filter-outline" size={48} color="#666" />
+              <Text style={styles.emptyStateText}>No foods match filters</Text>
+              <Text style={styles.emptyStateSubtext}>Try adjusting your filters</Text>
+            </View>
           )}
         </>
       );
@@ -511,7 +641,61 @@ export default function AddFood() {
             </TouchableOpacity>
           )}
         </View>
+
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            hasActiveFilters && styles.filterButtonActive
+          ]}
+          onPress={() => setShowFilterModal(true)}
+        >
+          <MaterialIcons 
+            name="filter-list" 
+            size={20} 
+            color={hasActiveFilters ? currentMeal.color : "#888"} 
+          />
+          {hasActiveFilters && (
+            <View style={[styles.filterBadge, { backgroundColor: currentMeal.color }]}>
+              <Text style={styles.filterBadgeText}>
+                {selectedDietary.length + (selectedCategory !== "all" ? 1 : 0)}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
+
+      {/* Active Filters Display */}
+      {hasActiveFilters && (
+        <View style={styles.activeFiltersContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.activeFilters}>
+              {selectedCategory !== "all" && (
+                <View style={[styles.filterChip, { borderColor: currentMeal.color }]}>
+                  <Text style={[styles.filterChipText, { color: currentMeal.color }]}>
+                    {categoryFilters.find(f => f.id === selectedCategory)?.label}
+                  </Text>
+                  <TouchableOpacity onPress={() => setSelectedCategory("all")}>
+                    <Ionicons name="close" size={14} color={currentMeal.color} />
+                  </TouchableOpacity>
+                </View>
+              )}
+              {selectedDietary.map(dietary => (
+                <View key={dietary} style={[styles.filterChip, { borderColor: currentMeal.color }]}>
+                  <Text style={[styles.filterChipText, { color: currentMeal.color }]}>
+                    {dietaryFilters.find(f => f.id === dietary)?.label}
+                  </Text>
+                  <TouchableOpacity onPress={() => toggleDietary(dietary)}>
+                    <Ionicons name="close" size={14} color={currentMeal.color} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
+                <Text style={styles.clearFiltersText}>Clear All</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      )}
 
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
@@ -714,6 +898,118 @@ export default function AddFood() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {/* Filter Modal */}
+      <Modal
+        visible={showFilterModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <View style={styles.filterModalOverlay}>
+          <TouchableOpacity 
+            style={styles.filterModalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowFilterModal(false)}
+          />
+          <View style={styles.filterModal}>
+            <View style={styles.filterModalHeader}>
+              <Text style={styles.filterModalTitle}>Filter Foods</Text>
+              <TouchableOpacity onPress={() => setShowFilterModal(false)}>
+                <Ionicons name="close" size={24} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.filterModalContent}>
+              {/* Category Filter */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>Food Category</Text>
+                <View style={styles.filterGrid}>
+                  {categoryFilters.map(filter => (
+                    <TouchableOpacity
+                      key={filter.id}
+                      style={[
+                        styles.filterOption,
+                        selectedCategory === filter.id && [
+                          styles.selectedFilterOption,
+                          { borderColor: filter.color }
+                        ]
+                      ]}
+                      onPress={() => setSelectedCategory(filter.id)}
+                    >
+                      <Ionicons
+                        name={filter.icon}
+                        size={20}
+                        color={selectedCategory === filter.id ? filter.color : "#888"}
+                      />
+                      <Text style={[
+                        styles.filterOptionText,
+                        selectedCategory === filter.id && [
+                          styles.selectedFilterOptionText,
+                          { color: filter.color }
+                        ]
+                      ]}>
+                        {filter.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Dietary Preferences */}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>Dietary Preferences</Text>
+                <View style={styles.dietaryGrid}>
+                  {dietaryFilters.map(filter => (
+                    <TouchableOpacity
+                      key={filter.id}
+                      style={[
+                        styles.dietaryOption,
+                        selectedDietary.includes(filter.id) && [
+                          styles.selectedDietaryOption,
+                          { borderColor: currentMeal.color }
+                        ]
+                      ]}
+                      onPress={() => toggleDietary(filter.id)}
+                    >
+                      <Ionicons
+                        name={filter.icon}
+                        size={16}
+                        color={selectedDietary.includes(filter.id) ? currentMeal.color : "#888"}
+                      />
+                      <Text style={[
+                        styles.dietaryOptionText,
+                        selectedDietary.includes(filter.id) && [
+                          styles.selectedDietaryOptionText,
+                          { color: currentMeal.color }
+                        ]
+                      ]}>
+                        {filter.label}
+                      </Text>
+                      {selectedDietary.includes(filter.id) && (
+                        <Ionicons name="checkmark-circle" size={18} color={currentMeal.color} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+
+            {/* Modal Actions */}
+            <View style={styles.filterModalActions}>
+              <TouchableOpacity style={styles.clearButton} onPress={clearFilters}>
+                <Text style={styles.clearButtonText}>Clear All</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.applyButton, { backgroundColor: currentMeal.color }]}
+                onPress={() => setShowFilterModal(false)}
+              >
+                <Text style={styles.applyButtonText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -752,6 +1048,67 @@ const styles = StyleSheet.create({
     gap: 10,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  filterButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    position: "relative",
+  },
+  filterButtonActive: {
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+  },
+  filterBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    borderRadius: 10,
+    width: 18,
+    height: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  filterBadgeText: {
+    color: "#000",
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  activeFiltersContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  activeFilters: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    gap: 6,
+    borderWidth: 1,
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  clearFiltersButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    justifyContent: "center",
+  },
+  clearFiltersText: {
+    color: "#888",
+    fontSize: 12,
+    fontWeight: "600",
   },
   searchInput: {
     flex: 1,
@@ -997,5 +1354,131 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 16,
     elevation: 16,
+  },
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "flex-end",
+  },
+  filterModalBackdrop: {
+    flex: 1,
+  },
+  filterModal: {
+    backgroundColor: "#1a1a1a",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "85%",
+  },
+  filterModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+  },
+  filterModalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#fff",
+  },
+  filterModalContent: {
+    maxHeight: 500,
+  },
+  filterSection: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+  },
+  filterSectionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#888",
+    marginBottom: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  filterGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  filterOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  selectedFilterOption: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  filterOptionText: {
+    color: "#888",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  selectedFilterOptionText: {
+    fontWeight: "700",
+  },
+  dietaryGrid: {
+    gap: 10,
+  },
+  dietaryOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  selectedDietaryOption: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  dietaryOptionText: {
+    flex: 1,
+    color: "#888",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  selectedDietaryOptionText: {
+    fontWeight: "700",
+  },
+  filterModalActions: {
+    flexDirection: "row",
+    padding: 20,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
+  },
+  clearButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    alignItems: "center",
+  },
+  clearButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  applyButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  applyButtonText: {
+    color: "#000",
+    fontSize: 16,
+    fontWeight: "700",
   },
 });

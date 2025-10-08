@@ -152,9 +152,6 @@ const styles = StyleSheet.create({
   cardHeader: {
     padding: 20,
     paddingBottom: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
   },
   cardTitle: {
     fontSize: 22,

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
+import { WorkoutProgressBarSkeleton } from "../skeletons/WorkoutProgressBarSkeleton";
 import { TrainingProgressService } from "../../services/TrainingProgressService";
 import { supabase } from "../../services/supabase";
 
@@ -54,12 +55,7 @@ export default function WorkoutProgressBar() {
   const month = currentDate.toLocaleDateString('en-US', { month: 'short' });
 
   if (isLoading) {
-    return (
-      <View style={[styles.mainCard, styles.loadingCard]}>
-        <ActivityIndicator size="large" color="#30d158" />
-        <Text style={styles.loadingText}>Loading your progress...</Text>
-      </View>
-    );
+    return <WorkoutProgressBarSkeleton />;
   }
 
   return (

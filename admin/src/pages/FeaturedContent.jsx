@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 
 const FeaturedContent = () => {
   const [contents, setContents] = useState([]);
+  const [activeContent, setActiveContent] = useState(null);
+  const [previousContent, setPreviousContent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -33,14 +35,26 @@ const FeaturedContent = () => {
   const fetchFeaturedContent = async () => {
     try {
       setLoading(true);
-      const { data, error: fetchError } = await supabase
+      
+      // Fetch all content
+      const { data: allContent, error: fetchError } = await supabase
         .from('featured_content')
         .select('*')
         .order('display_order', { ascending: true })
         .order('created_at', { ascending: false });
 
       if (fetchError) throw fetchError;
-      setContents(data || []);
+      
+      // Get active content (should be only one due to trigger)
+      const active = allContent?.find(c => c.is_active) || null;
+      
+      // Get previous content (most recent inactive)
+      const inactive = allContent?.filter(c => !c.is_active) || [];
+      const previous = inactive.length > 0 ? inactive[0] : null;
+      
+      setContents(allContent || []);
+      setActiveContent(active);
+      setPreviousContent(previous);
     } catch (err) {
       console.error('Error fetching featured content:', err);
       setError(err.message);
@@ -122,6 +136,13 @@ const FeaturedContent = () => {
 
   const handleToggleActive = async (content) => {
     try {
+      // When activating, warn if there's already active content
+      if (!content.is_active && activeContent) {
+        if (!confirm(`Activating "${content.title}" will deactivate "${activeContent.title}". Continue?`)) {
+          return;
+        }
+      }
+      
       const { error: updateError } = await supabase
         .from('featured_content')
         .update({ is_active: !content.is_active })
@@ -274,8 +295,151 @@ const FeaturedContent = () => {
         </div>
       </div>
 
-      {/* Content List */}
-      <div className="bg-white rounded-lg shadow">
+      {/* Active & Previous Content - Top Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Currently Active Content - LEFT */}
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg shadow-lg">
+          <div className="p-4 border-b border-green-200 bg-green-100">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-green-900 flex items-center gap-2">
+                <Eye className="h-5 w-5" />
+                Currently Active
+              </h3>
+              <span className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded-full animate-pulse">
+                LIVE
+              </span>
+            </div>
+          </div>
+          {activeContent ? (
+            <div className="p-4">
+              {activeContent.thumbnail_url && (
+                <div className="relative h-48 bg-gray-200 rounded-lg overflow-hidden mb-3">
+                  <img
+                    src={activeContent.thumbnail_url}
+                    alt={activeContent.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.src = 'https://via.placeholder.com/400x225?text=No+Thumbnail';
+                    }}
+                  />
+                  <div className="absolute top-2 right-2">
+                    <span className={`text-xs px-2 py-1 rounded ${getContentTypeColor(activeContent.content_type)}`}>
+                      {activeContent.content_type}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <h4 className="font-bold text-lg mb-2">{activeContent.title}</h4>
+              {activeContent.subtitle && (
+                <p className="text-sm text-gray-600 mb-3">{activeContent.subtitle}</p>
+              )}
+              <div className="space-y-1 text-xs text-gray-600 mb-3">
+                {activeContent.author && <p>👤 {activeContent.author}</p>}
+                {activeContent.category && <p>📁 {activeContent.category}</p>}
+                {activeContent.duration && <p>⏱️ {activeContent.duration}</p>}
+                <p>👁️ {activeContent.views_count?.toLocaleString()} views</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleEdit(activeContent)}
+                  className="flex-1 px-3 py-2 bg-blue-100 text-blue-700 rounded text-sm font-medium hover:bg-blue-200 flex items-center justify-center gap-1"
+                >
+                  <Edit className="h-4 w-4" />
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleToggleActive(activeContent)}
+                  className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded text-sm font-medium hover:bg-gray-200 flex items-center justify-center gap-1"
+                >
+                  <EyeOff className="h-4 w-4" />
+                  Deactivate
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-8 text-center text-gray-500">
+              <EyeOff className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+              <p className="font-medium">No Active Content</p>
+              <p className="text-sm">Activate content from the library below</p>
+            </div>
+          )}
+        </div>
+
+        {/* Previously Active Content - RIGHT */}
+        <div className="bg-gradient-to-br from-gray-50 to-slate-50 border-2 border-gray-300 rounded-lg shadow-lg">
+          <div className="p-4 border-b border-gray-200 bg-gray-100">
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Most Recent (Inactive)
+              </h3>
+              <span className="px-3 py-1 bg-gray-600 text-white text-xs font-bold rounded-full">
+                ARCHIVED
+              </span>
+            </div>
+          </div>
+          {previousContent ? (
+            <div className="p-4">
+              {previousContent.thumbnail_url && (
+                <div className="relative h-48 bg-gray-200 rounded-lg overflow-hidden mb-3">
+                  <img
+                    src={previousContent.thumbnail_url}
+                    alt={previousContent.title}
+                    className="w-full h-full object-cover opacity-75"
+                    onError={(e) => {
+                      e.target.src = 'https://via.placeholder.com/400x225?text=No+Thumbnail';
+                    }}
+                  />
+                  <div className="absolute top-2 right-2">
+                    <span className={`text-xs px-2 py-1 rounded ${getContentTypeColor(previousContent.content_type)}`}>
+                      {previousContent.content_type}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <h4 className="font-bold text-lg mb-2">{previousContent.title}</h4>
+              {previousContent.subtitle && (
+                <p className="text-sm text-gray-600 mb-3">{previousContent.subtitle}</p>
+              )}
+              <div className="space-y-1 text-xs text-gray-600 mb-3">
+                {previousContent.author && <p>👤 {previousContent.author}</p>}
+                {previousContent.category && <p>📁 {previousContent.category}</p>}
+                {previousContent.duration && <p>⏱️ {previousContent.duration}</p>}
+                <p>👁️ {previousContent.views_count?.toLocaleString()} views</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleEdit(previousContent)}
+                  className="flex-1 px-3 py-2 bg-blue-100 text-blue-700 rounded text-sm font-medium hover:bg-blue-200 flex items-center justify-center gap-1"
+                >
+                  <Edit className="h-4 w-4" />
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleToggleActive(previousContent)}
+                  className="flex-1 px-3 py-2 bg-green-100 text-green-700 rounded text-sm font-medium hover:bg-green-200 flex items-center justify-center gap-1"
+                >
+                  <Eye className="h-4 w-4" />
+                  Activate
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="p-8 text-center text-gray-500">
+              <Calendar className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+              <p className="font-medium">No Previous Content</p>
+              <p className="text-sm">Past featured content will appear here</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Content Library - Bottom Section */}
+      <div className="bg-white rounded-lg shadow border border-gray-200">
+        <div className="p-4 border-b border-gray-200 bg-gray-50">
+          <h3 className="font-bold text-gray-900 text-lg">Content Library</h3>
+          <p className="text-sm text-gray-600 mt-1">All featured content history</p>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
           {contents.map((content) => (
             <div

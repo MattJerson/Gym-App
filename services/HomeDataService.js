@@ -95,52 +95,52 @@ export const HomeDataService = {
   async fetchFeaturedContent() {
     try {
       const { data, error } = await supabase
-        .rpc('get_active_featured_content', { limit_count: 1 });
+        .from('featured_content')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true })
+        .limit(1)
+        .single();
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        throw error;
+      }
 
-      if (data && data.length > 0) {
-        const content = data[0];
+      if (data) {
         return {
-          title: content.title,
-          subtitle: content.subtitle || '',
-          author: content.author || '',
-          views: content.views_count ? `${(content.views_count / 1000000).toFixed(1)}M` : '0',
-          category: content.category || '',
-          thumbnail: content.thumbnail_url || '',
-          duration: content.duration || '',
-          youtubeUrl: content.youtube_url || '',
-          contentType: content.content_type || 'video',
+          id: data.id,
+          title: data.title,
+          subtitle: data.subtitle || '',
+          author: data.author || '',
+          views: data.views_count ? this.formatViewCount(data.views_count) : '0',
+          category: data.category || '',
+          thumbnail: data.thumbnail_url || '',
+          duration: data.duration || '',
+          youtubeUrl: data.youtube_url || '',
+          articleUrl: data.article_url || '',
+          contentType: data.content_type || 'video',
         };
       }
 
-      // Return default if no content
-      return {
-        title: 'Complete Core Transformation',
-        subtitle: 'Science-Based Training',
-        author: 'Dr. Mike Fitness',
-        views: '2.1M',
-        category: 'Education',
-        thumbnail: 'https://img.youtube.com/vi/2tM1LFFxeKg/hqdefault.jpg',
-        duration: '12 min read',
-        youtubeUrl: 'https://www.youtube.com/watch?v=2tM1LFFxeKg',
-        contentType: 'video',
-      };
+      // Return null if no active content
+      return null;
     } catch (error) {
       console.error('Error fetching featured content:', error);
-      // Return default on error
-      return {
-        title: 'Complete Core Transformation',
-        subtitle: 'Science-Based Training',
-        author: 'Dr. Mike Fitness',
-        views: '2.1M',
-        category: 'Education',
-        thumbnail: 'https://img.youtube.com/vi/2tM1LFFxeKg/hqdefault.jpg',
-        duration: '12 min read',
-        youtubeUrl: 'https://www.youtube.com/watch?v=2tM1LFFxeKg',
-        contentType: 'video',
-      };
+      return null;
     }
+  },
+
+  /**
+   * Format view count for display (e.g., 1.2M, 450K)
+   */
+  formatViewCount(count) {
+    if (count >= 1000000) {
+      return `${(count / 1000000).toFixed(1)}M`;
+    }
+    if (count >= 1000) {
+      return `${(count / 1000).toFixed(0)}K`;
+    }
+    return count.toString();
   },
 
     /**

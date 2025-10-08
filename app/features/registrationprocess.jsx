@@ -28,6 +28,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import DropDownPicker from "react-native-dropdown-picker";
 import * as Haptics from 'expo-haptics';
 import FormInput from "../../components/FormInput";
+import SubmitButton from "../../components/SubmitButton";
 
 const formConfig = [
   {
@@ -771,34 +772,14 @@ export default function BasicInfo() {
             />
 
             {/* Submit Button */}
-            <Pressable
-              style={[styles.submitButton, isLoading && styles.submitButtonLoading]}
+            <SubmitButton
+              text={step < formConfig.length - 1 ? "Continue" : "Generate Plan"}
               onPress={handleNextStep}
-              disabled={isLoading}
-            >
-              <View style={[styles.submitButtonSolid, isLoading && styles.submitButtonDisabled]}>
-                {isLoading ? (
-                  <View style={styles.loadingContent}>
-                    <ActivityIndicator size="small" color="#fff" style={styles.loadingSpinner} />
-                    <Text style={styles.submitButtonText}>
-                      {step < formConfig.length - 1 ? "Processing..." : "Generating Plan..."}
-                    </Text>
-                  </View>
-                ) : (
-                  <>
-                    <Text style={styles.submitButtonText}>
-                      {step < formConfig.length - 1 ? "Continue" : "Generate Plan"}
-                    </Text>
-                    <Ionicons
-                      name={step < formConfig.length - 1 ? "arrow-forward" : "checkmark"}
-                      size={20}
-                      color="#fff"
-                      style={styles.submitButtonIcon}
-                    />
-                  </>
-                )}
-              </View>
-            </Pressable>
+              isLoading={isLoading}
+              loadingText={step < formConfig.length - 1 ? "Processing..." : "Generating Plan..."}
+              icon={step < formConfig.length - 1 ? "arrow-forward" : "checkmark"}
+              variant="solid"
+            />
 
           </Animated.View>
         </KeyboardAvoidingView>
@@ -1192,43 +1173,5 @@ const styles = StyleSheet.create({
   },
   multiButtonTextSelected: {
     color: "#fff",
-  },
-  submitButton: {
-    width: "100%",
-    marginTop: 20,
-    borderRadius: 10,
-    overflow: "hidden",
-    marginBottom: 40,
-  },
-  submitButtonSolid: {
-    backgroundColor: "#356FB0",
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  submitButtonDisabled: {
-    backgroundColor: "#666",
-  },
-  submitButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  submitButtonIcon: {
-    marginLeft: 8,
-  },
-  submitButtonLoading: {
-    opacity: 0.8,
-  },
-  loadingContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingSpinner: {
-    marginRight: 12,
   },
 });

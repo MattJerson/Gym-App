@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useState, useEffect } from "react";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import moment from "moment";
@@ -8,6 +8,7 @@ import TotalProgressBar from "./dailyprogresscard/TotalProgressBar";
 import ProgressCirclesGroup from "./dailyprogresscard/ProgressCirclesGroup";
 import { TrainingProgressService } from "../../services/TrainingProgressService";
 import { supabase } from "../../services/supabase";
+import { DailyProgressCardSkeleton } from "../skeletons/DailyProgressCardSkeleton";
 
 export default function DailyProgressCard() {
   // User state
@@ -123,12 +124,7 @@ export default function DailyProgressCard() {
 
   // Show loading state
   if (isLoading) {
-    return (
-      <View style={[styles.card, styles.loadingCard, { backgroundColor: "rgba(255, 255, 255, 0.05)" }]}>
-        <ActivityIndicator size="large" color="#FF6B35" />
-        <Text style={styles.loadingText}>Loading your progress...</Text>
-      </View>
-    );
+    return <DailyProgressCardSkeleton />;
   }
 
   return (

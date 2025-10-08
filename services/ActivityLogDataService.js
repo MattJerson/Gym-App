@@ -1,4 +1,6 @@
 // Activity Log Data Service - Focuses on workouts and nutrition only
+import { supabase } from './supabase';
+
 export const ActivityLogDataService = {
   
   // Main function to fetch workout and nutrition activities only
@@ -28,182 +30,166 @@ export const ActivityLogDataService = {
 
   // Fetch workout-related activities
   async fetchWorkoutActivities(userId) {
-    // Replace with: const response = await fetch(`/api/activities/${userId}/workouts`);
-    return [
-      {
-        id: "w1",
-        type: "workout",
-        category: "strength",
-        title: "Push Day Workout",
-        description: "Chest, Shoulders, and Triceps",
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-        metadata: {
-          duration: "45 mins",
-          exercises: 8,
-          personalRecords: 1,
-          achievement: "PR!"
-        }
-      },
-      {
-        id: "w2",
-        type: "workout",
-        category: "cardio",
-        title: "Morning Run",
-        description: "5K outdoor run",
-        timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
-        metadata: {
-          duration: "32 mins",
-          distance: "5.2 km",
-          pace: "6:10/km"
-        }
-      },
-      {
-        id: "w3",
-        type: "workout",
-        category: "flexibility",
-        title: "Evening Yoga",
-        description: "Relaxing yoga session",
-        timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
-        metadata: {
-          duration: "25 mins"
-        }
-      },
-      {
-        id: "w4",
-        type: "workout",
-        category: "strength",
-        title: "Pull Day Training",
-        description: "Back and biceps workout",
-        timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
-        metadata: {
-          duration: "52 mins",
-          exercises: 6
-        }
-      },
-      {
-        id: "w5",
-        type: "workout",
-        category: "cardio",
-        title: "HIIT Session",
-        description: "High-intensity interval training",
-        timestamp: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), // 4 days ago
-        metadata: {
-          duration: "20 mins",
-          intervals: 8
-        }
-      },
-      {
-        id: "w6",
-        type: "workout",
-        category: "strength",
-        title: "Leg Day",
-        description: "Squats, deadlifts, and leg press",
-        timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
-        metadata: {
-          duration: "55 mins",
-          exercises: 7,
-          personalRecords: 2,
-          achievement: "New PR!"
-        }
-      }
-    ];
+    try {
+      const { data, error } = await supabase
+        .from('workout_sessions')
+        .select(`
+          id,
+          workout_name,
+          workout_type,
+          completed_at,
+          total_duration_seconds,
+          total_exercises,
+          completed_exercises,
+          estimated_calories_burned,
+          difficulty_rating,
+          workout_categories(name, icon, color)
+        `)
+        .eq('user_id', userId)
+        .eq('status', 'completed')
+        .order('completed_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      return (data || []).map(session => {
+        const category = this.mapWorkoutTypeToCategory(session.workout_type);
+        const durationMins = Math.round(session.total_duration_seconds / 60);
+        
+        return {
+          id: session.id,
+          type: "workout",
+          category: category,
+          title: session.workout_name,
+          description: session.workout_type || 'Workout session',
+          timestamp: session.completed_at,
+          metadata: {
+            duration: `${durationMins} min${durationMins !== 1 ? 's' : ''}`,
+            exercises: session.total_exercises || 0,
+            completedExercises: session.completed_exercises || 0,
+            calories: session.estimated_calories_burned || 0,
+            difficulty: session.difficulty_rating
+          }
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching workout activities:', error);
+      return [];
+    }
   },
 
   // Fetch nutrition-related activities
   async fetchNutritionActivities(userId) {
-    // Replace with: const response = await fetch(`/api/activities/${userId}/nutrition`);
-    return [
-      {
-        id: "n1",
-        type: "nutrition",
-        category: "meal",
-        title: "Grilled Salmon Bowl",
-        description: "Dinner with quinoa and vegetables",
-        timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(), // 3 hours ago
-        metadata: {
-          mealType: "dinner",
-          calories: 485,
-          protein: "42g",
-          carbs: "38g",
-          fats: "18g"
+    try {
+      const { data, error } = await supabase
+        .from('user_meal_logs')
+        .select(`
+          id,
+          meal_type,
+          meal_date,
+          meal_time,
+          calories,
+          protein,
+          carbs,
+          fats,
+          quantity,
+          created_at,
+          food_database(name, brand, category)
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      // Group meals by meal_date and meal_type to combine multiple food items into single meal entries
+      const mealGroups = {};
+      
+      (data || []).forEach(log => {
+        const key = `${log.meal_date}_${log.meal_type}`;
+        if (!mealGroups[key]) {
+          mealGroups[key] = {
+            id: log.id,
+            type: "nutrition",
+            category: "meal",
+            title: this.formatMealTitle(log.meal_type, log.food_database),
+            description: this.formatMealDescription(log.meal_type),
+            timestamp: log.created_at,
+            metadata: {
+              mealType: log.meal_type,
+              calories: 0,
+              protein: 0,
+              carbs: 0,
+              fats: 0,
+              items: []
+            }
+          };
         }
-      },
-      {
-        id: "n2",
-        type: "nutrition",
-        category: "meal",
-        title: "Protein Smoothie Bowl",
-        description: "Post-workout smoothie with berries",
-        timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(), // 6 hours ago
+        
+        // Accumulate nutritional data
+        mealGroups[key].metadata.calories += parseFloat(log.calories || 0);
+        mealGroups[key].metadata.protein += parseFloat(log.protein || 0);
+        mealGroups[key].metadata.carbs += parseFloat(log.carbs || 0);
+        mealGroups[key].metadata.fats += parseFloat(log.fats || 0);
+        mealGroups[key].metadata.items.push({
+          name: log.food_database?.name || 'Food item',
+          quantity: log.quantity
+        });
+      });
+
+      // Convert to array and format
+      return Object.values(mealGroups).map(meal => ({
+        ...meal,
         metadata: {
-          mealType: "snack",
-          calories: 320,
-          protein: "28g",
-          carbs: "32g",
-          fats: "8g"
+          ...meal.metadata,
+          calories: Math.round(meal.metadata.calories),
+          protein: `${Math.round(meal.metadata.protein)}g`,
+          carbs: `${Math.round(meal.metadata.carbs)}g`,
+          fats: `${Math.round(meal.metadata.fats)}g`
         }
-      },
-      {
-        id: "n3",
-        type: "nutrition",
-        category: "meal",
-        title: "Overnight Oats",
-        description: "Breakfast with banana and almond butter",
-        timestamp: new Date(Date.now() - 9 * 60 * 60 * 1000).toISOString(), // 9 hours ago
-        metadata: {
-          mealType: "breakfast",
-          calories: 380,
-          protein: "16g",
-          carbs: "48g",
-          fats: "14g"
-        }
-      },
-      {
-        id: "n4",
-        type: "nutrition",
-        category: "meal",
-        title: "Greek Chicken Salad",
-        description: "Mediterranean-style salad",
-        timestamp: new Date(Date.now() - 27 * 60 * 60 * 1000).toISOString(), // 27 hours ago
-        metadata: {
-          mealType: "lunch",
-          calories: 425,
-          protein: "38g",
-          carbs: "22g",
-          fats: "22g"
-        }
-      },
-      {
-        id: "n5",
-        type: "nutrition",
-        category: "meal",
-        title: "Turkey Wrap",
-        description: "Whole wheat wrap with turkey and veggies",
-        timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(), // 2 days ago
-        metadata: {
-          mealType: "lunch",
-          calories: 350,
-          protein: "25g",
-          carbs: "35g",
-          fats: "12g"
-        }
-      },
-      {
-        id: "n6",
-        type: "nutrition",
-        category: "meal",
-        title: "Greek Yogurt Parfait",
-        description: "Yogurt with granola and berries",
-        timestamp: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(), // 3 days ago
-        metadata: {
-          mealType: "snack",
-          calories: 245,
-          protein: "20g",
-          carbs: "28g",
-          fats: "6g"
-        }
-      }
-    ];
+      }));
+    } catch (error) {
+      console.error('Error fetching nutrition activities:', error);
+      return [];
+    }
+  },
+
+  // Helper: Map workout type to category
+  mapWorkoutTypeToCategory(workoutType) {
+    const typeMap = {
+      'Strength Training': 'strength',
+      'Cardio': 'cardio',
+      'High Intensity': 'hiit',
+      'Flexibility': 'flexibility',
+      'Core Training': 'core',
+      'Functional Training': 'functional'
+    };
+    return typeMap[workoutType] || 'general';
+  },
+
+  // Helper: Format meal title
+  formatMealTitle(mealType, foodData) {
+    if (foodData && foodData.name) {
+      return foodData.name;
+    }
+    const titles = {
+      breakfast: 'Breakfast',
+      lunch: 'Lunch',
+      dinner: 'Dinner',
+      snack: 'Snack'
+    };
+    return titles[mealType] || 'Meal';
+  },
+
+  // Helper: Format meal description
+  formatMealDescription(mealType) {
+    const descriptions = {
+      breakfast: 'Morning meal',
+      lunch: 'Midday meal',
+      dinner: 'Evening meal',
+      snack: 'Snack'
+    };
+    return descriptions[mealType] || 'Nutrition log';
   },
 
   // Filter activities by type
@@ -226,56 +212,68 @@ export const ActivityLogDataService = {
 
   // Get activity statistics
   async getActivityStats(userId, timeRange = 'all') {
-    const activities = await this.fetchAllActivities(userId);
-    
-    // Filter by time range if specified
-    let filteredActivities = activities;
-    if (timeRange !== 'all') {
-      const now = new Date();
-      const filterDate = new Date();
+    try {
+      const activities = await this.fetchAllActivities(userId);
       
-      switch (timeRange) {
-        case 'today':
-          filterDate.setHours(0, 0, 0, 0);
-          break;
-        case 'week':
-          filterDate.setDate(now.getDate() - 7);
-          break;
-        case 'month':
-          filterDate.setMonth(now.getMonth() - 1);
-          break;
-        case '3months':
-          filterDate.setMonth(now.getMonth() - 3);
-          break;
-      }
-      
+      // Filter by time range if specified
+      let filteredActivities = activities;
       if (timeRange !== 'all') {
-        filteredActivities = activities.filter(activity => 
-          new Date(activity.timestamp) >= filterDate
-        );
+        const now = new Date();
+        const filterDate = new Date();
+        
+        switch (timeRange) {
+          case 'today':
+            filterDate.setHours(0, 0, 0, 0);
+            break;
+          case 'week':
+            filterDate.setDate(now.getDate() - 7);
+            break;
+          case 'month':
+            filterDate.setMonth(now.getMonth() - 1);
+            break;
+          case '3months':
+            filterDate.setMonth(now.getMonth() - 3);
+            break;
+        }
+        
+        if (timeRange !== 'all') {
+          filteredActivities = activities.filter(activity => 
+            new Date(activity.timestamp) >= filterDate
+          );
+        }
       }
+
+      // Calculate statistics
+      const stats = {
+        total: filteredActivities.length,
+        workouts: filteredActivities.filter(a => a.type === 'workout').length,
+        nutrition: filteredActivities.filter(a => a.type === 'nutrition').length,
+        totalCalories: filteredActivities
+          .filter(a => a.metadata?.calories)
+          .reduce((sum, a) => sum + (typeof a.metadata.calories === 'number' ? a.metadata.calories : 0), 0),
+        totalDuration: filteredActivities
+          .filter(a => a.metadata?.duration)
+          .reduce((sum, a) => {
+            const duration = parseInt(a.metadata.duration);
+            return sum + (isNaN(duration) ? 0 : duration);
+          }, 0),
+        achievements: filteredActivities
+          .filter(a => a.metadata?.achievement)
+          .length
+      };
+
+      return stats;
+    } catch (error) {
+      console.error('Error getting activity stats:', error);
+      return {
+        total: 0,
+        workouts: 0,
+        nutrition: 0,
+        totalCalories: 0,
+        totalDuration: 0,
+        achievements: 0
+      };
     }
-
-    // Calculate statistics
-    const stats = {
-      total: filteredActivities.length,
-      workouts: filteredActivities.filter(a => a.type === 'workout').length,
-      nutrition: filteredActivities.filter(a => a.type === 'nutrition').length,
-      totalCalories: filteredActivities
-        .filter(a => a.metadata?.calories)
-        .reduce((sum, a) => sum + a.metadata.calories, 0),
-      totalDuration: filteredActivities
-        .filter(a => a.metadata?.duration)
-        .reduce((sum, a) => {
-          const duration = parseInt(a.metadata.duration);
-          return sum + (isNaN(duration) ? 0 : duration);
-        }, 0),
-      achievements: filteredActivities
-        .filter(a => a.metadata?.achievement)
-        .length
-    };
-
-    return stats;
   },
 
   // Search activities

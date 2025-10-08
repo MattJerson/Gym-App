@@ -26,6 +26,7 @@ import RecentMeals from "../../components/mealplan/RecentMeals";
 import MealPlans from "../../components/mealplan/MealPlans";
 import PlanActionSheet from "../../components/mealplan/PlanActionSheet";
 import NotificationBar from "../../components/NotificationBar";
+import { MealPlanPageSkeleton } from "../../components/skeletons/MealPlanPageSkeleton";
 import { MealPlanDataService } from "../../services/MealPlanDataService";
 import { supabase } from "../../services/supabase";
 
@@ -326,9 +327,7 @@ export default function Mealplan() {
 
         {/* Loading State */}
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading meal plan data...</Text>
-          </View>
+          <MealPlanPageSkeleton />
         ) : (
           <>
             {/* Macro Progress Summary */}

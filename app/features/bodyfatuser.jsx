@@ -20,6 +20,8 @@ import { useState, useEffect, useRef } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import Slider from "@react-native-community/slider";
 import { LinearGradient } from "expo-linear-gradient";
+import SubmitButton from "../../components/SubmitButton";
+
 export default function BodyFatUser() {
   const router = useRouter();
   const { width } = Dimensions.get("window");
@@ -273,29 +275,14 @@ export default function BodyFatUser() {
                 You can always adjust these values later in your profile settings.
               </Text>
 
-              <Pressable
-                style={styles.submitButton}
+              <SubmitButton
+                text={currentStep === 0 ? "Next" : "Save & Continue"}
                 onPress={handleNext}
-                disabled={isLoading}
-              >
-                <View style={styles.submitButtonSolid}>
-                  {isLoading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <View style={{ flexDirection: "row", alignItems: "center" }}>
-                      <Text style={styles.submitButtonText}>
-                        {currentStep === 0 ? "Next" : "Save & Continue"}
-                      </Text>
-                      <Ionicons
-                        name="arrow-forward"
-                        size={20}
-                        color="#fff"
-                        style={styles.submitButtonIcon}
-                      />
-                    </View>
-                  )}
-                </View>
-              </Pressable>
+                isLoading={isLoading}
+                loadingText=""
+                icon="arrow-forward"
+                variant="solid"
+              />
             </View>
 
 
@@ -671,28 +658,11 @@ const styles = StyleSheet.create({
   loadingSpinner: {
     marginRight: 12,
   },
-  submitButton: {
-  width: "100%",
-  height: 56,
-  borderRadius: 16,
-  overflow: "hidden",
-},
-submitButtonSolid: {
-  flex: 1,
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "center",
-  paddingHorizontal: 24,
-  backgroundColor: "#356FB0", // solid color (same as Register)
-},
-submitButtonText: {
-  fontSize: 18,
-  fontWeight: "bold",
-  color: "#fff",
-  marginRight: 8,
-},
-submitButtonIcon: {
-  opacity: 0.8,
-},
-
+    disclaimer: {
+    fontSize: 12,
+    color: "#888",
+    textAlign: "center",
+    marginBottom: 16,
+    lineHeight: 18,
+  },
 });

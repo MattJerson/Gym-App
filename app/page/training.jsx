@@ -18,6 +18,7 @@ import BrowseWorkouts from "../../components/training/BrowseWorkouts";
 import MyWorkouts from "../../components/training/MyWorkouts";
 import RecentWorkouts from "../../components/training/RecentWorkouts";
 import NotificationBar from "../../components/NotificationBar";
+import { TrainingPageSkeleton } from "../../components/skeletons/TrainingPageSkeleton";
 import { TrainingDataService } from "../../services/TrainingDataService";
 import { WorkoutSessionService } from "../../services/WorkoutSessionService";
 import { supabase } from "../../services/supabase";
@@ -173,9 +174,7 @@ export default function Training() {
 
         {/* Loading State */}
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading training data...</Text>
-          </View>
+          <TrainingPageSkeleton />
         ) : (
           <>
             {/* Progress Card */}

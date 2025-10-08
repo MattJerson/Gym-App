@@ -7,6 +7,7 @@ import {
   TextInput,
   Modal,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import {
   Ionicons,
@@ -14,13 +15,16 @@ import {
   MaterialIcons,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useState, useEffect, useMemo } from "react";
 import NotificationBar from "../../components/NotificationBar";
+import ActivityRow from "../../components/activity/ActivityRow";
 import { ActivityLogDataService } from "../../services/ActivityLogDataService";
+import { supabase } from "../../services/supabase";
 
 export default function ActivityLog() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   
   // State management
   const [activities, setActivities] = useState([]);
@@ -28,9 +32,10 @@ export default function ActivityLog() {
   const [isLoading, setIsLoading] = useState(true);
   const [notifications] = useState(2);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [selectedFilter, setSelectedFilter] = useState(params.filter || "all");
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedTimeRange, setSelectedTimeRange] = useState("all");
+  const [userId, setUserId] = useState(null);
 
   // Filter options - simplified to just workout and nutrition
   const filterOptions = [
@@ -47,12 +52,30 @@ export default function ActivityLog() {
     { id: "3months", label: "Last 3 Months" },
   ];
 
-  // Load data on component mount
-  const userId = "user123";
-
+  // Get user ID on mount
   useEffect(() => {
-    loadActivityData();
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    };
+    getUser();
   }, []);
+
+  // Load data when user ID is available
+  useEffect(() => {
+    if (userId) {
+      loadActivityData();
+    }
+  }, [userId]);
+
+  // Apply URL filter if present
+  useEffect(() => {
+    if (params.filter && params.filter !== selectedFilter) {
+      setSelectedFilter(params.filter);
+    }
+  }, [params.filter]);
 
   useEffect(() => {
     filterActivities();
@@ -123,18 +146,12 @@ export default function ActivityLog() {
   };
 
   const getActivityIcon = (activity) => {
-    switch (activity.type) {
-      case "workout":
-        return activity.metadata?.icon || "fitness";
-      case "nutrition":
-        return "restaurant";
-      case "calendar":
-        return "calendar";
-      case "progress":
-        return "trending-up";
-      default:
-        return "ellipse";
+    if (activity.type === "workout") {
+      return "fitness";
+    } else if (activity.type === "nutrition") {
+      return "restaurant";
     }
+    return "ellipse";
   };
 
   const getActivityColor = (activity) => {
@@ -152,27 +169,6 @@ export default function ActivityLog() {
     }
   };
 
-  const formatTimeAgo = (timestamp) => {
-    const now = new Date();
-    const activityTime = new Date(timestamp);
-    const diffInMinutes = Math.floor((now - activityTime) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return "Just now";
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    
-    const diffInHours = Math.floor(diffInMinutes / 60);
-    if (diffInHours < 24) return `${diffInHours}h ago`;
-    
-    const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 7) return `${diffInDays}d ago`;
-    
-    const diffInWeeks = Math.floor(diffInDays / 7);
-    if (diffInWeeks < 4) return `${diffInWeeks}w ago`;
-    
-    const diffInMonths = Math.floor(diffInDays / 30);
-    return `${diffInMonths}mo ago`;
-  };
-
   const groupedActivities = useMemo(() => {
     const groups = {};
     filteredActivities.forEach(activity => {
@@ -187,24 +183,28 @@ export default function ActivityLog() {
     return groups;
   }, [filteredActivities]);
 
+  const formatDateHeader = (dateKey) => {
+    const date = new Date(dateKey);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    } else {
+      return date.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    }
+  };
+
   const getSelectedFilterLabel = () => {
     const filter = filterOptions.find(f => f.id === selectedFilter);
     return filter?.label || "All Activity";
-  };
-
-  const getActivityTypeColor = (type) => {
-    switch (type) {
-      case "workout":
-        return "#1e3a5f";
-      case "nutrition":
-        return "#288477";
-      case "calendar":
-        return "#00c6ac";
-      case "progress":
-        return "#015f7b";
-      default:
-        return "#666";
-    }
   };
 
   const clearFilters = () => {
@@ -310,6 +310,7 @@ export default function ActivityLog() {
         {/* Loading State */}
         {isLoading ? (
           <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#74b9ff" />
             <Text style={styles.loadingText}>Loading activity data...</Text>
           </View>
         ) : (
@@ -326,46 +327,19 @@ export default function ActivityLog() {
             ) : (
               Object.entries(groupedActivities).map(([dateKey, dayActivities]) => (
                 <View key={dateKey} style={styles.dayGroup}>
-                  <Text style={styles.dayHeader}>{new Date(dateKey).toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}</Text>
+                  <Text style={styles.dayHeader}>
+                    {formatDateHeader(dateKey)}
+                  </Text>
                   
-                  {dayActivities.map((activity, index) => (
-                    <Pressable key={activity.id} style={styles.activityItem}>
-                      <View style={styles.activityContent}>
-                        <Text style={styles.activityTitle}>{activity.title}</Text>
-                        <Text style={styles.activityDescription}>
-                          {formatTimeAgo(activity.timestamp)} • {activity.description}
-                        </Text>
-                        
-                        {activity.metadata && (
-                          <View style={styles.activityMetadata}>
-                            {activity.metadata.duration && (
-                              <Text style={styles.metadataText}>
-                                {activity.metadata.duration}
-                              </Text>
-                            )}
-                            {activity.metadata.calories && (
-                              <Text style={styles.metadataText}>
-                                {activity.metadata.calories} cal
-                              </Text>
-                            )}
-                            {activity.metadata.achievement && (
-                              <View style={styles.achievementBadge}>
-                                <Text style={styles.achievementText}>{activity.metadata.achievement}</Text>
-                              </View>
-                            )}
-                          </View>
-                        )}
-                      </View>
-                      
-                      <View style={[styles.typeIndicator, { backgroundColor: getActivityTypeColor(activity.type) }]}>
-                        <Text style={styles.typeText}>{activity.type.charAt(0).toUpperCase()}</Text>
-                      </View>
-                    </Pressable>
+                  {dayActivities.map((activity) => (
+                    <ActivityRow 
+                      key={activity.id} 
+                      activity={activity}
+                      onPress={() => {
+                        // Handle activity press if needed
+                        console.log('Activity pressed:', activity.id);
+                      }}
+                    />
                   ))}
                 </View>
               ))
@@ -465,7 +439,7 @@ export default function ActivityLog() {
 const styles = StyleSheet.create({
   container: { 
     flex: 1,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#0B0B0B",
   },
   scrollContent: {
     paddingTop: 60,
@@ -505,8 +479,8 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 12,
     paddingHorizontal: 16,
     gap: 12,
   },
@@ -514,13 +488,13 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     color: "#fff",
-    fontSize: 16,
+    fontSize: 15,
   },
   filterButton: {
     width: 48,
     height: 48,
-    backgroundColor: "#1e3a5f",
-    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -535,39 +509,41 @@ const styles = StyleSheet.create({
   filterChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1e3a5f",
-    borderRadius: 20,
+    backgroundColor: "rgba(116, 185, 255, 0.2)",
+    borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 6,
     gap: 6,
   },
   filterChipText: {
-    color: "#fff",
+    color: "#74b9ff",
     fontSize: 12,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   clearFiltersButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 12,
   },
   clearFiltersText: {
-    color: "#fff",
+    color: "#aaa",
     fontSize: 12,
     fontWeight: "500",
   },
   statsCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 18,
   },
   statsTitle: {
-    fontSize: 18,
-    color: "#fff",
+    fontSize: 12,
+    color: "#888",
     fontWeight: "600",
-    marginBottom: 16,
+    marginBottom: 10,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   statsRow: {
     flexDirection: "row",
@@ -577,14 +553,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   statNumber: {
-    fontSize: 20,
+    fontSize: 22,
     color: "#fff",
     fontWeight: "700",
-    marginBottom: 4,
+    marginBottom: 3,
   },
   statLabel: {
-    fontSize: 12,
-    color: "#aaa",
+    fontSize: 10,
+    color: "#666",
     fontWeight: "500",
   },
   loadingContainer: {
@@ -620,74 +596,16 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   dayGroup: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   dayHeader: {
-    fontSize: 16,
-    color: "#b9e3e6",
-    fontWeight: "600",
-    marginBottom: 12,
-    paddingHorizontal: 4,
-  },
-  activityItem: {
-    flexDirection: "row",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 8,
-    alignItems: "flex-start",
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.06)",
-  },
-  activityContent: {
-    flex: 1,
-  },
-  activityTitle: {
-    fontSize: 14,
-    color: "#fff",
-    fontWeight: "500",
-    marginBottom: 4,
-  },
-  activityDescription: {
-    fontSize: 12,
-    color: "#aaa",
-    lineHeight: 16,
-    marginBottom: 8,
-  },
-  activityMetadata: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    alignItems: "center",
-  },
-  metadataText: {
     fontSize: 11,
     color: "#666",
-    fontWeight: "500",
-  },
-  achievementBadge: {
-    backgroundColor: "#00c6ac",
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  achievementText: {
-    fontSize: 9,
-    color: "#fff",
     fontWeight: "600",
-  },
-  typeIndicator: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 12,
-  },
-  typeText: {
-    fontSize: 12,
-    color: "#fff",
-    fontWeight: "600",
+    marginBottom: 8,
+    paddingHorizontal: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   modalOverlay: {
     flex: 1,
@@ -695,7 +613,7 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   filterModal: {
-    backgroundColor: "#1C1C1E",
+    backgroundColor: "#161616",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 20,
@@ -717,10 +635,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   filterSectionTitle: {
-    fontSize: 16,
-    color: "#fff",
+    fontSize: 14,
+    color: "#888",
     fontWeight: "600",
     marginBottom: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   filterGrid: {
     gap: 8,
@@ -728,21 +648,24 @@ const styles = StyleSheet.create({
   filterOption: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
     gap: 12,
   },
   selectedFilterOption: {
-    backgroundColor: "#1e3a5f",
+    backgroundColor: "rgba(116, 185, 255, 0.2)",
+    borderWidth: 1,
+    borderColor: "#74b9ff",
   },
   filterOptionText: {
-    fontSize: 14,
+    fontSize: 15,
     color: "#ccc",
     fontWeight: "500",
   },
   selectedFilterOptionText: {
     color: "#fff",
+    fontWeight: "600",
   },
   timeRangeGrid: {
     flexDirection: "row",
@@ -750,13 +673,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   timeRangeOption: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 10,
   },
   selectedTimeRangeOption: {
-    backgroundColor: "#1e3a5f",
+    backgroundColor: "rgba(116, 185, 255, 0.2)",
+    borderWidth: 1,
+    borderColor: "#74b9ff",
   },
   timeRangeOptionText: {
     fontSize: 14,
@@ -765,6 +690,7 @@ const styles = StyleSheet.create({
   },
   selectedTimeRangeOptionText: {
     color: "#fff",
+    fontWeight: "600",
   },
   modalActions: {
     flexDirection: "row",
@@ -773,26 +699,26 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderRadius: 12,
     padding: 16,
     alignItems: "center",
   },
   clearButtonText: {
-    color: "#fff",
+    color: "#aaa",
     fontSize: 16,
     fontWeight: "600",
   },
   applyButton: {
     flex: 1,
-    backgroundColor: "#1e3a5f",
-    borderRadius: 16,
+    backgroundColor: "#74b9ff",
+    borderRadius: 12,
     padding: 16,
     alignItems: "center",
   },
   applyButtonText: {
-    color: "#fff",
+    color: "#000",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 });
