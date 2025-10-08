@@ -25,6 +25,7 @@ import TodaysMeals from "../../components/mealplan/TodaysMeals";
 import RecentMeals from "../../components/mealplan/RecentMeals";
 import MealPlans from "../../components/mealplan/MealPlans";
 import PlanActionSheet from "../../components/mealplan/PlanActionSheet";
+import MealPlanHeader from "../../components/mealplan/MealPlanHeader";
 import NotificationBar from "../../components/NotificationBar";
 import { MealPlanPageSkeleton } from "../../components/skeletons/MealPlanPageSkeleton";
 import { MealPlanDataService } from "../../services/MealPlanDataService";
@@ -320,10 +321,7 @@ export default function Mealplan() {
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Header */}
-        <View style={styles.headerRow}>
-          <Text style={styles.headerText}>Meal Plan</Text>
-          <NotificationBar notifications={notifications} />
-        </View>
+        <MealPlanHeader notifications={notifications} />
 
         {/* Loading State */}
         {isLoading ? (
@@ -407,17 +405,6 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingBottom: 10,
     paddingHorizontal: 20,
-  },
-  headerRow: {
-    marginBottom: 24,
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  headerText: {
-    fontSize: 28,
-    color: "#fff",
-    fontWeight: "bold",
   },
   loadingContainer: {
     flex: 1,

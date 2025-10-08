@@ -9,19 +9,19 @@ export default function QuickStart() {
 
   const quickActions = [
     {
-      title: "Start",
-      subtitle: "Workout",
+      title: "Workouts",
+      subtitle: "Get Started",
       icon: "fitness",
       iconLibrary: "Ionicons",
-      route: "/training/workouts",
+      route: "/page/training",
       iconColor: "#b9e3e6",
     },
     {
-      title: "Diet",
-      subtitle: "Meal Plan",
+      title: "Nutrition",
+      subtitle: "Log Meals",
       icon: "restaurant-outline",
       iconLibrary: "Ionicons",
-      route: "/meal-plan/add-food",
+      route: "/page/mealplan",
       iconColor: "#00c6ac",
     },
     {

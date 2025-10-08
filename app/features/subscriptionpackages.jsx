@@ -4,46 +4,215 @@ import {
   Animated,
   Keyboard,
   Platform,
-  Pressable,
   StyleSheet,
-  ScrollView,
-  Dimensions,
+  FlatList,
   SafeAreaView,
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
+  StatusBar,
+  ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from '../../services/supabase';
 import { LinearGradient } from "expo-linear-gradient";
 import { useStripe } from "@stripe/stripe-react-native";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
+import HeaderBar from "../../components/onboarding/HeaderBar";
+import ProgressBar from "../../components/onboarding/ProgressBar";
+import SubscriptionCard from "../../components/subscription/SubscriptionCard";
+
+// Get screen dimensions for card sizing
+const { width, height } = Dimensions.get("window");
+const PADDING_HORIZONTAL = 20;
+const CARD_MARGIN_RIGHT = 20;
+const VISIBLE_CARDS = 1.05; // Show very slight peek
+const CARD_WIDTH = (width - PADDING_HORIZONTAL * 2 - CARD_MARGIN_RIGHT) / VISIBLE_CARDS;
 
 export default function SubscriptionPackages() {
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
-  const { width } = Dimensions.get("window");
 
-  const fadeAnim = useState(new Animated.Value(0))[0];
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  
+  const [subscriptions, setSubscriptions] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 800,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim]);
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        delay: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-  const handleJoin = async (plan) => {
+    loadSubscriptions();
+  }, []);
+
+  const loadSubscriptions = async () => {
     try {
-      // 1️⃣ Call your backend to create PaymentIntent, ephemeral key, and customer
+      const { data, error } = await supabase
+        .from('subscription_packages')
+        .select('*')
+        .order('sort_order', { ascending: true });
+
+      if (error) {
+        console.error('Error loading subscriptions:', error);
+        // Use fallback data if DB query fails
+        setSubscriptions(getFallbackSubscriptions());
+      } else {
+        setSubscriptions(data || getFallbackSubscriptions());
+      }
+    } catch (err) {
+      console.error('Failed to load subscriptions:', err);
+      setSubscriptions(getFallbackSubscriptions());
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getFallbackSubscriptions = () => [
+    {
+      slug: 'free-trial',
+      name: 'Free Trial',
+      price: 0,
+      billing_interval: 'one_time',
+      features: [
+        { text: '7 days unlimited access', included: true },
+        { text: 'Basic workout plans', included: true },
+        { text: 'Basic meal plans', included: true },
+        { text: 'Activity tracking', included: true },
+        { text: 'Progress photos', included: true },
+        { text: 'AI workout assistant', included: false },
+        { text: 'Custom nutrition plans', included: false },
+        { text: 'Advanced analytics', included: false },
+        { text: 'Priority support', included: false },
+        { text: 'Workout history export', included: false },
+      ],
+      badge: 'TRY FREE',
+      emoji: '🎁',
+      accent_color: '#00D4AA',
+      is_popular: false,
+    },
+    {
+      slug: 'monthly',
+      name: 'Monthly',
+      price: 9.99,
+      billing_interval: 'month',
+      features: [
+        { text: 'Unlimited workout plans', included: true },
+        { text: 'Personalized meal plans', included: true },
+        { text: 'Activity & progress tracking', included: true },
+        { text: 'AI workout assistant', included: true },
+        { text: 'Custom nutrition analysis', included: true },
+        { text: 'Community access', included: true },
+        { text: 'Video exercise library', included: true },
+        { text: 'Daily motivation tips', included: true },
+        { text: 'Priority support', included: false },
+        { text: 'Early access to features', included: false },
+        { text: 'Advanced analytics', included: false },
+        { text: 'Workout history export', included: false },
+      ],
+      emoji: '💪',
+      accent_color: '#4A9EFF',
+      is_popular: false,
+    },
+    {
+      slug: 'annual',
+      name: 'Annual',
+      price: 79.99,
+      billing_interval: 'year',
+      features: [
+        { text: 'Everything in Monthly', included: true },
+        { text: 'Save 33% vs Monthly plan', included: true },
+        { text: 'Priority email support', included: true },
+        { text: 'Early access to features', included: true },
+        { text: 'Advanced analytics dashboard', included: true },
+        { text: 'Workout history export', included: true },
+        { text: 'Custom workout builder', included: true },
+        { text: 'Macro tracking & planning', included: true },
+        { text: 'Integration with fitness devices', included: true },
+        { text: 'Monthly progress reports', included: true },
+        { text: 'VIP community badge', included: true },
+      ],
+      badge: 'BEST VALUE',
+      emoji: '🏆',
+      accent_color: '#FFB800',
+      is_popular: true,
+    },
+    {
+      slug: 'lifetime',
+      name: 'Lifetime',
+      price: 149.99,
+      billing_interval: 'one_time',
+      features: [
+        { text: 'Everything in Annual', included: true },
+        { text: 'Lifetime access forever', included: true },
+        { text: 'No recurring payments ever', included: true },
+        { text: 'VIP priority support 24/7', included: true },
+        { text: 'Exclusive beta features', included: true },
+        { text: 'Exclusive workout content', included: true },
+        { text: 'Personal trainer consultations', included: true },
+        { text: 'Nutrition coaching sessions', included: true },
+        { text: 'Lifetime update guarantee', included: true },
+        { text: 'VIP-only community access', included: true },
+        { text: 'Free merchandise & swag', included: true },
+      ],
+      badge: 'ONE-TIME',
+      emoji: '🚀',
+      accent_color: '#FF4D4D',
+      is_popular: false,
+    },
+  ];
+
+  const lightHaptic = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
+  const handleBack = () => {
+    lightHaptic();
+    router.back();
+  };
+
+  const handleSubscribe = async (subscription) => {
+    if (isProcessing) return;
+    
+    lightHaptic();
+    setIsProcessing(true);
+
+    try {
+      // Free trial - no payment needed
+      if (subscription.price === 0 || subscription.slug === 'free-trial') {
+        console.log('Starting free trial...');
+        // TODO: Create free trial subscription in database
+        router.push('/features/selectworkouts');
+        return;
+      }
+
+      // Paid subscription - initiate payment
       const response = await fetch(
         "http://192.168.0.101:3000/create-payment-intent",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ plan }),
+          body: JSON.stringify({ 
+            plan: subscription.name,
+            price: subscription.price,
+            interval: subscription.billing_interval,
+          }),
         }
       );
 
@@ -59,7 +228,7 @@ export default function SubscriptionPackages() {
         return;
       }
 
-      // 2️⃣ Initialize Payment Sheet
+      // Initialize Payment Sheet
       const { error: initError } = await initPaymentSheet({
         merchantDisplayName: "Gym App",
         customerId: customer,
@@ -73,7 +242,7 @@ export default function SubscriptionPackages() {
         return;
       }
 
-      // 3️⃣ Present the Payment Sheet
+      // Present the Payment Sheet
       const { error: paymentError } = await presentPaymentSheet();
 
       if (paymentError) {
@@ -84,168 +253,87 @@ export default function SubscriptionPackages() {
       }
     } catch (err) {
       console.error("Payment error:", err);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
-  const handleUseCoupon = () => {
-    console.log("Use Coupon Pressed");
-    // Navigate to a coupon entry screen
-    router.push("/page/home");
-  };
-
-  const handleFreeTrial = () => {
-    console.log("Starting Free Trial - navigating to workout selection");
-    // Navigate to workout selection onboarding
-    router.push('/features/selectworkouts');
-  };
-
-  const [isProcessing, setIsProcessing] = useState(false);
-
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
-        <SafeAreaView style={{ flex: 1 }}>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#0B0B0B" />
+        <LinearGradient
+          colors={["#0B0B0B", "#1a1a1a"]}
+          style={styles.gradient}
+        >
           <KeyboardAvoidingView
-            style={{ flex: 1 }}
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.keyboardAvoidingView}
           >
-            <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-              {/* Back Button */}
-              <View style={styles.backRow}>
-                <Pressable onPress={() => router.back()}>
-                  <Ionicons name="arrow-back" size={28} color="#fff" />
-                </Pressable>
-              </View>
+            <SafeAreaView style={styles.safeArea}>
+              <Animated.View 
+                style={[
+                  styles.content, 
+                  { 
+                    opacity: fadeAnim,
+                    transform: [{ translateY: slideAnim }]
+                  }
+                ]}
+              >
+                <HeaderBar
+                  title="Choose Your Plan"
+                  currentStep={1}
+                  totalSteps={1}
+                  onBackPress={handleBack}
+                  onHapticFeedback={lightHaptic}
+                />
 
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <View style={styles.mainContent}>
-                  <Text style={styles.title}>Subscription Packages</Text>
-                  <Text style={styles.header}>
-                    You're not subscribed to any plan yet.
-                  </Text>
+                <ProgressBar
+                  currentStep={1}
+                  totalSteps={1}
+                />
 
-                  <Text style={styles.featureText}>
-                    Please subscribe to a plan to use all the features:
-                  </Text>
-                  <Text style={styles.featureItem}>
-                    ✓ Get your workout plan & track records!
-                  </Text>
-                  <Text style={styles.featureItem}>
-                    ✓ Get your meal plan & control diets!
-                  </Text>
+                <Text style={styles.subtitle}>
+                  Select the plan that works best for you
+                </Text>
 
-                  {/* Subscription Cards in a 2x2 Grid */}
-                  <View style={styles.cardGridContainer}>
-                    {/* First Row */}
-                    <View style={styles.cardRow}>
-                      <Pressable
-                        style={[styles.card, styles.monthlyCard]}
-                        onPress={() => handleJoin("Monthly")}
-                      >
-                        <Text style={styles.cardTitle}>Monthly</Text>
-                        <Text style={styles.cardPrice}>$9.99</Text>
-                        <Text style={styles.pricePer}>/month</Text>
-                        <Text style={styles.cardDescription}>
-                          Billed monthly.
-                        </Text>
-                        <View style={styles.joinButton}>
-                          <Text style={styles.joinButtonText}>Join Now</Text>
-                        </View>
-                      </Pressable>
-                      <Pressable
-                        style={[styles.card, styles.threeMonthCard]}
-                        onPress={() => handleJoin("3 Months")}
-                      >
-                        <Text style={[styles.cardTitle, { color: "#fff" }]}>
-                          3 Months
-                        </Text>
-                        <Text style={[styles.cardPrice, { color: "#fff" }]}>
-                          $24.99
-                        </Text>
-                        <Text style={[styles.pricePer, { color: "#eee" }]}>
-                          /quarter
-                        </Text>
-                        <Text
-                          style={[styles.cardDescription, { color: "#eee" }]}
-                        >
-                          Save 15%.
-                        </Text>
-                        <View
-                          style={[
-                            styles.joinButton,
-                            { backgroundColor: "#fff" },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.joinButtonText,
-                              { color: "#ff4d4d" },
-                            ]}
-                          >
-                            Join Now
-                          </Text>
-                        </View>
-                      </Pressable>
-                    </View>
-                    {/* Second Row */}
-                    <View style={styles.cardRow}>
-                      <Pressable
-                        style={[styles.card, styles.annualCard]}
-                        onPress={() => handleJoin("Annual")}
-                      >
-                        <Text style={styles.cardTitle}>Annual</Text>
-                        <Text style={styles.cardPrice}>$79.99</Text>
-                        <Text style={styles.pricePer}>/year</Text>
-                        <Text style={styles.cardDescription}>Save 30%.</Text>
-                        <View style={styles.joinButton}>
-                          <Text style={styles.joinButtonText}>Join Now</Text>
-                        </View>
-                      </Pressable>
-                      <Pressable
-                        style={[styles.card, styles.lifetimeCard]}
-                        onPress={() => handleJoin("Lifetime")}
-                      >
-                        <Text style={styles.cardTitle}>Lifetime</Text>
-                        <Text style={styles.cardPrice}>$149.99</Text>
-                        <Text style={styles.pricePer}>one-time</Text>
-                        <Text style={styles.cardDescription}>
-                          Forever access.
-                        </Text>
-                        <View style={styles.joinButton}>
-                          <Text style={styles.joinButtonText}>Join Now</Text>
-                        </View>
-                      </Pressable>
-                    </View>
+                {isLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#4A9EFF" />
+                    <Text style={styles.loadingText}>Loading plans...</Text>
                   </View>
-
-                  {/* Free Trial Section */}
-                  <Text style={styles.normalText}>
-                    Get a free trial of premium features for 7 days.
-                  </Text>
-                  <Pressable onPress={handleFreeTrial}>
-                    <Text style={styles.textHighlight}>Free Trial</Text>
-                  </Pressable>
-
-                  {/* Coupon Section */}
-                  <Text style={styles.normalText}>
-                    Are you a member of{" "}
-                    <Text style={styles.gymName}>Gimnasio Escorpión</Text>?
-                  </Text>
-                  <Text style={styles.couponText}>
-                    Use coupon to join the app
-                  </Text>
-                  <Pressable
-                    style={[styles.button, { width: width * 0.8 }]}
-                    onPress={handleUseCoupon}
-                  >
-                    <Text style={styles.buttonText}>Use Coupon</Text>
-                  </Pressable>
-                </View>
-              </ScrollView>
-            </Animated.View>
+                ) : (
+                  <FlatList
+                    data={subscriptions}
+                    renderItem={({ item }) => (
+                      <SubscriptionCard
+                        name={item.name}
+                        price={item.price}
+                        interval={item.billing_interval === 'month' ? 'mo' : 
+                                 item.billing_interval === 'year' ? 'yr' : null}
+                        features={item.features || []}
+                        badge={item.badge}
+                        isPopular={item.is_popular}
+                        emoji={item.emoji}
+                        accentColor={item.accent_color}
+                        onPress={() => handleSubscribe(item)}
+                        disabled={isProcessing}
+                      />
+                    )}
+                    keyExtractor={(item, index) => item.slug || index.toString()}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.listContentContainer}
+                    snapToInterval={CARD_WIDTH + CARD_MARGIN_RIGHT}
+                    decelerationRate="fast"
+                    snapToAlignment="start"
+                  />
+                )}
+              </Animated.View>
+            </SafeAreaView>
           </KeyboardAvoidingView>
-        </SafeAreaView>
-      </LinearGradient>
+        </LinearGradient>
+      </View>
     </TouchableWithoutFeedback>
   );
 }
@@ -253,164 +341,40 @@ export default function SubscriptionPackages() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#0B0B0B",
+  },
+  gradient: {
+    flex: 1,
+  },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
+  safeArea: {
+    flex: 1,
   },
   content: {
     flex: 1,
-    width: "100%",
   },
-  mainContent: {
-    flex: 1,
-    paddingBottom: 20, // Add padding at the bottom of scroll content
-    alignItems: "center",
-    paddingHorizontal: 10,
-  },
-  backRow: {
-    top: 40,
-    left: 20,
-    zIndex: 10,
-    position: "absolute",
-  },
-  title: {
-    fontSize: 22,
-    marginTop: 35, // Space below back button
-    marginBottom: 10,
-    color: "#ffffff",
-    fontWeight: "bold",
-    letterSpacing: 1.5,
-    textAlign: "center",
-    textTransform: "uppercase",
-  },
-  header: {
-    fontSize: 19,
-    color: "#ccc",
-    marginBottom: 20,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-  featureText: {
-    fontSize: 15,
-    color: "#fff",
-    marginBottom: 10,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  featureItem: {
+  subtitle: {
     fontSize: 14,
-    color: "#ccc",
-    marginBottom: 5,
-    textAlign: "center",
-  },
-  cardGridContainer: {
-    marginTop: 20,
-    width: "100%",
-  },
-  cardRow: {
-    marginBottom: 15,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  card: {
-    padding: 15,
-    width: "48%", // Adjusted for 2 cards per row
-    borderWidth: 1,
-    minHeight: 180, // Ensure cards have same height
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  monthlyCard: {
-    borderColor: "rgba(255, 255, 255, 0.2)",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  threeMonthCard: {
-    borderColor: "#ff4d4d",
-    backgroundColor: "#ff4d4d",
-    transform: [{ scale: 1.02 }],
-  },
-  annualCard: {
-    borderColor: "rgba(255, 255, 255, 0.2)",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  lifetimeCard: {
-    borderColor: "rgba(255, 255, 255, 0.2)",
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  cardTitle: {
-    fontSize: 16,
-    color: "#fff",
-    fontWeight: "bold",
-    textTransform: "uppercase",
-  },
-  cardPrice: {
-    fontSize: 24,
-    color: "#fff",
-    marginVertical: 5,
-    fontWeight: "bold",
-  },
-  pricePer: {
-    fontSize: 14,
-    color: "#ccc",
-    fontWeight: "normal",
-  },
-  cardDescription: {
-    fontSize: 13,
-    color: "#ccc",
-    textAlign: "center",
-    marginVertical: 10,
-  },
-  joinButton: {
-    borderRadius: 20,
-    paddingVertical: 10,
+    color: "#999",
+    marginBottom: 12,
     paddingHorizontal: 20,
-    backgroundColor: "#ff4d4d",
-  },
-  joinButtonText: {
-    fontSize: 15,
-    color: "#fff",
-    fontWeight: "bold",
-  },
-  normalText: {
-    fontSize: 15,
-    marginTop: 5,
-    color: "#ffffff",
-    textAlign: "center",
-    paddingHorizontal: 10,
-  },
-  textHighlight: {
-    fontSize: 20,
-    marginTop: 5,
-    color: "#ff4d4d",
-    marginBottom: 15,
-    fontWeight: "bold",
     textAlign: "center",
   },
-  gymName: {
-    color: "#ff4d4d",
-    fontWeight: "bold",
+  listContentContainer: {
+    paddingLeft: PADDING_HORIZONTAL,
+    paddingRight: PADDING_HORIZONTAL * 2,
   },
-  couponText: {
-    fontSize: 14,
-    marginTop: 5,
-    color: "#ccc",
-    textAlign: "center",
-  },
-  button: {
-    elevation: 5,
-    marginTop: 15,
-    borderRadius: 25,
-    shadowRadius: 3.84,
-    paddingVertical: 15,
-    shadowOpacity: 0.25,
-    alignSelf: "center",
+  loadingContainer: {
+    flex: 1,
     alignItems: "center",
-    shadowColor: "#000",
-    backgroundColor: "#ff4d4d",
-    shadowOffset: { width: 0, height: 2 },
+    justifyContent: "center",
+    paddingVertical: 60,
   },
-  buttonText: {
+  loadingText: {
     fontSize: 16,
-    color: "#ffffff",
-    fontWeight: "600",
-    textTransform: "uppercase",
+    color: "#999",
+    marginTop: 16,
   },
 });

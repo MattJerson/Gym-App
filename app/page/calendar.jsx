@@ -24,6 +24,9 @@ import RecentActivity from "../../components/home/RecentActivity";
 import ProgressGraph from "../../components/calendar/ProgressGraph";
 import StepsBarGraph from "../../components/calendar/StepsBarGraph";
 import CalendarAnalytics from "../../components/calendar/CalendarAnalytics";
+import CalendarStatsCard from "../../components/calendar/CalendarStatsCard";
+import WorkoutLogModal from "../../components/calendar/WorkoutLogModal";
+import WorkoutDetailsModal from "../../components/calendar/WorkoutDetailsModal";
 import NotificationBar from "../../components/NotificationBar";
 import { CalendarPageSkeleton } from "../../components/skeletons/CalendarPageSkeleton";
 import { CalendarDataService } from "../../services/CalendarDataService";
@@ -288,21 +291,10 @@ export default function Calendar() {
                   textDisabledColor: "#555",
                 }}
               />
-              <View style={styles.statsContainer}>
-                <Text style={styles.cardTitle}>{currentDate.toLocaleString("default", { month: "long" })} Progress</Text>
-                <View style={styles.statRow}>
-                  <View style={[styles.statIcon, { backgroundColor: "#1E3A5F" }]}><FontAwesome5 name="dumbbell" size={16} color="#fff" /></View>
-                  <View style={styles.statTextContainer}><Text style={styles.statLabel}>Workouts</Text><Text style={styles.statValue}>{monthlyStats.workouts}</Text></View>
-                </View>
-                <View style={styles.statRow}>
-                  <View style={[styles.statIcon, { backgroundColor: "#1E3A5F" }]}><Ionicons name="flame" size={16} color="#fff" /></View>
-                  <View style={styles.statTextContainer}><Text style={styles.statLabel}>Best Streak</Text><Text style={styles.statValue}>{monthlyStats.streak} days</Text></View>
-                </View>
-                <View style={styles.statRow}>
-                  <View style={[styles.statIcon, { backgroundColor: "#1E3A5F" }]}><MaterialIcons name="track-changes" size={16} color="#fff" /></View>
-                  <View style={styles.statTextContainer}><Text style={styles.statLabel}>Monthly Goal</Text><Text style={styles.statValue}>{monthlyStats.goalPercentage}%</Text></View>
-                </View>
-              </View>
+              <CalendarStatsCard 
+                monthlyStats={monthlyStats} 
+                currentDate={currentDate} 
+              />
             </View>
 
             {progressChart && <ProgressGraph chart={progressChart} />}
@@ -314,127 +306,26 @@ export default function Calendar() {
       </ScrollView>
 
       {/* MODAL: Log New Workout */}
-      <Modal visible={showWorkoutModal} transparent animationType="slide">
-        <Pressable style={styles.modalOverlay} onPress={() => setShowWorkoutModal(false)}>
-          <Pressable style={styles.workoutModal}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Log Workout</Text>
-            <Text style={styles.modalDate}>{selectedDate && new Date(selectedDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</Text>
-            
-            <Text style={styles.sectionTitle}>Workout Type</Text>
-            <View style={styles.workoutTypeGrid}>
-              {workoutTypes.map((type) => (
-                <Pressable
-                  key={type.key}
-                  style={[
-                    styles.workoutTypeButton,
-                    { 
-                      backgroundColor: type.color,
-                      opacity: selectedWorkoutType === type.key ? 1 : 0.6,
-                    },
-                    selectedWorkoutType === type.key && styles.selectedWorkoutType,
-                  ]}
-                  onPress={() => setSelectedWorkoutType(type.key)}
-                >
-                  {type.key === "yoga" ? <MaterialCommunityIcons name={type.icon} size={22} color="#fff" /> : type.key === "cardio" ? <MaterialIcons name={type.icon} size={22} color="#fff" /> : type.key === "rest" ? <Ionicons name={type.icon} size={22} color="#fff" /> : <FontAwesome5 name={type.icon} size={18} color="#fff" />}
-                  <Text style={styles.workoutTypeText}>{type.name}</Text>
-                </Pressable>
-              ))}
-            </View>
-            
-            <Text style={styles.sectionTitle}>Notes (Optional)</Text>
-            <TextInput style={styles.noteInput} placeholder="How was the workout?" placeholderTextColor="#888" value={workoutNote} onChangeText={setWorkoutNote} multiline />
-            
-            <View style={styles.modalButtons}>
-              <Pressable style={[styles.modalButton, styles.cancelButton]} onPress={() => setShowWorkoutModal(false)}>
-                <Text style={styles.modalButtonText}>Cancel</Text>
-              </Pressable>
-              <Pressable onPress={addWorkout}>
-                <LinearGradient
-                  colors={["#2E4A6F", "#1E3A5F"]}
-                  style={[styles.modalButton, styles.confirmButton]}
-                >
-                  <Text style={styles.modalButtonText}>Log Workout</Text>
-                </LinearGradient>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <WorkoutLogModal
+        visible={showWorkoutModal}
+        onClose={() => setShowWorkoutModal(false)}
+        selectedDate={selectedDate}
+        workoutTypes={workoutTypes}
+        selectedWorkoutType={selectedWorkoutType}
+        setSelectedWorkoutType={setSelectedWorkoutType}
+        workoutNote={workoutNote}
+        setWorkoutNote={setWorkoutNote}
+        onLogWorkout={addWorkout}
+      />
 
       {/* MODAL: View Workout Details */}
-      <Modal visible={showDetailsModal} transparent animationType="slide">
-        <Pressable style={styles.modalOverlay} onPress={() => setShowDetailsModal(false)}>
-          <Pressable style={styles.workoutModal}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Workout Details</Text>
-            {viewingWorkout && (
-              <Text style={styles.modalDate}>
-                {new Date(viewingWorkout.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
-              </Text>
-            )}
-            
-            <ScrollView style={styles.detailsScrollView}>
-              <View style={styles.detailsContainer}>
-                {/* Dynamically render details based on workout type */}
-                {viewingWorkout?.type && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Type</Text>
-                    <Text style={[styles.detailValue, {textTransform: 'capitalize'}]}>{viewingWorkout.type}</Text>
-                  </View>
-                )}
-                {viewingWorkout?.duration && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Duration</Text>
-                    <Text style={styles.detailValue}>{viewingWorkout.duration} min</Text>
-                  </View>
-                )}
-                 {viewingWorkout?.type === 'cardio' && viewingWorkout.distance && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Distance</Text>
-                    <Text style={styles.detailValue}>{viewingWorkout.distance} km</Text>
-                  </View>
-                )}
-                {viewingWorkout?.type === 'cardio' && viewingWorkout.pace && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Pace</Text>
-                    <Text style={styles.detailValue}>{viewingWorkout.pace} /km</Text>
-                  </View>
-                )}
-                {viewingWorkout?.type === 'strength' && viewingWorkout.exercises && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Exercises</Text>
-                    <Text style={styles.detailValue}>{viewingWorkout.exercises.join(', ')}</Text>
-                  </View>
-                )}
-                {viewingWorkout?.note && (
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Note</Text>
-                    <Text style={styles.detailValue}>{viewingWorkout.note}</Text>
-                  </View>
-                )}
-              </View>
-            </ScrollView>
-
-            <View style={styles.modalButtons}>
-              <Pressable 
-                style={[styles.modalButton, styles.deleteButton]} 
-                onPress={() => Alert.alert("Delete", "Delete functionality will be added soon.")}
-              >
-                 <Ionicons name="trash-outline" size={18} color="#FF453A" />
-                <Text style={styles.deleteButtonText}>Delete</Text>
-              </Pressable>
-              <Pressable 
-                style={[styles.modalButton, styles.editButton]} 
-                onPress={() => Alert.alert("Edit", "Edit functionality will be added soon.")}
-              >
-                <Ionicons name="create-outline" size={18} color="#fff" />
-                <Text style={styles.modalButtonText}>Edit</Text>
-              </Pressable>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      <WorkoutDetailsModal
+        visible={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
+        workout={viewingWorkout}
+        onDelete={() => {}}
+        onEdit={() => {}}
+      />
     </View>
   );
 }
@@ -449,148 +340,12 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 60 },
   loadingText: { color: "#fff", fontSize: 16, opacity: 0.7 },
   calendarCard: {
-  backgroundColor: "rgba(255, 255, 255, 0.05)",
-  borderRadius: 22,
-  marginBottom: 20,
-  overflow: "hidden",
-  borderWidth: 1,
-  borderColor: "rgba(255,255,255,0.1)", 
-},
-  statsContainer: { padding: 20, borderTopWidth: 1, borderTopColor: "rgba(255, 255, 255, 0.1)" },
-  cardTitle: { fontSize: 18, color: "#fff", marginBottom: 15, fontWeight: "bold" },
-  statRow: { flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "rgba(255, 255, 255, 0.06)" },
-  statIcon: { width: 36, height: 36, borderRadius: 10, marginRight: 12, justifyContent: "center", alignItems: "center" },
-  statTextContainer: { flex: 1, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  statLabel: { fontSize: 15, color: "#ccc", fontWeight: "500" },
-  statValue: { fontSize: 16, color: "#fff", fontWeight: "700" },
-  
-  // --- MODAL STYLES (Updated) ---
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    justifyContent: "flex-end",
-  },
-  workoutModal: {
-    backgroundColor: "#1C1C1E",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 20,
-    paddingTop: 15,
-    paddingBottom: 40,
-    maxHeight: '85%',
-  },
-  modalHandle: {
-    width: 40,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    alignSelf: "center",
-    marginBottom: 15,
-  },
-  modalTitle: {
-    fontSize: 24,
-    color: "#fff",
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-  modalDate: {
-    fontSize: 16,
-    color: "#aaa",
-    textAlign: "center",
-    marginBottom: 25,
-    marginTop: 4,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    color: "#EFEFEF",
-    fontWeight: "600",
-    marginBottom: 12,
-  },
-  workoutTypeGrid: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 25,
-  },
-  workoutTypeButton: {
-    flex: 1,
-    paddingVertical: 15,
-    borderRadius: 18,
-    alignItems: "center",
-    gap: 8,
-    borderWidth: 2,
-    borderColor: 'transparent',
-  },
-  selectedWorkoutType: {
-    borderColor: "#fff",
-  },
-  workoutTypeText: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "bold",
-  },
-  noteInput: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 18,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    color: "#fff",
-    fontSize: 16,
-    marginBottom: 30,
-    minHeight: 110,
-    textAlignVertical: "top",
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  modalButtons: { flexDirection: "row", gap: 12, marginTop: 10 },
-  modalButton: { flex: 1, padding: 16, borderRadius: 18, alignItems: "center", justifyContent: 'center', flexDirection: 'row', gap: 8 },
-  cancelButton: { backgroundColor: "rgba(255, 255, 255, 0.1)" },
-  confirmButton: {
-    // backgroundColor is now handled by LinearGradient
-  },
-  modalButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
-  
-  // --- DETAILS MODAL STYLES ---
-  detailsScrollView: {
-    maxHeight: 300, // Limit height for long details
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 22,
     marginBottom: 20,
-  },
-  detailsContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 18,
-    padding: 10,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  detailLabel: {
-    color: '#aaa',
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  detailValue: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
-    flexShrink: 1,
-    textAlign: 'right',
-  },
-  deleteButton: {
-    backgroundColor: 'rgba(255, 69, 58, 0.15)',
-    flex: 0.8,
-  },
-  deleteButtonText: {
-    color: '#FF453A',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  editButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)", 
   },
 });
-
 

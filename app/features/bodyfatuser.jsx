@@ -18,9 +18,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from "expo-router";
 import { useState, useEffect, useRef } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import Slider from "@react-native-community/slider";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Haptics from 'expo-haptics';
 import SubmitButton from "../../components/SubmitButton";
+import HeaderBar from "../../components/onboarding/HeaderBar";
+import ProgressBar from "../../components/onboarding/ProgressBar";
+import BodyFatSlider from "../../components/onboarding/BodyFatSlider";
 
 export default function BodyFatUser() {
   const router = useRouter();
@@ -32,6 +35,9 @@ export default function BodyFatUser() {
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [currentStep, setCurrentStep] = useState(0); // 0 = current body fat, 1 = goal body fat
+  
+  const modalScale = useRef(new Animated.Value(0.9)).current;
+  const modalOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -47,7 +53,35 @@ export default function BodyFatUser() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [fadeAnim, slideAnim]);  const handleSliderChange = (value, isGoal = false) => {
+  }, [fadeAnim, slideAnim]);
+
+  useEffect(() => {
+    if (showConfirmation) {
+      Animated.parallel([
+        Animated.spring(modalScale, {
+          toValue: 1,
+          friction: 8,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+        Animated.timing(modalOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      modalScale.setValue(0.9);
+      modalOpacity.setValue(0);
+    }
+  }, [showConfirmation]);
+
+  const lightHaptic = () => {
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };  const handleSliderChange = (value, isGoal = false) => {
+    lightHaptic();
     if (isGoal) {
       setGoalBodyFat(value);
     } else {
@@ -71,14 +105,16 @@ export default function BodyFatUser() {
     }
   };
   const handleNext = () => {
+    lightHaptic();
     if (currentStep === 0) {
-  setCurrentStep(1);
+      setCurrentStep(1);
     } else {
       // Show confirmation dialog instead of immediately submitting
-  setShowConfirmation(true);
+      setShowConfirmation(true);
     }
   };
   const handleConfirm = () => {
+    lightHaptic();
     setShowConfirmation(false);
     console.log("Current Body Fat:", `${Math.round(currentBodyFat)}%`);
     console.log("Goal Body Fat:", `${Math.round(goalBodyFat)}%`);
@@ -94,14 +130,17 @@ export default function BodyFatUser() {
   };
 
   const handleCancel = () => {
+    lightHaptic();
     setShowConfirmation(false);
   };
 
   const handleBack = () => {
+    lightHaptic();
     if (currentStep === 1) {
       setCurrentStep(0);
     } else {
-      router.back();
+      // Navigate back to the registration process page
+      router.push("features/registrationprocess");
     }
   };
 
@@ -110,7 +149,6 @@ export default function BodyFatUser() {
     console.log("Current Body Fat:", `${Math.round(currentBodyFat)}%`);
     console.log("Goal Body Fat:", `${Math.round(goalBodyFat)}%`);
     
-    // Simulate API call
     setTimeout(() => {
       setIsLoading(false);
       router.push("features/subscriptionpackages");
@@ -131,32 +169,19 @@ export default function BodyFatUser() {
             ]}
           >
             {/* Header */}
-            <View style={styles.header}>
-              <Pressable 
-                onPress={handleBack}
-                style={styles.backButton}
-              >
-                <Ionicons name="arrow-back" size={24} color="#fff" />
-              </Pressable>
-              <Text style={styles.headerTitle}>
-                {currentStep === 0 ? "Current Body Fat" : "Goal Body Fat"}
-              </Text>
-              <View style={styles.stepIndicator}>
-                <Text style={styles.stepText}>{currentStep + 1}/2</Text>
-              </View>
-            </View>
+            <HeaderBar
+              title={currentStep === 0 ? "Current Body Fat" : "Goal Body Fat"}
+              currentStep={currentStep + 1}
+              totalSteps={2}
+              onBackPress={handleBack}
+              onHapticFeedback={lightHaptic}
+            />
 
             {/* Progress Bar */}
-            <View style={styles.progressBarContainer}>
-              <View style={styles.progressBar}>
-                <Animated.View 
-                  style={[
-                    styles.progressFill,
-                    { width: currentStep === 0 ? '50%' : '100%' }
-                  ]}
-                />
-              </View>
-            </View>            {/* Main Content */}
+            <ProgressBar
+              currentStep={currentStep + 1}
+              totalSteps={2}
+            />            {/* Main Content */}
             <View style={styles.mainContent}>
               {currentStep === 0 ? (
                 // Current Body Fat Step
@@ -181,36 +206,14 @@ export default function BodyFatUser() {
                     />
                   </View>
 
-                  <View style={styles.sliderSection}>
-                    <View style={styles.valueDisplay}>
-                      <Text style={styles.valueText}>
-                        {Math.round(currentBodyFat)}%
-                      </Text>
-                      <Text style={styles.valueLabel}>Body Fat Percentage</Text>
-                      <View style={styles.categoryBadge}>
-                        <Text style={styles.categoryText}>
-                          {currentBodyFat >= 25 ? "Higher Range" : 
-                           currentBodyFat >= 18 ? "Moderate" :
-                           currentBodyFat >= 12 ? "Healthy" : "Athletic"}
-                        </Text>
-                      </View>
-                    </View>
-                    <Slider
-                      style={styles.slider}
-                      minimumValue={3}
-                      maximumValue={40}
-                      value={currentBodyFat}
-                      onValueChange={(value) => handleSliderChange(value, false)}
-                      minimumTrackTintColor="#4A9EFF"
-                      maximumTrackTintColor="rgba(255, 255, 255, 0.15)"
-                      thumbTintColor="#4A9EFF"
-                      thumbStyle={styles.sliderThumb}
-                    />
-                    <View style={styles.sliderLabels}>
-                      <Text style={styles.sliderLabelText}>3%</Text>
-                      <Text style={styles.sliderLabelText}>40%</Text>
-                    </View>
-                  </View>
+                  <BodyFatSlider
+                    value={currentBodyFat}
+                    onChange={(value) => handleSliderChange(value, false)}
+                    minimumTrackTintColor="#4A9EFF"
+                    thumbTintColor="#4A9EFF"
+                    label="Body Fat Percentage"
+                    categoryColor="#4A9EFF"
+                  />
                 </>
               ) : (
                 // Goal Body Fat Step
@@ -235,36 +238,14 @@ export default function BodyFatUser() {
                     />
                   </View>
 
-                  <View style={styles.sliderSection}>
-                    <View style={styles.valueDisplay}>
-                      <Text style={styles.valueText}>
-                        {Math.round(goalBodyFat)}%
-                      </Text>
-                      <Text style={styles.valueLabel}>Target Body Fat</Text>
-                      <View style={[styles.categoryBadge, styles.categoryBadgeGoal]}>
-                        <Text style={styles.categoryText}>
-                          {goalBodyFat >= 25 ? "Higher Range" : 
-                           goalBodyFat >= 18 ? "Moderate" :
-                           goalBodyFat >= 12 ? "Healthy" : "Athletic"}
-                        </Text>
-                      </View>
-                    </View>
-                    <Slider
-                      style={styles.slider}
-                      minimumValue={3}
-                      maximumValue={40}
-                      value={goalBodyFat}
-                      onValueChange={(value) => handleSliderChange(value, true)}
-                      minimumTrackTintColor="#00D4AA"
-                      maximumTrackTintColor="rgba(255, 255, 255, 0.15)"
-                      thumbTintColor="#00D4AA"
-                      thumbStyle={styles.sliderThumb}
-                    />
-                    <View style={styles.sliderLabels}>
-                      <Text style={styles.sliderLabelText}>3%</Text>
-                      <Text style={styles.sliderLabelText}>40%</Text>
-                    </View>
-                  </View>
+                  <BodyFatSlider
+                    value={goalBodyFat}
+                    onChange={(value) => handleSliderChange(value, true)}
+                    minimumTrackTintColor="#00D4AA"
+                    thumbTintColor="#00D4AA"
+                    label="Target Body Fat"
+                    categoryColor="#00D4AA"
+                  />
                 </>
               )}
             </View>
@@ -279,7 +260,7 @@ export default function BodyFatUser() {
                 text={currentStep === 0 ? "Next" : "Save & Continue"}
                 onPress={handleNext}
                 isLoading={isLoading}
-                loadingText=""
+                loadingText="Loading..."
                 icon="arrow-forward"
                 variant="solid"
               />
@@ -288,39 +269,75 @@ export default function BodyFatUser() {
 
             {/* Confirmation Modal */}
             {showConfirmation && (
-              <View style={styles.modalOverlay}>
-                <View style={styles.modalContainer}>
-                  <Text style={styles.modalTitle}>Confirm Your Goal</Text>
-                  <Text style={styles.modalSubtitle}>Your Progress Goal</Text>
-                  <Text style={styles.modalProgressText}>
-                    From {Math.round(currentBodyFat)}% to {Math.round(goalBodyFat)}%
-                  </Text>
-                  <Text style={styles.modalDetailText}>
-                    {currentBodyFat > goalBodyFat 
-                      ? `${Math.abs(Math.round(currentBodyFat - goalBodyFat))}% to lose`
-                      : currentBodyFat < goalBodyFat
-                      ? `${Math.abs(Math.round(goalBodyFat - currentBodyFat))}% to gain`
-                      : 'Maintain current body fat'
+              <Animated.View 
+                style={[
+                  styles.modalOverlay,
+                  { opacity: modalOpacity }
+                ]}
+              >
+                <Animated.View 
+                  style={[
+                    styles.modalContainer,
+                    { 
+                      transform: [{ scale: modalScale }],
+                      opacity: modalOpacity
                     }
-                  </Text>
+                  ]}
+                >
+                  <View style={styles.modalHeader}>
+                    <View style={styles.modalIconContainer}>
+                      <Ionicons name="checkmark-circle" size={48} color="#4A9EFF" />
+                    </View>
+                    <Text style={styles.modalTitle}>Confirm Your Goal</Text>
+                    <Text style={styles.modalSubtitle}>Your Progress Goal</Text>
+                  </View>
+                  
+                  <View style={styles.modalContent}>
+                    <View style={styles.progressCard}>
+                      <View style={styles.progressCardRow}>
+                        <View style={styles.progressCardItem}>
+                          <Text style={styles.progressCardLabel}>Current</Text>
+                          <Text style={styles.progressCardValue}>{Math.round(currentBodyFat)}%</Text>
+                        </View>
+                        <Ionicons name="arrow-forward" size={24} color="#666" />
+                        <View style={styles.progressCardItem}>
+                          <Text style={styles.progressCardLabel}>Goal</Text>
+                          <Text style={[styles.progressCardValue, styles.progressCardValueGoal]}>{Math.round(goalBodyFat)}%</Text>
+                        </View>
+                      </View>
+                      <View style={styles.progressCardDivider} />
+                      <Text style={styles.modalDetailText}>
+                        {currentBodyFat > goalBodyFat 
+                          ? `${Math.abs(Math.round(currentBodyFat - goalBodyFat))}% to lose`
+                          : currentBodyFat < goalBodyFat
+                          ? `${Math.abs(Math.round(goalBodyFat - currentBodyFat))}% to gain`
+                          : 'Maintain current body fat'
+                        }
+                      </Text>
+                    </View>
+                  </View>
                   
                   <View style={styles.modalButtons}>
-                    <Pressable style={styles.cancelButton} onPress={handleCancel}>
+                    <Pressable 
+                      style={styles.cancelButton} 
+                      onPress={handleCancel}
+                      android_ripple={{ color: 'rgba(255, 255, 255, 0.1)' }}
+                    >
                       <Text style={styles.cancelButtonText}>Cancel</Text>
                     </Pressable>
-                    <Pressable style={styles.confirmButton} onPress={handleConfirm}>
-                      <LinearGradient
-                        colors={["#4A9EFF", "#356FB0"]}
-                        style={styles.confirmButtonGradient}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                      >
+                    <Pressable 
+                      style={styles.confirmButton} 
+                      onPress={handleConfirm}
+                      android_ripple={{ color: 'rgba(255, 255, 255, 0.2)' }}
+                    >
+                      <View style={styles.confirmButtonSolid}>
+                        <Ionicons name="checkmark" size={20} color="#fff" style={styles.confirmButtonIcon} />
                         <Text style={styles.confirmButtonText}>Confirm</Text>
-                      </LinearGradient>
+                      </View>
                     </Pressable>
                   </View>
-                </View>
-              </View>
+                </Animated.View>
+              </Animated.View>
             )}
           </Animated.View>
         </SafeAreaView>
@@ -340,53 +357,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    paddingTop: Platform.OS === "ios" ? 10 : 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#fff",
-    letterSpacing: 0.5,
-
-  },
-  stepIndicator: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-  },
-  stepText: {
-    fontSize: 12,
-    color: "#fff",
-    fontWeight: "600",
-  },  progressBarContainer: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#4A9EFF",
-    borderRadius: 2,
-  },  mainContent: {
+  mainContent: {
     flex: 1,
     alignItems: "center",
     justifyContent: "flex-start",
@@ -395,30 +366,30 @@ const styles = StyleSheet.create({
   titleSection: {
     width: "100%",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   mainTitle: {
-    fontSize: 28,
-    fontWeight: "800",
+    fontSize: 24,
+    fontWeight: "700",
     color: "#fff",
     textAlign: "center",
-    marginBottom: 8,
+    marginBottom: 6,
     letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 15,
-    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.6)",
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 20,
     paddingHorizontal: 20,
     fontWeight: "500",
   },
   imageContainer: {
     width: "100%",
-    height: 240,
+    height: 220,
     borderRadius: 20,
     overflow: "hidden",
-    marginBottom: 30,
+    marginBottom: 24,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -443,129 +414,109 @@ const styles = StyleSheet.create({
     right: 0,
     height: "30%",
   },
-  sliderSection: {
-    width: "100%",
-    alignItems: "center",
-    marginBottom: 15,
-    paddingHorizontal: 10,
-  },
-  valueDisplay: {
-    alignItems: "center",
-    marginBottom: 30,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    paddingVertical: 20,
-    paddingHorizontal: 30,
-    borderRadius: 16,
-    width: "100%",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  valueText: {
-    fontSize: 56,
-    fontWeight: "900",
-    color: "#fff",
-    marginBottom: 8,
-    letterSpacing: -2,
-  },
-  valueLabel: {
-    fontSize: 13,
-    color: "rgba(255, 255, 255, 0.6)",
-    textTransform: "uppercase",
-    letterSpacing: 1.5,
-    fontWeight: "700",
-    marginBottom: 12,
-  },
-  categoryBadge: {
-    backgroundColor: "rgba(74, 158, 255, 0.2)",
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "rgba(74, 158, 255, 0.3)",
-  },
-  categoryBadgeGoal: {
-    backgroundColor: "rgba(0, 212, 170, 0.2)",
-    borderColor: "rgba(0, 212, 170, 0.3)",
-  },
-  categoryText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#fff",
-    letterSpacing: 0.5,
-  },
-  slider: {
-    width: "100%",
-    height: 50,
-    marginBottom: 8,
-  },
-  sliderLabels: {
-    width: "100%",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 5,
-  },
-  sliderLabelText: {
-    fontSize: 12,
-    color: "rgba(255, 255, 255, 0.4)",
-    fontWeight: "600",
-  },
-  sliderThumb: {
-    width: 32,
-    height: 32,
-    backgroundColor: "#fff",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,    elevation: 6,
-  },  
   modalOverlay: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 30,
+    paddingHorizontal: 24,
+    zIndex: 1000,
   },
   modalContainer: {
-    backgroundColor: "#0B0B0B",
-    borderRadius: 20,
-    padding: 30,
+    backgroundColor: "#1A1A1A",
+    borderRadius: 24,
+    padding: 24,
     width: "100%",
-    maxWidth: 350,
+    maxWidth: 380,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  modalHeader: {
     alignItems: "center",
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
+    marginBottom: 20,
+  },
+  modalIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(74, 158, 255, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "rgba(74, 158, 255, 0.3)",
   },
   modalTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#ffffffff",
-    marginBottom: 16,
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#fff",
+    marginBottom: 6,
     textAlign: "center",
+    letterSpacing: -0.5,
   },
   modalSubtitle: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 8,
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.5)",
     fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
-  modalProgressText: {
-    fontSize: 20,
+  modalContent: {
+    marginBottom: 24,
+  },
+  progressCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  progressCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  progressCardItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  progressCardLabel: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.5)",
+    marginBottom: 6,
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  progressCardValue: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: -1,
+  },
+  progressCardValueGoal: {
     color: "#4A9EFF",
-    fontWeight: "bold",
-    marginBottom: 8,
-    textAlign: "center",
+  },
+  progressCardDivider: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    marginBottom: 16,
   },
   modalDetailText: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 30,
+    fontSize: 15,
+    color: "rgba(255, 255, 255, 0.7)",
     textAlign: "center",
-    fontWeight: "500",
+    fontWeight: "600",
   },
   modalButtons: {
     flexDirection: "row",
@@ -574,95 +525,56 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: "rgba(0, 0, 0, 0.37)",
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
   cancelButtonText: {
-    fontSize: 20,
-    color: "#666",
+    fontSize: 16,
+    color: "rgba(255, 255, 255, 0.7)",
     fontWeight: "600",
   },
   confirmButton: {
     flex: 1,
-    height: 48,
-    borderRadius: 12,
+    height: 52,
+    borderRadius: 16,
     overflow: "hidden",
-  },
-  confirmButtonGradient: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  confirmButtonText: {
-    fontSize: 20,
-    color: "#fff",
-    fontWeight: "bold",
-  },  bottomSection: {
-    paddingBottom: 20,
-    paddingTop: 20,
-  },
-  disclaimer: {
-    fontSize: 13,
-    color: "rgba(255, 255, 255, 0.6)",
-    textAlign: "center",
-    lineHeight: 18,
-    marginBottom: 25,
-    marginTop: 15,
-    paddingHorizontal: 10,
-    fontStyle: "italic",
-  },nextButton: {
-    width: "100%",
-    height: 56,
-    borderRadius: 28,
-    overflow: "hidden",
-    shadowColor: "#000",
+    backgroundColor: "#4A9EFF",
+    shadowColor: "#4A9EFF",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 8,
-    marginBottom: 10,
+    elevation: 6,
   },
-  nextButtonGradient: {
+  confirmButtonSolid: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 24,
+    gap: 8,
   },
-  nextButtonLoading: {
-    opacity: 0.7,
+  confirmButtonIcon: {
+    marginRight: -4,
   },
-  buttonContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  nextButtonText: {
-    fontSize: 18,
-    fontWeight: "bold",
+  confirmButtonText: {
+    fontSize: 16,
     color: "#fff",
-    letterSpacing: 0.5,
+    fontWeight: "700",
   },
-  buttonIcon: {
-    marginLeft: 8,
-    opacity: 0.9,
+  bottomSection: {
+    paddingBottom: 20,
+    paddingTop: 16,
   },
-  loadingContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingSpinner: {
-    marginRight: 12,
-  },
-    disclaimer: {
+  disclaimer: {
     fontSize: 12,
-    color: "#888",
+    color: "rgba(255, 255, 255, 0.5)",
     textAlign: "center",
-    marginBottom: 16,
     lineHeight: 18,
+    marginBottom: 16,
+    paddingHorizontal: 10,
   },
 });

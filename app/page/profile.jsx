@@ -12,6 +12,11 @@ import { useRouter, usePathname } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import NotificationBar from "../../components/NotificationBar";
+import ProfileHeader from "../../components/profile/ProfileHeader";
+import ProfileStatsCard from "../../components/profile/ProfileStatsCard";
+import AchievementBadges from "../../components/profile/AchievementBadges";
+import LeaderboardCard from "../../components/profile/LeaderboardCard";
+import ProfileMenuSection from "../../components/profile/ProfileMenuSection";
 import { ProfilePageSkeleton } from "../../components/skeletons/ProfilePageSkeleton";
 import { supabase } from "../../services/supabase";
 import GamificationDataService from "../../services/GamificationDataService";
@@ -218,214 +223,36 @@ export default function Profile() {
           </View>
           
           {/* Profile Header */}
-          <View style={styles.profileHeader}>
-            <View style={styles.avatarContainer}>
-              <View style={styles.avatarIcon}>
-                <MaterialCommunityIcons name="account" size={60} color="#fff" />
-              </View>
-            </View>
-            <Text style={styles.userName}>{user.name}</Text>
-            <Text style={styles.userHandle}>{user.username}</Text>
-            <Text style={styles.joinDate}>{user.joinDate}</Text>
-          </View>
+          <ProfileHeader user={user} />
           
           {/* Stats & Achievements Combined */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>⚡ Stats & Achievements</Text>
             
-            {/* Primary Stats Row - More Compact */}
-            <View style={styles.primaryStatsContainer}>
-              <View style={styles.primaryStatItem}>
-                <View style={[styles.primaryStatIcon, { borderColor: "#FF6B35" }]}>
-                  <FontAwesome5 name="fire" size={16} color="#FF6B35" />
-                </View>
-                <Text style={styles.primaryStatValue}>{userStats?.current_streak || 0}</Text>
-                <Text style={styles.primaryStatLabel}>STREAK</Text>
-              </View>
-              
-              <View style={styles.primaryStatItem}>
-                <View style={[styles.primaryStatIcon, { borderColor: "#00D4AA" }]}>
-                  <MaterialCommunityIcons name="dumbbell" size={16} color="#00D4AA" />
-                </View>
-                <Text style={styles.primaryStatValue}>{userStats?.total_workouts || 0}</Text>
-                <Text style={styles.primaryStatLabel}>WORKOUTS</Text>
-              </View>
-              
-              <View style={styles.primaryStatItem}>
-                <View style={[styles.primaryStatIcon, { borderColor: "#5B86E5" }]}>
-                  <Ionicons name="trophy" size={16} color="#5B86E5" />
-                </View>
-                <Text style={styles.primaryStatValue}>{userStats?.total_points || 0}</Text>
-                <Text style={styles.primaryStatLabel}>POINTS</Text>
-              </View>
-            </View>
+            <ProfileStatsCard userStats={userStats} />
 
-            {/* Achievements Grid - More Compact */}
-            <View style={styles.achievementsHeader}>
-              <Text style={styles.achievementsTitle}>🏆 ACHIEVEMENTS</Text>
-              <Text style={styles.achievementsSubtitle}>
-                {userBadges.length}/{userStats?.badges_earned || 0}
-              </Text>
-            </View>
-            
-            <View style={styles.achievementsGrid}>
-              {userBadges.slice(0, 4).map((badge) => (
-                <View key={badge.id} style={styles.achievementCard}>
-                  <View style={[styles.achievementIcon, { backgroundColor: getBadgeColor(badge) }]}>
-                    <MaterialCommunityIcons 
-                      name={getBadgeIconName(badge.badges?.name)} 
-                      size={18} 
-                      color="#fff" 
-                    />
-                  </View>
-                  <Text style={styles.achievementName}>{badge.badges?.name}</Text>
-                </View>
-              ))}
-              {userBadges.length === 0 && (
-                <Text style={{ color: '#888', textAlign: 'center', width: '100%', paddingVertical: 20 }}>
-                  Complete workouts to earn badges!
-                </Text>
-              )}
-            </View>
-          </View>
-            {/* Leaderboard Section */}
-          <View style={styles.card}>
-            <View style={styles.leaderboardHeader}>
-              <View>
-                <Text style={styles.cardTitle}>🏁 Weekly Leaderboard</Text>
-                {activeChallenge && (
-                  <Text style={styles.challengeSubtitle}>
-                    🎯 {activeChallenge.title}
-                  </Text>
-                )}
-              </View>
-              <View style={styles.leaderboardHeaderRight}>
-                <Text style={styles.leaderboardTimer}>⏱️ {getTimeRemaining()}</Text>
-              </View>
-            </View>
-            
-            <View style={styles.leaderboardContainer}>
-              {leaderboard.slice(0, 10).map((leaderUser, index) => {
-                const leaderKey = leaderUser.anon_id || leaderUser.user_id || `pos-${leaderUser.position || index}`;
-                const isCurrentUser = currentUserPosition && (leaderUser.position === currentUserPosition);
-                
-                // Determine display name
-                let displayName = leaderUser.display_name || leaderUser.user_name || 'User';
-                if (isCurrentUser && currentUserNickname) {
-                  displayName = currentUserNickname;
-                }
-                
-                return (
-                  <View key={leaderKey} style={[
-                    styles.leaderboardRow,
-                    isCurrentUser && styles.currentUserRow
-                  ]}>
-                    <View style={styles.leaderboardLeft}>
-                      {/* Position with Medal Icons for Top 3 */}
-                      <View
-                        style={[
-                          styles.positionBadge,
-                          leaderUser.position === 1 && styles.goldBadge,
-                          leaderUser.position === 2 && styles.silverBadge,
-                          leaderUser.position === 3 && styles.bronzeBadge,
-                        ]}
-                      >
-                        {leaderUser.position <= 3 ? (
-                          <Text style={styles.medalEmoji}>
-                            {leaderUser.position === 1
-                              ? "🥇"
-                              : leaderUser.position === 2
-                              ? "🥈"
-                              : "🥉"}
-                          </Text>
-                        ) : (
-                          <Text style={styles.positionText}>{leaderUser.position}</Text>
-                        )}
-                      </View>
-                      
-                      {/* User Info */}
-                      <View style={styles.userInfo}>
-                        <Text
-                          style={[
-                            styles.leaderboardName,
-                            isCurrentUser && styles.currentUserName,
-                          ]}
-                        >
-                          {displayName}
-                          {isCurrentUser && <Text> (You)</Text>}
-                        </Text>
-                        <View style={styles.progressBar}>
-                          <View
-                            style={[
-                              styles.progressFill,
-                              {
-                                width: `${Math.min((leaderUser.total_points / (leaderboard[0]?.total_points || 1)) * 100, 100)}%`,
-                                backgroundColor:
-                                  leaderUser.position === 1
-                                    ? "#f1c40f"
-                                    : leaderUser.position === 2
-                                    ? "#95a5a6"
-                                    : leaderUser.position === 3
-                                    ? "#e67e22"
-                                    : "#5B86E5",
-                              },
-                            ]}
-                          />
-                        </View>
-                      </View>
-                    </View>
-                    
-                    {/* Points with Trend */}
-                    <View style={styles.pointsContainer}>
-                      <Text style={[
-                        styles.leaderboardPoints,
-                        isCurrentUser && styles.currentUserPoints
-                      ]}>
-                        { (leaderUser.total_points ?? 0).toLocaleString() }
-                      </Text>
-                      <View style={styles.trendContainer}>
-                        <Ionicons 
-                          name="flame" 
-                          size={12} 
-                          color="#FF6B35" 
-                        />
-                        <Text style={[
-                          styles.trendText,
-                          { color: "#FF6B35" }
-                        ]}>
-                          {leaderUser.current_streak ?? 0}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
-              {leaderboard.length === 0 && (
-                <Text style={{ color: '#888', textAlign: 'center', paddingVertical: 20 }}>
-                  No active users this week. Be the first!
-                </Text>
-              )}
-            </View>
-            
-            {/* Leaderboard Footer */}
-            <View style={styles.leaderboardFooter}>
-              <Text style={styles.footerText}>💪 Keep pushing to climb higher!</Text>
-            </View>
+            <AchievementBadges 
+              userBadges={userBadges} 
+              userStats={userStats}
+            />
           </View>
           
+          {/* Leaderboard Section */}
+          <LeaderboardCard
+            leaderboard={leaderboard}
+            activeChallenge={activeChallenge}
+            currentUserPosition={currentUserPosition}
+            currentUserId={currentUserId}
+            currentUserNickname={currentUserNickname}
+            getTimeRemaining={getTimeRemaining}
+          />
+          
           {/* Account Section */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{menuItems[0].title}</Text>
-            {menuItems[0].items.map((item, itemIndex) => (
-               <Pressable key={itemIndex} style={styles.menuRow} onPress={() => handlePress(item.path)}>
-                 <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-                   <Ionicons name={item.icon} size={20} color="#fff" />
-                 </View>
-                 <Text style={styles.menuLabel}>{item.label}</Text>
-                 <Ionicons name="chevron-forward" size={22} color="#555" />
-               </Pressable>
-            ))}
-          </View>
+          <ProfileMenuSection
+            title={menuItems[0].title}
+            items={menuItems[0].items}
+            onItemPress={handlePress}
+          />
 
           {/* Appearance Section */}
           <View style={styles.card}>
@@ -466,19 +293,11 @@ export default function Profile() {
           </View>
 
           {/* Settings Section */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{menuItems[1].title}</Text>
-            {menuItems[1].items.map((item, itemIndex) => (
-               <Pressable key={itemIndex} style={styles.menuRow} onPress={() => handlePress(item.path)}>
-                 <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-                   <Ionicons name={item.icon} size={20} color="#fff" />
-                 </View>
-                 <Text style={styles.menuLabel}>{item.label}</Text>
-                 <Ionicons name="chevron-forward" size={22} color="#555" />
-               </Pressable>
-            ))}
-          </View>
-
+          <ProfileMenuSection
+            title={menuItems[1].title}
+            items={menuItems[1].items}
+            onItemPress={handlePress}
+          />
 
           {/* Logout Button */}
            <View style={styles.logoutContainer}>
