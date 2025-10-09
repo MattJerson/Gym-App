@@ -11,11 +11,12 @@ import {
   StatusBar,
   ActivityIndicator,
 } from "react-native";
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "expo-router";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../services/supabase';
 import { Alert } from 'react-native';
+import { logger } from "../../services/logger";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from 'expo-haptics';
 import SubmitButton from "../../components/SubmitButton";
@@ -133,6 +134,38 @@ export default function BasicInfo() {
   
   // Input refs for navigation
   const inputRefs = useRef({});
+
+  // Hydrate saved progress on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [savedStr, savedStepStr] = await Promise.all([
+          AsyncStorage.getItem('onboarding:registration'),
+          AsyncStorage.getItem('onboarding:registration:step'),
+        ]);
+        if (cancelled) return;
+        if (savedStr) {
+          const parsed = JSON.parse(savedStr);
+          // Backward compatibility: ensure all keys exist
+          const initial = getInitialState();
+          const merged = { ...initial, ...parsed };
+          setFormData(merged);
+          setFoods(Array.isArray(parsed.favoriteFoods) ? parsed.favoriteFoods : []);
+          logger.info('Restored registration draft from storage');
+        }
+        if (savedStepStr) {
+          const savedStep = parseInt(savedStepStr, 10);
+          if (!Number.isNaN(savedStep)) {
+            setStep(Math.min(Math.max(savedStep, 0), formConfig.length - 1));
+          }
+        }
+      } catch (e) {
+        logger.warn('Failed to restore registration draft', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // Haptic feedback function
   const lightHaptic = () => {
@@ -254,25 +287,28 @@ export default function BasicInfo() {
     // Persist current step data
     try {
       const toSave = { ...formData, favoriteFoods: foods };
-      await AsyncStorage.setItem('onboarding:registration', JSON.stringify(toSave));
+      await Promise.all([
+        AsyncStorage.setItem('onboarding:registration', JSON.stringify(toSave)),
+        AsyncStorage.setItem('onboarding:registration:step', String(step)),
+      ]);
     } catch (e) {
-      console.warn('Failed to persist registration data', e);
+      logger.warn('Failed to persist registration data', e);
     }
 
     if (step === formConfig.length - 1) {
       // Final step - save to Supabase
-      const finalData = {
+  const finalData = {
         ...formData,
         favoriteFoods: foods,
       };
-      console.log("--- Final Form Data ---", finalData);
+  logger.debug('Final registration form', finalData);
 
       try {
-        const userResp = await supabase.auth.getUser();
+  const userResp = await supabase.auth.getUser();
         const userId = userResp?.data?.user?.id;
         
         if (!userId) {
-          console.log('No authenticated user - skipping remote save.');
+          logger.info('No authenticated user - skipping remote save.');
           router.replace('../features/bodyfatuser');
           return;
         }
@@ -300,21 +336,24 @@ export default function BasicInfo() {
           details: {}
         };
 
-        console.log('Saving registration to Supabase for user', userId);
+        logger.info('Saving registration to Supabase for user', userId);
         const { data, error } = await supabase.from('registration_profiles').upsert(payload, { 
           onConflict: 'user_id',
           returning: 'representation'
         });
         
         if (error) {
-          console.error('❌ Failed to save registration_profiles:', error);
+          logger.error('Failed to save registration_profiles:', error);
           Alert.alert('Save failed', error.message || 'Failed to save registration to server');
         } else {
-          console.log('✅ Registration saved to Supabase successfully!');
-          await AsyncStorage.removeItem('onboarding:registration');
+          logger.info('Registration saved to Supabase successfully');
+          await Promise.all([
+            AsyncStorage.removeItem('onboarding:registration'),
+            AsyncStorage.removeItem('onboarding:registration:step'),
+          ]);
         }
       } catch (err) {
-        console.error('Unexpected error saving registration:', err);
+        logger.error('Unexpected error saving registration:', err);
         Alert.alert('Save error', 'Unexpected error saving registration');
       } finally {
         setIsLoading(false);
@@ -322,7 +361,10 @@ export default function BasicInfo() {
       }
     } else {
       // Move to next step
-      setStep(prev => prev + 1);
+  const nextStep = step + 1;
+  setStep(nextStep);
+  // Persist step advance eagerly for crash safety
+  AsyncStorage.setItem('onboarding:registration:step', String(nextStep)).catch(() => {});
       setIsLoading(false);
     }
   };

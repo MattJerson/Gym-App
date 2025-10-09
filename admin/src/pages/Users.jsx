@@ -1,6 +1,6 @@
 import { Plus, Users as UsersIcon, Mail, Phone, Calendar, Shield } from "lucide-react";
 import { useState, useEffect } from "react";
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 import PageHeader from '../components/common/PageHeader';
 import SearchBar from '../components/common/SearchBar';
 import DataTable from '../components/common/DataTable';
@@ -9,14 +9,6 @@ import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Badge from '../components/common/Badge';
 import StatsCard from '../components/common/StatsCard';
-
-// Initialize Supabase
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL;
-const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY;
-const SUPABASE_SERVICE = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-
-const supabaseKey = SUPABASE_SERVICE || SUPABASE_ANON || '';
-const supabase = createClient(SUPABASE_URL, supabaseKey);
 
 const Users = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -43,25 +35,40 @@ const Users = () => {
       setLoading(true);
       setError(null);
 
-      const { data, error: listError } = await supabase.auth.admin.listUsers();
-      if (listError) throw listError;
+      // Use the new admin function to get user overview with status
+      const { data, error: fetchError } = await supabase.rpc('get_admin_user_overview');
+      
+      if (fetchError) {
+        console.error('RPC Error:', fetchError);
+        throw fetchError;
+      }
 
-      const rows = (data?.users || []).map(u => ({
+      console.log('Raw RPC data:', data); // Debug log
+
+      // Map the RPC function results to user rows
+      const rows = (data || []).map(u => ({
         uid: u.id,
         email: u.email,
         phone: u.phone || null,
-        display_name: u.user_metadata?.full_name || u.user_metadata?.name || 'N/A',
+        display_name: u.email?.split('@')[0] || 'User', // Extract from email
         created_at: u.created_at,
         last_sign_in_at: u.last_sign_in_at,
+        account_status: u.account_status || 'active',
+        suspended_at: u.suspended_at,
+        suspended_reason: u.suspended_reason,
+        is_admin: u.is_admin || false,
+        onboarding_completed: u.onboarding_completed || false,
         raw: u,
       }));
 
+      console.log('Mapped users:', rows); // Debug log
       setUsers(rows);
 
       // Calculate stats
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const activeUsers = rows.filter(u => {
+        if (!u.last_sign_in_at || u.account_status !== 'active') return false;
         const lastSignIn = new Date(u.last_sign_in_at);
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         return lastSignIn >= weekAgo;
@@ -83,14 +90,26 @@ const Users = () => {
   };
 
   const handleDelete = async (user) => {
-    if (!confirm(`Delete user ${user.email}?`)) return;
-    
+    const isInactive = user.account_status === 'inactive';
+    const action = isInactive ? 'activate' : 'deactivate';
+    const confirmMsg = action === 'deactivate'
+      ? `Deactivate user ${user.email}? They won't be able to log in.`
+      : `Activate user ${user.email}? They will be able to log in again.`;
+
+    if (!confirm(confirmMsg)) return;
+
     try {
-      const { error } = await supabase.auth.admin.deleteUser(user.uid);
+      const functionName = action === 'deactivate' ? 'deactivate_user' : 'activate_user';
+      const params = action === 'deactivate'
+        ? { target_user_id: user.uid, reason: 'Deactivated by admin' }
+        : { target_user_id: user.uid };
+
+      const { error } = await supabase.rpc(functionName, params);
       if (error) throw error;
+
       await fetchUsers();
     } catch (err) {
-      alert('Error deleting user: ' + err.message);
+      alert(`Error ${action}ing user: ` + err.message);
     }
   };
 
@@ -147,29 +166,39 @@ const Users = () => {
             </span>
           </div>
           <div>
-            <p className="font-semibold text-gray-900">{row.display_name}</p>
+            <p className="font-semibold text-gray-900">
+              {row.display_name}
+              {row.is_admin && (
+                <Badge variant="info" className="ml-2 text-xs">Admin</Badge>
+              )}
+            </p>
             <p className="text-sm text-gray-500">{row.email}</p>
           </div>
         </div>
       )
     },
     {
-      header: 'Contact',
-      accessor: 'phone',
-      render: (row) => (
-        <div>
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Mail className="h-4 w-4" />
-            <span>{row.email}</span>
+      header: 'Status',
+      accessor: 'account_status',
+      render: (row) => {
+        const statusConfig = {
+          active: { variant: 'success', label: 'Active' },
+          suspended: { variant: 'warning', label: 'Suspended' },
+          inactive: { variant: 'default', label: 'Inactive' },
+          banned: { variant: 'danger', label: 'Banned' }
+        };
+        const config = statusConfig[row.account_status] || statusConfig.active;
+        return (
+          <div>
+            <Badge variant={config.variant}>{config.label}</Badge>
+            {row.suspended_at && (
+              <p className="text-xs text-gray-500 mt-1">
+                Since {new Date(row.suspended_at).toLocaleDateString()}
+              </p>
+            )}
           </div>
-          {row.phone && (
-            <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
-              <Phone className="h-4 w-4" />
-              <span>{row.phone}</span>
-            </div>
-          )}
-        </div>
-      )
+        );
+      }
     },
     {
       header: 'Joined',
@@ -194,19 +223,6 @@ const Users = () => {
           </Badge>
         );
       }
-    },
-    {
-      header: 'Status',
-      accessor: 'status',
-      render: (row) => {
-        const lastSignIn = row.last_sign_in_at ? new Date(row.last_sign_in_at) : null;
-        const isActive = lastSignIn && (new Date() - lastSignIn) < 7 * 24 * 60 * 60 * 1000;
-        return (
-          <Badge variant={isActive ? 'success' : 'default'}>
-            {isActive ? 'Active' : 'Inactive'}
-          </Badge>
-        );
-      }
     }
   ];
 
@@ -216,30 +232,22 @@ const Users = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
-      <div className="max-w-7xl mx-auto">
-        <PageHeader
-          icon={UsersIcon}
-          title="User Management"
-          subtitle="Manage and monitor all registered users"
-          breadcrumbs={['Admin', 'User Management']}
-          actions={
-            <Button
-              variant="primary"
-              icon={Plus}
-              onClick={() => {
-                setEditingUser(null);
-                setFormData({ email: '', display_name: '', password: '' });
-                setIsModalOpen(true);
-              }}
-            >
-              Add User
-            </Button>
-          }
-        />
+    <div className="admin-page-compact">
+      <div className="admin-page-container">
+        {/* Page Header - Compact */}
+        <div className="page-header">
+          <div className="page-header-title">
+            <UsersIcon className="h-8 w-8 text-blue-600" />
+            <div>
+              <h1>User Management</h1>
+              <p className="page-header-subtitle">Manage and monitor all registered users</p>
+            </div>
+          </div>
+          {/* Removed Add User button - users should register via app */}
+        </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Stats Grid - Compact */}
+        <div className="admin-grid-3 mb-5">
           <StatsCard
             title="Total Users"
             value={stats.total}
@@ -265,7 +273,15 @@ const Users = () => {
           />
         </div>
 
-        {/* Search Bar */}
+        {/* Error Display */}
+        {error && (
+          <div className="mb-5 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-800 font-medium">Error loading users:</p>
+            <p className="text-red-600 text-sm mt-1">{error}</p>
+          </div>
+        )}
+
+        {/* Search Bar - Integrated */}
         <SearchBar
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
@@ -274,7 +290,7 @@ const Users = () => {
           onExportClick={() => alert('Export functionality coming soon!')}
         />
 
-        {/* Data Table */}
+        {/* Data Table - Compact */}
         <DataTable
           columns={columns}
           data={filteredUsers}
@@ -282,6 +298,8 @@ const Users = () => {
           onEdit={handleEdit}
           onDelete={handleDelete}
           actions={['edit', 'delete']}
+          deleteLabel={(row) => row.account_status === 'inactive' ? 'Activate' : 'Deactivate'}
+          deleteVariant={(row) => row.account_status === 'inactive' ? 'success' : 'warning'}
           emptyMessage="No users found"
         />
 

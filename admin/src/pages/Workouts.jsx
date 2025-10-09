@@ -8,8 +8,8 @@ import {
   FolderOpen
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { createClient } from '@supabase/supabase-js';
-import PageHeader from '../components/common/PageHeader';
+import { supabase } from '../lib/supabase';
+import AdminPageLayout, { PageHeader } from '../components/layout/AdminPageLayout';
 import SearchBar from '../components/common/SearchBar';
 import DataTable from '../components/common/DataTable';
 import Modal from '../components/common/Modal';
@@ -18,14 +18,6 @@ import Input from '../components/common/Input';
 import Select from '../components/common/Select';
 import Badge from '../components/common/Badge';
 import StatsCard from '../components/common/StatsCard';
-
-// Initialize Supabase
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL;
-const SUPABASE_ANON = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY;
-const SUPABASE_SERVICE = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-
-const supabaseKey = SUPABASE_SERVICE || SUPABASE_ANON || '';
-const supabase = createClient(SUPABASE_URL, supabaseKey);
 
 const Workouts = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -278,24 +270,23 @@ const Workouts = () => {
   const activeCategories = categories.filter(c => c.is_active).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
-      <div className="max-w-7xl mx-auto">
-        <PageHeader
-          icon={Dumbbell}
-          title="Workout Management"
-          subtitle="Manage workout categories and templates"
-          breadcrumbs={['Admin', 'Workout Management']}
-          actions={
-            <div className="flex gap-3">
-              <Button
-                variant={currentView === 'categories' ? 'primary' : 'outline'}
-                onClick={() => setCurrentView('categories')}
-                icon={FolderOpen}
-              >
-                Categories
-              </Button>
-              <Button
-                variant={currentView === 'templates' ? 'primary' : 'outline'}
+    <AdminPageLayout>
+      <PageHeader
+        icon={Dumbbell}
+        title="Workout Management"
+        subtitle="Manage workout categories and templates"
+        breadcrumbs={['Admin', 'Workout Management']}
+        actions={
+          <div className="flex gap-3">
+            <Button
+              variant={currentView === 'categories' ? 'primary' : 'outline'}
+              onClick={() => setCurrentView('categories')}
+              icon={FolderOpen}
+            >
+              Categories
+            </Button>
+            <Button
+              variant={currentView === 'templates' ? 'primary' : 'outline'}
                 onClick={() => setCurrentView('templates')}
                 icon={Dumbbell}
               >
@@ -470,8 +461,7 @@ const Workouts = () => {
             </div>
           )}
         </Modal>
-      </div>
-    </div>
+      </AdminPageLayout>
   );
 };
 

@@ -373,7 +373,13 @@ CREATE TABLE public.registration_profiles (
   calorie_goal integer,
   onboarding_completed boolean DEFAULT false,
   completed_at timestamp with time zone,
+  is_admin boolean DEFAULT false,
+  account_status text DEFAULT 'active'::text CHECK (account_status = ANY (ARRAY['active'::text, 'suspended'::text, 'inactive'::text, 'banned'::text])),
+  suspended_at timestamp with time zone,
+  suspended_reason text,
+  suspended_by uuid,
   CONSTRAINT registration_profiles_pkey PRIMARY KEY (user_id),
+  CONSTRAINT registration_profiles_suspended_by_fkey FOREIGN KEY (suspended_by) REFERENCES auth.users(id),
   CONSTRAINT registration_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.steps_tracking (

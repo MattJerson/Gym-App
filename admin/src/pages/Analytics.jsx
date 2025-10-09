@@ -48,18 +48,11 @@ const Analytics = () => {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - daysAgo);
 
-      // Fetch active users in period
-      const { data: users, error: usersError } = await supabase
-        .from('users')
-        .select('*')
-        .gte('last_sign_in_at', startDate.toISOString());
+      // Fetch all users via admin RPC (exposes auth.users safely)
+      const { data: allUsers, error: usersError } = await supabase
+        .rpc('get_admin_user_overview');
 
       if (usersError) throw usersError;
-
-      // Fetch all users for retention
-      const { data: allUsers } = await supabase
-        .from('users')
-        .select('*');
 
       // Fetch workout templates for popular workouts
       const { data: workouts } = await supabase
@@ -80,7 +73,10 @@ const Analytics = () => {
 
       // Calculate metrics
       const totalUsers = allUsers?.length || 0;
-      const activeUsers = users?.length || 0;
+      const activeUsers = (allUsers || []).filter(u => {
+        if (!u?.last_sign_in_at) return false;
+        return new Date(u.last_sign_in_at) >= startDate;
+      }).length;
       const userEngagement = totalUsers > 0 ? ((activeUsers / totalUsers) * 100).toFixed(1) : 0;
       
       // Calculate retention (users who logged in within period)

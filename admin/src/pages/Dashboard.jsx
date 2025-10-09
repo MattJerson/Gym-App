@@ -12,16 +12,11 @@ import {
   TrendingDown
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { createClient } from '@supabase/supabase-js';
+import { supabase, checkAdminRole } from '../lib/supabase';
 import StatCard from '../components/dashboard/StatCard';
 import RecentActivityCard from '../components/dashboard/RecentActivityCard';
 import QuickStatsGrid from '../components/dashboard/QuickStatsGrid';
 import TopItemsCard from '../components/dashboard/TopItemsCard';
-
-// Initialize Supabase
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || import.meta.env.SUPABASE_SERVICE_ROLE_KEY || import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY;
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
@@ -332,25 +327,25 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-900 flex items-center gap-3 font-display">
-              <Zap className="h-10 w-10 text-blue-600" />
-              Executive Dashboard
-            </h1>
-            <p className="text-lg text-gray-600 mt-2">Real-time business metrics and insights</p>
+    <div className="admin-page-compact">
+      <div className="admin-page-container">
+        {/* Header - Streamlined */}
+        <div className="page-header">
+          <div className="page-header-title">
+            <Zap className="h-8 w-8 text-blue-600" />
+            <div>
+              <h1>Executive Dashboard</h1>
+              <p className="page-header-subtitle">Real-time business metrics and insights</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-600 bg-white px-4 py-2 rounded-full shadow-sm">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm border border-gray-200">
             <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
-            <span className="font-medium">Live Data</span>
+            <span className="text-xs font-medium text-gray-600">Live Data</span>
           </div>
         </div>
 
-        {/* Main Stats Grid - Large Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {/* Main Stats Grid - Compact */}
+        <div className="admin-grid-4 mb-6">
           <StatCard
             title="Total Users"
             value={dashboardData.totalUsers.toLocaleString()}
@@ -393,9 +388,9 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Activity - Takes 2 columns on large screens */}
+        {/* Content Grid - Tighter */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+          {/* Recent Activity */}
           <div className="lg:col-span-2">
             <RecentActivityCard 
               activities={dashboardData.recentActivity} 
@@ -403,7 +398,7 @@ const Dashboard = () => {
             />
           </div>
 
-          {/* Quick Stats - Executive KPIs */}
+          {/* Quick Stats */}
           <div>
             <QuickStatsGrid 
               stats={dashboardData.quickStats} 
@@ -412,8 +407,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Top Items Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Items Grid - Compact */}
+        <div className="admin-grid-2 mb-6">
           <TopItemsCard
             title="🏆 Top Users by Points"
             items={dashboardData.topUsers}
@@ -428,28 +423,28 @@ const Dashboard = () => {
           />
         </div>
 
-        {/* Executive Summary Footer */}
-        <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-2xl p-8 text-white shadow-xl">
-          <div className="flex items-center gap-3 mb-6">
-            <TrendingUp className="h-7 w-7" />
-            <h3 className="text-2xl font-bold">Key Business Metrics</h3>
+        {/* Executive Summary Footer - Streamlined */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp className="h-6 w-6" />
+            <h3 className="text-xl font-bold">Key Business Metrics</h3>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
-              <p className="text-4xl font-bold">${dashboardData.mrr.toFixed(0).toLocaleString()}</p>
-              <p className="text-sm text-blue-100 mt-2 font-medium">Monthly Recurring Revenue</p>
+              <p className="text-3xl font-bold">${dashboardData.mrr.toFixed(0).toLocaleString()}</p>
+              <p className="text-xs text-blue-100 mt-1 font-medium">Monthly Recurring Revenue</p>
             </div>
             <div className="text-center">
-              <p className="text-4xl font-bold">{dashboardData.conversionRate}%</p>
-              <p className="text-sm text-blue-100 mt-2 font-medium">Conversion Rate</p>
+              <p className="text-3xl font-bold">{dashboardData.conversionRate}%</p>
+              <p className="text-xs text-blue-100 mt-1 font-medium">Conversion Rate</p>
             </div>
             <div className="text-center">
-              <p className="text-4xl font-bold">{dashboardData.engagementRate}%</p>
-              <p className="text-sm text-blue-100 mt-2 font-medium">User Engagement</p>
+              <p className="text-3xl font-bold">{dashboardData.engagementRate}%</p>
+              <p className="text-xs text-blue-100 mt-1 font-medium">User Engagement</p>
             </div>
             <div className="text-center">
-              <p className="text-4xl font-bold">{dashboardData.churnRisk}%</p>
-              <p className="text-sm text-blue-100 mt-2 font-medium">Churn Risk</p>
+              <p className="text-3xl font-bold">{dashboardData.churnRisk}%</p>
+              <p className="text-xs text-blue-100 mt-1 font-medium">Churn Risk</p>
             </div>
           </div>
         </div>

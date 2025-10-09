@@ -14,6 +14,7 @@ import StatsCard from '../components/common/StatsCard';
 const Badges = () => {
   const [badges, setbadges] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [activeChallenge, setActiveChallenge] = useState(null);
   const [loading, setLoading] = useState(true);
   const [leaderboardLoading, setLeaderboardLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -21,18 +22,19 @@ const Badges = () => {
   const [editingBadge, setEditingBadge] = useState(null);
 
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    icon_name: 'trophy',
-    criteria_type: 'workout_count',
-    criteria_value: 10,
-    points_reward: 100,
-    is_active: true
+  name: '',
+  description: '',
+  icon_name: 'trophy',           // maps to DB column: icon
+  criteria_type: 'workout_count', // maps to DB: requirement_type
+  criteria_value: 10,             // maps to DB: requirement_value
+  points_reward: 100,             // maps to DB: points_value
+  is_active: true
   });
 
   useEffect(() => {
     fetchBadges();
-    fetchLeaderboard();
+  fetchLeaderboard();
+  fetchActiveChallenge();
   }, []);
 
   const fetchBadges = async () => {
@@ -41,7 +43,7 @@ const Badges = () => {
       const { data, error } = await supabase
         .from('badges')
         .select('*')
-        .order('points_reward', { ascending: false });
+        .order('points_value', { ascending: false });
 
       if (error) throw error;
       setbadges(data || []);
@@ -55,7 +57,7 @@ const Badges = () => {
     try {
       setLeaderboardLoading(true);
       const { data, error } = await supabase
-        .from('weekly_leaderboard')
+        .from('safe_weekly_leaderboard')
         .select('*')
         .order('position', { ascending: true })
         .limit(10);
@@ -69,20 +71,52 @@ const Badges = () => {
     }
   };
 
+  const fetchActiveChallenge = async () => {
+    try {
+      const nowIso = new Date().toISOString();
+      const { data, error } = await supabase
+        .from('challenges')
+        .select('id,title,description,challenge_type,metric_type,target_value,start_date,end_date,prize_badge_id,prize_description')
+        .eq('is_active', true)
+        .lte('start_date', nowIso)
+        .gte('end_date', nowIso)
+        .order('start_date', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      setActiveChallenge(data || null);
+    } catch (err) {
+      console.error('Error fetching active challenge:', err);
+      setActiveChallenge(null);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Map UI form keys to DB columns
+      const payload = {
+        name: formData.name,
+        description: formData.description,
+        icon: formData.icon_name,
+        requirement_type: formData.criteria_type,
+        requirement_value: formData.criteria_value,
+        points_value: formData.points_reward,
+        is_active: formData.is_active
+      };
+
       if (editingBadge) {
         const { error } = await supabase
           .from('badges')
-          .update(formData)
+          .update(payload)
           .eq('id', editingBadge.id);
         
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('badges')
-          .insert([formData]);
+          .insert([payload]);
         
         if (error) throw error;
       }
@@ -117,10 +151,10 @@ const Badges = () => {
     setFormData({
       name: badge.name || '',
       description: badge.description || '',
-      icon_name: badge.icon_name || 'trophy',
-      criteria_type: badge.criteria_type || 'workout_count',
-      criteria_value: badge.criteria_value || 10,
-      points_reward: badge.points_reward || 100,
+      icon_name: badge.icon || 'trophy',
+      criteria_type: badge.requirement_type || 'workout_count',
+      criteria_value: badge.requirement_value ?? 10,
+      points_reward: badge.points_value ?? 100,
       is_active: badge.is_active !== false
     });
     setShowModal(true);
@@ -140,50 +174,50 @@ const Badges = () => {
   const createSampleBadges = async () => {
     if (!confirm('Create sample badges? This will add 5 achievement badges to get you started.')) return;
 
-    const sampleBadges = [
+  const sampleBadges = [
       {
         name: 'First Workout',
         description: 'Complete your first workout',
-        icon_name: 'trophy',
-        criteria_type: 'workout_count',
-        criteria_value: 1,
-        points_reward: 50,
+    icon: 'trophy',
+    requirement_type: 'workout_count',
+    requirement_value: 1,
+    points_value: 50,
         is_active: true
       },
       {
         name: '7 Day Streak',
         description: 'Workout for 7 consecutive days',
-        icon_name: 'flame',
-        criteria_type: 'streak_days',
-        criteria_value: 7,
-        points_reward: 200,
+    icon: 'flame',
+    requirement_type: 'streak_days',
+    requirement_value: 7,
+    points_value: 200,
         is_active: true
       },
       {
         name: '30 Workouts',
         description: 'Complete 30 total workouts',
-        icon_name: 'star',
-        criteria_type: 'workout_count',
-        criteria_value: 30,
-        points_reward: 500,
+    icon: 'star',
+    requirement_type: 'workout_count',
+    requirement_value: 30,
+    points_value: 500,
         is_active: true
       },
       {
         name: 'Calorie Crusher',
         description: 'Burn 10,000 total calories',
-        icon_name: 'fire',
-        criteria_type: 'total_calories',
-        criteria_value: 10000,
-        points_reward: 750,
+    icon: 'fire',
+    requirement_type: 'total_calories',
+    requirement_value: 10000,
+    points_value: 750,
         is_active: true
       },
       {
         name: 'Points Master',
         description: 'Earn 1,000 total points',
-        icon_name: 'award',
-        criteria_type: 'points_earned',
-        criteria_value: 1000,
-        points_reward: 1000,
+    icon: 'award',
+    requirement_type: 'points_earned',
+    requirement_value: 1000,
+    points_value: 1000,
         is_active: true
       }
     ];
@@ -219,31 +253,31 @@ const Badges = () => {
     },
     {
       header: 'Criteria',
-      accessor: 'criteria_type',
+      accessor: 'requirement_type',
       render: (row) => (
         <div>
           <p className="text-sm font-medium text-gray-900 capitalize">
-            {row.criteria_type?.replace('_', ' ')}
+            {row.requirement_type?.replace('_', ' ')}
           </p>
-          <p className="text-xs text-gray-500">Threshold: {row.criteria_value}</p>
+          <p className="text-xs text-gray-500">Threshold: {row.requirement_value}</p>
         </div>
       )
     },
     {
-      header: 'Points Reward',
-      accessor: 'points_reward',
+      header: 'Points',
+      accessor: 'points_value',
       render: (row) => (
         <div className="flex items-center gap-2">
           <Star className="h-4 w-4 text-yellow-500" />
-          <span className="font-semibold text-gray-900">{row.points_reward}</span>
+          <span className="font-semibold text-gray-900">{row.points_value}</span>
         </div>
       )
     },
     {
       header: 'Icon',
-      accessor: 'icon_name',
+      accessor: 'icon',
       render: (row) => (
-        <Badge variant="warning">{row.icon_name}</Badge>
+        <Badge variant="warning">{row.icon}</Badge>
       )
     },
     {
@@ -264,7 +298,7 @@ const Badges = () => {
 
   const totalBadges = badges.length;
   const activeBadges = badges.filter(b => b.is_active).length;
-  const totalPoints = badges.reduce((sum, b) => sum + (b.points_reward || 0), 0);
+  const totalPoints = badges.reduce((sum, b) => sum + (b.points_value || 0), 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
@@ -344,9 +378,32 @@ const Badges = () => {
           }
         />
 
-        {/* Weekly Leaderboard Section */}
+        {/* Active Challenge + Weekly Leaderboard Section */}
         <div className="mt-8">
           <div className="bg-white rounded-2xl shadow-sm p-8">
+            {/* Active Challenge Card */}
+            <div className="mb-6">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Active Challenge</h3>
+              {activeChallenge ? (
+                <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-lg font-bold text-blue-700">{activeChallenge.title}</p>
+                      <p className="text-sm text-blue-800/80">{activeChallenge.description}</p>
+                      <p className="text-xs text-blue-900 mt-1">
+                        Type: {activeChallenge.challenge_type} • Metric: {activeChallenge.metric_type} • Target: {activeChallenge.target_value}
+                      </p>
+                      <p className="text-xs text-blue-900 mt-1">
+                        {new Date(activeChallenge.start_date).toLocaleDateString()} – {new Date(activeChallenge.end_date).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-600">No active challenge right now.</p>
+              )}
+            </div>
+
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
@@ -385,7 +442,7 @@ const Badges = () => {
                   
                   return (
                     <div
-                      key={user.user_id || index}
+                      key={user.anon_id || index}
                       className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border-l-4 border-yellow-500 hover:shadow-md transition-all"
                     >
                       <div className="flex items-center gap-4 flex-1">
@@ -397,10 +454,10 @@ const Badges = () => {
                         {/* User Info */}
                         <div className="flex-1">
                           <p className="font-semibold text-gray-900">
-                            {user.user_name || 'Anonymous User'}
+                            {user.display_name || 'Anonymous User'}
                           </p>
                           <p className="text-sm text-gray-500">
-                            User ID: {user.user_id ? String(user.user_id).substring(0, 8) : 'N/A'}
+                            User: {user.anon_id ? String(user.anon_id) : 'N/A'}
                           </p>
                         </div>
 
