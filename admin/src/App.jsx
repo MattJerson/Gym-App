@@ -18,10 +18,8 @@ function App() {
         {/* Sidebar is hidden on mobile */}
         <div className="md:block">
           <Sidebar />
-        </div>
-
-        {/* Main Content */}
-        <main className="flex-1 md:ml-64 p-4 sm:p-6 bg-gray-100 min-h-screen">
+        </div>        {/* Main Content */}
+        <main className="flex-1 md:ml-64 bg-gray-50 min-h-screen">
           <Routes>
             <Route index element={<Dashboard />} />
             <Route path="users" element={<Users />} />
