@@ -29,7 +29,8 @@ const Notifications = () => {
     type: "info",
     target_audience: "all",
     status: "draft",
-    scheduled_at: ""
+    scheduled_at: "",
+    user_id: ""
   });
 
   useEffect(() => {
@@ -44,10 +45,13 @@ const Notifications = () => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching notifications:', error);
+        throw error;
+      }
       setNotifications(data || []);
     } catch (err) {
-      console.error('Error fetching notifications:', err);
+      console.error('Error fetching notifications:', err.message || err);
       // Fallback to localStorage
       const saved = localStorage.getItem("notifications");
       setNotifications(saved ? JSON.parse(saved) : []);
@@ -59,17 +63,30 @@ const Notifications = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Prepare data: sanitize empty fields
+      const submitData = { ...formData };
+      
+      // Remove empty user_id
+      if (!submitData.user_id || submitData.user_id.trim() === '') {
+        delete submitData.user_id;
+      }
+      
+      // Remove empty scheduled_at or convert to null
+      if (!submitData.scheduled_at || submitData.scheduled_at.trim() === '') {
+        delete submitData.scheduled_at;
+      }
+      
       if (editingNotification) {
         const { error } = await supabase
           .from('notifications')
-          .update(formData)
+          .update(submitData)
           .eq('id', editingNotification.id);
         
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('notifications')
-          .insert([{ ...formData, created_at: new Date().toISOString() }]);
+          .insert([{ ...submitData, created_at: new Date().toISOString() }]);
         
         if (error) throw error;
       }
@@ -79,7 +96,10 @@ const Notifications = () => {
       resetForm();
       await fetchNotifications();
     } catch (err) {
-      // Fallback to localStorage
+      console.error('Error creating notification:', err);
+      alert('Error creating notification: ' + (err.message || 'Database unavailable. Notification not saved.'));
+      
+      // Fallback to localStorage (for offline viewing only)
       const newNotif = {
         id: editingNotification?.id || Date.now(),
         ...formData,
@@ -128,19 +148,60 @@ const Notifications = () => {
   };
 
   const handleSendNow = async (notification) => {
-    if (!confirm(`Send notification "${notification.title}" to ${notification.target_audience}?`)) return;
+    const action = notification.status === 'sent' ? 'resend' : 'send';
+    if (!confirm(`${action === 'resend' ? 'Resend' : 'Send'} notification "${notification.title}" to ${notification.target_audience}?`)) return;
+    
+    // Check if this is a localStorage notification (timestamp ID) or database notification (UUID)
+    const isLocalStorageNotif = typeof notification.id === 'number' || !notification.id.includes('-');
+    
+    if (isLocalStorageNotif) {
+      alert('Cannot send notifications that are only saved locally. Please create the notification again when connected to the database.');
+      return;
+    }
     
     try {
+      // Update status to sent (or keep as sent if resending)
       const { error } = await supabase
         .from('notifications')
-        .update({ status: 'sent', sent_at: new Date().toISOString() })
+        .update({ 
+          status: 'sent', 
+          sent_at: new Date().toISOString() 
+        })
         .eq('id', notification.id);
-      
       if (error) throw error;
+
+      // Call Edge Function for push (best effort)
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const accessToken = session?.access_token || '';
+        
+        // Determine target user ID: use user_id if single user, otherwise null for broadcast
+        const targetUserId = notification.target_audience === 'user' && notification.user_id 
+          ? notification.user_id 
+          : null;
+        
+        await fetch(`${SUPABASE_URL}/functions/v1/deploy-for-notify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify({
+            user_id: targetUserId,
+            title: notification.title,
+            body: notification.message,
+            data: { type: notification.type }
+          })
+        });
+      } catch (pushErr) {
+        console.warn('Push notification failed (non-fatal):', pushErr.message);
+      }
+
       await fetchNotifications();
-      alert('Notification sent successfully!');
+      alert(`Notification ${action === 'resend' ? 'resent' : 'sent'} successfully!`);
     } catch (err) {
-      alert('Error sending notification: ' + err.message);
+      console.error('Send notification error:', err);
+      alert('Error sending notification: ' + (err.message || 'Unknown error'));
     }
   };
 
@@ -159,22 +220,30 @@ const Notifications = () => {
     {
       header: 'Notification',
       accessor: 'title',
-      render: (row) => (
-        <div className="flex items-center gap-3">
-          <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${
-            row.type === 'success' ? 'from-green-500 to-green-600' :
-            row.type === 'warning' ? 'from-yellow-500 to-yellow-600' :
-            row.type === 'error' ? 'from-red-500 to-red-600' :
-            'from-blue-500 to-blue-600'
-          } flex items-center justify-center`}>
-            <Bell className="h-6 w-6 text-white" />
+      render: (row) => {
+        const isLocalOnly = typeof row.id === 'number' || !row.id.includes('-');
+        return (
+          <div className="flex items-center gap-3">
+            <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${
+              row.type === 'success' ? 'from-green-500 to-green-600' :
+              row.type === 'warning' ? 'from-yellow-500 to-yellow-600' :
+              row.type === 'error' ? 'from-red-500 to-red-600' :
+              'from-blue-500 to-blue-600'
+            } flex items-center justify-center`}>
+              <Bell className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-gray-900">{row.title}</p>
+                {isLocalOnly && (
+                  <span className="px-2 py-0.5 text-xs bg-gray-200 text-gray-600 rounded">Local Only</span>
+                )}
+              </div>
+              <p className="text-sm text-gray-500 line-clamp-1">{row.message}</p>
+            </div>
           </div>
-          <div>
-            <p className="font-semibold text-gray-900">{row.title}</p>
-            <p className="text-sm text-gray-500 line-clamp-1">{row.message}</p>
-          </div>
-        </div>
-      )
+        );
+      }
     },
     {
       header: 'Type',
@@ -296,15 +365,26 @@ const Notifications = () => {
           onDelete={handleDelete}
           actions={['edit', 'delete']}
           customActions={(row) => (
-            row.status === 'draft' && (
-              <button
-                onClick={() => handleSendNow(row)}
-                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                title="Send Now"
-              >
-                <Send className="h-4 w-4" />
-              </button>
-            )
+            <>
+              {row.status === 'draft' && (
+                <button
+                  onClick={() => handleSendNow(row)}
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Send Now"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              )}
+              {row.status === 'sent' && (
+                <button
+                  onClick={() => handleSendNow(row)}
+                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                  title="Resend Notification"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              )}
+            </>
           )}
           emptyMessage="No notifications found"
         />
@@ -365,7 +445,6 @@ const Notifications = () => {
                 ]}
                 required
               />
-              
               <Select
                 label="Target Audience"
                 value={formData.target_audience}
@@ -374,11 +453,21 @@ const Notifications = () => {
                   { value: 'all', label: 'All Users' },
                   { value: 'subscribers', label: 'Subscribers Only' },
                   { value: 'free_users', label: 'Free Users' },
-                  { value: 'inactive', label: 'Inactive Users' }
+                  { value: 'inactive', label: 'Inactive Users' },
+                  { value: 'user', label: 'Single User' }
                 ]}
                 required
               />
             </div>
+
+            {formData.target_audience === 'user' && (
+              <Input
+                label="Target User ID"
+                value={formData.user_id}
+                onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
+                placeholder="UUID of the user"
+              />
+            )}
 
             <Select
               label="Status"
