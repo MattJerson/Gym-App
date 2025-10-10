@@ -10,6 +10,12 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch:
 
+# Add permissions for commenting on PRs
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
 jobs:
   security-scan:
     name: Security Vulnerability Scan
@@ -291,19 +297,28 @@ jobs:
       # ============================================
       
       - name: Comment PR with results
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && always()
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const report = fs.readFileSync('security-report.md', 'utf8');
             
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: report
-            });
+            try {
+              const report = fs.readFileSync('security-report.md', 'utf8');
+              
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: report
+              });
+              
+              console.log('✅ Security report posted to PR');
+            } catch (error) {
+              console.error('❌ Failed to post PR comment:', error.message);
+              console.log('Report is still available in artifacts');
+            }
       
       # ============================================
       # SLACK/DISCORD NOTIFICATION (Optional)
