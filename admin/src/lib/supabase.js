@@ -7,12 +7,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Please check your .env file.')
 }
 
-// Guard: never allow service_role key on client
-if (import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY) {
-  console.warn('VITE_SUPABASE_SERVICE_ROLE_KEY is present in client env. This is insecure and will be ignored. Remove it from admin/.env.');
-}
-
-// Admin panel uses ANON KEY with authenticated user and RLS
+// Security: Admin panel uses ANON KEY with authenticated user and RLS
+// Never expose elevated permissions in client-side code
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
