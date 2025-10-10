@@ -1,269 +1,497 @@
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, X } from "lucide-react";
+import { Plus, Bell, Send, Users, AlertCircle, CheckCircle } from "lucide-react";
+import { createClient } from '@supabase/supabase-js';
+import PageHeader from '../components/common/PageHeader';
+import SearchBar from '../components/common/SearchBar';
+import DataTable from '../components/common/DataTable';
+import Modal from '../components/common/Modal';
+import Button from '../components/common/Button';
+import Input from '../components/common/Input';
+import Select from '../components/common/Select';
+import Badge from '../components/common/Badge';
+import StatsCard from '../components/common/StatsCard';
+
+// Initialize Supabase
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL;
+const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY;
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const Notifications = () => {
-  const [notifications, setNotifications] = useState(() => {
-    const saved = localStorage.getItem("notifications");
-    return saved ? JSON.parse(saved) : [];
+  const [notifications, setNotifications] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingNotification, setEditingNotification] = useState(null);
+
+  const [formData, setFormData] = useState({
+    title: "",
+    message: "",
+    type: "info",
+    target_audience: "all",
+    status: "draft",
+    scheduled_at: "",
+    user_id: ""
   });
 
   useEffect(() => {
-    localStorage.setItem("notifications", JSON.stringify(notifications));
-  }, [notifications]);
+    fetchNotifications();
+  }, []);
 
-  // Modal state
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [formData, setFormData] = useState({
-    title: "",
-    type: "",
-    status: "Draft",
-  });
-  const [editId, setEditId] = useState(null);
+  const fetchNotifications = async () => {
+    try {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-  // Input handler
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+      if (error) {
+        console.error('Error fetching notifications:', error);
+        throw error;
+      }
+      setNotifications(data || []);
+    } catch (err) {
+      console.error('Error fetching notifications:', err.message || err);
+      // Fallback to localStorage
+      const saved = localStorage.getItem("notifications");
+      setNotifications(saved ? JSON.parse(saved) : []);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Open modal for create
-  const openCreateModal = () => {
-    setIsEditMode(false);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      // Prepare data: sanitize empty fields
+      const submitData = { ...formData };
+      
+      // Remove empty user_id
+      if (!submitData.user_id || submitData.user_id.trim() === '') {
+        delete submitData.user_id;
+      }
+      
+      // Remove empty scheduled_at or convert to null
+      if (!submitData.scheduled_at || submitData.scheduled_at.trim() === '') {
+        delete submitData.scheduled_at;
+      }
+      
+      if (editingNotification) {
+        const { error } = await supabase
+          .from('notifications')
+          .update(submitData)
+          .eq('id', editingNotification.id);
+        
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('notifications')
+          .insert([{ ...submitData, created_at: new Date().toISOString() }]);
+        
+        if (error) throw error;
+      }
+      
+      setIsModalOpen(false);
+      setEditingNotification(null);
+      resetForm();
+      await fetchNotifications();
+    } catch (err) {
+      console.error('Error creating notification:', err);
+      alert('Error creating notification: ' + (err.message || 'Database unavailable. Notification not saved.'));
+      
+      // Fallback to localStorage (for offline viewing only)
+      const newNotif = {
+        id: editingNotification?.id || Date.now(),
+        ...formData,
+        created_at: new Date().toISOString()
+      };
+      
+      if (editingNotification) {
+        setNotifications(prev => prev.map(n => n.id === editingNotification.id ? newNotif : n));
+      } else {
+        setNotifications(prev => [newNotif, ...prev]);
+      }
+      
+      setIsModalOpen(false);
+      setEditingNotification(null);
+      resetForm();
+    }
+  };
+
+  const handleDelete = async (notification) => {
+    if (!confirm(`Delete notification "${notification.title}"?`)) return;
+    
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notification.id);
+      
+      if (error) throw error;
+      await fetchNotifications();
+    } catch (err) {
+      setNotifications(prev => prev.filter(n => n.id !== notification.id));
+    }
+  };
+
+  const handleEdit = (notification) => {
+    setEditingNotification(notification);
+    setFormData({
+      title: notification.title || "",
+      message: notification.message || "",
+      type: notification.type || "info",
+      target_audience: notification.target_audience || "all",
+      status: notification.status || "draft",
+      scheduled_at: notification.scheduled_at || ""
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSendNow = async (notification) => {
+    const action = notification.status === 'sent' ? 'resend' : 'send';
+    if (!confirm(`${action === 'resend' ? 'Resend' : 'Send'} notification "${notification.title}" to ${notification.target_audience}?`)) return;
+    
+    // Check if this is a localStorage notification (timestamp ID) or database notification (UUID)
+    const isLocalStorageNotif = typeof notification.id === 'number' || !notification.id.includes('-');
+    
+    if (isLocalStorageNotif) {
+      alert('Cannot send notifications that are only saved locally. Please create the notification again when connected to the database.');
+      return;
+    }
+    
+    try {
+      // Update status to sent (or keep as sent if resending)
+      const { error } = await supabase
+        .from('notifications')
+        .update({ 
+          status: 'sent', 
+          sent_at: new Date().toISOString() 
+        })
+        .eq('id', notification.id);
+      if (error) throw error;
+
+      // Call Edge Function for push (best effort)
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const accessToken = session?.access_token || '';
+        
+        // Determine target user ID: use user_id if single user, otherwise null for broadcast
+        const targetUserId = notification.target_audience === 'user' && notification.user_id 
+          ? notification.user_id 
+          : null;
+        
+        await fetch(`${SUPABASE_URL}/functions/v1/deploy-for-notify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify({
+            user_id: targetUserId,
+            title: notification.title,
+            body: notification.message,
+            data: { type: notification.type }
+          })
+        });
+      } catch (pushErr) {
+        console.warn('Push notification failed (non-fatal):', pushErr.message);
+      }
+
+      await fetchNotifications();
+      alert(`Notification ${action === 'resend' ? 'resent' : 'sent'} successfully!`);
+    } catch (err) {
+      console.error('Send notification error:', err);
+      alert('Error sending notification: ' + (err.message || 'Unknown error'));
+    }
+  };
+
+  const resetForm = () => {
     setFormData({
       title: "",
-      type: "",
-      status: "Draft",
+      message: "",
+      type: "info",
+      target_audience: "all",
+      status: "draft",
+      scheduled_at: ""
     });
-    setIsModalOpen(true);
   };
 
-  // Open modal for edit
-  const openEditModal = (notification) => {
-    setIsEditMode(true);
-    setEditId(notification.id);
-    setFormData({
-      title: notification.title,
-      type: notification.type,
-      status: notification.status,
-    });
-    setIsModalOpen(true);
-  };
-
-  // Save or Update
-  const handleSave = () => {
-    if (isEditMode) {
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === editId ? { ...n, ...formData } : n))
-      );
-    } else {
-      const newNotification = {
-        id: Date.now(),
-        ...formData,
-        sent: 0, // default
-        opened: 0, // default
-      };
-      setNotifications((prev) => [...prev, newNotification]);
-    }
-    setIsModalOpen(false);
-  };
-
-  // Delete
-  const handleDelete = (id) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-  };
-
-  // Stats
-  const totalSent = notifications.reduce((sum, n) => sum + n.sent, 0);
-  const totalOpened = notifications.reduce((sum, n) => sum + n.opened, 0);
-  const openRate =
-    totalSent > 0 ? ((totalOpened / totalSent) * 100).toFixed(1) : 0;
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-          Notifications & Alerts
-        </h2>
-        <button
-          onClick={openCreateModal}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4" />
-          Create Notification
-        </button>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold mb-2">Total Sent</h3>
-          <p className="text-3xl font-bold text-blue-600">
-            {totalSent.toLocaleString()}
-          </p>
-          <p className="text-sm text-gray-600">This month</p>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold mb-2">Open Rate</h3>
-          <p className="text-3xl font-bold text-green-600">{openRate}%</p>
-          <p className="text-sm text-gray-600">Above industry average</p>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h3 className="text-lg font-semibold mb-2">Click Rate</h3>
-          <p className="text-3xl font-bold text-purple-600">—</p>
-          <p className="text-sm text-gray-600">Dynamic when tracked</p>
-        </div>
-      </div>
-
-      {/* Notifications Table */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h3 className="text-lg font-semibold mb-4">Notification Campaigns</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4">Title</th>
-                <th className="text-left py-3 px-4">Type</th>
-                <th className="text-left py-3 px-4">Sent</th>
-                <th className="text-left py-3 px-4">Opened</th>
-                <th className="text-left py-3 px-4">Status</th>
-                <th className="text-left py-3 px-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {notifications.map((notification) => (
-                <tr
-                  key={notification.id}
-                  className="border-b border-gray-200 hover:bg-gray-50"
-                >
-                  <td className="py-3 px-4 font-medium">
-                    {notification.title}
-                  </td>
-                  <td className="py-3 px-4">
-                    <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
-                      {notification.type}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">{notification.sent}</td>
-                  <td className="py-3 px-4">{notification.opened}</td>
-                  <td className="py-3 px-4">
-                    <span className="px-2 py-1 rounded text-xs bg-green-100 text-green-800">
-                      {notification.status}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => openEditModal(notification)}
-                        className="p-1 text-green-600 hover:bg-green-50 rounded"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(notification.id)}
-                        className="p-1 text-red-600 hover:bg-red-50 rounded"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {notifications.length === 0 && (
-                <tr>
-                  <td colSpan="6" className="text-center py-6 text-gray-500">
-                    No notifications created yet
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Modal (matching workout/meal plan style) */}
-      {isModalOpen && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md relative">
-            {/* Close */}
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-800"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            <h3 className="text-xl font-semibold mb-4">
-              {isEditMode ? "Edit Notification" : "Create Notification"}
-            </h3>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium">
-                  Notification Title *
-                </label>
-                <input
-                  type="text"
-                  name="title"
-                  placeholder="e.g., Welcome Back Campaign"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  className="w-full mt-1 border rounded px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium">Type *</label>
-                <select
-                  name="type"
-                  value={formData.type}
-                  onChange={handleInputChange}
-                  className="w-full mt-1 border rounded px-3 py-2"
-                >
-                  <option value="">Select Type</option>
-                  <option value="Welcome">Welcome</option>
-                  <option value="Reminder">Reminder</option>
-                  <option value="Promo">Promo</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium">Status *</label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  className="w-full mt-1 border rounded px-3 py-2"
-                >
-                  <option value="Draft">Draft</option>
-                  <option value="Sent">Sent</option>
-                  <option value="Scheduled">Scheduled</option>
-                </select>
-              </div>
+  const columns = [
+    {
+      header: 'Notification',
+      accessor: 'title',
+      render: (row) => {
+        const isLocalOnly = typeof row.id === 'number' || !row.id.includes('-');
+        return (
+          <div className="flex items-center gap-3">
+            <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${
+              row.type === 'success' ? 'from-green-500 to-green-600' :
+              row.type === 'warning' ? 'from-yellow-500 to-yellow-600' :
+              row.type === 'error' ? 'from-red-500 to-red-600' :
+              'from-blue-500 to-blue-600'
+            } flex items-center justify-center`}>
+              <Bell className="h-6 w-6 text-white" />
             </div>
-
-            {/* Footer */}
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-100"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-              >
-                {isEditMode ? "Update" : "Create Notification"}
-              </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-gray-900">{row.title}</p>
+                {isLocalOnly && (
+                  <span className="px-2 py-0.5 text-xs bg-gray-200 text-gray-600 rounded">Local Only</span>
+                )}
+              </div>
+              <p className="text-sm text-gray-500 line-clamp-1">{row.message}</p>
             </div>
           </div>
+        );
+      }
+    },
+    {
+      header: 'Type',
+      accessor: 'type',
+      render: (row) => {
+        const variants = {
+          'info': 'info',
+          'success': 'success',
+          'warning': 'warning',
+          'error': 'error'
+        };
+        return <Badge variant={variants[row.type] || 'default'}>{row.type}</Badge>;
+      }
+    },
+    {
+      header: 'Audience',
+      accessor: 'target_audience',
+      render: (row) => (
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-gray-400" />
+          <span className="text-sm text-gray-600 capitalize">{row.target_audience}</span>
         </div>
-      )}
+      )
+    },
+    {
+      header: 'Status',
+      accessor: 'status',
+      render: (row) => {
+        const variants = {
+          'draft': 'default',
+          'scheduled': 'warning',
+          'sent': 'success',
+          'failed': 'error'
+        };
+        return <Badge variant={variants[row.status] || 'default'}>{row.status}</Badge>;
+      }
+    },
+    {
+      header: 'Created',
+      accessor: 'created_at',
+      render: (row) => (
+        <span className="text-sm text-gray-600">
+          {new Date(row.created_at).toLocaleDateString()}
+        </span>
+      )
+    }
+  ];
+
+  const filteredNotifications = notifications.filter(notif =>
+    notif.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    notif.message?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const totalNotifications = notifications.length;
+  const sentNotifications = notifications.filter(n => n.status === 'sent').length;
+  const draftNotifications = notifications.filter(n => n.status === 'draft').length;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
+      <div className="max-w-7xl mx-auto">
+        <PageHeader
+          icon={Bell}
+          title="Notification Management"
+          subtitle="Send push notifications and announcements to users"
+          breadcrumbs={['Admin', 'Notifications']}
+          actions={
+            <Button
+              variant="primary"
+              icon={Plus}
+              onClick={() => {
+                setEditingNotification(null);
+                resetForm();
+                setIsModalOpen(true);
+              }}
+            >
+              Create Notification
+            </Button>
+          }
+        />
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <StatsCard
+            title="Total Notifications"
+            value={totalNotifications}
+            icon={Bell}
+            color="blue"
+            subtitle="All notifications"
+          />
+          <StatsCard
+            title="Sent"
+            value={sentNotifications}
+            icon={CheckCircle}
+            color="green"
+            subtitle="Successfully delivered"
+          />
+          <StatsCard
+            title="Drafts"
+            value={draftNotifications}
+            icon={AlertCircle}
+            color="orange"
+            subtitle="Pending notifications"
+          />
+        </div>
+
+        {/* Search Bar */}
+        <SearchBar
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          placeholder="Search notifications..."
+        />
+
+        {/* Data Table */}
+        <DataTable
+          columns={columns}
+          data={filteredNotifications}
+          loading={isLoading}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          actions={['edit', 'delete']}
+          customActions={(row) => (
+            <>
+              {row.status === 'draft' && (
+                <button
+                  onClick={() => handleSendNow(row)}
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Send Now"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              )}
+              {row.status === 'sent' && (
+                <button
+                  onClick={() => handleSendNow(row)}
+                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                  title="Resend Notification"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              )}
+            </>
+          )}
+          emptyMessage="No notifications found"
+        />
+
+        {/* Create/Edit Modal */}
+        <Modal
+          isOpen={isModalOpen}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingNotification(null);
+            resetForm();
+          }}
+          title={editingNotification ? 'Edit Notification' : 'Create Notification'}
+          size="lg"
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={handleSubmit}>
+                {editingNotification ? 'Update' : 'Create'}
+              </Button>
+            </>
+          }
+        >
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              label="Notification Title"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              icon={Bell}
+              required
+            />
+            
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Message
+              </label>
+              <textarea
+                value={formData.message}
+                onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                rows={4}
+                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Select
+                label="Type"
+                value={formData.type}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                options={[
+                  { value: 'info', label: 'Info' },
+                  { value: 'success', label: 'Success' },
+                  { value: 'warning', label: 'Warning' },
+                  { value: 'error', label: 'Error' }
+                ]}
+                required
+              />
+              <Select
+                label="Target Audience"
+                value={formData.target_audience}
+                onChange={(e) => setFormData({ ...formData, target_audience: e.target.value })}
+                options={[
+                  { value: 'all', label: 'All Users' },
+                  { value: 'subscribers', label: 'Subscribers Only' },
+                  { value: 'free_users', label: 'Free Users' },
+                  { value: 'inactive', label: 'Inactive Users' },
+                  { value: 'user', label: 'Single User' }
+                ]}
+                required
+              />
+            </div>
+
+            {formData.target_audience === 'user' && (
+              <Input
+                label="Target User ID"
+                value={formData.user_id}
+                onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
+                placeholder="UUID of the user"
+              />
+            )}
+
+            <Select
+              label="Status"
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              options={[
+                { value: 'draft', label: 'Draft' },
+                { value: 'scheduled', label: 'Scheduled' },
+                { value: 'sent', label: 'Sent' }
+              ]}
+              required
+            />
+
+            {formData.status === 'scheduled' && (
+              <Input
+                label="Schedule Date & Time"
+                type="datetime-local"
+                value={formData.scheduled_at}
+                onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
+              />
+            )}
+          </form>
+        </Modal>
+      </div>
     </div>
   );
 };

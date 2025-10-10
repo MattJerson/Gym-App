@@ -5,12 +5,14 @@
  * API Limit: 500 requests per hour
  * Documentation: https://fdc.nal.usda.gov/api-guide.html
  */
-
 import { EXPO_PUBLIC_FOODDATA_API } from "@env";
+import { callEdgeFunction } from "./edgeClient";
+import { logger } from "./logger";
 
 class FoodDataAPIService {
   constructor() {
-    this.apiKey = EXPO_PUBLIC_FOODDATA_API;
+  // Prefer secure proxy via Supabase Edge Functions; fallback only if explicitly configured
+  this.apiKey = EXPO_PUBLIC_FOODDATA_API || null;
     this.baseURL = "https://api.nal.usda.gov/fdc/v1";
     
     // Rate limiting configuration (500 requests/hour = ~8.3 requests/minute)
@@ -78,45 +80,52 @@ class FoodDataAPIService {
       const cacheKey = `search_${query}_${pageSize}_${pageNumber}`;
       const cachedResult = this.getCachedData(cacheKey);
       if (cachedResult) {
-        console.log("📦 Returning cached results for:", query);
+        logger.debug("Returning cached results for:", query);
         return cachedResult;
       }
 
       // Rate limiting
       await this.waitForRateLimit();
 
-      const url = `${this.baseURL}/foods/search`;
-      
-      // Request slightly more results for better filtering (but not too many)
+      // Prefer proxy call to avoid exposing API key; fallback to direct if env key provided
       const requestSize = pageSize + 8; // Small buffer for filtering
-      
-      const params = new URLSearchParams({
-        api_key: this.apiKey,
-        query: query.trim(),
-        pageSize: requestSize.toString(),
-        pageNumber: pageNumber.toString(),
-        dataType: "Survey (FNDDS),Foundation,Branded",
-        sortBy: "dataType.keyword",
-        sortOrder: "asc"
-      });
-
-      console.log("🔍 Searching FoodData Central API:", query);
-      
-      // Add timeout to prevent hanging requests
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
-      const response = await fetch(`${url}?${params}`, {
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeout);
-      
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      let data;
+      if (!this.apiKey) {
+        // Secure path via Edge Function
+        logger.info('FoodData search via Edge Function');
+        data = await callEdgeFunction('fooddata_proxy', {
+          method: 'POST',
+          body: {
+            path: 'foods/search',
+            params: {
+              query: query.trim(),
+              pageSize: String(requestSize),
+              pageNumber: String(pageNumber),
+              dataType: "Survey (FNDDS),Foundation,Branded",
+              sortBy: "dataType.keyword",
+              sortOrder: "asc"
+            }
+          }
+        });
+      } else {
+        // Backward-compatible direct call using public env key (not recommended)
+        const url = `${this.baseURL}/foods/search`;
+        const params = new URLSearchParams({
+          api_key: this.apiKey,
+          query: query.trim(),
+          pageSize: requestSize.toString(),
+          pageNumber: pageNumber.toString(),
+          dataType: "Survey (FNDDS),Foundation,Branded",
+          sortBy: "dataType.keyword",
+          sortOrder: "asc"
+        });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        const response = await fetch(`${url}?${params}`, { signal: controller.signal });
+        clearTimeout(timeout);
+        if (!response.ok) throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        data = await response.json();
       }
-
-      const data = await response.json();
       
       // Transform and validate results (lightweight validation)
       let transformedFoods = this.transformFoodResults(data.foods || []);
@@ -145,15 +154,15 @@ class FoodDataAPIService {
       // Cache the results
       this.setCachedData(cacheKey, transformedData);
 
-      console.log(`✅ Found ${paginatedFoods.length} results`);
+  logger.debug(`Found ${paginatedFoods.length} results`);
 
       return transformedData;
     } catch (error) {
       if (error.name === 'AbortError') {
-        console.error("❌ Request timeout - try a more specific search");
+        logger.warn("Request timeout - try a more specific search");
         return { foods: [], totalHits: 0, currentPage: 1, error: "Request timeout" };
       }
-      console.error("❌ FoodData API Search Error:", error);
+      logger.error("FoodData API Search Error:", error);
       return { foods: [], totalHits: 0, currentPage: 1, error: error.message };
     }
   }
@@ -169,27 +178,30 @@ class FoodDataAPIService {
       const cacheKey = `food_${fdcId}`;
       const cachedResult = this.getCachedData(cacheKey);
       if (cachedResult) {
-        console.log("📦 Returning cached food details for:", fdcId);
+        logger.debug("Returning cached food details for:", fdcId);
         return cachedResult;
       }
 
       // Rate limiting
       await this.waitForRateLimit();
 
-      const url = `${this.baseURL}/food/${fdcId}`;
-      const params = new URLSearchParams({
-        api_key: this.apiKey,
-        format: "full"
-      });
-
-      console.log("🔍 Fetching food details:", fdcId);
-      const response = await fetch(`${url}?${params}`);
-      
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+      let data;
+      if (!this.apiKey) {
+        logger.info('FoodData details via Edge Function');
+        data = await callEdgeFunction('fooddata_proxy', {
+          method: 'POST',
+          body: {
+            path: `food/${fdcId}`,
+            params: { format: 'full' }
+          }
+        });
+      } else {
+        const url = `${this.baseURL}/food/${fdcId}`;
+        const params = new URLSearchParams({ api_key: this.apiKey, format: 'full' });
+        const response = await fetch(`${url}?${params}`);
+        if (!response.ok) throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        data = await response.json();
       }
-
-      const data = await response.json();
       const transformedData = this.transformFoodDetail(data);
 
       // Cache the results
@@ -197,7 +209,7 @@ class FoodDataAPIService {
 
       return transformedData;
     } catch (error) {
-      console.error("❌ FoodData API Details Error:", error);
+  logger.error("FoodData API Details Error:", error);
       throw error;
     }
   }
@@ -482,7 +494,7 @@ class FoodDataAPIService {
           await new Promise(resolve => setTimeout(resolve, delayMs));
         }
       } catch (error) {
-        console.error(`Error searching for ${query}:`, error);
+  logger.warn(`Error searching for ${query}:`, error);
       }
     }
     
@@ -497,7 +509,7 @@ class FoodDataAPIService {
     const cachedResult = this.getCachedData(cacheKey);
     
     if (cachedResult) {
-      console.log("📦 Returning cached suggested foods");
+  logger.debug("Returning cached suggested foods");
       return cachedResult;
     }
 
@@ -516,7 +528,7 @@ class FoodDataAPIService {
       
       return results;
     } catch (error) {
-      console.error("❌ Error fetching suggested foods:", error);
+  logger.warn("Error fetching suggested foods:", error);
       return [];
     }
   }
@@ -526,7 +538,7 @@ class FoodDataAPIService {
    */
   clearCache() {
     this.cache.clear();
-    console.log("🗑️ Food data cache cleared");
+  logger.info("Food data cache cleared");
   }
 
   /**

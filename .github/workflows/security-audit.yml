@@ -1,0 +1,404 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+# Add permissions for commenting on PRs
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for secret scanning
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      # ============================================
+      # DEPENDENCY VULNERABILITY SCANNING
+      # ============================================
+      
+      - name: Install dependencies - Mobile App
+        run: npm ci
+        continue-on-error: true
+      
+      - name: Run npm audit - Mobile App
+        id: audit-mobile
+        run: |
+          echo "Running npm audit on mobile app..."
+          npm audit --json > mobile-audit.json || true
+          CRITICAL=$(jq '.metadata.vulnerabilities.critical' mobile-audit.json)
+          HIGH=$(jq '.metadata.vulnerabilities.high' mobile-audit.json)
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+            echo "::error::Found $CRITICAL critical and $HIGH high vulnerabilities in mobile app"
+            npm audit
+            exit 1
+          fi
+      
+      - name: Install dependencies - Admin Panel
+        working-directory: admin
+        run: npm ci
+        continue-on-error: true
+      
+      - name: Run npm audit - Admin Panel
+        id: audit-admin
+        working-directory: admin
+        run: |
+          echo "Running npm audit on admin panel..."
+          npm audit --json > admin-audit.json || true
+          CRITICAL=$(jq '.metadata.vulnerabilities.critical' admin-audit.json)
+          HIGH=$(jq '.metadata.vulnerabilities.high' admin-audit.json)
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          
+          if [ "$CRITICAL" -gt 0 ] || [ "$HIGH" -gt 0 ]; then
+            echo "::error::Found $CRITICAL critical and $HIGH high vulnerabilities in admin panel"
+            npm audit
+            exit 1
+          fi
+      
+      # ============================================
+      # SECRET DETECTION
+      # ============================================
+      
+      - name: Install TruffleHog
+        run: |
+          wget https://github.com/trufflesecurity/trufflehog/releases/download/v3.63.2/trufflehog_3.63.2_linux_amd64.tar.gz
+          tar -xzf trufflehog_3.63.2_linux_amd64.tar.gz
+          sudo mv trufflehog /usr/local/bin/
+      
+      - name: Scan for secrets with TruffleHog
+        run: |
+          echo "Scanning for secrets in git history..."
+          trufflehog git file://. --json --no-update > trufflehog-results.json || true
+          
+          if [ -s trufflehog-results.json ]; then
+            SECRETS_FOUND=$(jq '. | length' trufflehog-results.json)
+            if [ "$SECRETS_FOUND" -gt 0 ]; then
+              echo "::error::Found $SECRETS_FOUND potential secrets in repository"
+              jq '.' trufflehog-results.json
+              exit 1
+            fi
+          fi
+      
+      - name: Check for exposed service_role key
+        run: |
+          echo "Checking for service_role key in client code..."
+          
+          # Check for service_role in JavaScript files (excluding server-side code and documentation)
+          # Note: supabase/functions are Edge Functions (server-side), so they're excluded
+          if grep -r "service_role" --include="*.js" --include="*.jsx" --include="*.ts" --include="*.tsx" \
+             --exclude-dir=node_modules \
+             --exclude-dir=documentation \
+             --exclude-dir=supabase \
+             . ; then
+            echo "::error::service_role key found in client-side code!"
+            exit 1
+          fi
+      
+      - name: Check for API keys in code
+        run: |
+          echo "Checking for hardcoded API keys..."
+          
+          # Pattern match for common API key formats
+          if grep -rE "(api[_-]?key|secret|password|token)[\s]*[:=][\s]*['\"][a-zA-Z0-9]{20,}['\"]" \
+             --include="*.js" --include="*.jsx" --include="*.ts" --include="*.tsx" \
+             --exclude-dir=node_modules --exclude-dir=documentation . ; then
+            echo "::warning::Potential hardcoded secrets found. Please review manually."
+          fi
+      
+      # ============================================
+      # CODE PATTERN SECURITY SCAN
+      # ============================================
+      
+      - name: Check for dangerous code patterns
+        run: |
+          echo "Scanning for dangerous code patterns..."
+          ISSUES=0
+          
+          # Check for eval()
+          EVAL_COUNT=$(grep -r "\beval(" --include="*.js" --include="*.jsx" --exclude-dir=node_modules . | wc -l)
+          if [ "$EVAL_COUNT" -gt 0 ]; then
+            echo "::error::Found $EVAL_COUNT eval() usages - potential code injection risk"
+            grep -r "\beval(" --include="*.js" --include="*.jsx" --exclude-dir=node_modules .
+            ISSUES=$((ISSUES + 1))
+          fi
+          
+          # Check for dangerouslySetInnerHTML
+          DANGEROUS_HTML=$(grep -r "dangerouslySetInnerHTML" --include="*.jsx" --include="*.tsx" --exclude-dir=node_modules . | wc -l)
+          if [ "$DANGEROUS_HTML" -gt 0 ]; then
+            echo "::warning::Found $DANGEROUS_HTML dangerouslySetInnerHTML usages - potential XSS risk"
+            grep -r "dangerouslySetInnerHTML" --include="*.jsx" --include="*.tsx" --exclude-dir=node_modules .
+          fi
+          
+          # Check for HTTP URLs (non-localhost)
+          HTTP_URLS=$(grep -rE "http://(?!localhost|127\.0\.0\.1)" --include="*.js" --include="*.jsx" --exclude-dir=node_modules . | wc -l)
+          if [ "$HTTP_URLS" -gt 0 ]; then
+            echo "::warning::Found $HTTP_URLS HTTP URLs - should use HTTPS"
+          fi
+          
+          if [ "$ISSUES" -gt 0 ]; then
+            exit 1
+          fi
+      
+      - name: Check console.log usage
+        run: |
+          echo "Checking for console.log statements..."
+          CONSOLE_LOGS=$(grep -r "console\.log" --include="*.js" --include="*.jsx" --exclude-dir=node_modules services/ app/ 2>/dev/null | wc -l)
+          
+          if [ "$CONSOLE_LOGS" -gt 20 ]; then
+            echo "::warning::Found $CONSOLE_LOGS console.log statements - consider using a logger wrapper"
+          else
+            echo "Console.log usage: $CONSOLE_LOGS (acceptable)"
+          fi
+      
+      # ============================================
+      # CONFIGURATION VALIDATION
+      # ============================================
+      
+      - name: Validate environment configuration
+        run: |
+          echo "Validating environment configuration..."
+          
+          # Check .env files are in .gitignore
+          if ! grep -q "\.env" .gitignore 2>/dev/null; then
+            echo "::error::.env files not found in .gitignore"
+            exit 1
+          fi
+          
+          # Check if .env files exist in repo (they shouldn't)
+          if find . -name ".env" -not -path "*/node_modules/*" | grep -q .; then
+            echo "::error::.env files found in repository - these should not be committed!"
+            find . -name ".env" -not -path "*/node_modules/*"
+            exit 1
+          fi
+      
+      - name: Check mobile app Supabase configuration
+        run: |
+          echo "Checking mobile app Supabase configuration..."
+          
+          if [ -f "services/supabase.js" ]; then
+            # Ensure mobile app uses anon key, not elevated keys
+            if grep -iE "SERVICE_ROLE|service.role" services/supabase.js; then
+              echo "::error::Mobile app should use anon key, not elevated keys!"
+              exit 1
+            fi
+            
+            # Check for secure storage configuration
+            if ! grep -q "storage:" services/supabase.js; then
+              echo "::warning::No custom storage configuration found - verify secure storage is used"
+            fi
+          fi
+      
+      # ============================================
+      # SUPABASE RLS POLICY CHECK (if Supabase CLI available)
+      # ============================================
+      
+      - name: Check Supabase RLS Policies (if configured)
+        if: env.SUPABASE_ACCESS_TOKEN != ''
+        run: |
+          echo "This step requires Supabase CLI and access token"
+          echo "Manual check required: Verify RLS is enabled on all tables"
+          # Future: Add Supabase CLI commands to verify RLS policies
+      
+      # ============================================
+      # UPLOAD ARTIFACTS
+      # ============================================
+      
+      - name: Upload audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit-results
+          path: |
+            mobile-audit.json
+            admin/admin-audit.json
+            trufflehog-results.json
+          retention-days: 30
+      
+      # ============================================
+      # GENERATE SECURITY REPORT
+      # ============================================
+      
+      - name: Generate Security Report
+        if: always()
+        run: |
+          cat << EOF > security-report.md
+          # Security Scan Report
+          
+          **Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Branch:** ${{ github.ref_name }}
+          **Commit:** ${{ github.sha }}
+          
+          ## Vulnerability Summary
+          
+          ### Mobile App
+          - Critical: ${{ steps.audit-mobile.outputs.critical || 'N/A' }}
+          - High: ${{ steps.audit-mobile.outputs.high || 'N/A' }}
+          
+          ### Admin Panel
+          - Critical: ${{ steps.audit-admin.outputs.critical || 'N/A' }}
+          - High: ${{ steps.audit-admin.outputs.high || 'N/A' }}
+          
+          ## Checks Performed
+          
+          - ✅ Dependency vulnerability scan
+          - ✅ Secret detection (TruffleHog)
+          - ✅ Service role key exposure check
+          - ✅ Dangerous code pattern scan
+          - ✅ Environment file validation
+          - ✅ Console.log detection
+          
+          ## Next Steps
+          
+          1. Review any findings above
+          2. Run \`npm audit fix\` to auto-fix vulnerabilities
+          3. Manually review and address any warnings
+          4. Ensure .env files are never committed
+          
+          ---
+          *Generated by GitHub Actions Security Scan*
+          EOF
+          
+          cat security-report.md
+      
+      - name: Upload Security Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: security-report.md
+          retention-days: 90
+      
+      # ============================================
+      # COMMENT ON PR (if PR)
+      # ============================================
+      
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && always()
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            try {
+              const report = fs.readFileSync('security-report.md', 'utf8');
+              
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: report
+              });
+              
+              console.log('✅ Security report posted to PR');
+            } catch (error) {
+              console.error('❌ Failed to post PR comment:', error.message);
+              console.log('Report is still available in artifacts');
+            }
+      
+      # ============================================
+      # SLACK/DISCORD NOTIFICATION (Optional)
+      # ============================================
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "::error::Security scan failed! Please review the findings above."
+          # Add Slack/Discord webhook notification here if needed
+
+  # ============================================
+  # DEPENDENCY LICENSE COMPLIANCE
+  # ============================================
+  
+  license-check:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install license checker
+        run: npm install -g license-checker
+      
+      - name: Check licenses
+        run: |
+          echo "Checking for incompatible licenses..."
+          license-checker --summary > licenses.txt
+          cat licenses.txt
+          
+          # Check for GPL licenses (if your project is proprietary)
+          if license-checker --production --onlyAllow 'MIT;Apache-2.0;BSD;ISC;0BSD' --excludePackages 'expo@*;react-native@*'; then
+            echo "✅ All licenses are compatible"
+          else
+            echo "::warning::Some packages have incompatible licenses. Please review."
+          fi
+      
+      - name: Upload license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-report
+          path: licenses.txt
+          retention-days: 30
+
+  # ============================================
+  # CODE QUALITY & LINTING
+  # ============================================
+  
+  code-quality:
+    name: Code Quality Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run ESLint (if configured)
+        run: |
+          if [ -f ".eslintrc.js" ] || [ -f ".eslintrc.json" ] || [ -f "eslint.config.js" ]; then
+            npm run lint || echo "::warning::Linting issues found"
+          else
+            echo "No ESLint configuration found"
+          fi
+        continue-on-error: true
+

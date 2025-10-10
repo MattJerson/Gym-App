@@ -9,32 +9,60 @@ import Sidebar from "./components/Sidebar";
 import Subscriptions from "./pages/Subscriptions";
 import Notifications from "./pages/Notifications";
 import FeaturedContent from "./pages/FeaturedContent";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Login from "./pages/Auth/Login";
+import TestLogin from "./pages/TestLogin";
+import { withAdminAuth } from "./middleware/adminAuth";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import IdleTimeout from "./components/IdleTimeout";
+
+// Protect all admin routes
+const ProtectedDashboard = withAdminAuth(Dashboard);
+const ProtectedUsers = withAdminAuth(Users);
+const ProtectedSubscriptions = withAdminAuth(Subscriptions);
+const ProtectedAnalytics = withAdminAuth(Analytics);
+const ProtectedNotifications = withAdminAuth(Notifications);
+const ProtectedBadges = withAdminAuth(Badges);
+const ProtectedWorkouts = withAdminAuth(Workouts);
+const ProtectedMeals = withAdminAuth(Meals);
+const ProtectedFeaturedContent = withAdminAuth(FeaturedContent);
 
 function App() {
   return (
     <BrowserRouter>
-      <div className="flex">
-        {/* Sidebar is hidden on mobile */}
-        <div className="md:block">
-          <Sidebar />
-        </div>
-
-        {/* Main Content */}
-        <main className="flex-1 md:ml-64 p-4 sm:p-6 bg-gray-100 min-h-screen">
-          <Routes>
-            <Route index element={<Dashboard />} />
-            <Route path="users" element={<Users />} />
-            <Route path="subscriptions" element={<Subscriptions />} />
-            <Route path="analytics" element={<Analytics />} />
-            <Route path="notifications" element={<Notifications />} />
-            <Route path="badges" element={<Badges />} />
-            <Route path="workouts" element={<Workouts />} />
-            <Route path="meals" element={<Meals />} />
-            <Route path="featured" element={<FeaturedContent />} />
-          </Routes>
-        </main>
-      </div>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/login" element={<Login />} />
+  <Route path="/test-login" element={<TestLogin />} />
+        
+        {/* Protected admin routes */}
+        <Route
+          path="/*"
+          element={
+            <IdleTimeout>
+            <div className="flex min-h-screen bg-gray-50">
+              {/* Sidebar - Fixed position */}
+              <Sidebar />
+              {/* Main Content - Full width, no margin (pages handle their own padding) */}
+              <main className="flex-1 overflow-x-hidden bg-gray-50">
+                <Routes>
+                  <Route index element={<ProtectedDashboard />} />
+                  <Route path="dashboard" element={<ProtectedDashboard />} />
+                  <Route path="users" element={<ProtectedUsers />} />
+                  <Route path="subscriptions" element={<ProtectedSubscriptions />} />
+                  <Route path="analytics" element={<ProtectedAnalytics />} />
+                  <Route path="notifications" element={<ProtectedNotifications />} />
+                  <Route path="badges" element={<ProtectedBadges />} />
+                  <Route path="workouts" element={<ProtectedWorkouts />} />
+                  <Route path="meals" element={<ProtectedMeals />} />
+                  <Route path="featured" element={<ProtectedFeaturedContent />} />
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
+              </main>
+            </div>
+            </IdleTimeout>
+          }
+        />
+      </Routes>
     </BrowserRouter>
   );
 }
