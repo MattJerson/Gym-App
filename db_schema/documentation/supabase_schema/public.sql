@@ -168,6 +168,16 @@ CREATE TABLE public.daily_meal_tracking (
   CONSTRAINT daily_meal_tracking_user_plan_id_fkey FOREIGN KEY (user_plan_id) REFERENCES public.user_meal_plans(id),
   CONSTRAINT daily_meal_tracking_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+CREATE TABLE public.device_tokens (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  expo_token text NOT NULL UNIQUE,
+  platform text CHECK (platform = ANY (ARRAY['ios'::text, 'android'::text, 'web'::text])),
+  installed_at timestamp with time zone DEFAULT now(),
+  last_seen_at timestamp with time zone,
+  CONSTRAINT device_tokens_pkey PRIMARY KEY (id),
+  CONSTRAINT device_tokens_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
 CREATE TABLE public.direct_messages (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   conversation_id uuid,
@@ -337,6 +347,18 @@ CREATE TABLE public.message_reactions (
   CONSTRAINT message_reactions_pkey PRIMARY KEY (id),
   CONSTRAINT message_reactions_message_id_fkey FOREIGN KEY (message_id) REFERENCES public.channel_messages(id),
   CONSTRAINT message_reactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.notifications (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  message text NOT NULL,
+  type text DEFAULT 'info'::text CHECK (type = ANY (ARRAY['info'::text, 'success'::text, 'warning'::text, 'error'::text])),
+  target_audience text DEFAULT 'all'::text,
+  status text DEFAULT 'draft'::text CHECK (status = ANY (ARRAY['draft'::text, 'scheduled'::text, 'sent'::text, 'failed'::text])),
+  scheduled_at timestamp with time zone,
+  sent_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT notifications_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.profiles (
   id uuid NOT NULL,

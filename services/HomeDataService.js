@@ -249,11 +249,14 @@ export const HomeDataService = {
         .eq('user_id', userId)
         .eq('is_read', false);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching notifications:', error.message || error);
+        throw error;
+      }
 
       return { count: count || 0 };
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error('Error fetching notifications:', error.message || error);
       return { count: 0 };
     }
   },

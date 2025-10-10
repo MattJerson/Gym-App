@@ -1,60 +1,157 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, Pressable, ScrollView, Animated } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { NotificationService } from "../services/NotificationService";
+import { supabase } from "../services/supabase";
 
-const NotificationBar = ({ notifications = 3 }) => {
+const NotificationBar = ({ notifications: initialCount = 0 }) => {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(initialCount);
+  const [userId, setUserId] = useState(null);
+  const [hasNewNotification, setHasNewNotification] = useState(false);
 
-  const mockNotifications = [
-    {
-      id: 1,
-      type: "workout",
-      icon: "fitness-outline",
-      title: "Workout Reminder",
-      message: "Time for your Push Day workout! 💪",
-      time: "5 min ago",
-      color: "#4CAF50",
-      unread: true,
-    },
-    {
-      id: 2,
-      type: "achievement",
-      icon: "trophy-outline",
-      title: "Achievement Unlocked!",
-      message: "You've completed 7 days in a row!",
-      time: "2 hrs ago",
-      color: "#FF9500",
-      unread: true,
-    },
-    {
-      id: 3,
-      type: "meal",
-      icon: "restaurant-outline",
-      title: "Meal Tracking",
-      message: "Don't forget to log your lunch today",
-      time: "4 hrs ago",
-      color: "#007AFF",
-      unread: false,
-    },
-    {
-      id: 4,
-      type: "workout",
-      icon: "fitness-outline",
-      title: "New Program Available",
-      message: "Check out the new 'Summer Shred' program.",
-      time: "1 day ago",
-      color: "#e74c3c",
-      unread: false,
-    },
-  ];
+  // Animation for bell icon when new notification arrives
+  const bellShake = useState(new Animated.Value(0))[0];
+
+  const shakeNotificationBell = () => {
+    setHasNewNotification(true);
+    Animated.sequence([
+      Animated.timing(bellShake, { toValue: 10, duration: 100, useNativeDriver: true }),
+      Animated.timing(bellShake, { toValue: -10, duration: 100, useNativeDriver: true }),
+      Animated.timing(bellShake, { toValue: 10, duration: 100, useNativeDriver: true }),
+      Animated.timing(bellShake, { toValue: 0, duration: 100, useNativeDriver: true })
+    ]).start(() => {
+      // Clear the new notification indicator after 3 seconds
+      setTimeout(() => setHasNewNotification(false), 3000);
+    });
+  };
+
+  // Get user ID
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) {
+          console.error('NotificationBar: Error getting user:', error);
+          return;
+        }
+        if (user) {
+          console.log('NotificationBar: User logged in:', user.id);
+          setUserId(user.id);
+        } else {
+          console.log('NotificationBar: No user logged in');
+        }
+      } catch (error) {
+        console.error('NotificationBar: Exception getting user:', error);
+      }
+    };
+    getUser();
+  }, []);
+
+  // Load notifications when user is available
+  useEffect(() => {
+    if (userId) {
+      loadNotifications();
+      
+      // Subscribe to real-time notifications
+      console.log('NotificationBar: Setting up real-time subscription...');
+      const subscription = NotificationService.subscribeToNotifications(
+        userId,
+        (newNotif) => {
+          console.log('NotificationBar: Received new notification via real-time:', newNotif.title);
+          
+          // Check if notification already exists (prevent duplicates)
+          setNotifications(prev => {
+            const exists = prev.some(n => n.id === newNotif.id);
+            if (exists) {
+              console.log('NotificationBar: Notification already exists, skipping');
+              return prev;
+            }
+            console.log('NotificationBar: Adding new notification to list');
+            return [newNotif, ...prev];
+          });
+          
+          // Increment unread count
+          setUnreadCount(prev => prev + 1);
+          
+          // Shake the bell icon to draw attention
+          shakeNotificationBell();
+        }
+      );
+
+      return () => {
+        console.log('NotificationBar: Cleaning up real-time subscription');
+        subscription.unsubscribe();
+      };
+    }
+  }, [userId]);
+
+  const loadNotifications = async () => {
+    if (!userId) {
+      console.log('NotificationBar: Cannot load notifications - no userId');
+      return;
+    }
+    
+    try {
+      console.log('NotificationBar: Loading notifications...');
+      const data = await NotificationService.fetchUserNotifications(userId, 10);
+      setNotifications(data);
+      
+      const count = await NotificationService.getUnreadCount(userId);
+      setUnreadCount(count);
+      console.log('NotificationBar: Loaded', data.length, 'notifications,', count, 'unread');
+    } catch (error) {
+      console.error('NotificationBar: Error loading notifications:', error);
+    }
+  };
+
+  const handleMarkAsRead = async (notificationId) => {
+    if (!userId) return;
+    await NotificationService.markAsRead(userId, notificationId);
+    setUnreadCount(prev => Math.max(0, prev - 1));
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (!userId) return;
+    await NotificationService.markAllAsRead(userId);
+    setUnreadCount(0);
+  };
 
   const getNotificationIcon = (type) => {
-    switch (type) {
-      case "workout": return "fitness-outline";
-      case "achievement": return "trophy-outline";
-      case "meal": return "restaurant-outline";
-      default: return "notifications-outline";
+    switch (type?.toLowerCase()) {
+      case "success": return "checkmark-circle-outline";
+      case "warning": return "warning-outline";
+      case "error": return "alert-circle-outline";
+      case "info":
+      default: return "information-circle-outline";
     }
+  };
+
+  const getNotificationColor = (type) => {
+    switch (type?.toLowerCase()) {
+      case "success": return "#4CAF50";
+      case "warning": return "#FF9500";
+      case "error": return "#e74c3c";
+      case "info":
+      default: return "#007AFF";
+    }
+  };
+
+  const formatTime = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return "Just now";
+    if (minutes < 60) return `${minutes} min ago`;
+    if (hours < 24) return `${hours} hr${hours > 1 ? 's' : ''} ago`;
+    if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
   };
 
   const toggleDropdown = () => {
@@ -68,10 +165,18 @@ const NotificationBar = ({ notifications = 3 }) => {
         style={styles.notificationButton} 
         onPress={toggleDropdown}
       >
-        <Ionicons name="notifications-outline" size={26} color="#fff" />
-        {notifications > 0 && (
+        <Animated.View style={{ transform: [{ rotate: bellShake.interpolate({
+          inputRange: [-10, 10],
+          outputRange: ['-10deg', '10deg']
+        })}]}}>
+          <Ionicons name="notifications-outline" size={26} color="#fff" />
+          {hasNewNotification && (
+            <View style={styles.newNotificationPulse} />
+          )}
+        </Animated.View>
+        {unreadCount > 0 && (
           <View style={styles.notificationBadge}>
-            <Text style={styles.notificationText}>{notifications}</Text>
+            <Text style={styles.notificationText}>{unreadCount}</Text>
           </View>
         )}
       </Pressable>
@@ -87,7 +192,7 @@ const NotificationBar = ({ notifications = 3 }) => {
             <Text style={styles.dropdownTitle}>Notifications</Text>
             <Pressable 
               style={styles.markAllButton}
-              onPress={() => {/* Handle mark all as read */}}
+              onPress={handleMarkAllAsRead}
             >
               <Text style={styles.markAllText}>Mark all read</Text>
             </Pressable>
@@ -99,38 +204,50 @@ const NotificationBar = ({ notifications = 3 }) => {
             showsVerticalScrollIndicator={false}
             nestedScrollEnabled={true}
           >
-            {mockNotifications.map((notification) => (
-              <Pressable 
-                key={notification.id} 
-                style={[
-                  styles.notificationItem,
-                  notification.unread && styles.unreadNotification
-                ]}
-                onPress={() => {/* Handle notification tap */}}
-              >
-                <View style={[styles.notificationIconContainer, { backgroundColor: notification.color }]}>
-                  <Ionicons 
-                    name={getNotificationIcon(notification.type)} 
-                    size={18} 
-                    color="#fff" 
-                  />
-                </View>
-                
-                <View style={styles.notificationContent}>
-                  <View style={styles.notificationHeader}>
-                    <Text style={styles.notificationTitle} numberOfLines={1}>
-                      {notification.title}
-                    </Text>
-                    <Text style={styles.notificationTime}>{notification.time}</Text>
+            {notifications.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="notifications-off-outline" size={48} color="#666" />
+                <Text style={styles.emptyText}>No notifications yet</Text>
+              </View>
+            ) : (
+              notifications.map((notification) => (
+                <Pressable 
+                  key={notification.id} 
+                  style={[
+                    styles.notificationItem,
+                    unreadCount > 0 && styles.unreadNotification
+                  ]}
+                  onPress={() => handleMarkAsRead(notification.id)}
+                >
+                  <View style={[
+                    styles.notificationIconContainer, 
+                    { backgroundColor: getNotificationColor(notification.type) }
+                  ]}>
+                    <Ionicons 
+                      name={getNotificationIcon(notification.type)} 
+                      size={18} 
+                      color="#fff" 
+                    />
                   </View>
-                  <Text style={styles.notificationMessage} numberOfLines={2}>
-                    {notification.message}
-                  </Text>
-                </View>
+                  
+                  <View style={styles.notificationContent}>
+                    <View style={styles.notificationHeader}>
+                      <Text style={styles.notificationTitle} numberOfLines={1}>
+                        {notification.title}
+                      </Text>
+                      <Text style={styles.notificationTime}>
+                        {formatTime(notification.created_at)}
+                      </Text>
+                    </View>
+                    <Text style={styles.notificationMessage} numberOfLines={2}>
+                      {notification.message}
+                    </Text>
+                  </View>
 
-                {notification.unread && <View style={styles.unreadDot} />}
-              </Pressable>
-            ))}
+                  {unreadCount > 0 && <View style={styles.unreadDot} />}
+                </Pressable>
+              ))
+            )}
           </ScrollView>
 
           {/* Footer */}
@@ -184,6 +301,21 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: "#fff",
     fontWeight: "bold",
+  },
+
+  // New notification pulse effect
+  newNotificationPulse: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#4CAF50",
+    shadowColor: "#4CAF50",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
   },
 
   // Dropdown Styles
@@ -304,6 +436,16 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginLeft: 8,
     flexShrink: 0,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 12,
   },
 
   // Footer Styles

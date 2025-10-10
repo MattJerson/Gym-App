@@ -1,3 +1,4 @@
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,18 +11,16 @@ import {
   TouchableWithoutFeedback,
   KeyboardAvoidingView,
   StatusBar,
-  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
-import React, { useState, useRef, useEffect } from "react";
 import { Alert } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import FormInput from "../../components/FormInput";
 import SubmitButton from "../../components/SubmitButton";
-import { supabase } from "../../services/supabase";
+import { supabase, pingSupabase } from "../../services/supabase";
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@env";
 
-/* -------------------- REGISTER SCREEN -------------------- */
+/* -------------------- REGISTER/LOGIN SCREEN -------------------- */
 export default function Register() {
   const router = useRouter();
   const [isRegistering, setIsRegistering] = useState(false);
@@ -41,15 +40,20 @@ export default function Register() {
   const formAnim = useRef(new Animated.Value(1)).current;
   const logoAnim = useRef(new Animated.Value(0)).current;
 
+  // Dev-only logger
+  const dlog = (...args) => {
+    if (__DEV__) console.log("[AUTH]", ...args);
+  };
+
   // Password strength
-  const getPasswordStrength = (password) => {
-    if (!password) return { strength: 0, text: "", color: "#666" };
+  const getPasswordStrength = (pwd) => {
+    if (!pwd) return { strength: 0, text: "", color: "#666" };
     let score = 0;
-    if (password.length >= 6) score += 1;
-    if (password.length >= 8) score += 1;
-    if (/[A-Z]/.test(password)) score += 1;
-    if (/[0-9]/.test(password)) score += 1;
-    if (/[^A-Za-z0-9]/.test(password)) score += 1;
+    if (pwd.length >= 6) score += 1;
+    if (pwd.length >= 8) score += 1;
+    if (/[A-Z]/.test(pwd)) score += 1;
+    if (/[0-9]/.test(pwd)) score += 1;
+    if (/[^A-Za-z0-9]/.test(pwd)) score += 1;
 
     const levels = [
       { strength: 0, text: "", color: "#666" },
@@ -65,7 +69,6 @@ export default function Register() {
 
   const passwordStrength = getPasswordStrength(password);
 
-  /* -------------------- EFFECTS -------------------- */
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -81,6 +84,19 @@ export default function Register() {
       }),
     ]).start();
   }, []);
+
+  const withTimeout = async (promise, ms, label = "request") => {
+    let timeoutId;
+    const timeoutPromise = new Promise((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error(`${label} timed out. Please try again.`)), ms);
+    });
+    try {
+      const result = await Promise.race([promise, timeoutPromise]);
+      return result;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
 
   /* -------------------- HANDLERS -------------------- */
   const handleToggle = async () => {
@@ -116,23 +132,24 @@ export default function Register() {
     setErrors({});
     let newErrors = {};
 
-    if (isRegistering) {
-      if (!nickname.trim()) newErrors.nickname = "Nickname is required.";
-    } else {
-      if (!email.trim()) newErrors.email = "Email is required.";
-      else if (!/\S+@\S+\.\S+/.test(email))
-        newErrors.email = "Invalid email format.";
-      if (!password.trim()) newErrors.password = "Password is required.";
+    // Email validation (both modes)
+    if (!email.trim()) {
+      newErrors.email = "Email is required.";
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = "Invalid email format.";
     }
 
+    // Password validation (both modes)
+    if (!password.trim()) {
+      newErrors.password = "Password is required.";
+    } else if (password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters.";
+    }
+
+    // Registration-specific validation
     if (isRegistering) {
-      if (password !== confirmPassword) {
-        newErrors.confirmPassword = "Passwords do not match.";
-      }
-      // enforce minimum password length before calling Supabase
-      if (!password || password.length < 6) {
-        newErrors.password = "Password must be at least 6 characters.";
-      }
+      if (!nickname.trim()) newErrors.nickname = "Nickname is required.";
+      if (password !== confirmPassword) newErrors.confirmPassword = "Passwords do not match.";
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -141,93 +158,216 @@ export default function Register() {
     }
 
     try {
+      dlog("handleSubmit start", {
+        isRegistering,
+        emailMasked: email?.replace(/(.{2}).+(@.*)/, "$1***$2"),
+      });
       setIsLoading(true);
       if (Platform.OS === "ios") {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
 
-      if (isRegistering) {
-        // Sign up using Supabase
-        const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { nickname } } });
-        if (error) {
-          // map common errors to friendly messages
-          if (error instanceof Error && error.message?.includes("Password should be at least")) {
-            throw new Error("Password must be at least 6 characters.");
-          }
-          throw error;
-        }
+      console.time("auth:ping");
+      const healthy = await pingSupabase(4000);
+      console.timeEnd("auth:ping");
+      dlog("pingSupabase", { healthy });
+      if (!healthy) throw new Error("Unable to reach the server. Check your internet connection or try again shortly.");
 
-        // If signup succeeded, update the user's display name / metadata
+      // Log Supabase client status
+      if (__DEV__) {
         try {
-          // supabase.auth.updateUser requires a valid session; signUp may or may not return a session depending on settings.
-          // Attempt to update the user's metadata (full_name) using the returned data if available.
-          if (data?.user) {
-            await supabase.auth.updateUser({ data: { full_name: nickname, nickname } });
+          dlog("getSession:start");
+          const { data: { session } } = await supabase.auth.getSession();
+          dlog("existing-session", { hasSession: !!session, userId: session?.user?.id });
+        } catch (e) {
+          dlog("session-check-error", e.message);
+        }
+      }
+
+      if (isRegistering) {
+        dlog("signup:begin");
+        try {
+          try {
+            console.time("auth:signup");
+            dlog("signup:calling:supabase.auth.signUp", { email });
+            const { data, error } = await withTimeout(
+              supabase.auth.signUp({ email, password, options: { data: { nickname } } }),
+              8000,
+              "Sign up"
+            );
+            dlog("signup:sdk:result", { ok: !error, hasUser: !!data?.user, error });
+            if (error) {
+              dlog("signup:sdk:error", error.message);
+              if (error instanceof Error && error.message?.includes("Password should be at least")) {
+                throw new Error("Password must be at least 6 characters.");
+              }
+              // Fallback: direct signup
+              try {
+                dlog("signup:fallback:start");
+                const controller = new AbortController();
+                const to = setTimeout(() => controller.abort(), 12000);
+                const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY },
+                  body: JSON.stringify({ email, password, data: { nickname } }),
+                  signal: controller.signal,
+                });
+                clearTimeout(to);
+                dlog("signup:fallback:status", res.status);
+                if (!res.ok) {
+                  const text = await res.text();
+                  dlog("signup:fallback:error", text);
+                  throw new Error(text || "Sign up failed");
+                }
+              } catch (e2) {
+                dlog("signup:fallback:exception", e2.message);
+                console.timeEnd("auth:signup");
+                throw error;
+              }
+            }
+            console.timeEnd("auth:signup");
+
+            dlog("signup:post:metadata", { hasUser: !!data?.user });
+            if (data?.user) {
+              try {
+                dlog("signup:post:updateUser:start");
+                // Always set full_name, nickname, and display_name in user_metadata
+                await withTimeout(
+                  supabase.auth.updateUser({ data: { full_name: nickname, nickname, display_name: nickname } }),
+                  8000,
+                  "Profile update"
+                );
+                dlog("signup:post:updateUser:done");
+              } catch (updateErr) {
+                dlog("signup:post:updateUser:error", updateErr.message);
+              }
+              // Create registration_profiles row
+              try {
+                dlog("creating:profile:rpc:start", { userId: data.user.id });
+                const { data: rpcData, error: profileError } = await supabase.rpc('create_profile_for_user', {
+                  user_id_param: data.user.id
+                });
+                dlog("creating:profile:rpc:done", { rpcData, profileError });
+                if (profileError) {
+                  dlog("profile:create:error", profileError.message);
+                } else {
+                  dlog("profile:created", { userId: data.user.id });
+                }
+              } catch (rpcErr) {
+                dlog("creating:profile:rpc:exception", rpcErr.message);
+              }
+            }
+          } catch (innerErr) {
+            dlog("signup:catchall:exception", String(innerErr?.message || innerErr));
+            throw innerErr;
           }
         } catch (upErr) {
+          dlog("signup:post:exception", upErr.message);
           console.warn("Failed to update user metadata:", upErr);
-          // non-fatal; continue to registration process
         }
 
-        // Redirect to registration process (if you have extra steps)
-        router.push("/features/registrationprocess");      } else {
-        // Sign in using Supabase
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        router.push("/features/registrationprocess");
+      } else {
+        // SDK sign-in with timeout
+        dlog("signin:start");
+        dlog("Supabase URL/ANON", { url: SUPABASE_URL, anon: SUPABASE_ANON_KEY });
+        console.time("auth:signin");
+        const { data, error: sdkErr } = await withTimeout(
+          supabase.auth.signInWithPassword({ email, password }),
+          15000,
+          "Sign in"
+        );
+        console.timeEnd("auth:signin");
+        if (sdkErr) {
+          dlog("signin:sdk:fail", { 
+            message: sdkErr.message, 
+            status: sdkErr.status,
+            code: sdkErr.code,
+            name: sdkErr.name
+          });
+          throw sdkErr;
+        }
+        dlog("signin:sdk:ok", { userId: data?.user?.id });
 
-        // Check if user has completed essential registration fields
-        if (data?.user?.id) {
-          console.log('Checking registration profile for user:', data.user.id);
-          
-          const { data: profileData, error: profileError } = await supabase
-            .from('registration_profiles')
-            .select('*')
-            .eq('user_id', data.user.id)
-            .single();
-          
-          if (profileError) {
-            console.log('Profile error:', profileError);
+        // After login, if display name is missing, set it from registration_profiles or fallback to email
+        dlog("login:post:updateUser:step");
+        try {
+          dlog("login:post:updateUser:start");
+          // Try to get nickname from registration_profiles
+          let nickname = null;
+          try {
+            const { data: profile } = await supabase
+              .from("registration_profiles")
+              .select("nickname")
+              .eq("user_id", data.user.id)
+              .maybeSingle();
+            dlog("login:post:updateUser:profile", { profile });
+            nickname = profile?.nickname || data.user.email?.split("@") [0] || "User";
+          } catch (e) {
+            dlog("login:post:updateUser:profile:error", String(e?.message || e));
+            nickname = data.user.email?.split("@") [0] || "User";
           }
-          if (profileData) {
-            console.log('Profile data found:', {
-              gender: profileData.gender,
-              fitness_goal: profileData.fitness_goal,
-              height_cm: profileData.height_cm,
-              weight_kg: profileData.weight_kg
-            });
+          await withTimeout(
+            supabase.auth.updateUser({ data: { full_name: nickname, nickname, display_name: nickname } }),
+            8000,
+            "Profile update (login)"
+          );
+          dlog("login:post:updateUser:done", { nickname });
+        } catch (updateErr) {
+          dlog("login:post:updateUser:error", String(updateErr?.message || updateErr));
+        }
+
+        // Check if onboarding is complete (with DB function, profile will be created if missing)
+        dlog("onboarding:check:step");
+        try {
+          // First, ensure profile exists (for existing users who signed up before this fix)
+          dlog("ensuring:profile:rpc:start", { userId: data.user.id });
+          const { data: rpcData, error: rpcError } = await supabase.rpc('create_profile_for_user', {
+            user_id_param: data.user.id
+          });
+          dlog("ensuring:profile:rpc:done", { rpcData, rpcError });
+          // Now check onboarding status
+          dlog("profile:check:select:start", { userId: data.user.id });
+          const { data: profile, error: selectError } = await supabase
+            .from("registration_profiles")
+            .select("onboarding_completed")
+            .eq("user_id", data.user.id)
+            .maybeSingle();
+          dlog("profile:check:select:done", { hasProfile: !!profile, onboardingComplete: profile?.onboarding_completed, selectError });
+          if (!profile || !profile.onboarding_completed) {
+            // Onboarding not complete, go to registration flow
+            dlog("nav:to:registrationprocess");
+            try {
+              router.replace("/features/registrationprocess");
+              dlog("nav:to:registrationprocess:done");
+            } catch (navErr) {
+              dlog("nav:to:registrationprocess:error", String(navErr?.message || navErr));
+            }
+          } else {
+            // Onboarding complete, go to home
+            dlog("nav:to:home");
+            try {
+              router.replace("/page/home");
+              dlog("nav:to:home:done");
+            } catch (navErr) {
+              dlog("nav:to:home:error", String(navErr?.message || navErr));
+            }
           }
-          
-          // Define essential fields from Basic Info step (first step)
-          const essentialFields = ['gender', 'fitness_goal', 'height_cm', 'weight_kg'];
-          
-          // Check if profile exists and has all essential fields filled
-          const hasEssentialFields = profileData && 
-            essentialFields.every(field => {
-              const value = profileData[field];
-              const isValid = value != null && value !== '';
-              console.log(`Field ${field}: ${value} - Valid: ${isValid}`);
-              return isValid;
-            });
-          
-          console.log('Has essential fields:', hasEssentialFields);
-          
-          // If no profile exists or essential fields are missing, redirect to registration
-          if (profileError || !hasEssentialFields) {
-            console.log('Registration incomplete, redirecting to registration process');
+        } catch (err) {
+          dlog("profile:check:exception", String(err?.message || err));
+          try {
             router.replace("/features/registrationprocess");
-            return;
+            dlog("profile:check:exception:navdone");
+          } catch (navErr) {
+            dlog("profile:check:exception:naverror", String(navErr?.message || navErr));
           }
         }
-
-        // On success navigate to app home
-        console.log('Login successful, navigating to home');
-        router.replace("/page/home");
       }
     } catch (error) {
-      console.error("Authentication error:", error);
-      // show friendly alert
+      dlog("Authentication error:", String(error?.message || error));
       Alert.alert("Authentication error", error.message || "An error occurred");
     } finally {
+      dlog("handleSubmit:end");
       setIsLoading(false);
     }
   };
@@ -236,10 +376,7 @@ export default function Register() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0B0B0B" />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardAvoidingView}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardAvoidingView}>
         <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
           {/* Header */}
           <Animated.View
@@ -249,30 +386,19 @@ export default function Register() {
                 opacity: logoAnim,
                 transform: [
                   {
-                    translateY: logoAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [-50, 0],
-                    }),
+                    translateY: logoAnim.interpolate({ inputRange: [0, 1], outputRange: [-50, 0] }),
                   },
                 ],
-                // Allow touches to pass through header (prevents iOS autofill or overlay from blocking inputs)
                 pointerEvents: "none",
               },
             ]}
           >
             <View style={styles.logoContainer}>
-              <Image
-                source={require("../../assets/logo.png")}
-                style={styles.logo}
-              />
+              <Image source={require("../../assets/logo.png")} style={styles.logo} />
             </View>
-            <Text style={styles.welcomeText}>
-              {isRegistering ? "Create Account" : "Welcome Back"}
-            </Text>
+            <Text style={styles.welcomeText}>{isRegistering ? "Create Account" : "Welcome Back"}</Text>
             <Text style={styles.subtitleText}>
-              {isRegistering
-                ? "Start your fitness journey and see your growth"
-                : "Sign in to continue your fitness journey"}
+              {isRegistering ? "Start your fitness journey and see your growth" : "Sign in to continue your fitness journey"}
             </Text>
           </Animated.View>
 
@@ -280,70 +406,33 @@ export default function Register() {
           <Animated.View
             style={[
               styles.formContainer,
-              {
-                opacity: formAnim,
-                transform: [
-                  {
-                    translateY: formAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [30, 0],
-                    }),
-                  },
-                ],
-              },
+              { opacity: formAnim, transform: [{ translateY: formAnim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }] },
             ]}
           >
             {isRegistering && (
-              <FormInput
-                placeholder="Nickname"
-                value={nickname}
-                onChangeText={setNickname}
-                errorMessage={errors.nickname}
-              />
+              <FormInput placeholder="Nickname" value={nickname} onChangeText={setNickname} errorMessage={errors.nickname} />
             )}
-            <FormInput
-              placeholder="Email Address"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              errorMessage={errors.email}
-            />
+            <FormInput placeholder="Email Address" value={email} onChangeText={setEmail} keyboardType="email-address" errorMessage={errors.email} />
             <FormInput
               placeholder="Password"
               value={password}
               onChangeText={setPassword}
               isPassword
               errorMessage={errors.password}
-              // opt-out of iOS/Android autofill for the password field
               textContentType="none"
               autoComplete="off"
               importantForAutofill="no"
             />
 
-            {/* Password Strength Bar */}
             {isRegistering && password.length > 0 && (
               <View style={styles.passwordStrengthContainer}>
                 <View style={styles.passwordStrengthBar}>
-                  <View
-                    style={[
-                      styles.passwordStrengthFill,
-                      {
-                        width: `${(passwordStrength.strength / 5) * 100}%`,
-                        backgroundColor: passwordStrength.color,
-                      },
-                    ]}
-                  />
+                  <View style={[styles.passwordStrengthFill, { width: `${(passwordStrength.strength / 5) * 100}%`, backgroundColor: passwordStrength.color }]} />
                 </View>
-                <Text
-                  style={[
-                    styles.passwordStrengthText,
-                    { color: passwordStrength.color },
-                  ]}
-                >
-                  {passwordStrength.text}
-                </Text>
+                <Text style={[styles.passwordStrengthText, { color: passwordStrength.color }]}>{passwordStrength.text}</Text>
               </View>
             )}
+
             {isRegistering && (
               <FormInput
                 placeholder="Confirm Password"
@@ -357,7 +446,7 @@ export default function Register() {
               />
             )}
 
-            {/* Submit Button */}
+
             <SubmitButton
               text={isRegistering ? "Create Account" : "Sign In"}
               onPress={handleSubmit}
@@ -367,27 +456,34 @@ export default function Register() {
               variant="solid"
             />
 
-            {/* Toggle */}
+            {/* Minimal login test button for debugging */}
+            {!isRegistering && (
+              <Pressable
+                style={{ marginTop: 12, padding: 12, backgroundColor: '#e0e0e0', borderRadius: 8 }}
+                onPress={async () => {
+                  dlog("testMinimalLogin:start", { email });
+                  try {
+                    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+                    dlog("testMinimalLogin:result", { user: data?.user, error });
+                  } catch (err) {
+                    dlog("testMinimalLogin:exception", String(err?.message || err));
+                  }
+                }}
+              >
+                <Text style={{ color: '#333', textAlign: 'center' }}>Test Minimal Login (Debug)</Text>
+              </Pressable>
+            )}
+
             <Pressable style={styles.toggleContainer} onPress={handleToggle}>
               <Text style={styles.toggleText}>
-                {isRegistering
-                  ? "Already have an account? "
-                  : "Don't have an account? "}
-                <Text style={styles.toggleTextHighlight}>
-                  {isRegistering ? "Sign In" : "Sign Up"}
-                </Text>
+                {isRegistering ? "Already have an account? " : "Don't have an account? "}
+                <Text style={styles.toggleTextHighlight}>{isRegistering ? "Sign In" : "Sign Up"}</Text>
               </Text>
             </Pressable>
 
-            {/* Forgot Password */}
             {!isRegistering && (
-              <Pressable
-                style={styles.forgotPasswordContainer}
-                onPress={() => router.push("/auth/passwordresetprocess")}
-              >
-                <Text style={styles.forgotPasswordText}>
-                  Forgot Password?
-                </Text>
+              <Pressable style={styles.forgotPasswordContainer} onPress={() => router.push("/auth/passwordresetprocess")}>
+                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
               </Pressable>
             )}
           </Animated.View>
@@ -399,102 +495,23 @@ export default function Register() {
 
 /* -------------------- STYLES -------------------- */
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#0B0B0B",
-  },
-  keyboardAvoidingView: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 20,
-  },
-  content: {
-    width: "100%",
-    alignItems: "center",
-    maxWidth: 400,
-  },
-  headerSection: {
-    position: "absolute",
-    alignItems: "center",
-  },
-  logoContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logo: {
-    width: 180,
-    height: 180,
-    resizeMode: "contain",
-  },
-  welcomeText: {
-    fontSize: 32,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  submitButtonSolid: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    backgroundColor: "#5994d7ff", // solid middle color
-  },
-
-  subtitleText: {
-    fontSize: 12,
-    color: "#999",
-    textAlign: "center",
-    lineHeight: 22,
-    maxWidth: 280,
-  },
-  formContainer: {
-    width: "100%",
-    alignItems: "center",
-    marginTop: 280,
-  },
-  toggleContainer: {
-    paddingVertical: 16,
-  },
-  toggleText: {
-    fontSize: 16,
-    color: "#999",
-    textAlign: "center",
-  },
-  toggleTextHighlight: {
-    color: "#4590e6ff",
-    fontWeight: "bold",
-  },
-  forgotPasswordContainer: {
-    paddingVertical: 12,
-  },
-  forgotPasswordText: {
-    fontSize: 16,
-    color: "#4590e6ff",
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  passwordStrengthContainer: {
-    width: "100%",
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
-  passwordStrengthBar: {
-    height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    borderRadius: 2,
-    marginBottom: 8,
-    overflow: "hidden",
-  },
-  passwordStrengthFill: {
-    height: "100%",
-    borderRadius: 2,
-  },
-  passwordStrengthText: {
-    fontSize: 12,
-    fontWeight: "600",
-    textAlign: "center",
-  },
+  container: { flex: 1, backgroundColor: "#0B0B0B" },
+  keyboardAvoidingView: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 20 },
+  content: { width: "100%", alignItems: "center", maxWidth: 400 },
+  headerSection: { position: "absolute", alignItems: "center" },
+  logoContainer: { alignItems: "center", justifyContent: "center" },
+  logo: { width: 180, height: 180, resizeMode: "contain" },
+  welcomeText: { fontSize: 32, fontWeight: "bold", color: "#fff", marginBottom: 8, textAlign: "center" },
+  submitButtonSolid: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingHorizontal: 24, backgroundColor: "#5994d7ff" },
+  subtitleText: { fontSize: 12, color: "#999", textAlign: "center", lineHeight: 22, maxWidth: 280 },
+  formContainer: { width: "100%", alignItems: "center", marginTop: 280 },
+  toggleContainer: { paddingVertical: 16 },
+  toggleText: { fontSize: 16, color: "#999", textAlign: "center" },
+  toggleTextHighlight: { color: "#4590e6ff", fontWeight: "bold" },
+  forgotPasswordContainer: { paddingVertical: 12 },
+  forgotPasswordText: { fontSize: 16, color: "#4590e6ff", fontWeight: "600", textAlign: "center" },
+  passwordStrengthContainer: { width: "100%", marginBottom: 16, paddingHorizontal: 4 },
+  passwordStrengthBar: { height: 4, backgroundColor: "rgba(255, 255, 255, 0.1)", borderRadius: 2, marginBottom: 8, overflow: "hidden" },
+  passwordStrengthFill: { height: "100%", borderRadius: 2 },
+  passwordStrengthText: { fontSize: 12, fontWeight: "600", textAlign: "center" },
 });

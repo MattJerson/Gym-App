@@ -1,254 +1,187 @@
-# 🏋️‍♂️ Gym App
+# Gym App Monorepo Guide
 
-A comprehensive fitness tracking and nutrition management application built with React Native and Expo, featuring a modern dark UI and data-driven architecture.
+A single repository for the mobile app (Expo/React Native), the admin dashboard (Vite/React), and the Supabase backend (SQL migrations + Edge Functions).
 
-![Gym App Logo](./assets/logo.png)
+## Overview
+- Mobile app: Expo (React Native) for iOS/Android/Web
+- Admin dashboard: React + Vite
+- Backend: Supabase (Postgres + RLS + PostgREST + Edge Functions)
+- Data model: workout tracking, nutrition, social, gamification
 
-## ✨ Features
+## Architecture
+- Clients
+   - Mobile: `expo-router` app under repository root (entry: `expo-router/entry`)
+   - Admin: `admin/` React app using Vite and `@supabase/supabase-js`
+- Backend
+   - Database migrations: `supabase/migrations/*.sql`
+   - Edge Functions: `supabase/functions/*`
+- Security
+   - Row Level Security on all user data tables
+   - Views favor `security_invoker` and avoid joining `auth.users` directly
+   - Functions have pinned `search_path`
+   - Client keys: Anon key only; service role never ships to clients
 
-### 🏠 **Home Dashboard**
-- **Daily Progress Tracking**: Visual progress circles for workouts, steps, and calories
-- **Quick Start Workouts**: Fast access to popular workout routines
-- **Recent Activity Feed**: Track your latest fitness activities
-- **Featured Video Content**: Curated workout videos and tutorials
-- **Workout Streak Tracking**: Monitor consistency with streak counters
+## Features
+- User onboarding with persisted draft and hydration
+- Workout sessions, exercise sets, personal records
+- Nutrition: meals, plans, food database (with server-side proxy for external API)
+- Social: posts, messages, reactions
+- Gamification: badges, challenges, weekly leaderboards
+- Admin: analytics, user overview, notifications
 
-### 🍽️ **Meal Planning**
-- **Macro Tracking**: Comprehensive tracking of proteins, carbs, fats, and calories
-- **Daily Meal Management**: Plan and track breakfast, lunch, dinner, and snacks
-- **Recent Meals**: Quick access to frequently eaten foods
-- **Food Database**: Extensive food search and nutrition information
-- **Weekly Meal Planning**: Plan meals in advance for the entire week
-- **Dietary Preferences**: Support for various dietary restrictions and preferences
-
-### 💪 **Training & Workouts**
-- **Workout Library**: Browse from a variety of strength, cardio, and specialized workouts
-- **Continue Workout**: Resume in-progress workout sessions
-- **Today's Workout**: Personalized daily workout recommendations
-- **Exercise Library**: Comprehensive database of exercises with instructions
-- **Workout Progress**: Track sets, reps, weights, and workout duration
-- **Recent Workouts**: View workout history and performance trends
-
-### 📅 **Calendar & Analytics**
-- **Workout Calendar**: Visual calendar showing workout history and streaks
-- **Progress Charts**: Track weight, body fat, and other metrics over time
-- **Steps Analytics**: Daily and weekly step tracking with bar graphs
-- **Activity Analytics**: Comprehensive overview of fitness activities
-- **Goal Setting**: Set and track fitness goals
-- **Streak Visualization**: See workout consistency patterns
-
-### 👤 **User Management**
-- **Profile Management**: Comprehensive user profiles with fitness goals
-- **Body Composition Tracking**: Monitor body fat percentage and physical changes
-- **Registration Process**: Step-by-step onboarding with personalized setup
-- **Subscription Management**: Handle premium features and billing
-- **Settings & Preferences**: Customize app experience and notifications
-
-### 🔧 **Admin Dashboard**
-- **User Analytics**: Monitor user engagement and app usage
-- **Content Management**: Manage workouts, meals, and educational content
-- **Subscription Management**: Handle user subscriptions and billing
-- **Chat Support**: Built-in support system for user assistance
-- **Badge System**: Gamification features for user motivation
-
-## 🏗️ Architecture
-
-### **Data-Driven Design**
-- **Service Layer**: Centralized data services for Calendar, MealPlan, and Training modules
-- **Component Separation**: Clear separation between UI components and data logic
-- **Mock Data Integration**: Ready for backend integration with comprehensive mock data
-- **Real-time Updates**: Optimistic UI updates with proper error handling
-
-### **Tech Stack**
-- **Frontend**: React Native with Expo
-- **Navigation**: Expo Router for file-based routing
-- **UI Components**: Custom components with consistent design system
-- **Charts**: React Native Chart Kit for data visualization
-- **Notifications**: Expo Notifications for push notifications
-- **Authentication**: Firebase Authentication
-- **State Management**: React hooks with centralized data services
-
-## 🚀 Planned Features
-
-### **Backend Integration**
-- **Supabase Database**: Complete backend migration to Supabase for data persistence
-- **Real-time Sync**: Synchronization across devices with real-time updates
-- **User Authentication**: Enhanced authentication and user management
-- **Cloud Storage**: Exercise videos and user-generated content storage
-- **API Integration**: RESTful APIs for all data operations
-
-### **Enhanced Features**
-- **AI Workout Recommendations**: Personalized workout suggestions based on user history
-- **Social Features**: Connect with friends and share progress
-- **Wearable Integration**: Sync with fitness trackers and smartwatches
-- **Video Workouts**: Integrated video streaming for guided workouts
-- **Nutrition AI**: Smart meal recommendations based on fitness goals
-
-## 🚀 Quick Start Guide
-
-### Prerequisites
-
-Before you begin, ensure you have the following installed:
-- **Node.js** (v16 or higher)
-- **npm** or **yarn**
-- **Expo CLI**: `npm install -g expo-cli`
-- **Expo Go app** on your mobile device (for testing)
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/MattJerson/Gym-App.git
-   cd Gym-App
-   ```
-
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment configuration**
-   ```bash
-   # Copy the example environment file
-   cp .env.example .env
-   
-   # Edit .env with your configuration
-   # Add your Firebase configuration details
-   ```
-
-4. **Start the development server**
-   ```bash
-   npm start
-   ```
-
-5. **Run on your device**
-   - **iOS**: `npm run ios` (requires Xcode)
-   - **Android**: `npm run android` (requires Android Studio)
-   - **Web**: `npm run web`
-   - **Expo Go**: Scan the QR code with your device
-
-### Admin Dashboard Setup
-
-The app includes a separate admin dashboard built with React and Vite:
-
-1. **Navigate to admin directory**
-   ```bash
-   cd admin
-   ```
-
-2. **Install admin dependencies**
-   ```bash
-   npm install
-   ```
-
-3. **Start admin development server**
-   ```bash
-   npm run dev
-   ```
-
-4. **Access admin dashboard**
-   - Open `http://localhost:5173` in your browser
-
-### Firebase Configuration
-
-1. **Create a Firebase project** at [Firebase Console](https://console.firebase.google.com/)
-
-2. **Enable Authentication and Firestore**
-
-3. **Copy configuration** to `app/config/firebaseconfig.js`:
-   ```javascript
-   const firebaseConfig = {
-     apiKey: "your-api-key",
-     authDomain: "your-auth-domain",
-     projectId: "your-project-id",
-     storageBucket: "your-storage-bucket",
-     messagingSenderId: "your-messaging-sender-id",
-     appId: "your-app-id"
-   };
-   ```
-
-### Project Structure
-
-```
-gym-app/
-├── app/                    # Main application screens
-│   ├── auth/              # Authentication screens
-│   ├── features/          # Feature-specific screens
-│   ├── page/              # Main app pages
-│   ├── settings/          # Settings screens
-│   └── training/          # Training-related screens
-├── admin/                 # Admin dashboard (React/Vite)
-├── components/            # Reusable UI components
-├── services/              # Data services and API calls
-├── assets/                # Images and static assets
-└── supabase/             # Supabase configuration
-```
-
-### Development Tips
-
-1. **Hot Reload**: Changes automatically reload in Expo Go
-2. **Component Development**: Each feature has its own component folder
-3. **Data Services**: Mock data is available in `/services` folder
-4. **Styling**: Consistent design system with dark theme
-5. **Navigation**: File-based routing with Expo Router
-
-### Building for Production
-
-1. **Build the app**
-   ```bash
-   npm run build
-   ```
-
-2. **Create production builds**
-   ```bash
-   # For iOS
-   expo build:ios
-   
-   # For Android
-   expo build:android
-   ```
-
-### Troubleshooting
-
-- **Metro bundler issues**: `npm start -- --clear`
-- **Node modules issues**: `rm -rf node_modules && npm install`
-- **iOS simulator issues**: Reset simulator in Xcode
-- **Android issues**: Check Android SDK configuration
-
-## 📱 Screenshots
-
-*Coming soon - Screenshots of the app in action*
-
-## 🤝 Contributing
-
-We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- Built with [Expo](https://expo.dev/)
-- UI Icons from [Expo Vector Icons](https://icons.expo.fyi/)
-- Charts powered by [React Native Chart Kit](https://github.com/indiespirit/react-native-chart-kit)
-- Authentication via [Firebase](https://firebase.google.com/)
-
-## 📞 Support
-
-For support, email support@gymapp.com or join our Discord community.
+## Tech Stack
+- Frontend: React Native (Expo), React (Vite), TypeScript-friendly
+- Backend: Supabase (Postgres, RLS, PostgREST, Edge Functions – Deno)
+- Storage: AsyncStorage (mobile); optional secure storage adapter
+- Tooling: NPM/Expo; SQL migrations in repo
 
 ---
 
+## Getting Started
 
-015f7b
-1e3a5f
-b9e3e6
-288477
-00c6ac
+### Prerequisites
+- Node.js LTS and a package manager (npm/yarn/pnpm)
+- Expo CLI (`npx expo`)
+- A Supabase project (URL + anon key; service role kept server-side only)
+
+### Environment Variables
+Create a `.env` for the mobile app (loaded via `react-native-dotenv`):
+
+```
+# Mobile (Expo)
+SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+```
+
+Create `admin/.env` for the admin site (Vite variables):
+
+```
+# Admin (Vite)
+VITE_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY
+# Do NOT set VITE_SUPABASE_SERVICE_ROLE_KEY in client envs
+```
+
+If using the FoodData proxy Edge Function, store its upstream secret in Supabase secrets (not in the repo):
+- In Supabase: `supabase functions secrets set FOODDATA_API_KEY=your_usda_key`
+
+### Install
+- Root/mobile app (monorepo root): install dependencies, then start the Expo dev server
+- Admin app: `cd admin` → install → dev server
+
+Tip: Start Expo with `npm start` (or `npx expo start`). Do not run `npm expo start`.
+
+### Run
+- Mobile (from repo root): `npm start` then choose iOS/Android/Web
+- Admin (from `admin/`): `npm run dev`
+
+---
+
+## Supabase: Database & Functions
+
+### Migrations
+- SQL migrations live in `supabase/migrations/`
+- Notable files:
+   - `999_security_fixes.sql`: security hardening (views, `security_invoker`, `search_path`, enriched views)
+   - `010_performance_indexes.sql`: covering indexes for unindexed foreign keys
+   - `012_composite_policy_indexes.sql`: composite indexes for common query/RLS patterns
+   - `011_optional_index_maintenance.sql`: commented DBA guidance for pruning unused indexes
+
+How to apply:
+- Use Supabase Studio SQL editor (paste/run) or your preferred migration runner
+- Migrations are additive and idempotent (use `IF NOT EXISTS` and guards)
+
+### Edge Functions
+- Example: `supabase/functions/fooddata_proxy/index.ts`
+   - Proxies external FoodData API server-side
+   - Input validation, per-IP rate limiting, and CORS
+   - Requires `FOODDATA_API_KEY` secret set in the project
+
+---
+
+## Security
+- RLS enforced; clients use anon key only
+- Admin dashboard authorized via user session + RLS (no service role on client)
+- Views set to `security_invoker` where possible; avoid exposing `auth.users`
+- Functions have pinned `search_path` (`pg_catalog, public`)
+- Admin idle-timeout sign-out implemented
+- Edge proxy holds sensitive external API keys
+
+Rules of thumb
+- Never embed the service role key in the mobile or admin bundle
+- Rotate keys periodically; use project secrets and environment variables
+- Prefer secure storage for tokens on device (see Token Storage)
+
+### Token Storage
+- Mobile uses `AsyncStorage` by default; for stronger security switch to a secure storage adapter (Keychain/Keystore via Expo SecureStore) that implements `getItem/setItem/removeItem` and pass it to `createClient` as `auth.storage`
+
+---
+
+## Performance
+- Foreign key covering indexes: `010_performance_indexes.sql`
+- Composite query indexes: `012_composite_policy_indexes.sql`
+- DBA notes: `DB_PERFORMANCE_PLAYBOOK.md` and optional `011_optional_index_maintenance.sql`
+- Admin queries prefer enriched read-only views to avoid deep PostgREST embeds
+
+---
+
+## Admin Dashboard Data Sources
+- Use RPCs or enriched views:
+   - `user_subscriptions_enriched`
+   - `user_stats_enriched`
+   - `workout_logs_enriched`
+   - `safe_weekly_leaderboard` for public leaderboard
+
+These avoid direct joins to `auth.users` and align with RLS.
+
+---
+
+## Troubleshooting
+
+Refresh token not found (mobile)
+- Ensure `auth.storage` is set (AsyncStorage or secure adapter)
+- Confirm env vars resolve at runtime (log `SUPABASE_URL`/`SUPABASE_ANON_KEY` once)
+- Enable `auth.debug: true` temporarily to observe refresh behavior
+- Inspect AsyncStorage for a session key that includes a `refresh_token`
+- If missing/expired, prompt re-authentication; review Supabase Auth rotation/expiry
+
+Expo start fails
+- Use `npm start` or `npx expo start` from the repo root
+- Do not run `npm expo start`
+
+SQL migration errors (relation does not exist)
+- Use guarded migrations (as in `012_composite_policy_indexes.sql`) that check table/column existence
+- If live table names differ (e.g., `channel_messages` vs `chat_messages`), keep both guarded branches
+
+Advisor warnings
+- Many `auth_rls_init_plan_*` and `multiple_permissive_policies_*` messages are informational
+- Focus on real query performance and security; the index migrations address planner needs
+
+---
+
+## Deployment (high level)
+- Mobile: EAS Build/Submit (configure app.json/app.config and env for runtime)
+- Admin: Vite build → host static assets (Netlify/Vercel/S3 + CDN)
+- Backend: SQL migrations applied in Supabase; Edge Functions deployed via Supabase CLI/Studio
+
+---
+
+## Roadmap / Future Improvements
+- Migrate mobile auth tokens to secure storage adapter
+- Enable monitoring/alerts: p95 latency, error rates, and Sentry (PII-scrubbed)
+- Add read replica for analytics-heavy pages if needed
+- Apply CI security tooling: Secret scanning, Dependabot, CodeQL
+- Load testing (k6/Gatling) for key user journeys
+- Consider partitioning high-churn tables if growth demands it (e.g., logs)
+
+---
+
+## Key Paths
+- Mobile Supabase client: `services/supabase.js`
+- Admin Supabase client: `admin/src/lib/supabase.js`
+- Performance migrations: `supabase/migrations/010_*.sql`, `012_*.sql`
+- Security hardening: `supabase/migrations/999_security_fixes.sql`
+- Edge function (FoodData proxy): `supabase/functions/fooddata_proxy/index.ts`
+
+## License
+Internal project. Do not distribute keys or credentials.

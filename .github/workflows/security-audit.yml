@@ -101,9 +101,13 @@ jobs:
         run: |
           echo "Checking for service_role key in client code..."
           
-          # Check for service_role in JavaScript files (excluding documentation)
+          # Check for service_role in JavaScript files (excluding server-side code and documentation)
+          # Note: supabase/functions are Edge Functions (server-side), so they're excluded
           if grep -r "service_role" --include="*.js" --include="*.jsx" --include="*.ts" --include="*.tsx" \
-             --exclude-dir=node_modules --exclude-dir=documentation . ; then
+             --exclude-dir=node_modules \
+             --exclude-dir=documentation \
+             --exclude-dir=supabase \
+             . ; then
             echo "::error::service_role key found in client-side code!"
             exit 1
           fi
@@ -190,9 +194,9 @@ jobs:
           echo "Checking mobile app Supabase configuration..."
           
           if [ -f "services/supabase.js" ]; then
-            # Ensure mobile app uses anon key, not service_role
-            if grep -q "service_role\|SERVICE_ROLE" services/supabase.js; then
-              echo "::error::Mobile app should use anon key, not service_role key!"
+            # Ensure mobile app uses anon key, not elevated keys
+            if grep -iE "SERVICE_ROLE|service.role" services/supabase.js; then
+              echo "::error::Mobile app should use anon key, not elevated keys!"
               exit 1
             fi
             
