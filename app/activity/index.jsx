@@ -1,31 +1,26 @@
 import {
   View,
   Text,
+  Alert,
+  Modal,
+  TextInput,
   Pressable,
   StyleSheet,
   ScrollView,
-  TextInput,
-  Modal,
-  Alert,
   ActivityIndicator,
 } from "react-native";
-import {
-  Ionicons,
-  FontAwesome5,
-  MaterialIcons,
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { supabase } from "../../services/supabase";
 import { useState, useEffect, useMemo } from "react";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import NotificationBar from "../../components/NotificationBar";
 import ActivityRow from "../../components/activity/ActivityRow";
 import { ActivityLogDataService } from "../../services/ActivityLogDataService";
-import { supabase } from "../../services/supabase";
 
 export default function ActivityLog() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  
+
   // State management
   const [activities, setActivities] = useState([]);
   const [filteredActivities, setFilteredActivities] = useState([]);
@@ -41,7 +36,12 @@ export default function ActivityLog() {
   const filterOptions = [
     { id: "all", label: "All Activity", icon: "apps", color: "#1e3a5f" },
     { id: "workout", label: "Workouts", icon: "fitness", color: "#015f7b" },
-    { id: "nutrition", label: "Nutrition", icon: "restaurant", color: "#288477" },
+    {
+      id: "nutrition",
+      label: "Nutrition",
+      icon: "restaurant",
+      color: "#288477",
+    },
   ];
 
   const timeRangeOptions = [
@@ -55,7 +55,9 @@ export default function ActivityLog() {
   // Get user ID on mount
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
       }
@@ -84,7 +86,9 @@ export default function ActivityLog() {
   const loadActivityData = async () => {
     try {
       setIsLoading(true);
-      const activityData = await ActivityLogDataService.fetchAllActivities(userId);
+      const activityData = await ActivityLogDataService.fetchAllActivities(
+        userId
+      );
       setActivities(activityData);
     } catch (error) {
       console.error("Error loading activity data:", error);
@@ -99,14 +103,16 @@ export default function ActivityLog() {
 
     // Filter by type
     if (selectedFilter !== "all") {
-      filtered = filtered.filter(activity => activity.type === selectedFilter);
+      filtered = filtered.filter(
+        (activity) => activity.type === selectedFilter
+      );
     }
 
     // Filter by time range
     if (selectedTimeRange !== "all") {
       const now = new Date();
       const filterDate = new Date();
-      
+
       switch (selectedTimeRange) {
         case "today":
           filterDate.setHours(0, 0, 0, 0);
@@ -121,10 +127,10 @@ export default function ActivityLog() {
           filterDate.setMonth(now.getMonth() - 3);
           break;
       }
-      
+
       if (selectedTimeRange !== "all") {
-        filtered = filtered.filter(activity => 
-          new Date(activity.timestamp) >= filterDate
+        filtered = filtered.filter(
+          (activity) => new Date(activity.timestamp) >= filterDate
         );
       }
     }
@@ -132,10 +138,11 @@ export default function ActivityLog() {
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(activity =>
-        activity.title.toLowerCase().includes(query) ||
-        activity.description.toLowerCase().includes(query) ||
-        activity.category?.toLowerCase().includes(query)
+      filtered = filtered.filter(
+        (activity) =>
+          activity.title.toLowerCase().includes(query) ||
+          activity.description.toLowerCase().includes(query) ||
+          activity.category?.toLowerCase().includes(query)
       );
     }
 
@@ -171,10 +178,10 @@ export default function ActivityLog() {
 
   const groupedActivities = useMemo(() => {
     const groups = {};
-    filteredActivities.forEach(activity => {
+    filteredActivities.forEach((activity) => {
       const date = new Date(activity.timestamp);
       const dateKey = date.toDateString();
-      
+
       if (!groups[dateKey]) {
         groups[dateKey] = [];
       }
@@ -188,22 +195,22 @@ export default function ActivityLog() {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-    
+
     if (date.toDateString() === today.toDateString()) {
-      return 'Today';
+      return "Today";
     } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
+      return "Yesterday";
     } else {
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
+      return date.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
       });
     }
   };
 
   const getSelectedFilterLabel = () => {
-    const filter = filterOptions.find(f => f.id === selectedFilter);
+    const filter = filterOptions.find((f) => f.id === selectedFilter);
     return filter?.label || "All Activity";
   };
 
@@ -244,8 +251,8 @@ export default function ActivityLog() {
               </Pressable>
             )}
           </View>
-          
-          <Pressable 
+
+          <Pressable
             style={styles.filterButton}
             onPress={() => setShowFilterModal(true)}
           >
@@ -254,13 +261,17 @@ export default function ActivityLog() {
         </View>
 
         {/* Active Filters */}
-        {(selectedFilter !== "all" || selectedTimeRange !== "all" || searchQuery.length > 0) && (
+        {(selectedFilter !== "all" ||
+          selectedTimeRange !== "all" ||
+          searchQuery.length > 0) && (
           <View style={styles.activeFiltersContainer}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.activeFilters}>
                 {selectedFilter !== "all" && (
                   <View style={styles.filterChip}>
-                    <Text style={styles.filterChipText}>{getSelectedFilterLabel()}</Text>
+                    <Text style={styles.filterChipText}>
+                      {getSelectedFilterLabel()}
+                    </Text>
                     <Pressable onPress={() => setSelectedFilter("all")}>
                       <Ionicons name="close" size={16} color="#fff" />
                     </Pressable>
@@ -269,14 +280,20 @@ export default function ActivityLog() {
                 {selectedTimeRange !== "all" && (
                   <View style={styles.filterChip}>
                     <Text style={styles.filterChipText}>
-                      {timeRangeOptions.find(t => t.id === selectedTimeRange)?.label}
+                      {
+                        timeRangeOptions.find((t) => t.id === selectedTimeRange)
+                          ?.label
+                      }
                     </Text>
                     <Pressable onPress={() => setSelectedTimeRange("all")}>
                       <Ionicons name="close" size={16} color="#fff" />
                     </Pressable>
                   </View>
                 )}
-                <Pressable style={styles.clearFiltersButton} onPress={clearFilters}>
+                <Pressable
+                  style={styles.clearFiltersButton}
+                  onPress={clearFilters}
+                >
                   <Text style={styles.clearFiltersText}>Clear All</Text>
                 </Pressable>
               </View>
@@ -294,13 +311,16 @@ export default function ActivityLog() {
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statNumber}>
-                {filteredActivities.filter(a => a.type === "workout").length}
+                {filteredActivities.filter((a) => a.type === "workout").length}
               </Text>
               <Text style={styles.statLabel}>Workouts</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statNumber}>
-                {filteredActivities.filter(a => a.type === "nutrition").length}
+                {
+                  filteredActivities.filter((a) => a.type === "nutrition")
+                    .length
+                }
               </Text>
               <Text style={styles.statLabel}>Meals</Text>
             </View>
@@ -321,28 +341,32 @@ export default function ActivityLog() {
                 <Ionicons name="document-text-outline" size={64} color="#666" />
                 <Text style={styles.emptyTitle}>No activities found</Text>
                 <Text style={styles.emptySubtitle}>
-                  {searchQuery ? "Try adjusting your search or filters" : "Start using the app to see your activity history"}
+                  {searchQuery
+                    ? "Try adjusting your search or filters"
+                    : "Start using the app to see your activity history"}
                 </Text>
               </View>
             ) : (
-              Object.entries(groupedActivities).map(([dateKey, dayActivities]) => (
-                <View key={dateKey} style={styles.dayGroup}>
-                  <Text style={styles.dayHeader}>
-                    {formatDateHeader(dateKey)}
-                  </Text>
-                  
-                  {dayActivities.map((activity) => (
-                    <ActivityRow 
-                      key={activity.id} 
-                      activity={activity}
-                      onPress={() => {
-                        // Handle activity press if needed
-                        console.log('Activity pressed:', activity.id);
-                      }}
-                    />
-                  ))}
-                </View>
-              ))
+              Object.entries(groupedActivities).map(
+                ([dateKey, dayActivities]) => (
+                  <View key={dateKey} style={styles.dayGroup}>
+                    <Text style={styles.dayHeader}>
+                      {formatDateHeader(dateKey)}
+                    </Text>
+
+                    {dayActivities.map((activity) => (
+                      <ActivityRow
+                        key={activity.id}
+                        activity={activity}
+                        onPress={() => {
+                          // Handle activity press if needed
+                          console.log("Activity pressed:", activity.id);
+                        }}
+                      />
+                    ))}
+                  </View>
+                )
+              )
             )}
           </View>
         )}
@@ -368,24 +392,30 @@ export default function ActivityLog() {
             <View style={styles.filterSection}>
               <Text style={styles.filterSectionTitle}>Activity Type</Text>
               <View style={styles.filterGrid}>
-                {filterOptions.map(option => (
+                {filterOptions.map((option) => (
                   <Pressable
                     key={option.id}
                     style={[
                       styles.filterOption,
-                      selectedFilter === option.id && styles.selectedFilterOption
+                      selectedFilter === option.id &&
+                        styles.selectedFilterOption,
                     ]}
                     onPress={() => setSelectedFilter(option.id)}
                   >
                     <Ionicons
                       name={option.icon}
                       size={20}
-                      color={selectedFilter === option.id ? "#fff" : option.color}
+                      color={
+                        selectedFilter === option.id ? "#fff" : option.color
+                      }
                     />
-                    <Text style={[
-                      styles.filterOptionText,
-                      selectedFilter === option.id && styles.selectedFilterOptionText
-                    ]}>
+                    <Text
+                      style={[
+                        styles.filterOptionText,
+                        selectedFilter === option.id &&
+                          styles.selectedFilterOptionText,
+                      ]}
+                    >
                       {option.label}
                     </Text>
                   </Pressable>
@@ -397,19 +427,23 @@ export default function ActivityLog() {
             <View style={styles.filterSection}>
               <Text style={styles.filterSectionTitle}>Time Range</Text>
               <View style={styles.timeRangeGrid}>
-                {timeRangeOptions.map(option => (
+                {timeRangeOptions.map((option) => (
                   <Pressable
                     key={option.id}
                     style={[
                       styles.timeRangeOption,
-                      selectedTimeRange === option.id && styles.selectedTimeRangeOption
+                      selectedTimeRange === option.id &&
+                        styles.selectedTimeRangeOption,
                     ]}
                     onPress={() => setSelectedTimeRange(option.id)}
                   >
-                    <Text style={[
-                      styles.timeRangeOptionText,
-                      selectedTimeRange === option.id && styles.selectedTimeRangeOptionText
-                    ]}>
+                    <Text
+                      style={[
+                        styles.timeRangeOptionText,
+                        selectedTimeRange === option.id &&
+                          styles.selectedTimeRangeOptionText,
+                      ]}
+                    >
                       {option.label}
                     </Text>
                   </Pressable>
@@ -422,7 +456,7 @@ export default function ActivityLog() {
               <Pressable style={styles.clearButton} onPress={clearFilters}>
                 <Text style={styles.clearButtonText}>Clear All</Text>
               </Pressable>
-              <Pressable 
+              <Pressable
                 style={styles.applyButton}
                 onPress={() => setShowFilterModal(false)}
               >
@@ -437,7 +471,7 @@ export default function ActivityLog() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
+  container: {
     flex: 1,
     backgroundColor: "#0B0B0B",
   },
@@ -453,17 +487,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   headerLeft: {
+    gap: 12,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   headerText: {
     fontSize: 28,
@@ -471,79 +505,79 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   searchContainer: {
-    flexDirection: "row",
     gap: 12,
     marginBottom: 16,
+    flexDirection: "row",
   },
   searchInputContainer: {
     flex: 1,
+    gap: 12,
+    borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 12,
     paddingHorizontal: 16,
-    gap: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   searchInput: {
     flex: 1,
     height: 48,
-    color: "#fff",
     fontSize: 15,
+    color: "#fff",
   },
   filterButton: {
     width: 48,
     height: 48,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   activeFiltersContainer: {
     marginBottom: 16,
   },
   activeFilters: {
-    flexDirection: "row",
     gap: 8,
+    flexDirection: "row",
     alignItems: "center",
   },
   filterChip: {
+    gap: 6,
+    borderRadius: 12,
+    paddingVertical: 6,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(116, 185, 255, 0.2)",
-    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 6,
+    backgroundColor: "rgba(116, 185, 255, 0.2)",
   },
   filterChipText: {
-    color: "#74b9ff",
     fontSize: 12,
+    color: "#74b9ff",
     fontWeight: "600",
   },
   clearFiltersButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
     borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   clearFiltersText: {
-    color: "#aaa",
     fontSize: 12,
+    color: "#aaa",
     fontWeight: "500",
   },
   statsCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 14,
     padding: 14,
+    borderRadius: 14,
     marginBottom: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   statsTitle: {
     fontSize: 12,
     color: "#888",
-    fontWeight: "600",
     marginBottom: 10,
-    textTransform: "uppercase",
+    fontWeight: "600",
     letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   statsRow: {
     flexDirection: "row",
@@ -555,8 +589,8 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 22,
     color: "#fff",
-    fontWeight: "700",
     marginBottom: 3,
+    fontWeight: "700",
   },
   statLabel: {
     fontSize: 10,
@@ -565,35 +599,35 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
     paddingVertical: 60,
+    alignItems: "center",
+    justifyContent: "center",
   },
   loadingText: {
-    color: "#fff",
     fontSize: 16,
     opacity: 0.7,
+    color: "#fff",
   },
   activitiesContainer: {
     flex: 1,
   },
   emptyContainer: {
+    paddingVertical: 60,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 60,
   },
   emptyTitle: {
     fontSize: 20,
-    color: "#fff",
-    fontWeight: "600",
     marginTop: 16,
+    color: "#fff",
     marginBottom: 8,
+    fontWeight: "600",
   },
   emptySubtitle: {
     fontSize: 14,
     color: "#666",
-    textAlign: "center",
     lineHeight: 20,
+    textAlign: "center",
   },
   dayGroup: {
     marginBottom: 16,
@@ -601,30 +635,30 @@ const styles = StyleSheet.create({
   dayHeader: {
     fontSize: 11,
     color: "#666",
-    fontWeight: "600",
     marginBottom: 8,
+    fontWeight: "600",
+    letterSpacing: 0.5,
     paddingHorizontal: 4,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
     justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
   },
   filterModal: {
-    backgroundColor: "#161616",
+    padding: 20,
+    maxHeight: "80%",
+    paddingBottom: 40,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    padding: 20,
-    paddingBottom: 40,
-    maxHeight: "80%",
+    backgroundColor: "#161616",
   },
   modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     marginBottom: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   modalTitle: {
     fontSize: 22,
@@ -637,26 +671,26 @@ const styles = StyleSheet.create({
   filterSectionTitle: {
     fontSize: 14,
     color: "#888",
-    fontWeight: "600",
     marginBottom: 12,
-    textTransform: "uppercase",
+    fontWeight: "600",
     letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   filterGrid: {
     gap: 8,
   },
   filterOption: {
+    gap: 12,
+    padding: 14,
+    borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 12,
-    padding: 14,
-    gap: 12,
   },
   selectedFilterOption: {
-    backgroundColor: "rgba(116, 185, 255, 0.2)",
     borderWidth: 1,
     borderColor: "#74b9ff",
+    backgroundColor: "rgba(116, 185, 255, 0.2)",
   },
   filterOptionText: {
     fontSize: 15,
@@ -668,20 +702,20 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   timeRangeGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     gap: 8,
+    flexWrap: "wrap",
+    flexDirection: "row",
   },
   timeRangeOption: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderRadius: 12,
-    paddingHorizontal: 16,
     paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   selectedTimeRangeOption: {
-    backgroundColor: "rgba(116, 185, 255, 0.2)",
     borderWidth: 1,
     borderColor: "#74b9ff",
+    backgroundColor: "rgba(116, 185, 255, 0.2)",
   },
   timeRangeOptionText: {
     fontSize: 14,
@@ -693,32 +727,32 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   modalActions: {
-    flexDirection: "row",
     gap: 12,
     marginTop: 24,
+    flexDirection: "row",
   },
   clearButton: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 12,
     padding: 16,
+    borderRadius: 12,
     alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   clearButtonText: {
-    color: "#aaa",
     fontSize: 16,
+    color: "#aaa",
     fontWeight: "600",
   },
   applyButton: {
     flex: 1,
-    backgroundColor: "#74b9ff",
-    borderRadius: 12,
     padding: 16,
+    borderRadius: 12,
     alignItems: "center",
+    backgroundColor: "#74b9ff",
   },
   applyButtonText: {
-    color: "#000",
     fontSize: 16,
+    color: "#000",
     fontWeight: "700",
   },
 });

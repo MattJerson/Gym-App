@@ -1,47 +1,50 @@
 import { useState, useEffect } from "react";
-import { useRouter, usePathname } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import DailyProgressCard from "../../components/home/DailyProgressCard";
-import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
-import { View, Text, Pressable, StyleSheet, ScrollView, Alert } from "react-native";
-import QuickStart from "../../components/home/QuickStart";
-import RecentActivity from "../../components/home/RecentActivity";
-import FeaturedVideo from "../../components/home/FeaturedVideo";
-import NotificationBar from "../../components/NotificationBar";
-import { HomePageSkeleton } from "../../components/skeletons/HomePageSkeleton";
-import { HomeDataService } from "../../services/HomeDataService";
 import { supabase } from "../../services/supabase";
+import { useRouter, usePathname } from "expo-router";
+import QuickStart from "../../components/home/QuickStart";
+import NotificationBar from "../../components/NotificationBar";
+import FeaturedVideo from "../../components/home/FeaturedVideo";
+import { HomeDataService } from "../../services/HomeDataService";
+import RecentActivity from "../../components/home/RecentActivity";
+import DailyProgressCard from "../../components/home/DailyProgressCard";
+import { View, Text, Alert, StyleSheet, ScrollView } from "react-native";
+import { HomePageSkeleton } from "../../components/skeletons/HomePageSkeleton";
 
 export default function Home() {
   const router = useRouter();
   const pathname = usePathname();
-  
+
   // User state
   const [userId, setUserId] = useState(null);
   const [userName, setUserName] = useState("User");
   const [notifications, setNotifications] = useState(0);
-  
+
   // Data state
   const [dailyProgress, setDailyProgress] = useState(null);
   const [quickStartCategories, setQuickStartCategories] = useState([]);
   const [featuredContent, setFeaturedContent] = useState(null);
   const [recentActivities, setRecentActivities] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Get authenticated user
   useEffect(() => {
     const getUser = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
         if (error) throw error;
-        
+
         if (user) {
           setUserId(user.id);
           // Get user name from metadata or email
-          setUserName(user.user_metadata?.name || user.email?.split('@')[0] || 'User');
+          setUserName(
+            user.user_metadata?.name || user.email?.split("@")[0] || "User"
+          );
         }
       } catch (error) {
-        console.error('Error fetching user:', error);
+        console.error("Error fetching user:", error);
       }
     };
     getUser();
@@ -57,7 +60,7 @@ export default function Home() {
   const loadHomeData = async () => {
     try {
       setIsLoading(true);
-      
+
       // Fetch all home data in parallel
       const [
         userStatsData,
@@ -79,7 +82,6 @@ export default function Home() {
       setRecentActivities(activitiesData);
       setQuickStartCategories(categoriesData);
       setNotifications(notificationsData.count);
-      
     } catch (error) {
       console.error("Error loading home data:", error);
       Alert.alert("Error", "Failed to load home data. Please try again.");
@@ -92,12 +94,15 @@ export default function Home() {
   const calculateTotalProgress = (metrics) => {
     if (!metrics) return 0;
     const workoutPercent = (metrics.workout.value / metrics.workout.max) * 100;
-    const caloriePercent = (metrics.calories.value / metrics.calories.max) * 100;
+    const caloriePercent =
+      (metrics.calories.value / metrics.calories.max) * 100;
     const stepsPercent = (metrics.steps.value / metrics.steps.max) * 100;
     return (workoutPercent + caloriePercent + stepsPercent) / 3;
   };
 
-  const totalProgress = dailyProgress ? calculateTotalProgress(dailyProgress.metrics) : 0;
+  const totalProgress = dailyProgress
+    ? calculateTotalProgress(dailyProgress.metrics)
+    : 0;
 
   const handlePress = (path) => {
     if (pathname !== path) {
@@ -108,7 +113,6 @@ export default function Home() {
   return (
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-
         {/* Header */}
         <View style={styles.headerRow}>
           <Text style={styles.headerText}>Welcome, {userName}! 💪</Text>
@@ -122,12 +126,12 @@ export default function Home() {
           <>
             {/* ✅ Daily Progress Card Component - Now fetches its own data */}
             <DailyProgressCard />
-            
+
             {/* Quick Start Section */}
             {quickStartCategories.length > 0 && (
               <QuickStart categories={quickStartCategories} />
             )}
-            
+
             {/* Featured Video */}
             {featuredContent && (
               <FeaturedVideo
@@ -151,7 +155,6 @@ export default function Home() {
             )}
           </>
         )}
-
       </ScrollView>
     </View>
   );
@@ -159,9 +162,9 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   container: {
-  flex: 1,
-  backgroundColor: "#0B0B0B", // solid dark background
-},
+    flex: 1,
+    backgroundColor: "#0B0B0B",
+  },
   scrollContent: {
     paddingTop: 10,
     paddingBottom: 40,
@@ -174,8 +177,8 @@ const styles = StyleSheet.create({
     position: "absolute",
   },
   headerRow: {
-    marginVertical: 60,
     marginBottom: 20,
+    marginVertical: 60,
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
@@ -185,7 +188,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
   },
-    logo: {
+  logo: {
     width: 180,
     height: 180,
     marginBottom: 40,

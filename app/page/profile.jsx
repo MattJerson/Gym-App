@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,26 +5,25 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
-  ActivityIndicator,
 } from "react-native";
+import { useState, useEffect } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { supabase } from "../../services/supabase";
 import { useRouter, usePathname } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import NotificationBar from "../../components/NotificationBar";
 import ProfileHeader from "../../components/profile/ProfileHeader";
+import LeaderboardCard from "../../components/profile/LeaderboardCard";
 import ProfileStatsCard from "../../components/profile/ProfileStatsCard";
 import AchievementBadges from "../../components/profile/AchievementBadges";
-import LeaderboardCard from "../../components/profile/LeaderboardCard";
 import ProfileMenuSection from "../../components/profile/ProfileMenuSection";
-import { ProfilePageSkeleton } from "../../components/skeletons/ProfilePageSkeleton";
-import { supabase } from "../../services/supabase";
 import GamificationDataService from "../../services/GamificationDataService";
+import { ProfilePageSkeleton } from "../../components/skeletons/ProfilePageSkeleton";
 
 export default function Profile() {
   const router = useRouter();
   const pathname = usePathname();
   const [notifications] = useState(3);
-  const [selectedTheme, setSelectedTheme] = useState('dark');
+  const [selectedTheme, setSelectedTheme] = useState("dark");
   // User data
   const [user, setUser] = useState(null);
   const [userStats, setUserStats] = useState(null);
@@ -46,73 +44,84 @@ export default function Profile() {
       setLoading(true);
 
       // Get current user
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
       if (!authUser) {
-        router.push('/auth/loginregister');
+        router.push("/auth/loginregister");
         return;
-      }      setCurrentUserId(authUser.id);
+      }
+      setCurrentUserId(authUser.id);
 
       // Get user's profile for nickname
       const { data: profileData } = await supabase
-        .from('profiles')
-        .select('nickname, full_name')
-        .eq('id', authUser.id)
+        .from("profiles")
+        .select("nickname, full_name")
+        .eq("id", authUser.id)
         .single();
 
-      const userNickname = profileData?.nickname || 
-                          profileData?.full_name?.split(' ')[0] || 
-                          authUser.user_metadata?.full_name?.split(' ')[0] ||
-                          authUser.email?.split('@')[0] || 
-                          'User';
-      
+      const userNickname =
+        profileData?.nickname ||
+        profileData?.full_name?.split(" ")[0] ||
+        authUser.user_metadata?.full_name?.split(" ")[0] ||
+        authUser.email?.split("@")[0] ||
+        "User";
+
       setCurrentUserNickname(userNickname);
 
       // Set user basic info
       setUser({
-        name: authUser.user_metadata?.full_name || 
-              authUser.user_metadata?.name || 
-              authUser.email?.split('@')[0] || 
-              'User',
-        username: `@${authUser.email?.split('@')[0] || 'user'}`,
-        joinDate: `Joined ${new Date(authUser.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`,
+        name:
+          authUser.user_metadata?.full_name ||
+          authUser.user_metadata?.name ||
+          authUser.email?.split("@")[0] ||
+          "User",
+        username: `@${authUser.email?.split("@")[0] || "user"}`,
+        joinDate: `Joined ${new Date(authUser.created_at).toLocaleDateString(
+          "en-US",
+          { month: "long", year: "numeric" }
+        )}`,
       });
 
       // Ensure server-side stats are up-to-date from activity (workouts, steps, sets, badges)
       // This will populate user_stats so the leaderboard view can include the user
       try {
-        await GamificationDataService.syncUserStatsFromActivity(authUser.id); 
+        await GamificationDataService.syncUserStatsFromActivity(authUser.id);
       } catch (syncErr) {
         // Non-fatal: continue but log for visibility
-        console.warn('syncUserStatsFromActivity failed', syncErr);
+        console.warn("syncUserStatsFromActivity failed", syncErr);
       }
 
       // Load gamification data and user's leaderboard position
-      const [stats, badges, leaderboardData, activeChallenges] = await Promise.all([
-        GamificationDataService.getUserStats(authUser.id),
-        GamificationDataService.getUserBadges(authUser.id),
-        GamificationDataService.getWeeklyLeaderboard(100),
-        supabase
-          .from('challenges')
-          .select('*')
-          .eq('is_active', true)
-          .order('created_at', { ascending: false })
-          .limit(1),
-      ]);
+      const [stats, badges, leaderboardData, activeChallenges] =
+        await Promise.all([
+          GamificationDataService.getUserStats(authUser.id),
+          GamificationDataService.getUserBadges(authUser.id),
+          GamificationDataService.getWeeklyLeaderboard(100),
+          supabase
+            .from("challenges")
+            .select("*")
+            .eq("is_active", true)
+            .order("created_at", { ascending: false })
+            .limit(1),
+        ]);
 
       // Try to get the user's position (may be null if safe view prevents mapping)
       let position = null;
       try {
-        position = await GamificationDataService.getUserLeaderboardPosition(authUser.id);
+        position = await GamificationDataService.getUserLeaderboardPosition(
+          authUser.id
+        );
       } catch (posErr) {
-        console.warn('Could not fetch user leaderboard position', posErr);
-      }      setUserStats(stats);
+        console.warn("Could not fetch user leaderboard position", posErr);
+      }
+      setUserStats(stats);
       setUserBadges(badges);
       setLeaderboard(leaderboardData || []);
       setCurrentUserPosition(position);
       setActiveChallenge(activeChallenges?.data?.[0] || null);
-
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.error("Error loading user data:", error);
     } finally {
       setLoading(false);
     }
@@ -129,35 +138,35 @@ export default function Profile() {
       await supabase.auth.signOut();
       router.push("/auth/loginregister");
     } catch (error) {
-      console.error('Error logging out:', error);
+      console.error("Error logging out:", error);
     }
   };
 
   // Map badge icon names to MaterialCommunityIcons
   const getBadgeIconName = (badgeName) => {
     const iconMap = {
-      'First Workout': 'medal',
-      '7-Day Streak': 'fire',
-      '3-Day Streak': 'fire',
-      '30-Day Streak': 'fire',
-      '100-Day Streak': 'fire',
-      'Strength Master': 'dumbbell',
-      'Consistency King': 'trophy',
-      'Cardio King': 'run',
-      'Team Player': 'account-group',
-      'Challenge Champion': 'trophy-variant',
-      'Community Leader': 'star',
-      'Early Bird': 'weather-sunset-up',
-      'Night Owl': 'weather-night',
-      'Perfect Week': 'star-circle',
-      'Marathon Runner': 'run-fast',
-      'Variety Seeker': 'target',
+      "First Workout": "medal",
+      "7-Day Streak": "fire",
+      "3-Day Streak": "fire",
+      "30-Day Streak": "fire",
+      "100-Day Streak": "fire",
+      "Strength Master": "dumbbell",
+      "Consistency King": "trophy",
+      "Cardio King": "run",
+      "Team Player": "account-group",
+      "Challenge Champion": "trophy-variant",
+      "Community Leader": "star",
+      "Early Bird": "weather-sunset-up",
+      "Night Owl": "weather-night",
+      "Perfect Week": "star-circle",
+      "Marathon Runner": "run-fast",
+      "Variety Seeker": "target",
     };
-    return iconMap[badgeName] || 'medal';
+    return iconMap[badgeName] || "medal";
   };
 
   const getBadgeColor = (badge) => {
-    return badge.badges?.color || '#f1c40f';
+    return badge.badges?.color || "#f1c40f";
   };
 
   // Calculate time remaining for weekly challenge
@@ -166,11 +175,11 @@ export default function Profile() {
     const endOfWeek = new Date(now);
     endOfWeek.setDate(now.getDate() + (7 - now.getDay()));
     endOfWeek.setHours(23, 59, 59, 999);
-    
+
     const diff = endOfWeek - now;
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    
+
     return `${days}d ${hours}h left`;
   };
 
@@ -191,26 +200,50 @@ export default function Profile() {
   if (!user) {
     return null;
   }
-  
+
   // Menu items configuration
   const menuItems = [
     {
       title: "Account",
       items: [
-        { icon: "person-outline", color: "#3498db", label: "Edit Profile", path: "../settings/edit" },
-        { icon: "shield-checkmark-outline", color: "#2ecc71", label: "Privacy & Security", path: "../settings/privacy" },
-        { icon: "star-outline", color: "#f1c40f", label: "My Subscription", path: "../settings/subscription" },
+        {
+          icon: "person-outline",
+          color: "#3498db",
+          label: "Edit Profile",
+          path: "../settings/edit",
+        },
+        {
+          icon: "shield-checkmark-outline",
+          color: "#2ecc71",
+          label: "Privacy & Security",
+          path: "../settings/privacy",
+        },
+        {
+          icon: "star-outline",
+          color: "#f1c40f",
+          label: "My Subscription",
+          path: "../settings/subscription",
+        },
       ],
     },
     {
       title: "Settings",
       items: [
-        { icon: "notifications-outline", color: "#e74c3c", label: "Notifications", path: "../settings/notifications" },
-        { icon: "help-circle-outline", color: "#1abc9c", label: "Help & Support", path: "../settings/helpsupport" },
+        {
+          icon: "notifications-outline",
+          color: "#e74c3c",
+          label: "Notifications",
+          path: "../settings/notifications",
+        },
+        {
+          icon: "help-circle-outline",
+          color: "#1abc9c",
+          label: "Help & Support",
+          path: "../settings/helpsupport",
+        },
       ],
     },
   ];
-
 
   return (
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
@@ -221,22 +254,19 @@ export default function Profile() {
             <Text style={styles.headerText}>Profile</Text>
             <NotificationBar notifications={notifications} />
           </View>
-          
+
           {/* Profile Header */}
           <ProfileHeader user={user} />
-          
+
           {/* Stats & Achievements Combined */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>⚡ Stats & Achievements</Text>
-            
+
             <ProfileStatsCard userStats={userStats} />
 
-            <AchievementBadges 
-              userBadges={userBadges} 
-              userStats={userStats}
-            />
+            <AchievementBadges userBadges={userBadges} userStats={userStats} />
           </View>
-          
+
           {/* Leaderboard Section */}
           <LeaderboardCard
             leaderboard={leaderboard}
@@ -246,7 +276,7 @@ export default function Profile() {
             currentUserNickname={currentUserNickname}
             getTimeRemaining={getTimeRemaining}
           />
-          
+
           {/* Account Section */}
           <ProfileMenuSection
             title={menuItems[0].title}
@@ -257,38 +287,85 @@ export default function Profile() {
           {/* Appearance Section */}
           <View style={styles.card}>
             <View style={styles.appearanceHeader}>
-              <Ionicons name="color-palette-outline" size={22} color="#9b59b6" />
+              <Ionicons
+                name="color-palette-outline"
+                size={22}
+                color="#9b59b6"
+              />
               <Text style={styles.cardTitle}>Appearance</Text>
             </View>
-            
+
             <View style={styles.themeContainer}>
-              <Pressable 
-                style={[styles.themeBox, selectedTheme === 'light' && styles.themeBoxSelected]} 
-                onPress={() => setSelectedTheme('light')}
+              <Pressable
+                style={[
+                  styles.themeBox,
+                  selectedTheme === "light" && styles.themeBoxSelected,
+                ]}
+                onPress={() => setSelectedTheme("light")}
               >
-                <Ionicons name="sunny-outline" size={28} color={selectedTheme === 'light' ? '#fff' : '#aaa'} />
-                <Text style={[styles.themeLabel, selectedTheme === 'light' && styles.themeLabelSelected]}>Light</Text>
+                <Ionicons
+                  name="sunny-outline"
+                  size={28}
+                  color={selectedTheme === "light" ? "#fff" : "#aaa"}
+                />
+                <Text
+                  style={[
+                    styles.themeLabel,
+                    selectedTheme === "light" && styles.themeLabelSelected,
+                  ]}
+                >
+                  Light
+                </Text>
               </Pressable>
-              
-              <Pressable 
-                style={[styles.themeBox, selectedTheme === 'dark' && styles.themeBoxSelected]} 
-                onPress={() => setSelectedTheme('dark')}
+
+              <Pressable
+                style={[
+                  styles.themeBox,
+                  selectedTheme === "dark" && styles.themeBoxSelected,
+                ]}
+                onPress={() => setSelectedTheme("dark")}
               >
-                <Ionicons name="moon-outline" size={28} color={selectedTheme === 'dark' ? '#fff' : '#aaa'} />
-                <Text style={[styles.themeLabel, selectedTheme === 'dark' && styles.themeLabelSelected]}>Dark</Text>
+                <Ionicons
+                  name="moon-outline"
+                  size={28}
+                  color={selectedTheme === "dark" ? "#fff" : "#aaa"}
+                />
+                <Text
+                  style={[
+                    styles.themeLabel,
+                    selectedTheme === "dark" && styles.themeLabelSelected,
+                  ]}
+                >
+                  Dark
+                </Text>
               </Pressable>
-              
-              <Pressable 
-                style={[styles.themeBox, selectedTheme === 'system' && styles.themeBoxSelected]} 
-                onPress={() => setSelectedTheme('system')}
+
+              <Pressable
+                style={[
+                  styles.themeBox,
+                  selectedTheme === "system" && styles.themeBoxSelected,
+                ]}
+                onPress={() => setSelectedTheme("system")}
               >
-                <Ionicons name="cog-outline" size={28} color={selectedTheme === 'system' ? '#fff' : '#aaa'} />
-                <Text style={[styles.themeLabel, selectedTheme === 'system' && styles.themeLabelSelected]}>System</Text>
+                <Ionicons
+                  name="cog-outline"
+                  size={28}
+                  color={selectedTheme === "system" ? "#fff" : "#aaa"}
+                />
+                <Text
+                  style={[
+                    styles.themeLabel,
+                    selectedTheme === "system" && styles.themeLabelSelected,
+                  ]}
+                >
+                  System
+                </Text>
               </Pressable>
             </View>
-            
+
             <Text style={styles.themeHelperText}>
-              Dark theme is recommended for low-light gym sessions and reduces eye strain during late-night meal planning
+              Dark theme is recommended for low-light gym sessions and reduces
+              eye strain during late-night meal planning
             </Text>
           </View>
 
@@ -300,13 +377,12 @@ export default function Profile() {
           />
 
           {/* Logout Button */}
-           <View style={styles.logoutContainer}>
+          <View style={styles.logoutContainer}>
             <Pressable style={styles.logoutButton} onPress={handleLogout}>
-                <Ionicons name="log-out-outline" size={22} color="#e74c3c" />
-                <Text style={styles.logoutText}>Log Out</Text>
+              <Ionicons name="log-out-outline" size={22} color="#e74c3c" />
+              <Text style={styles.logoutText}>Log Out</Text>
             </Pressable>
-           </View>
-
+          </View>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -339,194 +415,196 @@ const styles = StyleSheet.create({
     position: "absolute",
   },
   profileHeader: {
-    alignItems: "center",
     marginBottom: 20,
-  },  avatarContainer: {
-    marginBottom: 15,
-    borderWidth: 3,
-    borderColor: "#f7971e",
-    borderRadius: 75,
+    alignItems: "center",
+  },
+  avatarContainer: {
     padding: 4,
+    borderWidth: 3,
+    marginBottom: 15,
+    borderRadius: 75,
+    borderColor: "#f7971e",
   },
   avatarIcon: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: "#f7971e",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#f7971e",
   },
   userName: {
     fontSize: 28,
-    fontWeight: "bold",
     color: "#fff",
+    fontWeight: "bold",
   },
   userHandle: {
+    marginTop: 4,
     fontSize: 16,
     color: "#aaa",
-    marginTop: 4,
   },
   joinDate: {
+    marginTop: 8,
     fontSize: 12,
     color: "#777",
-    marginTop: 8,
   },
   card: {
     padding: 20,
+    borderWidth: 1,
     borderRadius: 20,
     marginBottom: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   cardTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
+    color: "#fff",
     marginBottom: 15,
+    fontWeight: "bold",
     paddingHorizontal: 5,
   },
   statsContainer: {
     flexDirection: "row",
-    justifyContent: "space-around",
     alignItems: "center",
+    justifyContent: "space-around",
   },
   statItem: {
-    alignItems: "center",
     gap: 8,
+    alignItems: "center",
   },
   statValue: {
     fontSize: 22,
-    fontWeight: "bold",
     color: "#fff",
+    fontWeight: "bold",
   },
   statLabel: {
     fontSize: 12,
     color: "#aaa",
-    textTransform: 'uppercase'
+    textTransform: "uppercase",
   },
   menuRow: {
+    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 12,
     paddingHorizontal: 5,
   },
   iconContainer: {
     width: 40,
     height: 40,
+    marginRight: 15,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 15,
   },
   menuLabel: {
     flex: 1,
     fontSize: 16,
     color: "#eee",
-    fontWeight: '500',
+    fontWeight: "500",
   },
   logoutContainer: {
     marginTop: 10,
   },
   logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     padding: 15,
     borderRadius: 24,
-    backgroundColor: 'rgba(231, 76, 60, 0.1)',
-  },  logoutText: {
-    fontSize: 16,
-    color: "#e74c3c",
-    fontWeight: 'bold',
-    marginLeft: 10,
-  },  // Combined Stats & Achievements styles - More Compact
-  primaryStatsContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(231, 76, 60, 0.1)",
+  },
+  logoutText: {
+    fontSize: 16,
+    marginLeft: 10,
+    color: "#e74c3c",
+    fontWeight: "bold",
+  }, // Combined Stats & Achievements styles - More Compact
+  primaryStatsContainer: {
     marginBottom: 20,
+    flexDirection: "row",
     paddingHorizontal: 5,
+    justifyContent: "space-between",
   },
   primaryStatItem: {
-    alignItems: "center",
     flex: 1,
+    alignItems: "center",
   },
   primaryStatIcon: {
     width: 40,
     height: 40,
+    marginBottom: 8,
+    borderWidth: 1.5,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255, 255, 255, 0.08)",
-    marginBottom: 8,
-    borderWidth: 1.5,
   },
   primaryStatText: {
     alignItems: "center",
   },
   primaryStatValue: {
     fontSize: 20,
-    fontWeight: "900",
     color: "#fff",
+    fontWeight: "900",
+    textShadowRadius: 2,
     textShadowColor: "rgba(0, 0, 0, 0.3)",
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
   },
   primaryStatLabel: {
     fontSize: 9,
+    marginTop: 2,
     color: "#aaa",
     fontWeight: "700",
     letterSpacing: 0.8,
-    marginTop: 2,
     textTransform: "uppercase",
   },
   achievementsHeader: {
-    alignItems: "center",
     marginBottom: 15,
-    paddingVertical: 12,
     borderTopWidth: 1,
+    paddingVertical: 12,
+    alignItems: "center",
     borderTopColor: "rgba(255, 255, 255, 0.08)",
   },
   achievementsTitle: {
     fontSize: 14,
-    fontWeight: "800",
     color: "#fff",
+    fontWeight: "800",
     letterSpacing: 0.8,
   },
   achievementsSubtitle: {
     fontSize: 11,
+    marginTop: 2,
     color: "#f1c40f",
     fontWeight: "600",
-    marginTop: 2,
   },
   achievementsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
     gap: 10,
+    flexWrap: "wrap",
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   achievementCard: {
     width: "47%",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    paddingHorizontal: 8,
     borderColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
   },
   achievementIcon: {
     width: 45,
     height: 45,
+    elevation: 4,
+    marginBottom: 8,
+    shadowRadius: 4,
     borderRadius: 22.5,
+    shadowOpacity: 0.2,
+    shadowColor: "#000",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
   },
   achievementGlow: {
     display: "none",
@@ -535,8 +613,8 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: "#fff",
     fontWeight: "600",
-    textAlign: "center",
     letterSpacing: 0.3,
+    textAlign: "center",
   },
   achievementBorder: {
     display: "none",
@@ -566,18 +644,18 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     display: "none",
-  },  // Enhanced Leaderboard styles
+  }, // Enhanced Leaderboard styles
   leaderboardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
     marginBottom: 15,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
   },
   challengeSubtitle: {
     fontSize: 11,
+    marginTop: 4,
     color: "#f39c12",
     fontWeight: "600",
-    marginTop: 4,
     fontStyle: "italic",
   },
   leaderboardHeaderRight: {
@@ -585,45 +663,45 @@ const styles = StyleSheet.create({
   },
   leaderboardTimer: {
     fontSize: 11,
+    borderRadius: 8,
     color: "#f39c12",
     fontWeight: "600",
-    backgroundColor: "rgba(243, 156, 18, 0.1)",
-    paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    backgroundColor: "rgba(243, 156, 18, 0.1)",
   },
   leaderboardContainer: {
     gap: 6,
   },
   leaderboardRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 10,
+    alignItems: "center",
+    flexDirection: "row",
+    paddingHorizontal: 12,
+    justifyContent: "space-between",
     borderColor: "rgba(255, 255, 255, 0.06)",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
   },
   currentUserRow: {
-    backgroundColor: "rgba(247, 151, 30, 0.1)",
-    borderColor: "rgba(247, 151, 30, 0.3)",
     borderWidth: 1.5,
+    borderColor: "rgba(247, 151, 30, 0.3)",
+    backgroundColor: "rgba(247, 151, 30, 0.1)",
   },
   leaderboardLeft: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    flex: 1,
   },
   positionBadge: {
     width: 32,
     height: 32,
+    marginRight: 12,
     borderRadius: 16,
     alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
     backgroundColor: "#444",
+    justifyContent: "center",
   },
   goldBadge: {
     backgroundColor: "transparent",
@@ -639,8 +717,8 @@ const styles = StyleSheet.create({
   },
   positionText: {
     fontSize: 14,
-    fontWeight: "bold",
     color: "#fff",
+    fontWeight: "bold",
   },
   topThreeText: {
     color: "#fff",
@@ -651,8 +729,8 @@ const styles = StyleSheet.create({
   leaderboardName: {
     fontSize: 15,
     color: "#eee",
-    fontWeight: "600",
     marginBottom: 4,
+    fontWeight: "600",
   },
   currentUserName: {
     color: "#f7971e",
@@ -660,9 +738,9 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 3,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 1.5,
     overflow: "hidden",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   progressFill: {
     height: "100%",
@@ -674,16 +752,16 @@ const styles = StyleSheet.create({
   leaderboardPoints: {
     fontSize: 14,
     color: "#fff",
-    fontWeight: "700",
     marginBottom: 2,
+    fontWeight: "700",
   },
   currentUserPoints: {
     color: "#f7971e",
   },
   trendContainer: {
+    gap: 2,
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
   },
   trendText: {
     fontSize: 10,
@@ -693,8 +771,8 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.06)",
     alignItems: "center",
+    borderTopColor: "rgba(255, 255, 255, 0.06)",
   },
   footerText: {
     fontSize: 12,
@@ -704,42 +782,42 @@ const styles = StyleSheet.create({
   },
   // Appearance/Theme styles
   appearanceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
     marginBottom: 15,
+    flexDirection: "row",
+    alignItems: "center",
   },
-  themeContainer: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    gap: 10, 
+  themeContainer: {
+    gap: 10,
     marginBottom: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   themeBox: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    padding: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: 'transparent',
     gap: 8,
+    flex: 1,
+    padding: 16,
+    borderWidth: 2,
+    borderRadius: 16,
+    alignItems: "center",
+    borderColor: "transparent",
+    backgroundColor: "rgba(0,0,0,0.2)",
   },
   themeBoxSelected: {
-    borderColor: '#f7971e',
-    backgroundColor: 'rgba(247, 151, 30, 0.2)',
+    borderColor: "#f7971e",
+    backgroundColor: "rgba(247, 151, 30, 0.2)",
   },
-  themeLabel: { 
-    fontSize: 13, 
-    color: '#aaa', 
-    fontWeight: '600',
+  themeLabel: {
+    fontSize: 13,
+    color: "#aaa",
+    fontWeight: "600",
   },
-  themeLabelSelected: { 
-    color: '#fff',
+  themeLabelSelected: {
+    color: "#fff",
   },
   themeHelperText: {
-    color: '#666',
     fontSize: 12,
+    color: "#666",
     lineHeight: 17,
     paddingHorizontal: 5,
   },

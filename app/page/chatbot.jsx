@@ -8,16 +8,10 @@ import {
   ScrollView,
   KeyboardAvoidingView,
 } from "react-native";
-import {
-  Ionicons,
-  FontAwesome5,
-  MaterialIcons,
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import { askGemini } from "../../backend/gemini";
-import { LinearGradient } from "expo-linear-gradient";
 
 export default function Chatbot() {
   const router = useRouter();
@@ -189,16 +183,16 @@ export default function Chatbot() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "#0B0B0B",
   },
   header: {
     paddingTop: 50,
     paddingBottom: 15,
     flexDirection: "row",
     alignItems: "center",
+    borderBottomWidth: 1,
     paddingHorizontal: 20,
     backgroundColor: "#5b86e5",
-    borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   backButton: {
@@ -230,14 +224,14 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 12,
-    color: "rgba(255, 255, 255, 0.8)",
     marginTop: 2,
+    color: "rgba(255, 255, 255, 0.8)",
   },
   chatContainer: {
     flex: 1,
-    backgroundColor: "#1a1a1a",
     paddingVertical: 10,
     paddingHorizontal: 15,
+    backgroundColor: "#1a1a1a",
   },
   messageContainer: {
     marginVertical: 8,
@@ -253,25 +247,25 @@ const styles = StyleSheet.create({
   messageAvatar: {
     width: 28,
     height: 28,
+    marginBottom: 4,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255, 255, 255, 0.1)",
-    marginBottom: 4,
   },
   messageBubble: {
     maxWidth: "75%",
     borderRadius: 18,
     marginVertical: 2,
     paddingVertical: 12,
-    paddingHorizontal: 16,
     marginHorizontal: 8,
+    paddingHorizontal: 16,
   },
   botBubble: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderBottomLeftRadius: 6,
     borderWidth: 1,
+    borderBottomLeftRadius: 6,
     borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   userBubble: {
     backgroundColor: "#5b86e5",
@@ -299,20 +293,20 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)",
     paddingVertical: 12,
     paddingHorizontal: 15,
     backgroundColor: "#1a1a1a",
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
   },
   inputWrapper: {
+    borderWidth: 1,
     borderRadius: 24,
     paddingVertical: 8,
     flexDirection: "row",
     paddingHorizontal: 16,
     alignItems: "flex-end",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   textInput: {
     flex: 1,

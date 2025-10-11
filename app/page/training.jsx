@@ -1,31 +1,29 @@
 import {
   View,
   Text,
+  Alert,
   Pressable,
   StyleSheet,
   ScrollView,
-  Alert,
 } from "react-native";
-import {
-  Ionicons,
-} from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
+import { supabase } from "../../services/supabase";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useState, useEffect, useCallback } from "react";
+import MyWorkouts from "../../components/training/MyWorkouts";
+import NotificationBar from "../../components/NotificationBar";
+import BrowseWorkouts from "../../components/training/BrowseWorkouts";
+import RecentWorkouts from "../../components/training/RecentWorkouts";
+import { TrainingDataService } from "../../services/TrainingDataService";
+import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
+import { WorkoutSessionService } from "../../services/WorkoutSessionService";
 import WorkoutProgressBar from "../../components/training/WorkoutProgressBar";
 import ContinueWorkoutCard from "../../components/training/ContinueWorkoutCard";
-import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
-import BrowseWorkouts from "../../components/training/BrowseWorkouts";
-import MyWorkouts from "../../components/training/MyWorkouts";
-import RecentWorkouts from "../../components/training/RecentWorkouts";
-import NotificationBar from "../../components/NotificationBar";
 import { TrainingPageSkeleton } from "../../components/skeletons/TrainingPageSkeleton";
-import { TrainingDataService } from "../../services/TrainingDataService";
-import { WorkoutSessionService } from "../../services/WorkoutSessionService";
-import { supabase } from "../../services/supabase";
 
 export default function Training() {
   const router = useRouter();
-  
+
   // 🔄 Data-driven state management
   const [notifications, setNotifications] = useState(0);
   const [workoutProgress, setWorkoutProgress] = useState(null);
@@ -43,14 +41,17 @@ export default function Training() {
 
   const getUser = async () => {
     try {
-      const { data: { user }, error } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
       if (error) throw error;
       if (user) {
         setUserId(user.id);
       }
     } catch (error) {
-      console.error('Error getting user:', error);
-      Alert.alert('Error', 'Failed to get user session');
+      console.error("Error getting user:", error);
+      Alert.alert("Error", "Failed to get user session");
     }
   };
 
@@ -72,19 +73,19 @@ export default function Training() {
   const loadTrainingData = async () => {
     try {
       setIsLoading(true);
-      
+
       // Fetch workout categories from Supabase
       const { data: categoriesData, error: categoriesError } = await supabase
-        .from('workout_categories')
-        .select('*')
-        .eq('is_active', true)
-        .order('display_order', { ascending: true });
+        .from("workout_categories")
+        .select("*")
+        .eq("is_active", true)
+        .order("display_order", { ascending: true });
 
       if (categoriesError) {
         console.error("Error fetching workout categories:", categoriesError);
         throw categoriesError;
       }
-      
+
       // Load other training data in parallel
       const [
         notificationsData,
@@ -107,7 +108,6 @@ export default function Training() {
       setTodaysWorkout(todaysData);
       setWorkoutCategories(categoriesData || []);
       setRecentWorkouts(recentData);
-      
     } catch (error) {
       console.error("Error loading training data:", error);
       Alert.alert("Error", "Failed to load training data. Please try again.");
@@ -124,11 +124,11 @@ export default function Training() {
           router.push(`/workout/${existingSession.workoutId}`);
         } else {
           const session = await TrainingDataService.updateWorkoutProgress(
-            userId, 
-            continueWorkout.id, 
+            userId,
+            continueWorkout.id,
             { progress: continueWorkout.progress }
           );
-          console.log('Continue workout:', session);
+          console.log("Continue workout:", session);
           router.push(`/workout/${continueWorkout.id}`);
         }
       }
@@ -149,14 +149,14 @@ export default function Training() {
 
   const handleSelectCategory = async (categoryId) => {
     try {
-      const category = workoutCategories.find(cat => cat.id === categoryId);
+      const category = workoutCategories.find((cat) => cat.id === categoryId);
       router.push({
-        pathname: '/training/workout-category',
+        pathname: "/training/workout-category",
         params: {
           categoryId: categoryId,
-          categoryName: category?.name || 'Workouts',
-          categoryColor: category?.color || '#A3E635'
-        }
+          categoryName: category?.name || "Workouts",
+          categoryColor: category?.color || "#A3E635",
+        },
       });
     } catch (error) {
       Alert.alert("Error", "Failed to load category. Please try again.");
@@ -179,7 +179,7 @@ export default function Training() {
           <>
             {/* Progress Card */}
             {workoutProgress && (
-              <WorkoutProgressBar 
+              <WorkoutProgressBar
                 workoutData={workoutProgress.workoutData}
                 stepsData={workoutProgress.stepsData}
                 caloriesData={workoutProgress.caloriesData}
@@ -188,7 +188,7 @@ export default function Training() {
 
             {/* Continue Workout Card */}
             {continueWorkout && (
-              <ContinueWorkoutCard 
+              <ContinueWorkoutCard
                 workoutName={continueWorkout.workoutName}
                 workoutType={continueWorkout.workoutType}
                 completedExercises={continueWorkout.completedExercises}
@@ -201,7 +201,7 @@ export default function Training() {
 
             {/* Today's Workout Card */}
             {todaysWorkout && (
-              <TodaysWorkoutCard 
+              <TodaysWorkoutCard
                 workoutName={todaysWorkout.workoutName}
                 workoutType={todaysWorkout.workoutType}
                 totalExercises={todaysWorkout.totalExercises}
@@ -215,17 +215,17 @@ export default function Training() {
             )}
 
             {/* Browse Workout Categories */}
-            <BrowseWorkouts 
+            <BrowseWorkouts
               categories={workoutCategories}
               onSelectCategory={handleSelectCategory}
             />
 
             {/* Create Custom Workout Button */}
-            <Pressable 
-              style={styles.createWorkoutButton} 
+            <Pressable
+              style={styles.createWorkoutButton}
               onPress={() => {
-                console.log('Navigate to create custom workout');
-                router.push('/training/create-workout');
+                console.log("Navigate to create custom workout");
+                router.push("/training/create-workout");
               }}
             >
               <View style={styles.createWorkoutContent}>
@@ -233,22 +233,29 @@ export default function Training() {
                   <Ionicons name="add-circle" size={28} color="#3B82F6" />
                 </View>
                 <View style={styles.createWorkoutText}>
-                  <Text style={styles.createWorkoutTitle}>Create Custom Workout</Text>
-                  <Text style={styles.createWorkoutSubtitle}>Design your own training routine</Text>
+                  <Text style={styles.createWorkoutTitle}>
+                    Create Custom Workout
+                  </Text>
+                  <Text style={styles.createWorkoutSubtitle}>
+                    Design your own training routine
+                  </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#71717A" />
               </View>
             </Pressable>
 
             {/* My Workouts Section */}
-            <MyWorkouts 
+            <MyWorkouts
               onSelectWorkout={(workoutId) => {
-                console.log('Selected workout:', workoutId);
+                console.log("Selected workout:", workoutId);
                 router.push(`/workout/${workoutId}`);
               }}
               onWorkoutOptions={(workoutId) => {
-                console.log('Workout options:', workoutId);
-                Alert.alert('Workout Options', 'Edit, Delete, or Share this workout');
+                console.log("Workout options:", workoutId);
+                Alert.alert(
+                  "Workout Options",
+                  "Edit, Delete, or Share this workout"
+                );
               }}
             />
 
@@ -264,7 +271,7 @@ export default function Training() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: {
-    paddingTop: 60, 
+    paddingTop: 60,
     paddingBottom: 40,
     paddingHorizontal: 20,
   },
@@ -281,14 +288,14 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
     paddingVertical: 60,
+    alignItems: "center",
+    justifyContent: "center",
   },
   loadingText: {
-    color: "#fff",
     fontSize: 16,
     opacity: 0.7,
+    color: "#fff",
   },
   card: {
     padding: 20,
@@ -312,19 +319,19 @@ const styles = StyleSheet.create({
     color: "#ccc",
   },
   createWorkoutButton: {
+    borderWidth: 2,
     marginBottom: 16,
     borderRadius: 16,
-    backgroundColor: "#161616",
-    borderWidth: 2,
     borderLeftWidth: 4,
+    overflow: "hidden",
+    backgroundColor: "#161616",
     borderLeftColor: "#3B82F6",
     borderColor: "rgba(59, 130, 246, 0.2)",
-    overflow: "hidden",
   },
   createWorkoutContent: {
+    padding: 16,
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
   },
   createWorkoutIcon: {
     marginRight: 16,
@@ -334,9 +341,9 @@ const styles = StyleSheet.create({
   },
   createWorkoutTitle: {
     fontSize: 16,
+    marginBottom: 2,
     color: "#FAFAFA",
     fontWeight: "700",
-    marginBottom: 2,
   },
   createWorkoutSubtitle: {
     fontSize: 13,

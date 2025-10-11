@@ -6,23 +6,21 @@ import {
   Animated,
   Platform,
   Pressable,
+  StatusBar,
   StyleSheet,
   Dimensions,
-  KeyboardAvoidingView,
   TouchableWithoutFeedback,
-  StatusBar,
-  ActivityIndicator,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
+import { Ionicons} from "@expo/vector-icons";
 import { useState, useEffect, useRef } from "react";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Haptics from 'expo-haptics';
 import SubmitButton from "../../components/SubmitButton";
+import { SafeAreaView } from "react-native-safe-area-context";
 import HeaderBar from "../../components/onboarding/HeaderBar";
 import ProgressBar from "../../components/onboarding/ProgressBar";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import BodyFatSlider from "../../components/onboarding/BodyFatSlider";
 
 export default function BodyFatUser() {
@@ -30,12 +28,13 @@ export default function BodyFatUser() {
   const { width } = Dimensions.get("window");
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;  const [currentBodyFat, setCurrentBodyFat] = useState(20);
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const [currentBodyFat, setCurrentBodyFat] = useState(20);
   const [goalBodyFat, setGoalBodyFat] = useState(15);
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [currentStep, setCurrentStep] = useState(0); // 0 = current body fat, 1 = goal body fat
-  
+
   const modalScale = useRef(new Animated.Value(0.9)).current;
   const modalOpacity = useRef(new Animated.Value(0)).current;
 
@@ -77,10 +76,11 @@ export default function BodyFatUser() {
   }, [showConfirmation]);
 
   const lightHaptic = () => {
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === "ios") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-  };  const handleSliderChange = (value, isGoal = false) => {
+  };
+  const handleSliderChange = (value, isGoal = false) => {
     lightHaptic();
     if (isGoal) {
       setGoalBodyFat(value);
@@ -121,9 +121,15 @@ export default function BodyFatUser() {
     // persist bodyfat data for final onboarding
     (async () => {
       try {
-        await AsyncStorage.setItem('onboarding:bodyfat', JSON.stringify({ currentBodyFat: Math.round(currentBodyFat), goalBodyFat: Math.round(goalBodyFat) }));
+        await AsyncStorage.setItem(
+          "onboarding:bodyfat",
+          JSON.stringify({
+            currentBodyFat: Math.round(currentBodyFat),
+            goalBodyFat: Math.round(goalBodyFat),
+          })
+        );
       } catch (e) {
-        console.warn('Failed to persist bodyfat data', e);
+        console.warn("Failed to persist bodyfat data", e);
       }
       router.push("features/subscriptionpackages");
     })();
@@ -148,7 +154,7 @@ export default function BodyFatUser() {
     setIsLoading(true);
     console.log("Current Body Fat:", `${Math.round(currentBodyFat)}%`);
     console.log("Goal Body Fat:", `${Math.round(goalBodyFat)}%`);
-    
+
     setTimeout(() => {
       setIsLoading(false);
       router.push("features/subscriptionpackages");
@@ -159,13 +165,13 @@ export default function BodyFatUser() {
       <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
         <StatusBar barStyle="light-content" backgroundColor="#0F1419" />
         <SafeAreaView style={styles.safeArea}>
-          <Animated.View 
+          <Animated.View
             style={[
-              styles.content, 
-              { 
+              styles.content,
+              {
                 opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }]
-              }
+                transform: [{ translateY: slideAnim }],
+              },
             ]}
           >
             {/* Header */}
@@ -176,12 +182,9 @@ export default function BodyFatUser() {
               onBackPress={handleBack}
               onHapticFeedback={lightHaptic}
             />
-
             {/* Progress Bar */}
-            <ProgressBar
-              currentStep={currentStep + 1}
-              totalSteps={2}
-            />            {/* Main Content */}
+            <ProgressBar currentStep={currentStep + 1} totalSteps={2} />{" "}
+            {/* Main Content */}
             <View style={styles.mainContent}>
               {currentStep === 0 ? (
                 // Current Body Fat Step
@@ -249,11 +252,11 @@ export default function BodyFatUser() {
                 </>
               )}
             </View>
-
-                        {/* Bottom Section */}
+            {/* Bottom Section */}
             <View style={styles.bottomSection}>
               <Text style={styles.disclaimer}>
-                You can always adjust these values later in your profile settings.
+                You can always adjust these values later in your profile
+                settings.
               </Text>
 
               <SubmitButton
@@ -265,73 +268,89 @@ export default function BodyFatUser() {
                 variant="solid"
               />
             </View>
-
-
             {/* Confirmation Modal */}
             {showConfirmation && (
-              <Animated.View 
-                style={[
-                  styles.modalOverlay,
-                  { opacity: modalOpacity }
-                ]}
+              <Animated.View
+                style={[styles.modalOverlay, { opacity: modalOpacity }]}
               >
-                <Animated.View 
+                <Animated.View
                   style={[
                     styles.modalContainer,
-                    { 
+                    {
                       transform: [{ scale: modalScale }],
-                      opacity: modalOpacity
-                    }
+                      opacity: modalOpacity,
+                    },
                   ]}
                 >
                   <View style={styles.modalHeader}>
                     <View style={styles.modalIconContainer}>
-                      <Ionicons name="checkmark-circle" size={48} color="#4A9EFF" />
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={48}
+                        color="#4A9EFF"
+                      />
                     </View>
                     <Text style={styles.modalTitle}>Confirm Your Goal</Text>
                     <Text style={styles.modalSubtitle}>Your Progress Goal</Text>
                   </View>
-                  
+
                   <View style={styles.modalContent}>
                     <View style={styles.progressCard}>
                       <View style={styles.progressCardRow}>
                         <View style={styles.progressCardItem}>
                           <Text style={styles.progressCardLabel}>Current</Text>
-                          <Text style={styles.progressCardValue}>{Math.round(currentBodyFat)}%</Text>
+                          <Text style={styles.progressCardValue}>
+                            {Math.round(currentBodyFat)}%
+                          </Text>
                         </View>
                         <Ionicons name="arrow-forward" size={24} color="#666" />
                         <View style={styles.progressCardItem}>
                           <Text style={styles.progressCardLabel}>Goal</Text>
-                          <Text style={[styles.progressCardValue, styles.progressCardValueGoal]}>{Math.round(goalBodyFat)}%</Text>
+                          <Text
+                            style={[
+                              styles.progressCardValue,
+                              styles.progressCardValueGoal,
+                            ]}
+                          >
+                            {Math.round(goalBodyFat)}%
+                          </Text>
                         </View>
                       </View>
                       <View style={styles.progressCardDivider} />
                       <Text style={styles.modalDetailText}>
-                        {currentBodyFat > goalBodyFat 
-                          ? `${Math.abs(Math.round(currentBodyFat - goalBodyFat))}% to lose`
+                        {currentBodyFat > goalBodyFat
+                          ? `${Math.abs(
+                              Math.round(currentBodyFat - goalBodyFat)
+                            )}% to lose`
                           : currentBodyFat < goalBodyFat
-                          ? `${Math.abs(Math.round(goalBodyFat - currentBodyFat))}% to gain`
-                          : 'Maintain current body fat'
-                        }
+                          ? `${Math.abs(
+                              Math.round(goalBodyFat - currentBodyFat)
+                            )}% to gain`
+                          : "Maintain current body fat"}
                       </Text>
                     </View>
                   </View>
-                  
+
                   <View style={styles.modalButtons}>
-                    <Pressable 
-                      style={styles.cancelButton} 
+                    <Pressable
+                      style={styles.cancelButton}
                       onPress={handleCancel}
-                      android_ripple={{ color: 'rgba(255, 255, 255, 0.1)' }}
+                      android_ripple={{ color: "rgba(255, 255, 255, 0.1)" }}
                     >
                       <Text style={styles.cancelButtonText}>Cancel</Text>
                     </Pressable>
-                    <Pressable 
-                      style={styles.confirmButton} 
+                    <Pressable
+                      style={styles.confirmButton}
                       onPress={handleConfirm}
-                      android_ripple={{ color: 'rgba(255, 255, 255, 0.2)' }}
+                      android_ripple={{ color: "rgba(255, 255, 255, 0.2)" }}
                     >
                       <View style={styles.confirmButtonSolid}>
-                        <Ionicons name="checkmark" size={20} color="#fff" style={styles.confirmButtonIcon} />
+                        <Ionicons
+                          name="checkmark"
+                          size={20}
+                          color="#fff"
+                          style={styles.confirmButtonIcon}
+                        />
                         <Text style={styles.confirmButtonText}>Confirm</Text>
                       </View>
                     </Pressable>
@@ -359,48 +378,48 @@ const styles = StyleSheet.create({
   },
   mainContent: {
     flex: 1,
+    paddingTop: 10,
     alignItems: "center",
     justifyContent: "flex-start",
-    paddingTop: 10,
   },
   titleSection: {
     width: "100%",
-    alignItems: "center",
     marginBottom: 16,
+    alignItems: "center",
   },
   mainTitle: {
     fontSize: 24,
-    fontWeight: "700",
     color: "#fff",
-    textAlign: "center",
     marginBottom: 6,
+    fontWeight: "700",
+    textAlign: "center",
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
-    color: "rgba(255, 255, 255, 0.6)",
-    textAlign: "center",
     lineHeight: 20,
-    paddingHorizontal: 20,
     fontWeight: "500",
+    textAlign: "center",
+    paddingHorizontal: 20,
+    color: "rgba(255, 255, 255, 0.6)",
   },
   imageContainer: {
-    width: "100%",
     height: 220,
+    width: "100%",
     borderRadius: 20,
-    overflow: "hidden",
     marginBottom: 24,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
   },
   imageBorder: {
     width: "90%",
     height: "100%",
+    borderWidth: 1,
     borderRadius: 20,
     overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
   },
   bodyImage: {
     width: "100%",
@@ -408,100 +427,100 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
   },
   imageOverlay: {
-    position: "absolute",
-    bottom: 0,
     left: 0,
     right: 0,
+    bottom: 0,
     height: "30%",
+    position: "absolute",
   },
   modalOverlay: {
-    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
-    justifyContent: "center",
+    zIndex: 1000,
+    position: "absolute",
     alignItems: "center",
     paddingHorizontal: 24,
-    zIndex: 1000,
+    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
   },
   modalContainer: {
-    backgroundColor: "#1A1A1A",
-    borderRadius: 24,
     padding: 24,
     width: "100%",
     maxWidth: 380,
-    borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.12)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.5,
-    shadowRadius: 24,
     elevation: 12,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    shadowRadius: 24,
+    shadowOpacity: 0.5,
+    shadowColor: "#000",
+    backgroundColor: "#1A1A1A",
+    shadowOffset: { width: 0, height: 12 },
+    borderColor: "rgba(255, 255, 255, 0.12)",
   },
   modalHeader: {
-    alignItems: "center",
     marginBottom: 20,
+    alignItems: "center",
   },
   modalIconContainer: {
     width: 64,
     height: 64,
+    borderWidth: 1,
     borderRadius: 32,
-    backgroundColor: "rgba(74, 158, 255, 0.15)",
+    marginBottom: 16,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
-    borderWidth: 1,
     borderColor: "rgba(74, 158, 255, 0.3)",
+    backgroundColor: "rgba(74, 158, 255, 0.15)",
   },
   modalTitle: {
     fontSize: 24,
-    fontWeight: "700",
     color: "#fff",
     marginBottom: 6,
-    textAlign: "center",
+    fontWeight: "700",
     letterSpacing: -0.5,
+    textAlign: "center",
   },
   modalSubtitle: {
     fontSize: 14,
-    color: "rgba(255, 255, 255, 0.5)",
+    letterSpacing: 1,
     fontWeight: "600",
     textTransform: "uppercase",
-    letterSpacing: 1,
+    color: "rgba(255, 255, 255, 0.5)",
   },
   modalContent: {
     marginBottom: 24,
   },
   progressCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 16,
     padding: 20,
     borderWidth: 1,
+    borderRadius: 16,
     borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   progressCardRow: {
+    marginBottom: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 16,
   },
   progressCardItem: {
-    alignItems: "center",
     flex: 1,
+    alignItems: "center",
   },
   progressCardLabel: {
     fontSize: 12,
-    color: "rgba(255, 255, 255, 0.5)",
     marginBottom: 6,
     fontWeight: "600",
-    textTransform: "uppercase",
     letterSpacing: 0.5,
+    textTransform: "uppercase",
+    color: "rgba(255, 255, 255, 0.5)",
   },
   progressCardValue: {
     fontSize: 32,
-    fontWeight: "800",
     color: "#fff",
+    fontWeight: "800",
     letterSpacing: -1,
   },
   progressCardValueGoal: {
@@ -509,53 +528,53 @@ const styles = StyleSheet.create({
   },
   progressCardDivider: {
     height: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
     marginBottom: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   modalDetailText: {
     fontSize: 15,
-    color: "rgba(255, 255, 255, 0.7)",
-    textAlign: "center",
     fontWeight: "600",
+    textAlign: "center",
+    color: "rgba(255, 255, 255, 0.7)",
   },
   modalButtons: {
-    flexDirection: "row",
     gap: 12,
     width: "100%",
+    flexDirection: "row",
   },
   cancelButton: {
     flex: 1,
     height: 52,
+    borderWidth: 1,
     borderRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   cancelButtonText: {
     fontSize: 16,
-    color: "rgba(255, 255, 255, 0.7)",
     fontWeight: "600",
+    color: "rgba(255, 255, 255, 0.7)",
   },
   confirmButton: {
     flex: 1,
     height: 52,
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "#4A9EFF",
-    shadowColor: "#4A9EFF",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
     elevation: 6,
+    shadowRadius: 8,
+    borderRadius: 16,
+    shadowOpacity: 0.3,
+    overflow: "hidden",
+    shadowColor: "#4A9EFF",
+    backgroundColor: "#4A9EFF",
+    shadowOffset: { width: 0, height: 4 },
   },
   confirmButtonSolid: {
+    gap: 8,
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
   },
   confirmButtonIcon: {
     marginRight: -4,
@@ -566,15 +585,15 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   bottomSection: {
-    paddingBottom: 20,
     paddingTop: 16,
+    paddingBottom: 20,
   },
   disclaimer: {
     fontSize: 12,
-    color: "rgba(255, 255, 255, 0.5)",
-    textAlign: "center",
     lineHeight: 18,
     marginBottom: 16,
+    textAlign: "center",
     paddingHorizontal: 10,
+    color: "rgba(255, 255, 255, 0.5)",
   },
 });

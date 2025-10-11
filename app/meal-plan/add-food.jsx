@@ -1,36 +1,31 @@
-import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
+  Alert,
+  Modal,
+  Animated,
+  TextInput,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   ActivityIndicator,
-  Modal,
-  Alert,
-  Animated,
 } from "react-native";
+import * as Haptics from "expo-haptics";
+import { supabase } from "../../services/supabase";
+import React, { useState, useEffect, useRef } from "react";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import * as Haptics from "expo-haptics";
-import { MealPlanDataService } from "../../services/MealPlanDataService";
 import FoodItemCard from "../../components/mealplan/FoodItemCard";
-import { supabase } from "../../services/supabase";
+import { MealPlanDataService } from "../../services/MealPlanDataService";
 
 export default function AddFood() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { 
-    mealType = "breakfast",
-    editMode = false,
-    logId,
-    foodData
-  } = params;
-  
+  const { mealType = "breakfast", editMode = false, logId, foodData } = params;
+
   // Parse foodData if in edit mode
   const existingFood = editMode && foodData ? JSON.parse(foodData) : null;
-  
+
   // 🔄 State management
   const [activeTab, setActiveTab] = useState("all"); // "all" or "logs"
   const [searchQuery, setSearchQuery] = useState("");
@@ -47,7 +42,7 @@ export default function AddFood() {
   const [totalPages, setTotalPages] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
-  
+
   // Filter state
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -67,7 +62,7 @@ export default function AddFood() {
     breakfast: { icon: "free-breakfast", color: "#FF9500", name: "Breakfast" },
     lunch: { icon: "restaurant", color: "#34C759", name: "Lunch" },
     dinner: { icon: "dinner-dining", color: "#007AFF", name: "Dinner" },
-    snack: { icon: "local-cafe", color: "#AF52DE", name: "Snack" }
+    snack: { icon: "local-cafe", color: "#AF52DE", name: "Snack" },
   };
 
   const currentMeal = mealTypeConfig[mealType] || mealTypeConfig.breakfast;
@@ -95,27 +90,53 @@ export default function AddFood() {
 
   // Filter foods based on selected filters
   const filterFoods = (foodsArray) => {
-    return foodsArray.filter(food => {
+    return foodsArray.filter((food) => {
       // Category filter
       if (selectedCategory !== "all") {
         const category = food.category?.toLowerCase() || "";
         const foodName = food.name?.toLowerCase() || "";
-        
+
         // Map categories to food keywords
         const categoryMatch = {
-          "protein": ["meat", "chicken", "beef", "pork", "fish", "salmon", "tuna", "egg", "protein"],
-          "dairy": ["milk", "cheese", "yogurt", "butter", "cream", "dairy"],
-          "vegetables": ["vegetable", "lettuce", "tomato", "carrot", "broccoli", "spinach", "kale"],
-          "fruits": ["fruit", "apple", "banana", "orange", "berry", "strawberry", "grape"],
-          "grains": ["bread", "rice", "pasta", "cereal", "grain", "oat", "wheat"],
-          "snacks": ["snack", "chip", "cookie", "candy", "bar", "popcorn"],
+          protein: [
+            "meat",
+            "chicken",
+            "beef",
+            "pork",
+            "fish",
+            "salmon",
+            "tuna",
+            "egg",
+            "protein",
+          ],
+          dairy: ["milk", "cheese", "yogurt", "butter", "cream", "dairy"],
+          vegetables: [
+            "vegetable",
+            "lettuce",
+            "tomato",
+            "carrot",
+            "broccoli",
+            "spinach",
+            "kale",
+          ],
+          fruits: [
+            "fruit",
+            "apple",
+            "banana",
+            "orange",
+            "berry",
+            "strawberry",
+            "grape",
+          ],
+          grains: ["bread", "rice", "pasta", "cereal", "grain", "oat", "wheat"],
+          snacks: ["snack", "chip", "cookie", "candy", "bar", "popcorn"],
         };
 
         const keywords = categoryMatch[selectedCategory] || [];
-        const matches = keywords.some(keyword => 
-          category.includes(keyword) || foodName.includes(keyword)
+        const matches = keywords.some(
+          (keyword) => category.includes(keyword) || foodName.includes(keyword)
         );
-        
+
         if (!matches) return false;
       }
 
@@ -123,15 +144,29 @@ export default function AddFood() {
       if (selectedDietary.length > 0) {
         const foodName = food.name?.toLowerCase() || "";
         const category = food.category?.toLowerCase() || "";
-        
+
         // Check if food matches any selected dietary preference
-        const dietaryMatch = selectedDietary.every(dietary => {
+        const dietaryMatch = selectedDietary.every((dietary) => {
           const dietaryKeywords = {
             "gluten-free": { avoid: ["wheat", "gluten", "bread", "pasta"] },
-            "dairy-free": { avoid: ["milk", "cheese", "yogurt", "butter", "cream", "dairy"] },
-            "vegan": { avoid: ["meat", "chicken", "beef", "pork", "fish", "egg", "dairy", "milk", "cheese"] },
-            "vegetarian": { avoid: ["meat", "chicken", "beef", "pork", "fish"] },
-            "keto": { prefer: ["protein", "fat"], high: "protein" },
+            "dairy-free": {
+              avoid: ["milk", "cheese", "yogurt", "butter", "cream", "dairy"],
+            },
+            vegan: {
+              avoid: [
+                "meat",
+                "chicken",
+                "beef",
+                "pork",
+                "fish",
+                "egg",
+                "dairy",
+                "milk",
+                "cheese",
+              ],
+            },
+            vegetarian: { avoid: ["meat", "chicken", "beef", "pork", "fish"] },
+            keto: { prefer: ["protein", "fat"], high: "protein" },
             "low-carb": { high: "carbs" },
           };
 
@@ -140,8 +175,9 @@ export default function AddFood() {
 
           // Check avoid keywords
           if (criteria.avoid) {
-            return !criteria.avoid.some(keyword => 
-              foodName.includes(keyword) || category.includes(keyword)
+            return !criteria.avoid.some(
+              (keyword) =>
+                foodName.includes(keyword) || category.includes(keyword)
             );
           }
 
@@ -151,7 +187,7 @@ export default function AddFood() {
 
           return true;
         });
-        
+
         if (!dietaryMatch) return false;
       }
 
@@ -160,10 +196,8 @@ export default function AddFood() {
   };
 
   const toggleDietary = (id) => {
-    setSelectedDietary(prev => 
-      prev.includes(id) 
-        ? prev.filter(item => item !== id)
-        : [...prev, id]
+    setSelectedDietary((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
@@ -172,12 +206,15 @@ export default function AddFood() {
     setSelectedDietary([]);
   };
 
-  const hasActiveFilters = selectedCategory !== "all" || selectedDietary.length > 0;
+  const hasActiveFilters =
+    selectedCategory !== "all" || selectedDietary.length > 0;
 
   // Get user session on mount
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       setUserId(user?.id || null);
     };
     getUser();
@@ -197,7 +234,7 @@ export default function AddFood() {
         fats: existingFood.fats,
         serving_size: existingFood.servingSize,
         serving_unit: existingFood.servingUnit,
-        source: "edit"
+        source: "edit",
       });
       setQuantity(existingFood.quantity?.toString() || "1");
       setShowQuantityModal(true);
@@ -218,7 +255,7 @@ export default function AddFood() {
       const debounceTimer = setTimeout(() => {
         searchFoodsFromAPI();
       }, 500);
-      
+
       return () => clearTimeout(debounceTimer);
     } else {
       setSearchResults([]);
@@ -234,20 +271,22 @@ export default function AddFood() {
   const loadInitialData = async () => {
     try {
       setIsLoading(true);
-      
+
       if (activeTab === "all") {
         const [popular, recent] = await Promise.all([
           MealPlanDataService.getPopularFoods(10),
-          MealPlanDataService.getUserRecentFoods(userId, 10)
+          MealPlanDataService.getUserRecentFoods(userId, 10),
         ]);
         setPopularFoods(popular);
         setRecentFoods(recent);
       } else {
         // Load user's previous logs
-        const logs = await MealPlanDataService.getMealLogsForDate(userId, new Date());
+        const logs = await MealPlanDataService.getMealLogsForDate(
+          userId,
+          new Date()
+        );
         setUserLogs(logs);
       }
-      
     } catch (error) {
       console.error("❌ Error loading initial data:", error);
       Alert.alert("Error", "Failed to load food data. Please try again.");
@@ -276,12 +315,11 @@ export default function AddFood() {
       if (page === 1) {
         setSearchResults(result.foods || []);
       } else {
-        setSearchResults(prev => [...prev, ...(result.foods || [])]);
+        setSearchResults((prev) => [...prev, ...(result.foods || [])]);
       }
 
       setCurrentPage(result.currentPage || page);
       setTotalPages(result.totalPages || 1);
-
     } catch (error) {
       console.error("❌ Error searching foods:", error);
       Alert.alert("Error", "Failed to search foods. Please try again.");
@@ -305,7 +343,7 @@ export default function AddFood() {
    */
   const playSuccessAnimation = () => {
     setShowSuccessAnimation(true);
-    
+
     // Haptic feedback (like Face ID success)
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
@@ -392,7 +430,10 @@ export default function AddFood() {
 
       // Otherwise, add new food
       if (quantityValue <= 0) {
-        Alert.alert("Invalid Quantity", "Please enter a quantity greater than 0.");
+        Alert.alert(
+          "Invalid Quantity",
+          "Please enter a quantity greater than 0."
+        );
         return;
       }
 
@@ -400,7 +441,9 @@ export default function AddFood() {
 
       // If food is from API, cache it in database first
       if (selectedFood.source === "api") {
-        const dbFood = await MealPlanDataService.getOrCreateFoodFromAPI(selectedFood.fdc_id);
+        const dbFood = await MealPlanDataService.getOrCreateFoodFromAPI(
+          selectedFood.fdc_id
+        );
         foodId = dbFood.id;
       }
 
@@ -415,7 +458,6 @@ export default function AddFood() {
       );
 
       playSuccessAnimation();
-
     } catch (error) {
       console.error("❌ Error adding food:", error);
       Alert.alert("Error", "Failed to add food. Please try again.");
@@ -429,7 +471,8 @@ export default function AddFood() {
     if (!selectedFood || !quantity) return null;
 
     const multiplier = parseFloat(quantity) || 1;
-    const servingMultiplier = (multiplier * (selectedFood.serving_size || 100)) / 100;
+    const servingMultiplier =
+      (multiplier * (selectedFood.serving_size || 100)) / 100;
 
     return {
       calories: Math.round(selectedFood.calories * servingMultiplier),
@@ -453,11 +496,14 @@ export default function AddFood() {
    */
   const formatFoodName = (name) => {
     if (!name) return "";
-    return name.split(/(?=[,-])/g).map(part => {
-      const trimmed = part.trim();
-      if (!trimmed) return "";
-      return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
-    }).join("");
+    return name
+      .split(/(?=[,-])/g)
+      .map((part) => {
+        const trimmed = part.trim();
+        if (!trimmed) return "";
+        return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+      })
+      .join("");
   };
 
   /**
@@ -480,7 +526,9 @@ export default function AddFood() {
           <View style={styles.emptyState}>
             <Ionicons name="search-outline" size={48} color="#666" />
             <Text style={styles.emptyStateText}>No foods found</Text>
-            <Text style={styles.emptyStateSubtext}>Try a different search term</Text>
+            <Text style={styles.emptyStateSubtext}>
+              Try a different search term
+            </Text>
           </View>
         );
       }
@@ -498,7 +546,9 @@ export default function AddFood() {
             <View style={styles.emptyState}>
               <Ionicons name="filter-outline" size={48} color="#666" />
               <Text style={styles.emptyStateText}>No foods match filters</Text>
-              <Text style={styles.emptyStateSubtext}>Try adjusting your filters</Text>
+              <Text style={styles.emptyStateSubtext}>
+                Try adjusting your filters
+              </Text>
             </View>
           ) : (
             <>
@@ -521,8 +571,19 @@ export default function AddFood() {
                     <ActivityIndicator size="small" color={currentMeal.color} />
                   ) : (
                     <>
-                      <Text style={[styles.loadMoreText, { color: currentMeal.color }]}>Load More</Text>
-                      <Ionicons name="chevron-down" size={18} color={currentMeal.color} />
+                      <Text
+                        style={[
+                          styles.loadMoreText,
+                          { color: currentMeal.color },
+                        ]}
+                      >
+                        Load More
+                      </Text>
+                      <Ionicons
+                        name="chevron-down"
+                        size={18}
+                        color={currentMeal.color}
+                      />
                     </>
                   )}
                 </TouchableOpacity>
@@ -558,7 +619,12 @@ export default function AddFood() {
 
           {filteredPopular.length > 0 && (
             <>
-              <View style={[styles.sectionHeader, { marginTop: filteredRecent.length > 0 ? 20 : 0 }]}>
+              <View
+                style={[
+                  styles.sectionHeader,
+                  { marginTop: filteredRecent.length > 0 ? 20 : 0 },
+                ]}
+              >
                 <Text style={styles.sectionTitle}>Popular Foods</Text>
                 <Text style={styles.sectionSubtitle}>Most logged by users</Text>
               </View>
@@ -573,13 +639,19 @@ export default function AddFood() {
             </>
           )}
 
-          {filteredRecent.length === 0 && filteredPopular.length === 0 && hasActiveFilters && (
-            <View style={styles.emptyState}>
-              <Ionicons name="filter-outline" size={48} color="#666" />
-              <Text style={styles.emptyStateText}>No foods match filters</Text>
-              <Text style={styles.emptyStateSubtext}>Try adjusting your filters</Text>
-            </View>
-          )}
+          {filteredRecent.length === 0 &&
+            filteredPopular.length === 0 &&
+            hasActiveFilters && (
+              <View style={styles.emptyState}>
+                <Ionicons name="filter-outline" size={48} color="#666" />
+                <Text style={styles.emptyStateText}>
+                  No foods match filters
+                </Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Try adjusting your filters
+                </Text>
+              </View>
+            )}
         </>
       );
     } else {
@@ -589,7 +661,9 @@ export default function AddFood() {
           <View style={styles.emptyState}>
             <MaterialIcons name="restaurant" size={48} color="#666" />
             <Text style={styles.emptyStateText}>No logs yet today</Text>
-            <Text style={styles.emptyStateSubtext}>Start logging your meals!</Text>
+            <Text style={styles.emptyStateSubtext}>
+              Start logging your meals!
+            </Text>
           </View>
         );
       }
@@ -645,17 +719,22 @@ export default function AddFood() {
         <TouchableOpacity
           style={[
             styles.filterButton,
-            hasActiveFilters && styles.filterButtonActive
+            hasActiveFilters && styles.filterButtonActive,
           ]}
           onPress={() => setShowFilterModal(true)}
         >
-          <MaterialIcons 
-            name="filter-list" 
-            size={20} 
-            color={hasActiveFilters ? currentMeal.color : "#888"} 
+          <MaterialIcons
+            name="filter-list"
+            size={20}
+            color={hasActiveFilters ? currentMeal.color : "#888"}
           />
           {hasActiveFilters && (
-            <View style={[styles.filterBadge, { backgroundColor: currentMeal.color }]}>
+            <View
+              style={[
+                styles.filterBadge,
+                { backgroundColor: currentMeal.color },
+              ]}
+            >
               <Text style={styles.filterBadgeText}>
                 {selectedDietary.length + (selectedCategory !== "all" ? 1 : 0)}
               </Text>
@@ -670,26 +749,61 @@ export default function AddFood() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.activeFilters}>
               {selectedCategory !== "all" && (
-                <View style={[styles.filterChip, { borderColor: currentMeal.color }]}>
-                  <Text style={[styles.filterChipText, { color: currentMeal.color }]}>
-                    {categoryFilters.find(f => f.id === selectedCategory)?.label}
+                <View
+                  style={[
+                    styles.filterChip,
+                    { borderColor: currentMeal.color },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      { color: currentMeal.color },
+                    ]}
+                  >
+                    {
+                      categoryFilters.find((f) => f.id === selectedCategory)
+                        ?.label
+                    }
                   </Text>
                   <TouchableOpacity onPress={() => setSelectedCategory("all")}>
-                    <Ionicons name="close" size={14} color={currentMeal.color} />
+                    <Ionicons
+                      name="close"
+                      size={14}
+                      color={currentMeal.color}
+                    />
                   </TouchableOpacity>
                 </View>
               )}
-              {selectedDietary.map(dietary => (
-                <View key={dietary} style={[styles.filterChip, { borderColor: currentMeal.color }]}>
-                  <Text style={[styles.filterChipText, { color: currentMeal.color }]}>
-                    {dietaryFilters.find(f => f.id === dietary)?.label}
+              {selectedDietary.map((dietary) => (
+                <View
+                  key={dietary}
+                  style={[
+                    styles.filterChip,
+                    { borderColor: currentMeal.color },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      { color: currentMeal.color },
+                    ]}
+                  >
+                    {dietaryFilters.find((f) => f.id === dietary)?.label}
                   </Text>
                   <TouchableOpacity onPress={() => toggleDietary(dietary)}>
-                    <Ionicons name="close" size={14} color={currentMeal.color} />
+                    <Ionicons
+                      name="close"
+                      size={14}
+                      color={currentMeal.color}
+                    />
                   </TouchableOpacity>
                 </View>
               ))}
-              <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
+              <TouchableOpacity
+                style={styles.clearFiltersButton}
+                onPress={clearFilters}
+              >
                 <Text style={styles.clearFiltersText}>Clear All</Text>
               </TouchableOpacity>
             </View>
@@ -702,14 +816,22 @@ export default function AddFood() {
         <TouchableOpacity
           style={[
             styles.tab,
-            activeTab === "all" && [styles.activeTab, { borderBottomColor: currentMeal.color }]
+            activeTab === "all" && [
+              styles.activeTab,
+              { borderBottomColor: currentMeal.color },
+            ],
           ]}
           onPress={() => setActiveTab("all")}
         >
-          <Text style={[
-            styles.tabText,
-            activeTab === "all" && [styles.activeTabText, { color: currentMeal.color }]
-          ]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "all" && [
+                styles.activeTabText,
+                { color: currentMeal.color },
+              ],
+            ]}
+          >
             All Meals
           </Text>
         </TouchableOpacity>
@@ -717,14 +839,22 @@ export default function AddFood() {
         <TouchableOpacity
           style={[
             styles.tab,
-            activeTab === "logs" && [styles.activeTab, { borderBottomColor: currentMeal.color }]
+            activeTab === "logs" && [
+              styles.activeTab,
+              { borderBottomColor: currentMeal.color },
+            ],
           ]}
           onPress={() => setActiveTab("logs")}
         >
-          <Text style={[
-            styles.tabText,
-            activeTab === "logs" && [styles.activeTabText, { color: currentMeal.color }]
-          ]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "logs" && [
+                styles.activeTabText,
+                { color: currentMeal.color },
+              ],
+            ]}
+          >
             My Logs
           </Text>
         </TouchableOpacity>
@@ -765,7 +895,9 @@ export default function AddFood() {
           >
             {/* Modal Header */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{editMode ? "Edit Food" : "Add Food"}</Text>
+              <Text style={styles.modalTitle}>
+                {editMode ? "Edit Food" : "Add Food"}
+              </Text>
               <TouchableOpacity onPress={() => setShowQuantityModal(false)}>
                 <Ionicons name="close" size={26} color="#fff" />
               </TouchableOpacity>
@@ -782,7 +914,8 @@ export default function AddFood() {
                     </Text>
                     {selectedFood.brand && (
                       <Text style={styles.foodDetailBrand}>
-                        {selectedFood.brand.charAt(0).toUpperCase() + selectedFood.brand.slice(1).toLowerCase()}
+                        {selectedFood.brand.charAt(0).toUpperCase() +
+                          selectedFood.brand.slice(1).toLowerCase()}
                       </Text>
                     )}
                   </View>
@@ -792,7 +925,10 @@ export default function AddFood() {
                     <Text style={styles.quantityLabel}>Servings</Text>
                     <View style={styles.quantityInput}>
                       <TouchableOpacity
-                        style={[styles.quantityButton, { backgroundColor: `${currentMeal.color}20` }]}
+                        style={[
+                          styles.quantityButton,
+                          { backgroundColor: `${currentMeal.color}20` },
+                        ]}
                         onPress={() => {
                           const current = parseFloat(quantity) || 0;
                           if (current > 0.5) {
@@ -800,7 +936,11 @@ export default function AddFood() {
                           }
                         }}
                       >
-                        <Ionicons name="remove" size={18} color={currentMeal.color} />
+                        <Ionicons
+                          name="remove"
+                          size={18}
+                          color={currentMeal.color}
+                        />
                       </TouchableOpacity>
 
                       <TextInput
@@ -812,45 +952,80 @@ export default function AddFood() {
                       />
 
                       <TouchableOpacity
-                        style={[styles.quantityButton, { backgroundColor: `${currentMeal.color}20` }]}
+                        style={[
+                          styles.quantityButton,
+                          { backgroundColor: `${currentMeal.color}20` },
+                        ]}
                         onPress={() => {
                           const current = parseFloat(quantity) || 0;
                           setQuantity((current + 0.5).toString());
                         }}
                       >
-                        <Ionicons name="add" size={18} color={currentMeal.color} />
+                        <Ionicons
+                          name="add"
+                          size={18}
+                          color={currentMeal.color}
+                        />
                       </TouchableOpacity>
                     </View>
                     <Text style={styles.servingSizeText}>
-                      {selectedFood.serving_size || 100}{selectedFood.serving_unit || "g"} per serving
+                      {selectedFood.serving_size || 100}
+                      {selectedFood.serving_unit || "g"} per serving
                     </Text>
                   </View>
 
                   {/* Nutrition Preview */}
                   {calculateTotalNutrition() && (
-                    <View style={[styles.nutritionPreview, { backgroundColor: `${currentMeal.color}10` }]}>
-                      <Text style={styles.nutritionPreviewTitle}>Total Nutrition</Text>
+                    <View
+                      style={[
+                        styles.nutritionPreview,
+                        { backgroundColor: `${currentMeal.color}10` },
+                      ]}
+                    >
+                      <Text style={styles.nutritionPreviewTitle}>
+                        Total Nutrition
+                      </Text>
                       <View style={styles.nutritionGrid}>
                         <View style={styles.nutritionItem}>
-                          <Text style={[styles.nutritionValue, { color: currentMeal.color }]}>
+                          <Text
+                            style={[
+                              styles.nutritionValue,
+                              { color: currentMeal.color },
+                            ]}
+                          >
                             {calculateTotalNutrition().calories}
                           </Text>
                           <Text style={styles.nutritionLabel}>Calories</Text>
                         </View>
                         <View style={styles.nutritionItem}>
-                          <Text style={[styles.nutritionValue, { color: currentMeal.color }]}>
+                          <Text
+                            style={[
+                              styles.nutritionValue,
+                              { color: currentMeal.color },
+                            ]}
+                          >
                             {calculateTotalNutrition().protein}g
                           </Text>
                           <Text style={styles.nutritionLabel}>Protein</Text>
                         </View>
                         <View style={styles.nutritionItem}>
-                          <Text style={[styles.nutritionValue, { color: currentMeal.color }]}>
+                          <Text
+                            style={[
+                              styles.nutritionValue,
+                              { color: currentMeal.color },
+                            ]}
+                          >
                             {calculateTotalNutrition().carbs}g
                           </Text>
                           <Text style={styles.nutritionLabel}>Carbs</Text>
                         </View>
                         <View style={styles.nutritionItem}>
-                          <Text style={[styles.nutritionValue, { color: currentMeal.color }]}>
+                          <Text
+                            style={[
+                              styles.nutritionValue,
+                              { color: currentMeal.color },
+                            ]}
+                          >
                             {calculateTotalNutrition().fats}g
                           </Text>
                           <Text style={styles.nutritionLabel}>Fats</Text>
@@ -861,7 +1036,10 @@ export default function AddFood() {
 
                   {/* Add Button */}
                   <TouchableOpacity
-                    style={[styles.addButton, { backgroundColor: currentMeal.color }]}
+                    style={[
+                      styles.addButton,
+                      { backgroundColor: currentMeal.color },
+                    ]}
                     onPress={handleAddFood}
                     activeOpacity={0.8}
                   >
@@ -907,7 +1085,7 @@ export default function AddFood() {
         onRequestClose={() => setShowFilterModal(false)}
       >
         <View style={styles.filterModalOverlay}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.filterModalBackdrop}
             activeOpacity={1}
             onPress={() => setShowFilterModal(false)}
@@ -925,30 +1103,34 @@ export default function AddFood() {
               <View style={styles.filterSection}>
                 <Text style={styles.filterSectionTitle}>Food Category</Text>
                 <View style={styles.filterGrid}>
-                  {categoryFilters.map(filter => (
+                  {categoryFilters.map((filter) => (
                     <TouchableOpacity
                       key={filter.id}
                       style={[
                         styles.filterOption,
                         selectedCategory === filter.id && [
                           styles.selectedFilterOption,
-                          { borderColor: filter.color }
-                        ]
+                          { borderColor: filter.color },
+                        ],
                       ]}
                       onPress={() => setSelectedCategory(filter.id)}
                     >
                       <Ionicons
                         name={filter.icon}
                         size={20}
-                        color={selectedCategory === filter.id ? filter.color : "#888"}
+                        color={
+                          selectedCategory === filter.id ? filter.color : "#888"
+                        }
                       />
-                      <Text style={[
-                        styles.filterOptionText,
-                        selectedCategory === filter.id && [
-                          styles.selectedFilterOptionText,
-                          { color: filter.color }
-                        ]
-                      ]}>
+                      <Text
+                        style={[
+                          styles.filterOptionText,
+                          selectedCategory === filter.id && [
+                            styles.selectedFilterOptionText,
+                            { color: filter.color },
+                          ],
+                        ]}
+                      >
                         {filter.label}
                       </Text>
                     </TouchableOpacity>
@@ -958,36 +1140,48 @@ export default function AddFood() {
 
               {/* Dietary Preferences */}
               <View style={styles.filterSection}>
-                <Text style={styles.filterSectionTitle}>Dietary Preferences</Text>
+                <Text style={styles.filterSectionTitle}>
+                  Dietary Preferences
+                </Text>
                 <View style={styles.dietaryGrid}>
-                  {dietaryFilters.map(filter => (
+                  {dietaryFilters.map((filter) => (
                     <TouchableOpacity
                       key={filter.id}
                       style={[
                         styles.dietaryOption,
                         selectedDietary.includes(filter.id) && [
                           styles.selectedDietaryOption,
-                          { borderColor: currentMeal.color }
-                        ]
+                          { borderColor: currentMeal.color },
+                        ],
                       ]}
                       onPress={() => toggleDietary(filter.id)}
                     >
                       <Ionicons
                         name={filter.icon}
                         size={16}
-                        color={selectedDietary.includes(filter.id) ? currentMeal.color : "#888"}
+                        color={
+                          selectedDietary.includes(filter.id)
+                            ? currentMeal.color
+                            : "#888"
+                        }
                       />
-                      <Text style={[
-                        styles.dietaryOptionText,
-                        selectedDietary.includes(filter.id) && [
-                          styles.selectedDietaryOptionText,
-                          { color: currentMeal.color }
-                        ]
-                      ]}>
+                      <Text
+                        style={[
+                          styles.dietaryOptionText,
+                          selectedDietary.includes(filter.id) && [
+                            styles.selectedDietaryOptionText,
+                            { color: currentMeal.color },
+                          ],
+                        ]}
+                      >
                         {filter.label}
                       </Text>
                       {selectedDietary.includes(filter.id) && (
-                        <Ionicons name="checkmark-circle" size={18} color={currentMeal.color} />
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={18}
+                          color={currentMeal.color}
+                        />
                       )}
                     </TouchableOpacity>
                   ))}
@@ -997,11 +1191,17 @@ export default function AddFood() {
 
             {/* Modal Actions */}
             <View style={styles.filterModalActions}>
-              <TouchableOpacity style={styles.clearButton} onPress={clearFilters}>
+              <TouchableOpacity
+                style={styles.clearButton}
+                onPress={clearFilters}
+              >
                 <Text style={styles.clearButtonText}>Clear All</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.applyButton, { backgroundColor: currentMeal.color }]}
+              <TouchableOpacity
+                style={[
+                  styles.applyButton,
+                  { backgroundColor: currentMeal.color },
+                ]}
                 onPress={() => setShowFilterModal(false)}
               >
                 <Text style={styles.applyButtonText}>Apply Filters</Text>
@@ -1015,86 +1215,86 @@ export default function AddFood() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
+  container: {
     flex: 1,
-    backgroundColor: "#0B0B0B"
+    backgroundColor: "#0B0B0B",
   },
   headerRow: {
+    gap: 12,
+    paddingTop: 60,
+    paddingBottom: 12,
     flexDirection: "row",
     alignItems: "center",
-    paddingTop: 60,
     paddingHorizontal: 20,
-    paddingBottom: 12,
-    gap: 12,
   },
   backButton: {
     width: 40,
     height: 40,
+    borderWidth: 1,
     borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   searchBar: {
+    gap: 10,
     flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
-    borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   filterButton: {
     width: 40,
     height: 40,
+    borderWidth: 1,
     borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    position: "relative",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
-    position: "relative",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   filterButtonActive: {
     backgroundColor: "rgba(255, 255, 255, 0.12)",
   },
   filterBadge: {
-    position: "absolute",
     top: -4,
     right: -4,
-    borderRadius: 10,
     width: 18,
     height: 18,
-    justifyContent: "center",
+    borderRadius: 10,
     alignItems: "center",
+    position: "absolute",
+    justifyContent: "center",
   },
   filterBadgeText: {
-    color: "#000",
     fontSize: 10,
+    color: "#000",
     fontWeight: "700",
   },
   activeFiltersContainer: {
-    paddingHorizontal: 20,
     paddingBottom: 12,
+    paddingHorizontal: 20,
   },
   activeFilters: {
-    flexDirection: "row",
     gap: 8,
+    flexDirection: "row",
   },
   filterChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
     gap: 6,
     borderWidth: 1,
+    borderRadius: 16,
+    paddingVertical: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   filterChipText: {
     fontSize: 12,
@@ -1106,27 +1306,27 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   clearFiltersText: {
-    color: "#888",
     fontSize: 12,
+    color: "#888",
     fontWeight: "600",
   },
   searchInput: {
     flex: 1,
-    color: "#fff",
     fontSize: 15,
+    color: "#fff",
   },
   tabContainer: {
-    flexDirection: "row",
-    paddingHorizontal: 20,
     gap: 12,
+    flexDirection: "row",
     borderBottomWidth: 1,
+    paddingHorizontal: 20,
     borderBottomColor: "rgba(255, 255, 255, 0.08)",
   },
   tab: {
     flex: 1,
     paddingVertical: 14,
-    alignItems: "center",
     borderBottomWidth: 2,
+    alignItems: "center",
     borderBottomColor: "transparent",
   },
   activeTab: {
@@ -1134,8 +1334,8 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 15,
-    fontWeight: "600",
     color: "#888",
+    fontWeight: "600",
   },
   activeTabText: {
     fontWeight: "700",
@@ -1144,31 +1344,31 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 20,
+    paddingHorizontal: 20,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 60,
     gap: 12,
+    paddingVertical: 60,
+    alignItems: "center",
+    justifyContent: "center",
   },
   loadingText: {
-    color: "#888",
     fontSize: 15,
+    color: "#888",
   },
   emptyState: {
-    alignItems: "center",
-    paddingVertical: 80,
     gap: 12,
+    paddingVertical: 80,
+    alignItems: "center",
   },
   emptyStateText: {
     fontSize: 17,
     color: "#fff",
-    fontWeight: "600",
     marginTop: 12,
+    fontWeight: "600",
   },
   emptyStateSubtext: {
     fontSize: 14,
@@ -1182,13 +1382,13 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "700",
     color: "#fff",
+    fontWeight: "700",
   },
   sectionSubtitle: {
     fontSize: 12,
-    color: "#888",
     marginTop: 2,
+    color: "#888",
   },
   sectionCount: {
     fontSize: 13,
@@ -1196,16 +1396,16 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   loadMoreButton: {
+    gap: 6,
+    marginTop: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    paddingVertical: 14,
-    marginTop: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 10,
-    borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   loadMoreText: {
     fontSize: 15,
@@ -1213,21 +1413,21 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
     justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.85)",
   },
   quantityModal: {
-    backgroundColor: "#1a1a1a",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
     padding: 24,
     maxHeight: "75%",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    backgroundColor: "#1a1a1a",
   },
   modalHeader: {
+    marginBottom: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 20,
   },
   modalTitle: {
     fontSize: 20,
@@ -1240,8 +1440,8 @@ const styles = StyleSheet.create({
   foodDetailName: {
     fontSize: 17,
     color: "#fff",
-    fontWeight: "600",
     marginBottom: 4,
+    fontWeight: "600",
   },
   foodDetailBrand: {
     fontSize: 13,
@@ -1253,14 +1453,14 @@ const styles = StyleSheet.create({
   quantityLabel: {
     fontSize: 15,
     color: "#fff",
-    fontWeight: "600",
     marginBottom: 12,
+    fontWeight: "600",
   },
   quantityInput: {
+    gap: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 14,
   },
   quantityButton: {
     width: 40,
@@ -1270,36 +1470,36 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   quantityTextInput: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    color: "#fff",
+    minWidth: 70,
     fontSize: 17,
+    color: "#fff",
+    borderWidth: 1,
+    borderRadius: 10,
     fontWeight: "600",
     textAlign: "center",
-    minWidth: 70,
-    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   servingSizeText: {
     fontSize: 12,
+    marginTop: 8,
     color: "#888",
     textAlign: "center",
-    marginTop: 8,
   },
   nutritionPreview: {
-    borderRadius: 14,
     padding: 16,
-    marginBottom: 20,
     borderWidth: 1,
+    borderRadius: 14,
+    marginBottom: 20,
     borderColor: "rgba(255, 255, 255, 0.1)",
   },
   nutritionPreviewTitle: {
     fontSize: 15,
     color: "#fff",
-    fontWeight: "600",
     marginBottom: 14,
+    fontWeight: "600",
     textAlign: "center",
   },
   nutritionGrid: {
@@ -1311,8 +1511,8 @@ const styles = StyleSheet.create({
   },
   nutritionValue: {
     fontSize: 17,
-    fontWeight: "800",
     marginBottom: 4,
+    fontWeight: "800",
   },
   nutritionLabel: {
     fontSize: 11,
@@ -1330,57 +1530,57 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   successOverlay: {
-    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    alignItems: "center",
-    justifyContent: "center",
     zIndex: 1000,
+    alignItems: "center",
+    position: "absolute",
+    justifyContent: "center",
   },
   successCircle: {
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: "#34C759", // iOS green success color
     alignItems: "center",
-    justifyContent: "center",
     shadowColor: "#34C759",
+    justifyContent: "center",
+    backgroundColor: "#34C759", // iOS green success color
     shadowOffset: {
       width: 0,
       height: 8,
     },
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
     elevation: 16,
+    shadowRadius: 16,
+    shadowOpacity: 0.5,
   },
   filterModalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
     justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
   },
   filterModalBackdrop: {
     flex: 1,
   },
   filterModal: {
-    backgroundColor: "#1a1a1a",
+    maxHeight: "85%",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: "85%",
+    backgroundColor: "#1a1a1a",
   },
   filterModalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     padding: 20,
+    flexDirection: "row",
+    alignItems: "center",
     borderBottomWidth: 1,
+    justifyContent: "space-between",
     borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   filterModalTitle: {
     fontSize: 20,
-    fontWeight: "700",
     color: "#fff",
+    fontWeight: "700",
   },
   filterModalContent: {
     maxHeight: 500,
@@ -1392,34 +1592,34 @@ const styles = StyleSheet.create({
   },
   filterSectionTitle: {
     fontSize: 14,
-    fontWeight: "600",
     color: "#888",
     marginBottom: 12,
-    textTransform: "uppercase",
+    fontWeight: "600",
     letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   filterGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     gap: 10,
+    flexWrap: "wrap",
+    flexDirection: "row",
   },
   filterOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
     gap: 8,
     borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
     borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   selectedFilterOption: {
     backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   filterOptionText: {
-    color: "#888",
     fontSize: 14,
+    color: "#888",
     fontWeight: "600",
   },
   selectedFilterOptionText: {
@@ -1429,56 +1629,56 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   dietaryOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
     gap: 10,
     borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
     borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   selectedDietaryOption: {
     backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   dietaryOptionText: {
     flex: 1,
-    color: "#888",
     fontSize: 14,
+    color: "#888",
     fontWeight: "600",
   },
   selectedDietaryOptionText: {
     fontWeight: "700",
   },
   filterModalActions: {
-    flexDirection: "row",
-    padding: 20,
     gap: 12,
+    padding: 20,
     borderTopWidth: 1,
+    flexDirection: "row",
     borderTopColor: "rgba(255, 255, 255, 0.1)",
   },
   clearButton: {
     flex: 1,
-    paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingVertical: 14,
     alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   clearButtonText: {
-    color: "#fff",
     fontSize: 16,
+    color: "#fff",
     fontWeight: "600",
   },
   applyButton: {
     flex: 1,
-    paddingVertical: 14,
     borderRadius: 12,
+    paddingVertical: 14,
     alignItems: "center",
   },
   applyButtonText: {
-    color: "#000",
     fontSize: 16,
+    color: "#000",
     fontWeight: "700",
   },
 });

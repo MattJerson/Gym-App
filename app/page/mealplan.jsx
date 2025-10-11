@@ -1,35 +1,27 @@
 import {
   View,
   Text,
+  Alert,
   Pressable,
   StyleSheet,
   ScrollView,
-  Dimensions,
-  Image,
-  Alert,
 } from "react-native";
-import {
-  Ionicons,
-  FontAwesome5,
-  MaterialIcons,
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
+import React from "react";
 import { useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import { useState, useEffect } from "react";
 import { useFocusEffect } from "@react-navigation/native";
-import React from "react";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 // Import components
-import MacroProgressSummary from "../../components/mealplan/MacroProgressSummary";
+import { supabase } from "../../services/supabase";
+import MealPlans from "../../components/mealplan/MealPlans";
+import NotificationBar from "../../components/NotificationBar";
 import TodaysMeals from "../../components/mealplan/TodaysMeals";
 import RecentMeals from "../../components/mealplan/RecentMeals";
-import MealPlans from "../../components/mealplan/MealPlans";
-import PlanActionSheet from "../../components/mealplan/PlanActionSheet";
 import MealPlanHeader from "../../components/mealplan/MealPlanHeader";
-import NotificationBar from "../../components/NotificationBar";
-import { MealPlanPageSkeleton } from "../../components/skeletons/MealPlanPageSkeleton";
+import PlanActionSheet from "../../components/mealplan/PlanActionSheet";
 import { MealPlanDataService } from "../../services/MealPlanDataService";
-import { supabase } from "../../services/supabase";
+import MacroProgressSummary from "../../components/mealplan/MacroProgressSummary";
+import { MealPlanPageSkeleton } from "../../components/skeletons/MealPlanPageSkeleton";
 
 const router = useRouter();
 
@@ -53,7 +45,9 @@ export default function Mealplan() {
   // Get user session on mount
   useEffect(() => {
     const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       setUserId(user?.id || null);
     };
     getUser();
@@ -77,7 +71,7 @@ export default function Mealplan() {
   const loadMealPlanData = async () => {
     try {
       setIsLoading(true);
-      
+
       // Load all meal plan data in parallel
       const [
         notificationsData,
@@ -87,7 +81,7 @@ export default function Mealplan() {
         recentData,
         actionsData,
         activePlanData,
-        dailyTrackingData
+        dailyTrackingData,
       ] = await Promise.all([
         MealPlanDataService.fetchUserNotifications(userId),
         MealPlanDataService.fetchMacroProgress(userId, selectedDate),
@@ -96,7 +90,7 @@ export default function Mealplan() {
         MealPlanDataService.fetchRecentMeals(userId),
         MealPlanDataService.fetchQuickActions(userId),
         MealPlanDataService.getUserActivePlan(userId),
-        MealPlanDataService.getDailyTracking(userId, selectedDate)
+        MealPlanDataService.getDailyTracking(userId, selectedDate),
       ]);
 
       // Transform meal logs to TodaysMeals format
@@ -111,7 +105,6 @@ export default function Mealplan() {
       setQuickActions(actionsData);
       setCurrentPlan(activePlanData);
       setDailyProgress(dailyTrackingData);
-      
     } catch (error) {
       console.error("Error loading meal plan data:", error);
       Alert.alert("Error", "Failed to load meal plan data. Please try again.");
@@ -124,7 +117,7 @@ export default function Mealplan() {
    * Transform database meal logs to TodaysMeals component format
    */
   const transformMealLogs = (mealLogs) => {
-    return mealLogs.map(log => ({
+    return mealLogs.map((log) => ({
       id: log.id,
       meal: capitalizeFirst(log.meal_type), // "breakfast" -> "Breakfast"
       name: log.food.name,
@@ -136,7 +129,7 @@ export default function Mealplan() {
       serving: `${log.quantity} × ${log.serving_size}${log.serving_unit}`,
       icon: getCategoryIcon(log.food.category),
       isCompleted: true,
-      brand: log.food.brand
+      brand: log.food.brand,
     }));
   };
 
@@ -153,9 +146,9 @@ export default function Mealplan() {
    */
   const formatTime = (timeString) => {
     if (!timeString) return "";
-    const [hours, minutes] = timeString.split(':');
+    const [hours, minutes] = timeString.split(":");
     const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const ampm = hour >= 12 ? "PM" : "AM";
     const displayHour = hour % 12 || 12;
     return `${displayHour}:${minutes} ${ampm}`;
   };
@@ -173,7 +166,7 @@ export default function Mealplan() {
       nuts: "🥜",
       healthy_fat: "🥑",
       supplement: "💊",
-      other: "🍽️"
+      other: "🍽️",
     };
     return icons[category] || "🍽️";
   };
@@ -191,7 +184,7 @@ export default function Mealplan() {
   const handleDeleteFood = async (logId) => {
     try {
       const success = await MealPlanDataService.deleteMealLog(userId, logId);
-      
+
       if (success) {
         // Reload meal plan data to refresh the UI
         loadMealPlanData();
@@ -232,21 +225,21 @@ export default function Mealplan() {
     try {
       const newDate = new Date(day.date);
       setSelectedDate(newDate);
-      
+
       // Load meals for selected date
       const [mealLogsData, macroData] = await Promise.all([
         MealPlanDataService.getMealLogsForDate(userId, newDate),
-        MealPlanDataService.fetchMacroProgress(userId, newDate)
+        MealPlanDataService.fetchMacroProgress(userId, newDate),
       ]);
-      
+
       const transformedMeals = transformMealLogs(mealLogsData);
-      
+
       setTodaysMeals(transformedMeals);
       setMacroGoals(macroData);
-      
+
       // Update weekly plan with new active day
-      setWeeklyPlan(prev => 
-        prev.map(d => ({ ...d, active: d.date === day.date }))
+      setWeeklyPlan((prev) =>
+        prev.map((d) => ({ ...d, active: d.date === day.date }))
       );
     } catch (error) {
       Alert.alert("Error", "Failed to load day data. Please try again.");
@@ -269,17 +262,17 @@ export default function Mealplan() {
 
   const handleViewDetails = () => {
     if (!currentPlan) return;
-    
+
     Alert.alert(
       currentPlan.plan_name,
       `Type: ${formatPlanType(currentPlan.plan_type)}\n\n` +
-      `Calories: ${currentPlan.daily_calories} kcal\n` +
-      `Protein: ${currentPlan.daily_protein}g\n` +
-      `Carbs: ${currentPlan.daily_carbs}g\n` +
-      `Fats: ${currentPlan.daily_fats}g\n\n` +
-      `Duration: ${currentPlan.duration_weeks} weeks\n` +
-      `Progress: ${currentPlan.progress_percentage?.toFixed(1)}%\n` +
-      `Adherence: ${currentPlan.adherence_score?.toFixed(1)}%`,
+        `Calories: ${currentPlan.daily_calories} kcal\n` +
+        `Protein: ${currentPlan.daily_protein}g\n` +
+        `Carbs: ${currentPlan.daily_carbs}g\n` +
+        `Fats: ${currentPlan.daily_fats}g\n\n` +
+        `Duration: ${currentPlan.duration_weeks} weeks\n` +
+        `Progress: ${currentPlan.progress_percentage?.toFixed(1)}%\n` +
+        `Adherence: ${currentPlan.adherence_score?.toFixed(1)}%`,
       [{ text: "OK" }]
     );
   };
@@ -297,7 +290,10 @@ export default function Mealplan() {
           style: "destructive",
           onPress: async () => {
             try {
-              await MealPlanDataService.removeMealPlan(userId, currentPlan.user_plan_id);
+              await MealPlanDataService.removeMealPlan(
+                userId,
+                currentPlan.user_plan_id
+              );
               setCurrentPlan(null);
               Alert.alert("Success", "Meal plan removed successfully");
             } catch (error) {
@@ -311,10 +307,12 @@ export default function Mealplan() {
   };
 
   const formatPlanType = (planType) => {
-    return planType
-      ?.split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ') || '';
+    return (
+      planType
+        ?.split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ") || ""
+    );
   };
 
   return (
@@ -330,14 +328,14 @@ export default function Mealplan() {
           <>
             {/* Macro Progress Summary */}
             {macroGoals && (
-              <MacroProgressSummary 
-                macroGoals={macroGoals} 
+              <MacroProgressSummary
+                macroGoals={macroGoals}
                 selectedDate={selectedDate}
               />
             )}
 
             {/* Today's Meals Component */}
-            <TodaysMeals 
+            <TodaysMeals
               meals={todaysMeals}
               onAddFood={handleAddFood}
               onDeleteFood={handleDeleteFood}
@@ -348,7 +346,7 @@ export default function Mealplan() {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>My Meal Plan</Text>
               {currentPlan && (
-                <Pressable 
+                <Pressable
                   style={styles.optionsButton}
                   onPress={handlePlanOptions}
                 >
@@ -358,19 +356,23 @@ export default function Mealplan() {
             </View>
 
             {currentPlan ? (
-              <MealPlans 
+              <MealPlans
                 activePlan={currentPlan}
                 dailyProgress={dailyProgress}
                 isLoading={isLoading}
               />
             ) : (
               <View style={styles.noPlanCard}>
-                <MaterialCommunityIcons name="food-apple" size={48} color="#666" />
+                <MaterialCommunityIcons
+                  name="food-apple"
+                  size={48}
+                  color="#666"
+                />
                 <Text style={styles.noPlanTitle}>No Active Meal Plan</Text>
                 <Text style={styles.noPlanText}>
                   Choose a meal plan to start tracking your nutrition goals
                 </Text>
-                <Pressable 
+                <Pressable
                   style={styles.browsePlansButton}
                   onPress={() => router.push("/meal-plan/browse-plans")}
                 >
@@ -387,7 +389,7 @@ export default function Mealplan() {
       </ScrollView>
 
       {/* Action Sheet Modal */}
-      <PlanActionSheet 
+      <PlanActionSheet
         visible={actionSheetVisible}
         onClose={() => setActionSheetVisible(false)}
         onChangePlan={handleChangePlan}
@@ -408,22 +410,22 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
     paddingVertical: 60,
+    alignItems: "center",
+    justifyContent: "center",
   },
   loadingText: {
-    color: "#fff",
     fontSize: 16,
     opacity: 0.7,
+    color: "#fff",
   },
   card: {
     padding: 20,
+    borderWidth: 1,
     borderRadius: 20,
     marginBottom: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   backRow: {
     top: 60,
@@ -470,59 +472,59 @@ const styles = StyleSheet.create({
     color: "#666",
   },
   sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   sectionTitle: {
     fontSize: 22,
-    fontWeight: "bold",
     color: "#fff",
+    fontWeight: "bold",
   },
   optionsButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    justifyContent: "center",
-    alignItems: "center",
     borderWidth: 1,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
     borderColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   currentPlanCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    overflow: "hidden",
+    borderRadius: 16,
     marginBottom: 20,
+    overflow: "hidden",
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   planColorAccent: {
-    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     height: 3,
+    position: "absolute",
   },
   planCardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   planIconBadge: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
   },
   planBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
     borderRadius: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     backgroundColor: "rgba(0, 212, 170, 0.15)",
   },
   planBadgeText: {
@@ -533,23 +535,23 @@ const styles = StyleSheet.create({
   planCardTitle: {
     fontSize: 11,
     color: "#888",
-    fontWeight: "600",
     marginBottom: 2,
-    textTransform: "uppercase",
+    fontWeight: "600",
     letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   planName: {
     fontSize: 20,
-    fontWeight: "800",
     color: "#fff",
     marginBottom: 16,
+    fontWeight: "800",
     letterSpacing: -0.5,
   },
   planMetrics: {
+    marginBottom: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 16,
   },
   planMetric: {
     flex: 1,
@@ -557,17 +559,17 @@ const styles = StyleSheet.create({
   },
   metricValue: {
     fontSize: 16,
-    fontWeight: "800",
     color: "#fff",
     marginBottom: 2,
+    fontWeight: "800",
     letterSpacing: -0.3,
   },
   metricLabel: {
     fontSize: 10,
     color: "#888",
     fontWeight: "600",
-    textTransform: "uppercase",
     letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   planMetricDivider: {
     width: 1,
@@ -579,9 +581,9 @@ const styles = StyleSheet.create({
   },
   progressBarBg: {
     height: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
     borderRadius: 3,
     overflow: "hidden",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   progressBarFill: {
     height: "100%",
@@ -594,43 +596,43 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   noPlanCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 20,
     padding: 40,
-    alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 20,
     marginBottom: 20,
+    alignItems: "center",
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   noPlanTitle: {
     fontSize: 20,
-    fontWeight: "700",
     color: "#fff",
     marginTop: 16,
     marginBottom: 8,
+    fontWeight: "700",
   },
   noPlanText: {
     fontSize: 14,
     color: "#888",
-    textAlign: "center",
-    marginBottom: 20,
     lineHeight: 20,
+    marginBottom: 20,
+    textAlign: "center",
   },
   browsePlansButton: {
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    paddingVertical: 12,
     paddingHorizontal: 20,
-    backgroundColor: "rgba(0, 212, 170, 0.15)",
-    borderRadius: 12,
-    borderWidth: 1,
     borderColor: "rgba(0, 212, 170, 0.3)",
+    backgroundColor: "rgba(0, 212, 170, 0.15)",
   },
   browsePlansText: {
     fontSize: 15,
-    fontWeight: "700",
     color: "#00D4AA",
+    fontWeight: "700",
     letterSpacing: -0.3,
   },
 });

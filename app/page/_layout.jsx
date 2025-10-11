@@ -1,12 +1,11 @@
+import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, useRouter, useSegments } from "expo-router";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { TouchableOpacity, StyleSheet, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 
 export default function PageLayout() {
   const router = useRouter();
   const segments = useSegments();
-
 
   const isChatbot = segments.includes("chatbot");
   const isCommunityChat = segments.includes("communitychat");
@@ -17,17 +16,17 @@ export default function PageLayout() {
         screenOptions={{
           headerShown: false,
           tabBarStyle: {
-          height: 80,       
-          paddingTop: 10,      
-          paddingBottom: 10,   
-          borderTopWidth: 0,
-          backgroundColor: "#1E3A5F",
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
-          elevation: 20,
-        },
+            height: 80,
+            paddingTop: 10,
+            paddingBottom: 10,
+            borderTopWidth: 0,
+            backgroundColor: "#1E3A5F",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: -4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 12,
+            elevation: 20,
+          },
           tabBarItemStyle: {
             paddingVertical: 4,
             borderRadius: 16,
@@ -52,8 +51,17 @@ export default function PageLayout() {
           options={{
             title: "Home",
             tabBarIcon: ({ color, size, focused }) => (
-              <View style={[styles.tabIconContainer, focused && styles.activeTabContainer]}>
-                <Ionicons name={focused ? "home" : "home-outline"} color={color} size={size + 2} />
+              <View
+                style={[
+                  styles.tabIconContainer,
+                  focused && styles.activeTabContainer,
+                ]}
+              >
+                <Ionicons
+                  name={focused ? "home" : "home-outline"}
+                  color={color}
+                  size={size + 2}
+                />
               </View>
             ),
           }}
@@ -63,7 +71,12 @@ export default function PageLayout() {
           options={{
             title: "Calendar",
             tabBarIcon: ({ color, size, focused }) => (
-              <View style={[styles.tabIconContainer, focused && styles.activeTabContainer]}>
+              <View
+                style={[
+                  styles.tabIconContainer,
+                  focused && styles.activeTabContainer,
+                ]}
+              >
                 <FontAwesome5 name="calendar" color={color} size={size} />
               </View>
             ),
@@ -74,8 +87,17 @@ export default function PageLayout() {
           options={{
             title: "Training",
             tabBarIcon: ({ color, size, focused }) => (
-              <View style={[styles.tabIconContainer, focused && styles.activeTabContainer]}>
-                <Ionicons name={focused ? "barbell" : "barbell-outline"} color={color} size={size + 2} />
+              <View
+                style={[
+                  styles.tabIconContainer,
+                  focused && styles.activeTabContainer,
+                ]}
+              >
+                <Ionicons
+                  name={focused ? "barbell" : "barbell-outline"}
+                  color={color}
+                  size={size + 2}
+                />
               </View>
             ),
           }}
@@ -85,8 +107,17 @@ export default function PageLayout() {
           options={{
             title: "Nutrition",
             tabBarIcon: ({ color, size, focused }) => (
-              <View style={[styles.tabIconContainer, focused && styles.activeTabContainer]}>
-                <Ionicons name={focused ? "restaurant" : "restaurant-outline"} color={color} size={size + 2} />
+              <View
+                style={[
+                  styles.tabIconContainer,
+                  focused && styles.activeTabContainer,
+                ]}
+              >
+                <Ionicons
+                  name={focused ? "restaurant" : "restaurant-outline"}
+                  color={color}
+                  size={size + 2}
+                />
               </View>
             ),
           }}
@@ -96,8 +127,17 @@ export default function PageLayout() {
           options={{
             title: "Profile",
             tabBarIcon: ({ color, size, focused }) => (
-              <View style={[styles.tabIconContainer, focused && styles.activeTabContainer]}>
-                <Ionicons name={focused ? "person" : "person-outline"} color={color} size={size + 2} />
+              <View
+                style={[
+                  styles.tabIconContainer,
+                  focused && styles.activeTabContainer,
+                ]}
+              >
+                <Ionicons
+                  name={focused ? "person" : "person-outline"}
+                  color={color}
+                  size={size + 2}
+                />
               </View>
             ),
           }}
@@ -135,19 +175,19 @@ export default function PageLayout() {
 
 const styles = StyleSheet.create({
   tabIconContainer: {
-    alignItems: "center",
-    justifyContent: "center",
     width: 40,
     height: 34,
     borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
   activeTabContainer: {
-    backgroundColor: "rgba(116, 185, 255, 0.15)",
+    elevation: 4,
+    shadowRadius: 4,
+    shadowOpacity: 0.3,
     shadowColor: "#74B9FF",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
+    backgroundColor: "rgba(116, 185, 255, 0.15)",
   },
   fab: {
     right: 20,
@@ -164,13 +204,13 @@ const styles = StyleSheet.create({
   },
   fabGradient: {
     flex: 1,
-    borderRadius: 30,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#74B9FF",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
     elevation: 8,
+    shadowRadius: 6,
+    borderRadius: 30,
+    shadowOpacity: 0.3,
+    alignItems: "center",
+    shadowColor: "#74B9FF",
+    justifyContent: "center",
+    shadowOffset: { width: 0, height: 4 },
   },
 });

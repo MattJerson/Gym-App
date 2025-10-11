@@ -1,17 +1,17 @@
 import {
   View,
   Text,
-  StyleSheet,
-  ScrollView,
   Pressable,
+  ScrollView,
+  StyleSheet,
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useState, useEffect } from "react";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
+import { supabase } from "../../services/supabase";
 import { LinearGradient } from "expo-linear-gradient";
 import { MealPlanDataService } from "../../services/MealPlanDataService";
-import { supabase } from "../../services/supabase";
 
 export default function BrowsePlans() {
   const router = useRouter();
@@ -57,7 +57,7 @@ export default function BrowsePlans() {
     try {
       // Enroll user in the selected plan
       await MealPlanDataService.enrollInMealPlan(userId, plan.id);
-      
+
       // Navigate back to meal plan page
       router.back();
     } catch (error) {
@@ -185,7 +185,10 @@ export default function BrowsePlans() {
               >
                 {/* Gradient Background */}
                 <LinearGradient
-                  colors={[`${getPlanTypeColor(plan.plan_type)}12`, `${getPlanTypeColor(plan.plan_type)}05`]}
+                  colors={[
+                    `${getPlanTypeColor(plan.plan_type)}12`,
+                    `${getPlanTypeColor(plan.plan_type)}05`,
+                  ]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.gradientBg}
@@ -270,7 +273,11 @@ export default function BrowsePlans() {
                   {/* Meta Info */}
                   <View style={styles.metaRow}>
                     <View style={styles.metaItem}>
-                      <Ionicons name="calendar-outline" size={12} color="#888" />
+                      <Ionicons
+                        name="calendar-outline"
+                        size={12}
+                        color="#888"
+                      />
                       <Text style={styles.metaText}>
                         {plan.duration_weeks}w
                       </Text>
@@ -347,29 +354,29 @@ const styles = StyleSheet.create({
     backgroundColor: "#0B0B0B",
   },
   header: {
+    gap: 16,
     paddingTop: 60,
     paddingBottom: 20,
-    paddingHorizontal: 20,
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    paddingHorizontal: 20,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   headerContent: {
     flex: 1,
   },
   headerTitle: {
     fontSize: 28,
+    marginBottom: 4,
     color: "#FAFAFA",
     fontWeight: "800",
-    marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: 14,
@@ -377,93 +384,93 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   filterContainer: {
-    paddingHorizontal: 20,
     marginBottom: 20,
     paddingBottom: 10,
+    paddingHorizontal: 20,
   },
   filterScroll: {
     gap: 8,
   },
-filterPill: {
-  paddingHorizontal: 16,
-  paddingVertical: 6,
-  borderRadius: 20,
-  backgroundColor: "rgba(255, 255, 255, 0.05)",
-  borderWidth: 1,
-  borderColor: "rgba(255, 255, 255, 0.1)",
-  justifyContent: "center", // ensures vertical centering
-  alignItems: "center",
-  minHeight: 34, // <- ensures enough space for full text rendering
-},
-filterPillActive: {
-  backgroundColor: "#00D4AA20",
-  borderColor: "#00D4AA",
-},
-filterText: {
-  fontSize: 13,
-  fontWeight: "600",
-  color: "#888",
-  lineHeight: 17, // match +1 to fontSize to avoid cropping
-  textAlignVertical: "center", // Android specific fix
-},
-filterTextActive: {
-  color: "#00D4AA",
-  fontWeight: "700",
-},
+  filterPill: {
+    minHeight: 34, // <- ensures enough space for full text rendering
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingVertical: 6,
+    alignItems: "center",
+    paddingHorizontal: 16,
+    justifyContent: "center", // ensures vertical centering
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  filterPillActive: {
+    borderColor: "#00D4AA",
+    backgroundColor: "#00D4AA20",
+  },
+  filterText: {
+    fontSize: 13,
+    color: "#888",
+    lineHeight: 17, // match +1 to fontSize to avoid cropping
+    fontWeight: "600",
+    textAlignVertical: "center", // Android specific fix
+  },
+  filterTextActive: {
+    color: "#00D4AA",
+    fontWeight: "700",
+  },
   scrollContent: {
-    paddingHorizontal: 20,
     paddingBottom: 40,
+    paddingHorizontal: 20,
   },
   loadingContainer: {
+    gap: 12,
     paddingVertical: 60,
     alignItems: "center",
-    gap: 12,
   },
   loadingText: {
-    color: "#888",
     fontSize: 14,
+    color: "#888",
     fontWeight: "500",
   },
   plansGrid: {
     gap: 12,
   },
   planCard: {
+    borderWidth: 1,
+    marginBottom: 0,
+    borderRadius: 14,
+    overflow: "hidden",
     position: "relative",
     backgroundColor: "#0B0B0B",
-    borderRadius: 14,
-    borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
-    overflow: "hidden",
-    marginBottom: 0,
   },
   planCardPressed: {
     opacity: 0.7,
     transform: [{ scale: 0.98 }],
   },
   gradientBg: {
-    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
     opacity: 0.6,
+    position: "absolute",
   },
   accentBar: {
-    position: "absolute",
-    left: 0,
     top: 0,
-    bottom: 0,
+    left: 0,
     width: 4,
+    bottom: 0,
+    position: "absolute",
   },
   cardContent: {
     padding: 14,
     paddingLeft: 16,
   },
   cardHeader: {
+    marginBottom: 8,
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    marginBottom: 8,
   },
   headerLeft: {
     flex: 1,
@@ -471,32 +478,32 @@ filterTextActive: {
   },
   planName: {
     fontSize: 16,
-    fontWeight: "700",
     color: "#fff",
-    letterSpacing: 0.2,
-    marginBottom: 6,
     lineHeight: 20,
+    marginBottom: 6,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
   badges: {
-    flexDirection: "row",
     gap: 6,
     flexWrap: "wrap",
+    flexDirection: "row",
   },
   typeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
     borderRadius: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
   },
   typeBadgeText: {
     fontSize: 10,
     fontWeight: "700",
-    textTransform: "uppercase",
     letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   difficultyBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
     borderRadius: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
   },
   difficultyText: {
     fontSize: 10,
@@ -505,25 +512,25 @@ filterTextActive: {
   },
   planDescription: {
     fontSize: 12,
-    color: "#A1A1AA",
-    fontWeight: "500",
     lineHeight: 16,
     marginBottom: 10,
+    color: "#A1A1AA",
+    fontWeight: "500",
   },
   metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
     gap: 8,
     marginBottom: 10,
-  },
-  metaItem: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  metaItem: {
     gap: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
     borderRadius: 6,
+    paddingVertical: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   metaDivider: {
     width: 3,
@@ -533,13 +540,13 @@ filterTextActive: {
   },
   metaText: {
     fontSize: 11,
-    fontWeight: "600",
     color: "#888",
+    fontWeight: "600",
     letterSpacing: 0.3,
   },
   macroContainer: {
-    backgroundColor: "rgba(0, 0, 0, 0.2)",
     borderRadius: 10,
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
   },
   macroGrid: {
     flexDirection: "row",
@@ -547,22 +554,22 @@ filterTextActive: {
     justifyContent: "space-between",
   },
   macroItem: {
-    alignItems: "center",
     flex: 1,
+    alignItems: "center",
   },
   macroValue: {
     fontSize: 16,
-    fontWeight: "800",
     color: "#fff",
-    letterSpacing: -0.5,
     marginBottom: 2,
+    fontWeight: "800",
+    letterSpacing: -0.5,
   },
   macroLabel: {
     fontSize: 9,
-    fontWeight: "600",
     color: "#888",
-    textTransform: "uppercase",
+    fontWeight: "600",
     letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   macroDivider: {
     width: 1,

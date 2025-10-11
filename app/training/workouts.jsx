@@ -1,21 +1,56 @@
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ScrollView,
+  SafeAreaView,
+} from "react-native";
+import {
+  Ionicons,
+  FontAwesome5,
+  MaterialCommunityIcons,
+} from "@expo/vector-icons";
 import React from "react";
-import { View, Text, Pressable, StyleSheet, ScrollView, SafeAreaView } from "react-native";
-import { Ionicons, FontAwesome5, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 
 // Mock Data for the page
 const myWorkouts = [
-  { id: '1', name: 'Morning Pump', details: '5 Exercises • Chest, Shoulders', icon: 'chest-expander' },
-  { id: '2', name: 'Leg Day Annihilation', details: '7 Exercises • Quads, Glutes, Hams', icon: 'trophy' },
+  {
+    id: "1",
+    name: "Morning Pump",
+    details: "5 Exercises • Chest, Shoulders",
+    icon: "chest-expander",
+  },
+  {
+    id: "2",
+    name: "Leg Day Annihilation",
+    details: "7 Exercises • Quads, Glutes, Hams",
+    icon: "trophy",
+  },
 ];
 
 const templates = [
-  { id: '1', name: 'Full Body Strength', details: 'Beginner • 8 Exercises', icon: 'dumbbell' },
-  { id: '2', name: 'Upper Body Hypertrophy', details: 'Intermediate • 6 Exercises', icon: 'barbell' },
-  { id: '3', name: 'Core & Cardio Blast', details: 'All Levels • 30 mins', icon: 'flame' },
+  {
+    id: "1",
+    name: "Full Body Strength",
+    details: "Beginner • 8 Exercises",
+    icon: "dumbbell",
+  },
+  {
+    id: "2",
+    name: "Upper Body Hypertrophy",
+    details: "Intermediate • 6 Exercises",
+    icon: "barbell",
+  },
+  {
+    id: "3",
+    name: "Core & Cardio Blast",
+    details: "All Levels • 30 mins",
+    icon: "flame",
+  },
 ];
-
 
 export default function MyWorkouts() {
   const router = useRouter();
@@ -49,7 +84,11 @@ export default function MyWorkouts() {
             <Text style={styles.sectionTitle}>My Custom Workouts</Text>
             {myWorkouts.map((workout) => (
               <Pressable key={workout.id} style={styles.card}>
-                <MaterialCommunityIcons name={workout.icon} size={32} color="#ffd93d" />
+                <MaterialCommunityIcons
+                  name={workout.icon}
+                  size={32}
+                  color="#ffd93d"
+                />
                 <View style={styles.workoutInfo}>
                   <Text style={styles.workoutName}>{workout.name}</Text>
                   <Text style={styles.workoutDetails}>{workout.details}</Text>
@@ -69,13 +108,12 @@ export default function MyWorkouts() {
                   <Text style={styles.workoutName}>{template.name}</Text>
                   <Text style={styles.workoutDetails}>{template.details}</Text>
                 </View>
-                 <Pressable style={styles.startBtn}>
-                   <Text style={styles.startBtnText}>Start</Text>
-                 </Pressable>
+                <Pressable style={styles.startBtn}>
+                  <Text style={styles.startBtnText}>Start</Text>
+                </Pressable>
               </Pressable>
             ))}
           </View>
-
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
@@ -86,42 +124,42 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { paddingTop: 60, paddingBottom: 40, paddingHorizontal: 20 },
   headerRow: {
+    marginBottom: 24,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 24,
   },
   backButton: { zIndex: 10 },
   headerText: { fontSize: 28, color: "#fff", fontWeight: "bold" },
   createButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     padding: 18,
     borderRadius: 16,
     marginBottom: 30,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   createButtonText: {
-    color: '#fff',
     fontSize: 18,
-    fontWeight: 'bold',
+    color: "#fff",
     marginLeft: 12,
+    fontWeight: "bold",
   },
   section: {
     marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    color: '#fff',
+    color: "#fff",
     marginBottom: 16,
+    fontWeight: "600",
   },
   card: {
-    flexDirection: "row",
-    alignItems: "center",
     padding: 20,
     borderRadius: 16,
     marginBottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   workoutInfo: {
@@ -135,8 +173,8 @@ const styles = StyleSheet.create({
   },
   workoutDetails: {
     fontSize: 14,
-    color: "#ccc",
     marginTop: 4,
+    color: "#ccc",
   },
   startBtn: {
     borderRadius: 20,

@@ -1,17 +1,17 @@
 import {
   View,
   Text,
+  Alert,
+  Pressable,
   StyleSheet,
   ScrollView,
-  Pressable,
-  Alert,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
 import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { BrowseWorkoutsDataService } from "../../services/BrowseWorkoutsDataService";
 import { supabase } from "../../services/supabase";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import SaveWorkoutModal from "../../components/training/SaveWorkoutModal";
+import { BrowseWorkoutsDataService } from "../../services/BrowseWorkoutsDataService";
 
 export default function WorkoutDetail() {
   const router = useRouter();
@@ -28,13 +28,16 @@ export default function WorkoutDetail() {
 
   const getUser = async () => {
     try {
-      const { data: { user }, error } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
       if (error) throw error;
       if (user) {
         setUserId(user.id);
       }
     } catch (error) {
-      console.error('Error getting user:', error);
+      console.error("Error getting user:", error);
     }
   };
 
@@ -45,7 +48,9 @@ export default function WorkoutDetail() {
   const loadWorkoutDetail = async () => {
     try {
       setIsLoading(true);
-      const data = await BrowseWorkoutsDataService.fetchWorkoutDetail(workoutId);
+      const data = await BrowseWorkoutsDataService.fetchWorkoutDetail(
+        workoutId
+      );
       setWorkout(data);
     } catch (error) {
       console.error("Error loading workout detail:", error);
@@ -70,18 +75,17 @@ export default function WorkoutDetail() {
       setIsSaving(true);
 
       // Call the save_workout_to_library function
-      const { data, error } = await supabase.rpc('save_workout_to_library', {
+      const { data, error } = await supabase.rpc("save_workout_to_library", {
         p_user_id: userId,
         p_template_id: workoutId,
         p_scheduled_day: scheduledDay,
-        p_start_now: startNow
+        p_start_now: startNow,
       });
 
       if (error) throw error;
 
       // Return success - modal will handle animation
       return { success: true, data, startNow };
-
     } catch (error) {
       console.error("Error saving workout:", error);
       Alert.alert("Error", "Failed to save workout. Please try again.");
@@ -93,7 +97,7 @@ export default function WorkoutDetail() {
   const handleSaveComplete = ({ data, startNow }) => {
     // Called after animation completes
     setIsSaving(false);
-    
+
     if (startNow && data && data.length > 0) {
       // Navigate to workout session if starting now
       router.push(`/workout/${workoutId}`);
@@ -104,8 +108,16 @@ export default function WorkoutDetail() {
   };
 
   const getDayName = (dayNumber) => {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    return days[dayNumber] || 'Unknown';
+    const days = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ];
+    return days[dayNumber] || "Unknown";
   };
 
   const getDifficultyColor = (difficulty) => {
@@ -152,7 +164,10 @@ export default function WorkoutDetail() {
             <View
               style={[
                 styles.difficultyBadge,
-                { backgroundColor: getDifficultyColor(workout.difficulty) + "20" },
+                {
+                  backgroundColor:
+                    getDifficultyColor(workout.difficulty) + "20",
+                },
               ]}
             >
               <Text
@@ -196,7 +211,11 @@ export default function WorkoutDetail() {
             <View style={styles.tagContainer}>
               {workout.equipment.map((item, index) => (
                 <View key={index} style={styles.tag}>
-                  <Ionicons name="construct-outline" size={14} color="#A1A1AA" />
+                  <Ionicons
+                    name="construct-outline"
+                    size={14}
+                    color="#A1A1AA"
+                  />
                   <Text style={styles.tagText}>{item}</Text>
                 </View>
               ))}
@@ -285,8 +304,14 @@ export default function WorkoutDetail() {
                   {/* Video Available Indicator */}
                   {exercise.videoUrl && (
                     <View style={styles.videoIndicator}>
-                      <Ionicons name="play-circle-outline" size={16} color="#A3E635" />
-                      <Text style={styles.videoText}>Video guide available</Text>
+                      <Ionicons
+                        name="play-circle-outline"
+                        size={16}
+                        color="#A3E635"
+                      />
+                      <Text style={styles.videoText}>
+                        Video guide available
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -379,58 +404,58 @@ const styles = StyleSheet.create({
     backgroundColor: "#0B0B0B",
   },
   loadingContainer: {
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
   },
   loadingText: {
-    color: "#71717A",
     fontSize: 16,
+    color: "#71717A",
   },
   header: {
+    gap: 16,
     paddingTop: 60,
     paddingBottom: 20,
-    paddingHorizontal: 20,
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    paddingHorizontal: 20,
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   headerContent: {
     flex: 1,
   },
   headerTitle: {
     fontSize: 24,
+    lineHeight: 30,
     color: "#FAFAFA",
     fontWeight: "800",
-    lineHeight: 30,
   },
   scrollContent: {
-    paddingHorizontal: 20,
     paddingBottom: 20,
+    paddingHorizontal: 20,
   },
   overviewCard: {
-    backgroundColor: "#161616",
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.1)",
     padding: 16,
+    borderWidth: 2,
+    borderRadius: 16,
     marginBottom: 20,
+    backgroundColor: "#161616",
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   overviewHeader: {
     marginBottom: 12,
   },
   difficultyBadge: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
     borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    alignSelf: "flex-start",
   },
   difficultyText: {
     fontSize: 11,
@@ -439,34 +464,34 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 14,
-    color: "#E5E5E5",
     lineHeight: 20,
     marginBottom: 16,
+    color: "#E5E5E5",
   },
   statsGrid: {
-    flexDirection: "row",
     gap: 12,
+    flexDirection: "row",
   },
   statBox: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 12,
     padding: 12,
-    alignItems: "center",
     borderWidth: 1,
+    borderRadius: 12,
+    alignItems: "center",
     borderColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   statValue: {
     fontSize: 20,
+    marginTop: 6,
     color: "#FAFAFA",
     fontWeight: "800",
-    marginTop: 6,
   },
   statLabel: {
     fontSize: 11,
+    marginTop: 2,
     color: "#71717A",
     fontWeight: "500",
-    marginTop: 2,
   },
   section: {
     marginBottom: 24,
@@ -474,24 +499,24 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     color: "#FAFAFA",
-    fontWeight: "700",
     marginBottom: 12,
+    fontWeight: "700",
   },
   tagContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
     gap: 8,
+    flexWrap: "wrap",
+    flexDirection: "row",
   },
   tag: {
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   muscleTag: {
     borderColor: "rgba(163, 230, 53, 0.2)",
@@ -506,23 +531,23 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   exerciseCard: {
-    backgroundColor: "#161616",
-    borderRadius: 16,
+    gap: 12,
+    padding: 16,
     borderWidth: 2,
+    borderRadius: 16,
     borderLeftWidth: 4,
+    flexDirection: "row",
+    backgroundColor: "#161616",
     borderLeftColor: "#A3E635",
     borderColor: "rgba(255, 255, 255, 0.1)",
-    padding: 16,
-    flexDirection: "row",
-    gap: 12,
   },
   exerciseNumber: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "rgba(163, 230, 53, 0.15)",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(163, 230, 53, 0.15)",
   },
   exerciseNumberText: {
     fontSize: 14,
@@ -534,24 +559,24 @@ const styles = StyleSheet.create({
   },
   exerciseName: {
     fontSize: 16,
+    marginBottom: 6,
     color: "#FAFAFA",
     fontWeight: "700",
-    marginBottom: 6,
   },
   exerciseDescription: {
     fontSize: 13,
-    color: "#A1A1AA",
     lineHeight: 18,
+    color: "#A1A1AA",
     marginBottom: 10,
   },
   exerciseStats: {
+    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 8,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(163, 230, 53, 0.08)",
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
-    gap: 8,
   },
   exerciseStat: {
     flex: 1,
@@ -568,10 +593,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(163, 230, 53, 0.25)",
   },
   caloriesPerSet: {
-    flexDirection: "row",
-    alignItems: "center",
     gap: 4,
     marginBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
   },
   caloriesPerSetText: {
     fontSize: 11,
@@ -579,21 +604,21 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   tipsContainer: {
-    backgroundColor: "rgba(59, 130, 246, 0.08)",
-    borderRadius: 8,
     padding: 10,
+    borderRadius: 8,
     marginBottom: 8,
+    backgroundColor: "rgba(59, 130, 246, 0.08)",
   },
   tipsTitle: {
     fontSize: 12,
+    marginBottom: 6,
     color: "#3B82F6",
     fontWeight: "700",
-    marginBottom: 6,
   },
   tipItem: {
-    flexDirection: "row",
     gap: 6,
     marginBottom: 4,
+    flexDirection: "row",
   },
   tipBullet: {
     fontSize: 12,
@@ -603,13 +628,13 @@ const styles = StyleSheet.create({
   tipText: {
     flex: 1,
     fontSize: 11,
-    color: "#A1A1AA",
     lineHeight: 16,
+    color: "#A1A1AA",
   },
   videoIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
     gap: 6,
+    alignItems: "center",
+    flexDirection: "row",
   },
   videoText: {
     fontSize: 11,
@@ -617,68 +642,68 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   structureCard: {
-    backgroundColor: "#161616",
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    padding: 16,
     gap: 16,
+    padding: 16,
+    borderWidth: 2,
+    borderRadius: 16,
+    backgroundColor: "#161616",
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   structureItem: {
-    flexDirection: "row",
     gap: 12,
+    flexDirection: "row",
   },
   structureIcon: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   structureContent: {
     flex: 1,
   },
   structureTitle: {
     fontSize: 14,
+    marginBottom: 2,
     color: "#FAFAFA",
     fontWeight: "700",
-    marginBottom: 2,
   },
   structureTime: {
     fontSize: 12,
+    marginBottom: 4,
     color: "#A3E635",
     fontWeight: "600",
-    marginBottom: 4,
   },
   structureDescription: {
     fontSize: 12,
-    color: "#71717A",
     lineHeight: 16,
+    color: "#71717A",
   },
   buttonContainer: {
-    position: "absolute",
-    bottom: 0,
     left: 0,
     right: 0,
+    bottom: 0,
     padding: 20,
-    backgroundColor: "#0B0B0B",
     borderTopWidth: 1,
+    position: "absolute",
+    backgroundColor: "#0B0B0B",
     borderTopColor: "rgba(255, 255, 255, 0.1)",
   },
   startButton: {
-    backgroundColor: "#A3E635",
+    gap: 8,
+    elevation: 8,
+    shadowRadius: 8,
     borderRadius: 16,
+    shadowOpacity: 0.3,
     paddingVertical: 16,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    elevation: 8,
     shadowColor: "#A3E635",
+    justifyContent: "center",
+    backgroundColor: "#A3E635",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
   },
   startButtonText: {
     fontSize: 16,

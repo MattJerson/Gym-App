@@ -1,36 +1,28 @@
 import {
   View,
   Text,
+  Alert,
+  Platform,
   Pressable,
   StyleSheet,
   ScrollView,
-  Modal,
-  TextInput,
-  Alert,
   ActionSheetIOS,
-  Platform,
 } from "react-native";
-import {
-  Ionicons,
-  FontAwesome5,
-  MaterialIcons,
-  MaterialCommunityIcons,
-} from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import { supabase } from "../../services/supabase";
 import { useState, useEffect, useMemo, useRef } from "react"; // Added useRef
+import NotificationBar from "../../components/NotificationBar";
 import { Calendar as RNCalendar } from "react-native-calendars";
 import RecentActivity from "../../components/home/RecentActivity";
 import ProgressGraph from "../../components/calendar/ProgressGraph";
 import StepsBarGraph from "../../components/calendar/StepsBarGraph";
+import WorkoutLogModal from "../../components/calendar/WorkoutLogModal";
+import { CalendarDataService } from "../../services/CalendarDataService";
 import CalendarAnalytics from "../../components/calendar/CalendarAnalytics";
 import CalendarStatsCard from "../../components/calendar/CalendarStatsCard";
-import WorkoutLogModal from "../../components/calendar/WorkoutLogModal";
 import WorkoutDetailsModal from "../../components/calendar/WorkoutDetailsModal";
-import NotificationBar from "../../components/NotificationBar";
 import { CalendarPageSkeleton } from "../../components/skeletons/CalendarPageSkeleton";
-import { CalendarDataService } from "../../services/CalendarDataService";
-import { supabase } from "../../services/supabase";
 
 export default function Calendar() {
   const router = useRouter();
@@ -39,11 +31,11 @@ export default function Calendar() {
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [workoutNote, setWorkoutNote] = useState("");
   const [selectedWorkoutType, setSelectedWorkoutType] = useState("strength");
-  
+
   // For double-tap detection
   const lastTapTimestamp = useRef(null);
   const lastTapDate = useRef(null);
-  
+
   // State for the new workout details modal
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [viewingWorkout, setViewingWorkout] = useState(null);
@@ -62,16 +54,19 @@ export default function Calendar() {
   useEffect(() => {
     const getUser = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
         if (error) throw error;
         if (user) {
           setUserId(user.id);
         } else {
-          Alert.alert('Error', 'Please sign in to view calendar');
+          Alert.alert("Error", "Please sign in to view calendar");
         }
       } catch (error) {
-        console.error('Error getting user:', error);
-        Alert.alert('Error', 'Failed to get user session');
+        console.error("Error getting user:", error);
+        Alert.alert("Error", "Failed to get user session");
       }
     };
     getUser();
@@ -87,16 +82,25 @@ export default function Calendar() {
     try {
       setIsLoading(true);
       const [
-        notificationsData, calendarData, activitiesData, typesData,
-        chartData, stepsResponse, analyticsData
+        notificationsData,
+        calendarData,
+        activitiesData,
+        typesData,
+        chartData,
+        stepsResponse,
+        analyticsData,
       ] = await Promise.all([
         CalendarDataService.fetchUserNotifications(userId),
-        CalendarDataService.fetchWorkoutCalendar(userId, "2025-08-01", "2025-10-31"),
+        CalendarDataService.fetchWorkoutCalendar(
+          userId,
+          "2025-08-01",
+          "2025-10-31"
+        ),
         CalendarDataService.fetchRecentActivities(userId),
         CalendarDataService.fetchWorkoutTypes(),
         CalendarDataService.fetchProgressChart(userId, "weight"),
         CalendarDataService.fetchStepsData(userId),
-        CalendarDataService.fetchCalendarAnalytics(userId)
+        CalendarDataService.fetchCalendarAnalytics(userId),
       ]);
       setNotifications(notificationsData.count);
       setWorkoutData(calendarData);
@@ -143,11 +147,15 @@ export default function Calendar() {
     const dateString = day.dateString;
 
     // Check for double tap
-    if (lastTapTimestamp.current && (now - lastTapTimestamp.current) < DOUBLE_PRESS_DELAY && lastTapDate.current === dateString) {
+    if (
+      lastTapTimestamp.current &&
+      now - lastTapTimestamp.current < DOUBLE_PRESS_DELAY &&
+      lastTapDate.current === dateString
+    ) {
       // It's a double tap: show the log UI IF THE DAY IS EMPTY
       if (!workoutData[dateString]) {
-         setSelectedDate(dateString);
-         showLogWorkoutUI();
+        setSelectedDate(dateString);
+        showLogWorkoutUI();
       }
       // Reset tap detection
       lastTapTimestamp.current = null;
@@ -173,13 +181,26 @@ export default function Calendar() {
       return;
     }
     try {
-      const newWorkout = { type: selectedWorkoutType, completed: true, streak: true, note: workoutNote.trim() || undefined, date: selectedDate, duration: 0, createdAt: new Date().toISOString() };
-      const createdWorkout = await CalendarDataService.createWorkout(userId, newWorkout);
-      setWorkoutData(prev => ({ ...prev, [selectedDate]: createdWorkout }));
+      const newWorkout = {
+        type: selectedWorkoutType,
+        completed: true,
+        streak: true,
+        note: workoutNote.trim() || undefined,
+        date: selectedDate,
+        duration: 0,
+        createdAt: new Date().toISOString(),
+      };
+      const createdWorkout = await CalendarDataService.createWorkout(
+        userId,
+        newWorkout
+      );
+      setWorkoutData((prev) => ({ ...prev, [selectedDate]: createdWorkout }));
       setWorkoutNote("");
       setShowWorkoutModal(false);
       Alert.alert("Success", "Workout logged successfully!");
-      const updatedActivities = await CalendarDataService.fetchRecentActivities(userId);
+      const updatedActivities = await CalendarDataService.fetchRecentActivities(
+        userId
+      );
       setRecentActivitiesData(updatedActivities);
     } catch (error) {
       console.error("Error creating workout:", error);
@@ -195,17 +216,17 @@ export default function Calendar() {
       marks[todayString] = {
         customStyles: {
           container: {
-            backgroundColor: 'rgba(255, 255, 255, 0.15)',
+            backgroundColor: "rgba(255, 255, 255, 0.15)",
             borderRadius: 8,
           },
           text: {
-            color: '#34C759',
-            fontWeight: 'bold',
+            color: "#34C759",
+            fontWeight: "bold",
           },
         },
       };
     }
-    
+
     Object.entries(workoutData).forEach(([date, workout]) => {
       const workoutType = workoutTypes.find((w) => w.key === workout.type);
       // FIX: Always use the workout's main color for the dot to ensure visibility.
@@ -215,7 +236,11 @@ export default function Calendar() {
     });
 
     if (selectedDate) {
-      marks[selectedDate] = { ...marks[selectedDate], selected: true, selectedColor: "#1E3A5F" };
+      marks[selectedDate] = {
+        ...marks[selectedDate],
+        selected: true,
+        selectedColor: "#1E3A5F",
+      };
     }
     return marks;
   }, [workoutData, selectedDate, workoutTypes]);
@@ -224,28 +249,33 @@ export default function Calendar() {
     const currentMonth = currentDate.getMonth();
     const currentYear = currentDate.getFullYear();
     let workouts = 0;
-    
+
     // Count workouts in current month
     Object.entries(workoutData).forEach(([dateKey, workout]) => {
       const [year, month] = dateKey.split("-").map(Number);
-      if (year === currentYear && month - 1 === currentMonth && workout.completed) {
+      if (
+        year === currentYear &&
+        month - 1 === currentMonth &&
+        workout.completed
+      ) {
         workouts++;
       }
     });
-    
+
     // Calculate current active streak (from today backwards)
     let currentStreakCount = 0;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     // Check each day going backwards from today
-    for (let i = 0; i < 365; i++) { // Max 365 days check
+    for (let i = 0; i < 365; i++) {
+      // Max 365 days check
       const checkDate = new Date(today);
       checkDate.setDate(today.getDate() - i);
       const dateKey = formatDateKey(checkDate);
-      
+
       const workout = workoutData[dateKey];
-      
+
       if (workout && workout.completed) {
         currentStreakCount++;
       } else {
@@ -257,12 +287,11 @@ export default function Calendar() {
         break; // Streak broken
       }
     }
-    
+
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     const goalPercentage = Math.round((workouts / daysInMonth) * 100);
     return { workouts, streak: currentStreakCount, goalPercentage };
   }, [currentDate, workoutData]);
-
 
   return (
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
@@ -283,7 +312,7 @@ export default function Calendar() {
             </Pressable>
           </View>
         </View>
-        
+
         {isLoading ? (
           <CalendarPageSkeleton />
         ) : (
@@ -292,7 +321,9 @@ export default function Calendar() {
               <RNCalendar
                 current={formatDateKey(currentDate)}
                 onDayPress={handleDayPress}
-                onMonthChange={(month) => setCurrentDate(new Date(month.dateString))}
+                onMonthChange={(month) =>
+                  setCurrentDate(new Date(month.dateString))
+                }
                 markedDates={markedDates}
                 markingType={"custom"}
                 hideExtraDays={false}
@@ -313,9 +344,9 @@ export default function Calendar() {
                   textDisabledColor: "#555",
                 }}
               />
-              <CalendarStatsCard 
-                monthlyStats={monthlyStats} 
-                currentDate={currentDate} 
+              <CalendarStatsCard
+                monthlyStats={monthlyStats}
+                currentDate={currentDate}
               />
             </View>
 
@@ -355,19 +386,29 @@ export default function Calendar() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { paddingTop: 60, paddingBottom: 40, paddingHorizontal: 15 },
-  headerRow: { marginBottom: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 5 },
+  headerRow: {
+    marginBottom: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 5,
+    justifyContent: "space-between",
+  },
   headerText: { fontSize: 28, color: "#fff", fontWeight: "bold" },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 15 },
   addButton: { padding: 4 },
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 60 },
+  loadingContainer: {
+    flex: 1,
+    paddingVertical: 60,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   loadingText: { color: "#fff", fontSize: 16, opacity: 0.7 },
   calendarCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderWidth: 1,
     borderRadius: 22,
     marginBottom: 20,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)", 
+    borderColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
 });
-

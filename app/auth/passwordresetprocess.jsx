@@ -1,24 +1,21 @@
 import {
   View,
   Text,
+  Platform,
+  Animated,
+  StatusBar,
   TextInput,
   Pressable,
   StyleSheet,
   Dimensions,
-  Keyboard,
-  TouchableWithoutFeedback,
   KeyboardAvoidingView,
-  Platform,
-  Animated,
-  StatusBar,
-  ActivityIndicator,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import React, { useState, useRef, useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import SubmitButton from "../../components/SubmitButton";
+import React, { useState, useRef, useEffect } from "react";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 const stepsConfig = [
   {
@@ -27,7 +24,12 @@ const stepsConfig = [
     buttonText: "Send Code",
     displayIcon: "email-outline",
     fields: [
-      { name: "email", placeholder: "Email Address", icon: "email-outline", keyboardType: "email-address" },
+      {
+        name: "email",
+        placeholder: "Email Address",
+        icon: "email-outline",
+        keyboardType: "email-address",
+      },
     ],
   },
   {
@@ -43,8 +45,18 @@ const stepsConfig = [
     buttonText: "Reset Password",
     displayIcon: "lock-reset",
     fields: [
-      { name: "password", placeholder: "New Password", icon: "lock-outline", secure: true },
-      { name: "confirmPassword", placeholder: "Confirm New Password", icon: "lock-check-outline", secure: true },
+      {
+        name: "password",
+        placeholder: "New Password",
+        icon: "lock-outline",
+        secure: true,
+      },
+      {
+        name: "confirmPassword",
+        placeholder: "Confirm New Password",
+        icon: "lock-check-outline",
+        secure: true,
+      },
     ],
   },
 ];
@@ -87,33 +99,36 @@ export default function ForgotPasswordFlow() {
   }, []);
 
   const handleInputChange = (name, value) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleOtpChange = (text, index) => {
     const newOtp = [...formData.otp];
     newOtp[index] = text;
-    setFormData(prev => ({ ...prev, otp: newOtp }));
-
+    setFormData((prev) => ({ ...prev, otp: newOtp }));
 
     if (text && index < otpInputs.current.length - 1) {
       otpInputs.current[index + 1].focus();
     }
   };
-  
+
   const handleBackspace = (event, index) => {
-    if (event.nativeEvent.key === 'Backspace' && !formData.otp[index] && index > 0) {
-        otpInputs.current[index - 1].focus();
+    if (
+      event.nativeEvent.key === "Backspace" &&
+      !formData.otp[index] &&
+      index > 0
+    ) {
+      otpInputs.current[index - 1].focus();
     }
   };
   const handleNextStep = async () => {
     setIsLoading(true);
-    
+
     // Simulate processing time
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
     if (step < stepsConfig.length - 1) {
-      setStep(prev => prev + 1);
+      setStep((prev) => prev + 1);
     } else {
       console.log("Final Data:", formData);
       router.replace("/auth/loginregister");
@@ -123,7 +138,7 @@ export default function ForgotPasswordFlow() {
 
   const handlePreviousStep = () => {
     if (step > 0) {
-      setStep(prev => prev - 1);
+      setStep((prev) => prev - 1);
     } else {
       router.back();
     }
@@ -139,15 +154,15 @@ export default function ForgotPasswordFlow() {
             {formData.otp.map((_, i) => (
               <TextInput
                 key={i}
-                ref={el => (otpInputs.current[i] = el)}
+                ref={(el) => (otpInputs.current[i] = el)}
                 style={[
                   styles.otpInput,
-                  formData.otp[i] && styles.otpInputFilled
+                  formData.otp[i] && styles.otpInputFilled,
                 ]}
                 keyboardType="number-pad"
                 maxLength={1}
-                onChangeText={text => handleOtpChange(text, i)}
-                onKeyPress={e => handleBackspace(e, i)}
+                onChangeText={(text) => handleOtpChange(text, i)}
+                onKeyPress={(e) => handleBackspace(e, i)}
                 value={formData.otp[i]}
                 placeholderTextColor="#666"
               />
@@ -159,17 +174,17 @@ export default function ForgotPasswordFlow() {
       const isFocused = focusedField === field.name;
 
       return (
-        <View key={field.name} style={[
-          styles.inputContainer,
-          isFocused && styles.inputContainerFocused
-        ]}>
+        <View
+          key={field.name}
+          style={[
+            styles.inputContainer,
+            isFocused && styles.inputContainerFocused,
+          ]}
+        >
           <View style={styles.inputIconContainer}>
-            <MaterialCommunityIcons 
-              name={field.icon} 
-              style={[
-                styles.icon,
-                isFocused && styles.iconFocused
-              ]} 
+            <MaterialCommunityIcons
+              name={field.icon}
+              style={[styles.icon, isFocused && styles.iconFocused]}
             />
           </View>
           <TextInput
@@ -178,7 +193,7 @@ export default function ForgotPasswordFlow() {
             placeholderTextColor="#666"
             secureTextEntry={field.secure || false}
             value={formData[field.name]}
-            onChangeText={text => handleInputChange(field.name, text)}
+            onChangeText={(text) => handleInputChange(field.name, text)}
             keyboardType={field.keyboardType || "default"}
             autoCapitalize="none"
             onFocus={() => setFocusedField(field.name)}
@@ -187,32 +202,37 @@ export default function ForgotPasswordFlow() {
         </View>
       );
     });
-  };  return (
+  };
+  return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0B0B0B" />
       <SafeAreaView style={styles.safeArea}>
-        <Animated.View style={[styles.content, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        <Animated.View
+          style={[
+            styles.content,
+            { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+          ]}
+        >
           {/* Header */}
           <View style={styles.header}>
-            <Pressable 
-              onPress={handlePreviousStep} 
-              style={styles.backButton}
-            >
+            <Pressable onPress={handlePreviousStep} style={styles.backButton}>
               <Ionicons name="arrow-back" size={24} color="#fff" />
             </Pressable>
             <Text style={styles.headerTitle}>{currentStep.title}</Text>
             <View style={styles.stepIndicator}>
-              <Text style={styles.stepText}>{step + 1}/{stepsConfig.length}</Text>
+              <Text style={styles.stepText}>
+                {step + 1}/{stepsConfig.length}
+              </Text>
             </View>
           </View>
 
           {/* Progress Bar */}
           <View style={styles.progressBarContainer}>
             <View style={styles.progressBar}>
-              <Animated.View 
+              <Animated.View
                 style={[
                   styles.progressFill,
-                  { width: `${((step + 1) / stepsConfig.length) * 100}%` }
+                  { width: `${((step + 1) / stepsConfig.length) * 100}%` },
                 ]}
               />
             </View>
@@ -229,23 +249,25 @@ export default function ForgotPasswordFlow() {
                 colors={["#4A9EFF", "#6BB6FF"]}
                 style={styles.iconGradient}
               >
-                <MaterialCommunityIcons 
-                  name={currentStep.displayIcon} 
-                  size={40} 
-                  color="#fff" 
+                <MaterialCommunityIcons
+                  name={currentStep.displayIcon}
+                  size={40}
+                  color="#fff"
                 />
               </LinearGradient>
             </View>
 
             <Text style={styles.subtitle}>{currentStep.subtitle}</Text>
-            
+
             {/* Form Fields */}
             <View style={styles.formContainer}>
               {renderFields()}
 
               {step === 1 && (
                 <View style={styles.resendContainer}>
-                  <Text style={styles.resendText}>Didn't receive the code? </Text>
+                  <Text style={styles.resendText}>
+                    Didn't receive the code?{" "}
+                  </Text>
                   <Pressable>
                     <Text style={styles.resendButtonText}>Resend</Text>
                   </Pressable>
@@ -285,35 +307,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   header: {
+    width: "100%",
+    marginTop: 15,
+    paddingVertical: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 20,
     paddingTop: Platform.OS === "ios" ? 25 : 35,
-    marginTop: 15,
-    width: "100%",
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   headerTitle: {
+    flex: 1,
     fontSize: 18,
-    fontWeight: "700",
     color: "#fff",
+    fontWeight: "700",
     letterSpacing: 0.5,
     textAlign: "center",
-    flex: 1,
   },
   stepIndicator: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
     borderRadius: 15,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   stepText: {
     fontSize: 12,
@@ -326,21 +348,21 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderRadius: 2,
     overflow: "hidden",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
   },
   progressFill: {
     height: "100%",
-    backgroundColor: "#4A9EFF",
     borderRadius: 2,
+    backgroundColor: "#4A9EFF",
   },
   mainContent: {
     flex: 1,
     width: "100%",
+    paddingTop: 20,
     alignItems: "center",
     justifyContent: "flex-start",
-    paddingTop: 20,
   },
   iconContainer: {
     marginBottom: 24,
@@ -348,52 +370,52 @@ const styles = StyleSheet.create({
   iconGradient: {
     width: 100,
     height: 100,
-    borderRadius: 50,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#4A9EFF",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
     elevation: 8,
+    borderRadius: 50,
+    shadowRadius: 16,
+    shadowOpacity: 0.3,
+    alignItems: "center",
+    shadowColor: "#4A9EFF",
+    justifyContent: "center",
+    shadowOffset: { width: 0, height: 8 },
   },
   subtitle: {
     fontSize: 16,
-    color: "#999",
-    textAlign: "center",
-    lineHeight: 22,
     maxWidth: 320,
+    color: "#999",
+    lineHeight: 22,
     marginBottom: 32,
+    textAlign: "center",
   },
   formContainer: {
     width: "100%",
-    alignItems: "center",
     marginBottom: 20,
+    alignItems: "center",
   },
   inputContainer: {
-    width: "100%",
     height: 56,
+    elevation: 2,
+    width: "100%",
+    borderWidth: 1,
+    shadowRadius: 4,
     borderRadius: 16,
     marginBottom: 16,
+    shadowOpacity: 0.1,
+    shadowColor: "#000",
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   inputContainerFocused: {
+    elevation: 4,
+    shadowRadius: 8,
+    shadowOpacity: 0.2,
     borderColor: "#4A9EFF",
-    backgroundColor: "rgba(74, 158, 255, 0.1)",
     shadowColor: "#4A9EFF",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: "rgba(74, 158, 255, 0.1)",
   },
   inputIconContainer: {
     width: 50,
@@ -419,34 +441,34 @@ const styles = StyleSheet.create({
     width: "100%",
     marginBottom: 24,
     flexDirection: "row",
-    justifyContent: "space-between",
     paddingHorizontal: 10,
+    justifyContent: "space-between",
   },
   otpInput: {
     width: 48,
     height: 56,
     fontSize: 24,
+    elevation: 2,
     color: "#fff",
     borderWidth: 1,
+    shadowRadius: 4,
     borderRadius: 12,
     fontWeight: "600",
+    shadowOpacity: 0.1,
     textAlign: "center",
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
   otpInputFilled: {
+    elevation: 4,
+    shadowRadius: 8,
+    shadowOpacity: 0.2,
     borderColor: "#4A9EFF",
-    backgroundColor: "rgba(74, 158, 255, 0.1)",
     shadowColor: "#4A9EFF",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: "rgba(74, 158, 255, 0.1)",
   },
   resendContainer: {
     marginBottom: 24,
@@ -455,8 +477,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   resendText: {
-    color: "#999",
     fontSize: 14,
+    color: "#999",
   },
   resendButtonText: {
     fontSize: 14,

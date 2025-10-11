@@ -137,7 +137,8 @@ export default function CommunityChat() {
         );
 
         try {
-          const username = user.user_metadata?.nickname ||
+          const username =
+            user.user_metadata?.nickname ||
             (user.email ? user.email.split("@")[0] : "user");
 
           const { data: created, error: createErr } = await supabase
@@ -152,7 +153,10 @@ export default function CommunityChat() {
             .single();
 
           if (createErr) {
-            console.error("[CommunityChat] failed to create chats profile:", createErr);
+            console.error(
+              "[CommunityChat] failed to create chats profile:",
+              createErr
+            );
             // fallback minimal object to avoid crash
             setCurrentUser({
               id: user.id,
@@ -165,7 +169,10 @@ export default function CommunityChat() {
             setCurrentUser(created);
           }
         } catch (err) {
-          console.error("[CommunityChat] unexpected error creating chats profile:", err);
+          console.error(
+            "[CommunityChat] unexpected error creating chats profile:",
+            err
+          );
           setCurrentUser({
             id: user.id,
             username: user.email ? user.email.split("@")[0] : "user",
@@ -299,7 +306,10 @@ export default function CommunityChat() {
           };
           setChannelMessages((prev) => [...prev, newMessage]);
         } catch (err) {
-          console.warn("[CommunityChat] failed to handle channel realtime payload", err);
+          console.warn(
+            "[CommunityChat] failed to handle channel realtime payload",
+            err
+          );
         }
       }
     );
@@ -326,7 +336,10 @@ export default function CommunityChat() {
           };
           setDmMessages((prev) => [...prev, newMessage]);
         } catch (err) {
-          console.warn("[CommunityChat] failed to handle DM realtime payload", err);
+          console.warn(
+            "[CommunityChat] failed to handle DM realtime payload",
+            err
+          );
         }
       }
     );
@@ -382,7 +395,10 @@ export default function CommunityChat() {
         );
 
         if (error) {
-          console.error("[CommunityChat] sendChannelMessage returned error", error);
+          console.error(
+            "[CommunityChat] sendChannelMessage returned error",
+            error
+          );
           Alert.alert("Error", "Failed to send message");
         } else {
           console.log("[CommunityChat] channel message sent", { id: data?.id });
@@ -395,7 +411,10 @@ export default function CommunityChat() {
         );
 
         if (error) {
-          console.error("[CommunityChat] sendDirectMessage returned error", error);
+          console.error(
+            "[CommunityChat] sendDirectMessage returned error",
+            error
+          );
           Alert.alert("Error", "Failed to send message");
         } else {
           console.log("[CommunityChat] direct message sent", { id: data?.id });
@@ -415,7 +434,9 @@ export default function CommunityChat() {
     // Fallback timeout: if sending isn't cleared for reason, force clear after 8s
     setTimeout(() => {
       if (sending) {
-        console.warn("[CommunityChat] sending flag still true after timeout, forcing clear");
+        console.warn(
+          "[CommunityChat] sending flag still true after timeout, forcing clear"
+        );
         clearSending("timeout");
       }
     }, 8000);
@@ -877,10 +898,11 @@ export default function CommunityChat() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#0B0B0B",
   },
   centerContent: {
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
   },
   header: {
     paddingTop: 60,
@@ -939,22 +961,22 @@ const styles = StyleSheet.create({
   },
   sidebar: {
     width: 280,
-    height: "100%",
-    backgroundColor: "#1a1a1a",
-    paddingTop: 60,
-    shadowColor: "#000",
-    shadowOffset: { width: 2, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
     elevation: 5,
+    height: "100%",
+    paddingTop: 60,
+    shadowRadius: 8,
+    shadowOpacity: 0.8,
+    shadowColor: "#000",
+    backgroundColor: "#1a1a1a",
+    shadowOffset: { width: 2, height: 0 },
   },
   sidebarHeader: {
-    paddingHorizontal: 20,
     paddingBottom: 20,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     borderBottomWidth: 1,
+    paddingHorizontal: 20,
+    justifyContent: "space-between",
     borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
   sidebarTitle: {
@@ -966,20 +988,20 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   modeSwitcher: {
-    flexDirection: "row",
-    padding: 15,
     gap: 10,
+    padding: 15,
+    flexDirection: "row",
   },
   modeButton: {
     flex: 1,
+    borderRadius: 16,
+    paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
     position: "relative",
+    paddingHorizontal: 12,
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   activeModeButton: {
     backgroundColor: "rgba(255, 255, 255, 0.15)",
@@ -994,20 +1016,20 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   modeBadge: {
+    top: -4,
+    right: -4,
     height: 18,
     minWidth: 18,
     borderRadius: 9,
     alignItems: "center",
     paddingHorizontal: 5,
+    position: "absolute",
     justifyContent: "center",
     backgroundColor: "#e74c3c",
-    position: "absolute",
-    top: -4,
-    right: -4,
   },
   channelsList: {
-    paddingHorizontal: 15,
     paddingBottom: 20,
+    paddingHorizontal: 15,
   },
   categoryContainer: {
     marginBottom: 20,
@@ -1062,16 +1084,16 @@ const styles = StyleSheet.create({
 
   // DM List
   dmList: {
-    paddingHorizontal: 15,
     paddingTop: 10,
+    paddingHorizontal: 15,
   },
   dmItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 12,
     marginBottom: 4,
     borderRadius: 12,
+    paddingVertical: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
   },
   activeDMItem: {
     backgroundColor: "rgba(255, 255, 255, 0.15)",
@@ -1087,10 +1109,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dmHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     marginBottom: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   dmUsername: {
     fontSize: 15,
@@ -1108,12 +1130,12 @@ const styles = StyleSheet.create({
   dmUnreadBadge: {
     height: 20,
     minWidth: 20,
+    marginLeft: 8,
     borderRadius: 10,
     alignItems: "center",
     paddingHorizontal: 6,
     justifyContent: "center",
     backgroundColor: "#e74c3c",
-    marginLeft: 8,
   },
 
   // Chat Area
@@ -1167,8 +1189,8 @@ const styles = StyleSheet.create({
   messageCard: {
     padding: 16,
     borderRadius: 16,
+    maxWidth: "100%",
     backgroundColor: "rgba(255, 255, 255, 0.05)",
-    maxWidth: "85%",
   },
   myMessageCard: {
     backgroundColor: "rgba(78, 205, 196, 0.2)",
@@ -1210,16 +1232,16 @@ const styles = StyleSheet.create({
   },
   messageText: {
     fontSize: 15,
-    lineHeight: 22,
     color: "#fff",
+    lineHeight: 22,
   },
   myMessageText: {
     color: "#fff",
   },
   myMessageTimestamp: {
     fontSize: 11,
-    color: "#ccc",
     marginTop: 6,
+    color: "#ccc",
     textAlign: "right",
   },
 

@@ -1,4 +1,3 @@
-import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,18 +6,18 @@ import {
   Keyboard,
   Platform,
   Pressable,
-  StyleSheet,
-  TouchableWithoutFeedback,
-  KeyboardAvoidingView,
   StatusBar,
+  StyleSheet,
+  KeyboardAvoidingView,
 } from "react-native";
-import { useRouter } from "expo-router";
 import { Alert } from "react-native";
+import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import FormInput from "../../components/FormInput";
-import SubmitButton from "../../components/SubmitButton";
-import { supabase, pingSupabase } from "../../services/supabase";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@env";
+import SubmitButton from "../../components/SubmitButton";
+import React, { useState, useRef, useEffect } from "react";
+import { supabase, pingSupabase } from "../../services/supabase";
 
 /* -------------------- REGISTER/LOGIN SCREEN -------------------- */
 export default function Register() {
@@ -88,7 +87,10 @@ export default function Register() {
   const withTimeout = async (promise, ms, label = "request") => {
     let timeoutId;
     const timeoutPromise = new Promise((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error(`${label} timed out. Please try again.`)), ms);
+      timeoutId = setTimeout(
+        () => reject(new Error(`${label} timed out. Please try again.`)),
+        ms
+      );
     });
     try {
       const result = await Promise.race([promise, timeoutPromise]);
@@ -149,7 +151,8 @@ export default function Register() {
     // Registration-specific validation
     if (isRegistering) {
       if (!nickname.trim()) newErrors.nickname = "Nickname is required.";
-      if (password !== confirmPassword) newErrors.confirmPassword = "Passwords do not match.";
+      if (password !== confirmPassword)
+        newErrors.confirmPassword = "Passwords do not match.";
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -171,14 +174,22 @@ export default function Register() {
       const healthy = await pingSupabase(4000);
       console.timeEnd("auth:ping");
       dlog("pingSupabase", { healthy });
-      if (!healthy) throw new Error("Unable to reach the server. Check your internet connection or try again shortly.");
+      if (!healthy)
+        throw new Error(
+          "Unable to reach the server. Check your internet connection or try again shortly."
+        );
 
       // Log Supabase client status
       if (__DEV__) {
         try {
           dlog("getSession:start");
-          const { data: { session } } = await supabase.auth.getSession();
-          dlog("existing-session", { hasSession: !!session, userId: session?.user?.id });
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+          dlog("existing-session", {
+            hasSession: !!session,
+            userId: session?.user?.id,
+          });
         } catch (e) {
           dlog("session-check-error", e.message);
         }
@@ -191,14 +202,25 @@ export default function Register() {
             console.time("auth:signup");
             dlog("signup:calling:supabase.auth.signUp", { email });
             const { data, error } = await withTimeout(
-              supabase.auth.signUp({ email, password, options: { data: { nickname } } }),
+              supabase.auth.signUp({
+                email,
+                password,
+                options: { data: { nickname } },
+              }),
               8000,
               "Sign up"
             );
-            dlog("signup:sdk:result", { ok: !error, hasUser: !!data?.user, error });
+            dlog("signup:sdk:result", {
+              ok: !error,
+              hasUser: !!data?.user,
+              error,
+            });
             if (error) {
               dlog("signup:sdk:error", error.message);
-              if (error instanceof Error && error.message?.includes("Password should be at least")) {
+              if (
+                error instanceof Error &&
+                error.message?.includes("Password should be at least")
+              ) {
                 throw new Error("Password must be at least 6 characters.");
               }
               // Fallback: direct signup
@@ -208,7 +230,10 @@ export default function Register() {
                 const to = setTimeout(() => controller.abort(), 12000);
                 const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
                   method: "POST",
-                  headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY },
+                  headers: {
+                    "Content-Type": "application/json",
+                    apikey: SUPABASE_ANON_KEY,
+                  },
                   body: JSON.stringify({ email, password, data: { nickname } }),
                   signal: controller.signal,
                 });
@@ -233,7 +258,13 @@ export default function Register() {
                 dlog("signup:post:updateUser:start");
                 // Always set full_name, nickname, and display_name in user_metadata
                 await withTimeout(
-                  supabase.auth.updateUser({ data: { full_name: nickname, nickname, display_name: nickname } }),
+                  supabase.auth.updateUser({
+                    data: {
+                      full_name: nickname,
+                      nickname,
+                      display_name: nickname,
+                    },
+                  }),
                   8000,
                   "Profile update"
                 );
@@ -244,9 +275,10 @@ export default function Register() {
               // Create registration_profiles row
               try {
                 dlog("creating:profile:rpc:start", { userId: data.user.id });
-                const { data: rpcData, error: profileError } = await supabase.rpc('create_profile_for_user', {
-                  user_id_param: data.user.id
-                });
+                const { data: rpcData, error: profileError } =
+                  await supabase.rpc("create_profile_for_user", {
+                    user_id_param: data.user.id,
+                  });
                 dlog("creating:profile:rpc:done", { rpcData, profileError });
                 if (profileError) {
                   dlog("profile:create:error", profileError.message);
@@ -258,7 +290,10 @@ export default function Register() {
               }
             }
           } catch (innerErr) {
-            dlog("signup:catchall:exception", String(innerErr?.message || innerErr));
+            dlog(
+              "signup:catchall:exception",
+              String(innerErr?.message || innerErr)
+            );
             throw innerErr;
           }
         } catch (upErr) {
@@ -270,7 +305,10 @@ export default function Register() {
       } else {
         // SDK sign-in with timeout
         dlog("signin:start");
-        dlog("Supabase URL/ANON", { url: SUPABASE_URL, anon: SUPABASE_ANON_KEY });
+        dlog("Supabase URL/ANON", {
+          url: SUPABASE_URL,
+          anon: SUPABASE_ANON_KEY,
+        });
         console.time("auth:signin");
         const { data, error: sdkErr } = await withTimeout(
           supabase.auth.signInWithPassword({ email, password }),
@@ -279,11 +317,11 @@ export default function Register() {
         );
         console.timeEnd("auth:signin");
         if (sdkErr) {
-          dlog("signin:sdk:fail", { 
-            message: sdkErr.message, 
+          dlog("signin:sdk:fail", {
+            message: sdkErr.message,
             status: sdkErr.status,
             code: sdkErr.code,
-            name: sdkErr.name
+            name: sdkErr.name,
           });
           throw sdkErr;
         }
@@ -302,19 +340,28 @@ export default function Register() {
               .eq("user_id", data.user.id)
               .maybeSingle();
             dlog("login:post:updateUser:profile", { profile });
-            nickname = profile?.nickname || data.user.email?.split("@") [0] || "User";
+            nickname =
+              profile?.nickname || data.user.email?.split("@")[0] || "User";
           } catch (e) {
-            dlog("login:post:updateUser:profile:error", String(e?.message || e));
-            nickname = data.user.email?.split("@") [0] || "User";
+            dlog(
+              "login:post:updateUser:profile:error",
+              String(e?.message || e)
+            );
+            nickname = data.user.email?.split("@")[0] || "User";
           }
           await withTimeout(
-            supabase.auth.updateUser({ data: { full_name: nickname, nickname, display_name: nickname } }),
+            supabase.auth.updateUser({
+              data: { full_name: nickname, nickname, display_name: nickname },
+            }),
             8000,
             "Profile update (login)"
           );
           dlog("login:post:updateUser:done", { nickname });
         } catch (updateErr) {
-          dlog("login:post:updateUser:error", String(updateErr?.message || updateErr));
+          dlog(
+            "login:post:updateUser:error",
+            String(updateErr?.message || updateErr)
+          );
         }
 
         // Check if onboarding is complete (with DB function, profile will be created if missing)
@@ -322,9 +369,12 @@ export default function Register() {
         try {
           // First, ensure profile exists (for existing users who signed up before this fix)
           dlog("ensuring:profile:rpc:start", { userId: data.user.id });
-          const { data: rpcData, error: rpcError } = await supabase.rpc('create_profile_for_user', {
-            user_id_param: data.user.id
-          });
+          const { data: rpcData, error: rpcError } = await supabase.rpc(
+            "create_profile_for_user",
+            {
+              user_id_param: data.user.id,
+            }
+          );
           dlog("ensuring:profile:rpc:done", { rpcData, rpcError });
           // Now check onboarding status
           dlog("profile:check:select:start", { userId: data.user.id });
@@ -333,7 +383,11 @@ export default function Register() {
             .select("onboarding_completed")
             .eq("user_id", data.user.id)
             .maybeSingle();
-          dlog("profile:check:select:done", { hasProfile: !!profile, onboardingComplete: profile?.onboarding_completed, selectError });
+          dlog("profile:check:select:done", {
+            hasProfile: !!profile,
+            onboardingComplete: profile?.onboarding_completed,
+            selectError,
+          });
           if (!profile || !profile.onboarding_completed) {
             // Onboarding not complete, go to registration flow
             dlog("nav:to:registrationprocess");
@@ -341,7 +395,10 @@ export default function Register() {
               router.replace("/features/registrationprocess");
               dlog("nav:to:registrationprocess:done");
             } catch (navErr) {
-              dlog("nav:to:registrationprocess:error", String(navErr?.message || navErr));
+              dlog(
+                "nav:to:registrationprocess:error",
+                String(navErr?.message || navErr)
+              );
             }
           } else {
             // Onboarding complete, go to home
@@ -359,7 +416,10 @@ export default function Register() {
             router.replace("/features/registrationprocess");
             dlog("profile:check:exception:navdone");
           } catch (navErr) {
-            dlog("profile:check:exception:naverror", String(navErr?.message || navErr));
+            dlog(
+              "profile:check:exception:naverror",
+              String(navErr?.message || navErr)
+            );
           }
         }
       }
@@ -376,7 +436,10 @@ export default function Register() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0B0B0B" />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.keyboardAvoidingView}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.keyboardAvoidingView}
+      >
         <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
           {/* Header */}
           <Animated.View
@@ -386,7 +449,10 @@ export default function Register() {
                 opacity: logoAnim,
                 transform: [
                   {
-                    translateY: logoAnim.interpolate({ inputRange: [0, 1], outputRange: [-50, 0] }),
+                    translateY: logoAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-50, 0],
+                    }),
                   },
                 ],
                 pointerEvents: "none",
@@ -394,11 +460,18 @@ export default function Register() {
             ]}
           >
             <View style={styles.logoContainer}>
-              <Image source={require("../../assets/logo.png")} style={styles.logo} />
+              <Image
+                source={require("../../assets/logo.png")}
+                style={styles.logo}
+              />
             </View>
-            <Text style={styles.welcomeText}>{isRegistering ? "Create Account" : "Welcome Back"}</Text>
+            <Text style={styles.welcomeText}>
+              {isRegistering ? "Create Account" : "Welcome Back"}
+            </Text>
             <Text style={styles.subtitleText}>
-              {isRegistering ? "Start your fitness journey and see your growth" : "Sign in to continue your fitness journey"}
+              {isRegistering
+                ? "Start your fitness journey and see your growth"
+                : "Sign in to continue your fitness journey"}
             </Text>
           </Animated.View>
 
@@ -406,13 +479,34 @@ export default function Register() {
           <Animated.View
             style={[
               styles.formContainer,
-              { opacity: formAnim, transform: [{ translateY: formAnim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }] },
+              {
+                opacity: formAnim,
+                transform: [
+                  {
+                    translateY: formAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [30, 0],
+                    }),
+                  },
+                ],
+              },
             ]}
           >
             {isRegistering && (
-              <FormInput placeholder="Nickname" value={nickname} onChangeText={setNickname} errorMessage={errors.nickname} />
+              <FormInput
+                placeholder="Nickname"
+                value={nickname}
+                onChangeText={setNickname}
+                errorMessage={errors.nickname}
+              />
             )}
-            <FormInput placeholder="Email Address" value={email} onChangeText={setEmail} keyboardType="email-address" errorMessage={errors.email} />
+            <FormInput
+              placeholder="Email Address"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              errorMessage={errors.email}
+            />
             <FormInput
               placeholder="Password"
               value={password}
@@ -427,9 +521,24 @@ export default function Register() {
             {isRegistering && password.length > 0 && (
               <View style={styles.passwordStrengthContainer}>
                 <View style={styles.passwordStrengthBar}>
-                  <View style={[styles.passwordStrengthFill, { width: `${(passwordStrength.strength / 5) * 100}%`, backgroundColor: passwordStrength.color }]} />
+                  <View
+                    style={[
+                      styles.passwordStrengthFill,
+                      {
+                        width: `${(passwordStrength.strength / 5) * 100}%`,
+                        backgroundColor: passwordStrength.color,
+                      },
+                    ]}
+                  />
                 </View>
-                <Text style={[styles.passwordStrengthText, { color: passwordStrength.color }]}>{passwordStrength.text}</Text>
+                <Text
+                  style={[
+                    styles.passwordStrengthText,
+                    { color: passwordStrength.color },
+                  ]}
+                >
+                  {passwordStrength.text}
+                </Text>
               </View>
             )}
 
@@ -446,7 +555,6 @@ export default function Register() {
               />
             )}
 
-
             <SubmitButton
               text={isRegistering ? "Create Account" : "Sign In"}
               onPress={handleSubmit}
@@ -459,30 +567,54 @@ export default function Register() {
             {/* Minimal login test button for debugging */}
             {!isRegistering && (
               <Pressable
-                style={{ marginTop: 12, padding: 12, backgroundColor: '#e0e0e0', borderRadius: 8 }}
+                style={{
+                  marginTop: 12,
+                  padding: 12,
+                  backgroundColor: "#e0e0e0",
+                  borderRadius: 8,
+                }}
                 onPress={async () => {
                   dlog("testMinimalLogin:start", { email });
                   try {
-                    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-                    dlog("testMinimalLogin:result", { user: data?.user, error });
+                    const { data, error } =
+                      await supabase.auth.signInWithPassword({
+                        email,
+                        password,
+                      });
+                    dlog("testMinimalLogin:result", {
+                      user: data?.user,
+                      error,
+                    });
                   } catch (err) {
-                    dlog("testMinimalLogin:exception", String(err?.message || err));
+                    dlog(
+                      "testMinimalLogin:exception",
+                      String(err?.message || err)
+                    );
                   }
                 }}
               >
-                <Text style={{ color: '#333', textAlign: 'center' }}>Test Minimal Login (Debug)</Text>
+                <Text style={{ color: "#333", textAlign: "center" }}>
+                  Test Minimal Login (Debug)
+                </Text>
               </Pressable>
             )}
 
             <Pressable style={styles.toggleContainer} onPress={handleToggle}>
               <Text style={styles.toggleText}>
-                {isRegistering ? "Already have an account? " : "Don't have an account? "}
-                <Text style={styles.toggleTextHighlight}>{isRegistering ? "Sign In" : "Sign Up"}</Text>
+                {isRegistering
+                  ? "Already have an account? "
+                  : "Don't have an account? "}
+                <Text style={styles.toggleTextHighlight}>
+                  {isRegistering ? "Sign In" : "Sign Up"}
+                </Text>
               </Text>
             </Pressable>
 
             {!isRegistering && (
-              <Pressable style={styles.forgotPasswordContainer} onPress={() => router.push("/auth/passwordresetprocess")}>
+              <Pressable
+                style={styles.forgotPasswordContainer}
+                onPress={() => router.push("/auth/passwordresetprocess")}
+              >
                 <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
               </Pressable>
             )}
@@ -496,22 +628,65 @@ export default function Register() {
 /* -------------------- STYLES -------------------- */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0B0B0B" },
-  keyboardAvoidingView: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 20 },
+  keyboardAvoidingView: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 20,
+    justifyContent: "center",
+  },
   content: { width: "100%", alignItems: "center", maxWidth: 400 },
   headerSection: { position: "absolute", alignItems: "center" },
   logoContainer: { alignItems: "center", justifyContent: "center" },
   logo: { width: 180, height: 180, resizeMode: "contain" },
-  welcomeText: { fontSize: 32, fontWeight: "bold", color: "#fff", marginBottom: 8, textAlign: "center" },
-  submitButtonSolid: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingHorizontal: 24, backgroundColor: "#5994d7ff" },
-  subtitleText: { fontSize: 12, color: "#999", textAlign: "center", lineHeight: 22, maxWidth: 280 },
+  welcomeText: {
+    fontSize: 32,
+    color: "#fff",
+    marginBottom: 8,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
+  submitButtonSolid: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    justifyContent: "center",
+    backgroundColor: "#5994d7ff",
+  },
+  subtitleText: {
+    fontSize: 12,
+    color: "#999",
+    maxWidth: 280,
+    lineHeight: 22,
+    textAlign: "center",
+  },
   formContainer: { width: "100%", alignItems: "center", marginTop: 280 },
   toggleContainer: { paddingVertical: 16 },
   toggleText: { fontSize: 16, color: "#999", textAlign: "center" },
   toggleTextHighlight: { color: "#4590e6ff", fontWeight: "bold" },
   forgotPasswordContainer: { paddingVertical: 12 },
-  forgotPasswordText: { fontSize: 16, color: "#4590e6ff", fontWeight: "600", textAlign: "center" },
-  passwordStrengthContainer: { width: "100%", marginBottom: 16, paddingHorizontal: 4 },
-  passwordStrengthBar: { height: 4, backgroundColor: "rgba(255, 255, 255, 0.1)", borderRadius: 2, marginBottom: 8, overflow: "hidden" },
+  forgotPasswordText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#4590e6ff",
+    textAlign: "center",
+  },
+  passwordStrengthContainer: {
+    width: "100%",
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  passwordStrengthBar: {
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 8,
+    overflow: "hidden",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
   passwordStrengthFill: { height: "100%", borderRadius: 2 },
-  passwordStrengthText: { fontSize: 12, fontWeight: "600", textAlign: "center" },
+  passwordStrengthText: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
 });

@@ -1,26 +1,25 @@
 import {
   Text,
   View,
+  Alert,
   Animated,
   Keyboard,
   Platform,
-  StyleSheet,
   FlatList,
+  StatusBar,
+  Dimensions,
+  StyleSheet,
   SafeAreaView,
+  ActivityIndicator,
   KeyboardAvoidingView,
   TouchableWithoutFeedback,
-  StatusBar,
-  ActivityIndicator,
-  Dimensions,
-  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
+import { supabase } from "../../services/supabase";
 import { useState, useEffect, useRef } from "react";
-import { Ionicons } from "@expo/vector-icons";
-import { supabase } from '../../services/supabase';
 import { LinearGradient } from "expo-linear-gradient";
 import { useStripe } from "@stripe/stripe-react-native";
-import * as Haptics from 'expo-haptics';
 import HeaderBar from "../../components/onboarding/HeaderBar";
 import ProgressBar from "../../components/onboarding/ProgressBar";
 import SubscriptionCard from "../../components/subscription/SubscriptionCard";
@@ -30,7 +29,8 @@ const { width, height } = Dimensions.get("window");
 const PADDING_HORIZONTAL = 20;
 const CARD_MARGIN_RIGHT = 20;
 const VISIBLE_CARDS = 1.05; // Show very slight peek
-const CARD_WIDTH = (width - PADDING_HORIZONTAL * 2 - CARD_MARGIN_RIGHT) / VISIBLE_CARDS;
+const CARD_WIDTH =
+  (width - PADDING_HORIZONTAL * 2 - CARD_MARGIN_RIGHT) / VISIBLE_CARDS;
 
 export default function SubscriptionPackages() {
   const router = useRouter();
@@ -38,7 +38,7 @@ export default function SubscriptionPackages() {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
-  
+
   const [subscriptions, setSubscriptions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -64,19 +64,19 @@ export default function SubscriptionPackages() {
   const loadSubscriptions = async () => {
     try {
       const { data, error } = await supabase
-        .from('subscription_packages')
-        .select('*')
-        .order('sort_order', { ascending: true });
+        .from("subscription_packages")
+        .select("*")
+        .order("sort_order", { ascending: true });
 
       if (error) {
-        console.error('Error loading subscriptions:', error);
+        console.error("Error loading subscriptions:", error);
         // Use fallback data if DB query fails
         setSubscriptions(getFallbackSubscriptions());
       } else {
         setSubscriptions(data || getFallbackSubscriptions());
       }
     } catch (err) {
-      console.error('Failed to load subscriptions:', err);
+      console.error("Failed to load subscriptions:", err);
       setSubscriptions(getFallbackSubscriptions());
     } finally {
       setIsLoading(false);
@@ -85,100 +85,100 @@ export default function SubscriptionPackages() {
 
   const getFallbackSubscriptions = () => [
     {
-      slug: 'free-trial',
-      name: 'Free Trial',
+      slug: "free-trial",
+      name: "Free Trial",
       price: 0,
-      billing_interval: 'one_time',
+      billing_interval: "one_time",
       features: [
-        { text: '7 days unlimited access', included: true },
-        { text: 'Basic workout plans', included: true },
-        { text: 'Basic meal plans', included: true },
-        { text: 'Activity tracking', included: true },
-        { text: 'Progress photos', included: true },
-        { text: 'AI workout assistant', included: false },
-        { text: 'Custom nutrition plans', included: false },
-        { text: 'Advanced analytics', included: false },
-        { text: 'Priority support', included: false },
-        { text: 'Workout history export', included: false },
+        { text: "7 days unlimited access", included: true },
+        { text: "Basic workout plans", included: true },
+        { text: "Basic meal plans", included: true },
+        { text: "Activity tracking", included: true },
+        { text: "Progress photos", included: true },
+        { text: "AI workout assistant", included: false },
+        { text: "Custom nutrition plans", included: false },
+        { text: "Advanced analytics", included: false },
+        { text: "Priority support", included: false },
+        { text: "Workout history export", included: false },
       ],
-      badge: 'TRY FREE',
-      emoji: '🎁',
-      accent_color: '#00D4AA',
+      badge: "TRY FREE",
+      emoji: "🎁",
+      accent_color: "#00D4AA",
       is_popular: false,
     },
     {
-      slug: 'monthly',
-      name: 'Monthly',
+      slug: "monthly",
+      name: "Monthly",
       price: 9.99,
-      billing_interval: 'month',
+      billing_interval: "month",
       features: [
-        { text: 'Unlimited workout plans', included: true },
-        { text: 'Personalized meal plans', included: true },
-        { text: 'Activity & progress tracking', included: true },
-        { text: 'AI workout assistant', included: true },
-        { text: 'Custom nutrition analysis', included: true },
-        { text: 'Community access', included: true },
-        { text: 'Video exercise library', included: true },
-        { text: 'Daily motivation tips', included: true },
-        { text: 'Priority support', included: false },
-        { text: 'Early access to features', included: false },
-        { text: 'Advanced analytics', included: false },
-        { text: 'Workout history export', included: false },
+        { text: "Unlimited workout plans", included: true },
+        { text: "Personalized meal plans", included: true },
+        { text: "Activity & progress tracking", included: true },
+        { text: "AI workout assistant", included: true },
+        { text: "Custom nutrition analysis", included: true },
+        { text: "Community access", included: true },
+        { text: "Video exercise library", included: true },
+        { text: "Daily motivation tips", included: true },
+        { text: "Priority support", included: false },
+        { text: "Early access to features", included: false },
+        { text: "Advanced analytics", included: false },
+        { text: "Workout history export", included: false },
       ],
-      emoji: '💪',
-      accent_color: '#4A9EFF',
+      emoji: "💪",
+      accent_color: "#4A9EFF",
       is_popular: false,
     },
     {
-      slug: 'annual',
-      name: 'Annual',
+      slug: "annual",
+      name: "Annual",
       price: 79.99,
-      billing_interval: 'year',
+      billing_interval: "year",
       features: [
-        { text: 'Everything in Monthly', included: true },
-        { text: 'Save 33% vs Monthly plan', included: true },
-        { text: 'Priority email support', included: true },
-        { text: 'Early access to features', included: true },
-        { text: 'Advanced analytics dashboard', included: true },
-        { text: 'Workout history export', included: true },
-        { text: 'Custom workout builder', included: true },
-        { text: 'Macro tracking & planning', included: true },
-        { text: 'Integration with fitness devices', included: true },
-        { text: 'Monthly progress reports', included: true },
-        { text: 'VIP community badge', included: true },
+        { text: "Everything in Monthly", included: true },
+        { text: "Save 33% vs Monthly plan", included: true },
+        { text: "Priority email support", included: true },
+        { text: "Early access to features", included: true },
+        { text: "Advanced analytics dashboard", included: true },
+        { text: "Workout history export", included: true },
+        { text: "Custom workout builder", included: true },
+        { text: "Macro tracking & planning", included: true },
+        { text: "Integration with fitness devices", included: true },
+        { text: "Monthly progress reports", included: true },
+        { text: "VIP community badge", included: true },
       ],
-      badge: 'BEST VALUE',
-      emoji: '🏆',
-      accent_color: '#FFB800',
+      badge: "BEST VALUE",
+      emoji: "🏆",
+      accent_color: "#FFB800",
       is_popular: true,
     },
     {
-      slug: 'lifetime',
-      name: 'Lifetime',
+      slug: "lifetime",
+      name: "Lifetime",
       price: 149.99,
-      billing_interval: 'one_time',
+      billing_interval: "one_time",
       features: [
-        { text: 'Everything in Annual', included: true },
-        { text: 'Lifetime access forever', included: true },
-        { text: 'No recurring payments ever', included: true },
-        { text: 'VIP priority support 24/7', included: true },
-        { text: 'Exclusive beta features', included: true },
-        { text: 'Exclusive workout content', included: true },
-        { text: 'Personal trainer consultations', included: true },
-        { text: 'Nutrition coaching sessions', included: true },
-        { text: 'Lifetime update guarantee', included: true },
-        { text: 'VIP-only community access', included: true },
-        { text: 'Free merchandise & swag', included: true },
+        { text: "Everything in Annual", included: true },
+        { text: "Lifetime access forever", included: true },
+        { text: "No recurring payments ever", included: true },
+        { text: "VIP priority support 24/7", included: true },
+        { text: "Exclusive beta features", included: true },
+        { text: "Exclusive workout content", included: true },
+        { text: "Personal trainer consultations", included: true },
+        { text: "Nutrition coaching sessions", included: true },
+        { text: "Lifetime update guarantee", included: true },
+        { text: "VIP-only community access", included: true },
+        { text: "Free merchandise & swag", included: true },
       ],
-      badge: 'ONE-TIME',
-      emoji: '🚀',
-      accent_color: '#FF4D4D',
+      badge: "ONE-TIME",
+      emoji: "🚀",
+      accent_color: "#FF4D4D",
       is_popular: false,
     },
   ];
 
   const lightHaptic = () => {
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === "ios") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
   };
@@ -190,33 +190,36 @@ export default function SubscriptionPackages() {
 
   const handleSubscribe = async (subscription) => {
     if (isProcessing) return;
-    
+
     lightHaptic();
     setIsProcessing(true);
 
     try {
       // Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
       if (userError || !user) {
-        Alert.alert('Error', 'Please log in to subscribe');
+        Alert.alert("Error", "Please log in to subscribe");
         setIsProcessing(false);
         return;
       }
 
       // Free trial - no payment needed
-      if (subscription.price === 0 || subscription.slug === 'free-trial') {
-        console.log('Starting free trial...');
-        
+      if (subscription.price === 0 || subscription.slug === "free-trial") {
+        console.log("Starting free trial...");
+
         // Get the subscription package ID
         const { data: packageData, error: packageError } = await supabase
-          .from('subscription_packages')
-          .select('id')
-          .eq('slug', subscription.slug)
+          .from("subscription_packages")
+          .select("id")
+          .eq("slug", subscription.slug)
           .single();
 
         if (packageError) {
-          console.error('Error fetching package:', packageError);
-          Alert.alert('Error', 'Failed to start free trial');
+          console.error("Error fetching package:", packageError);
+          Alert.alert("Error", "Failed to start free trial");
           setIsProcessing(false);
           return;
         }
@@ -227,24 +230,24 @@ export default function SubscriptionPackages() {
         endDate.setDate(endDate.getDate() + 7); // 7-day free trial
 
         const { error: subscriptionError } = await supabase
-          .from('user_subscriptions')
+          .from("user_subscriptions")
           .insert({
             user_id: user.id,
             package_id: packageData.id,
-            status: 'active',
+            status: "active",
             started_at: startDate.toISOString(),
-            expires_at: endDate.toISOString()
+            expires_at: endDate.toISOString(),
           });
 
         if (subscriptionError) {
-          console.error('Error creating subscription:', subscriptionError);
-          Alert.alert('Error', 'Failed to create subscription');
+          console.error("Error creating subscription:", subscriptionError);
+          Alert.alert("Error", "Failed to create subscription");
           setIsProcessing(false);
           return;
         }
 
-        console.log('Free trial created successfully!');
-        router.push('/features/selectworkouts');
+        console.log("Free trial created successfully!");
+        router.push("/features/selectworkouts");
         return;
       }
 
@@ -254,7 +257,7 @@ export default function SubscriptionPackages() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             plan: subscription.name,
             price: subscription.price,
             interval: subscription.billing_interval,
@@ -308,22 +311,19 @@ export default function SubscriptionPackages() {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#0B0B0B" />
-        <LinearGradient
-          colors={["#0B0B0B", "#1a1a1a"]}
-          style={styles.gradient}
-        >
+        <LinearGradient colors={["#0B0B0B", "#1a1a1a"]} style={styles.gradient}>
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             style={styles.keyboardAvoidingView}
           >
             <SafeAreaView style={styles.safeArea}>
-              <Animated.View 
+              <Animated.View
                 style={[
-                  styles.content, 
-                  { 
+                  styles.content,
+                  {
                     opacity: fadeAnim,
-                    transform: [{ translateY: slideAnim }]
-                  }
+                    transform: [{ translateY: slideAnim }],
+                  },
                 ]}
               >
                 <HeaderBar
@@ -334,10 +334,7 @@ export default function SubscriptionPackages() {
                   onHapticFeedback={lightHaptic}
                 />
 
-                <ProgressBar
-                  currentStep={1}
-                  totalSteps={1}
-                />
+                <ProgressBar currentStep={1} totalSteps={1} />
 
                 <Text style={styles.subtitle}>
                   Select the plan that works best for you
@@ -355,8 +352,13 @@ export default function SubscriptionPackages() {
                       <SubscriptionCard
                         name={item.name}
                         price={item.price}
-                        interval={item.billing_interval === 'month' ? 'mo' : 
-                                 item.billing_interval === 'year' ? 'yr' : null}
+                        interval={
+                          item.billing_interval === "month"
+                            ? "mo"
+                            : item.billing_interval === "year"
+                            ? "yr"
+                            : null
+                        }
                         features={item.features || []}
                         badge={item.badge}
                         isPopular={item.is_popular}
@@ -366,7 +368,9 @@ export default function SubscriptionPackages() {
                         disabled={isProcessing}
                       />
                     )}
-                    keyExtractor={(item, index) => item.slug || index.toString()}
+                    keyExtractor={(item, index) =>
+                      item.slug || index.toString()
+                    }
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.listContentContainer}
@@ -405,8 +409,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#999",
     marginBottom: 12,
-    paddingHorizontal: 20,
     textAlign: "center",
+    paddingHorizontal: 20,
   },
   listContentContainer: {
     paddingLeft: PADDING_HORIZONTAL,
@@ -414,9 +418,9 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
+    paddingVertical: 60,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 60,
   },
   loadingText: {
     fontSize: 16,
