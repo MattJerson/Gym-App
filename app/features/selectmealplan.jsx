@@ -627,13 +627,6 @@ export default function SelectMealPlan() {
                         </View>
                       )}
 
-                      {isRecommended && sortBy === "recommended" && (
-                        <View style={styles.recommendedBadge}>
-                          <Ionicons name="star" size={12} color="#FFD700" />
-                          <Text style={styles.recommendedText}>Recommended</Text>
-                        </View>
-                      )}
-
                       <View
                         style={[
                           styles.accentBar,
@@ -979,27 +972,6 @@ const styles = StyleSheet.create({
     right: 16,
     zIndex: 10,
     position: "absolute",
-  },
-  recommendedBadge: {
-    top: 16,
-    left: 16,
-    zIndex: 10,
-    position: "absolute",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 215, 0, 0.2)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 215, 0, 0.4)",
-    gap: 4,
-  },
-  recommendedText: {
-    fontSize: 10,
-    color: "#FFD700",
-    fontWeight: "700",
-    textTransform: "uppercase",
   },
   accentBar: {
     top: 0,
