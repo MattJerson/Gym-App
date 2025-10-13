@@ -396,6 +396,23 @@ export default function Register() {
               } catch (rpcErr) {
                 dlog("creating:profile:rpc:exception", rpcErr.message);
               }
+
+              // Sign in the user immediately after successful signup
+              try {
+                dlog("signup:post:signin:start");
+                const { error: signInError } = await withTimeout(
+                  supabase.auth.signInWithPassword({ email, password }),
+                  8000,
+                  "Auto sign-in after signup"
+                );
+                if (signInError) {
+                  dlog("signup:post:signin:error", signInError.message);
+                } else {
+                  dlog("signup:post:signin:success");
+                }
+              } catch (signInErr) {
+                dlog("signup:post:signin:exception", signInErr.message);
+              }
             }
           } catch (innerErr) {
             dlog(
@@ -585,6 +602,8 @@ export default function Register() {
               textContentType="none"
               autoComplete="off"
               importantForAutofill="no"
+              passwordRules="minlength: 6;"
+              secureTextEntry={true}
             />
 
             {isRegistering && password.length > 0 && (
@@ -621,6 +640,8 @@ export default function Register() {
                 textContentType="none"
                 autoComplete="off"
                 importantForAutofill="no"
+                passwordRules="minlength: 6;"
+                secureTextEntry={true}
               />
             )}
 
