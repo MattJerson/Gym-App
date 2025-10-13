@@ -16,11 +16,24 @@ import {
   Settings,
 } from "lucide-react";
 import logo from "../assets/logo.png";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import { supabase } from '../lib/supabase';
 
 const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Navigate to login even if there's an error
+      navigate('/login');
+    }
+  };
   
   const sidebarItems = [
     { label: "Dashboard", icon: Home, path: "/" },
@@ -94,7 +107,10 @@ const Sidebar = () => {
             <Settings className="h-4 w-4 flex-shrink-0" />
             <span className="text-xs">Settings</span>
           </button>
-          <button className="w-full flex items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg transition-all mt-1">
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg transition-all mt-1"
+          >
             <LogOut className="h-4 w-4 flex-shrink-0" />
             <span className="text-xs">Logout</span>
           </button>
