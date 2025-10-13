@@ -10,7 +10,6 @@ import Subscriptions from "./pages/Subscriptions";
 import Notifications from "./pages/Notifications";
 import FeaturedContent from "./pages/FeaturedContent";
 import Login from "./pages/Auth/Login";
-import TestLogin from "./pages/TestLogin";
 import { withAdminAuth } from "./middleware/adminAuth";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import IdleTimeout from "./components/IdleTimeout";
@@ -30,9 +29,8 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public routes */}
-        <Route path="/login" element={<Login />} />
-  <Route path="/test-login" element={<TestLogin />} />
+  {/* Public routes */}
+  <Route path="/login" element={<Login />} />
         
         {/* Protected admin routes */}
         <Route

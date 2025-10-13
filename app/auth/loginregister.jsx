@@ -456,23 +456,7 @@ export default function Register() {
               variant="solid"
             />
 
-            {/* Minimal login test button for debugging */}
-            {!isRegistering && (
-              <Pressable
-                style={{ marginTop: 12, padding: 12, backgroundColor: '#e0e0e0', borderRadius: 8 }}
-                onPress={async () => {
-                  dlog("testMinimalLogin:start", { email });
-                  try {
-                    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-                    dlog("testMinimalLogin:result", { user: data?.user, error });
-                  } catch (err) {
-                    dlog("testMinimalLogin:exception", String(err?.message || err));
-                  }
-                }}
-              >
-                <Text style={{ color: '#333', textAlign: 'center' }}>Test Minimal Login (Debug)</Text>
-              </Pressable>
-            )}
+            {/* debug button removed in production */}
 
             <Pressable style={styles.toggleContainer} onPress={handleToggle}>
               <Text style={styles.toggleText}>

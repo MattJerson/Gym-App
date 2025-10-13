@@ -1,0 +1,245 @@
+
+            [
+            {
+                "CruiseCode": "AG09262027IZMIST",
+                "MasterVoyage": true,
+                "CruiseInfo": {
+                    "ShipCode": "AG",
+                    "ItineraryCode": "AG270926IZMIST",
+                    "ItineraryMetaInfo": [
+                        {
+                            "SequenceNumber": 1,
+                            "DayNumber": 1,
+                            "ItineraryDate": "2027-09-26"
+                        },
+                        {
+                            "SequenceNumber": 2,
+                            "DayNumber": 2,
+                            "ItineraryDate": "2027-09-27"
+                        },
+                        {
+                            "SequenceNumber": 3,
+                            "DayNumber": 3,
+                            "ItineraryDate": "2027-09-28"
+                        },
+                        {
+                            "SequenceNumber": 4,
+                            "DayNumber": 4,
+                            "ItineraryDate": "2027-09-29"
+                        },
+                        {
+                            "SequenceNumber": 5,
+                            "DayNumber": 5,
+                            "ItineraryDate": "2027-09-30"
+                        },
+                        {
+                            "SequenceNumber": 6,
+                            "DayNumber": 6,
+                            "ItineraryDate": "2027-10-01"
+                        },
+                        {
+                            "SequenceNumber": 7,
+                            "DayNumber": 7,
+                            "ItineraryDate": "2027-10-02"
+                        }
+                    ],
+                    "PortsOfCall": [
+                        "IZM",
+                        "JKH",
+                        "SKU",
+                        "JSI",
+                        "SKG",
+                        "IST"
+                    ],
+                    "CruiseLength": 6,
+                    "Regions": [
+                        "MED"
+                    ],
+                    "DeparturePortCode": "IZM",
+                    "DepartureDate": "2027-09-26",
+                    "DepartureTime": "2027-09-26T23:00",
+                    "DeparturePortCountryCode": "TR",
+                    "ArrivalPortCode": "IST",
+                    "ArrivalDate": "2027-10-02",
+                    "ArrivalTime": "2027-10-02T06:00",
+                    "ArrivalPortCountryCode": "TR",
+                    "ShipClassCode": "YACHT",
+                    "CruiseType": "OCEAN",
+                    "OnboardLanguages": [
+                        "ENG"
+                    ]
+                }
+            },
+
+            {
+                "CruiseCode": "AG09192027RHOIZM",
+                "MasterVoyage": true,
+                "CruiseInfo": {
+                    "ShipCode": "AG",
+                    "ItineraryCode": "AG270919RHOIZM",
+                    "ItineraryMetaInfo": [
+                        {
+                            "SequenceNumber": 1,
+                            "DayNumber": 1,
+                            "ItineraryDate": "2027-09-19"
+                        },
+                        {
+                            "SequenceNumber": 2,
+                            "DayNumber": 2,
+                            "ItineraryDate": "2027-09-20"
+                        },
+                        {
+                            "SequenceNumber": 3,
+                            "DayNumber": 3,
+                            "ItineraryDate": "2027-09-21"
+                        },
+                        {
+                            "SequenceNumber": 4,
+                            "DayNumber": 4,
+                            "ItineraryDate": "2027-09-22"
+                        },
+                        {
+                            "SequenceNumber": 5,
+                            "DayNumber": 5,
+                            "ItineraryDate": "2027-09-23"
+                        },
+                        {
+                            "SequenceNumber": 6,
+                            "DayNumber": 6,
+                            "ItineraryDate": "2027-09-24"
+                        },
+                        {
+                            "SequenceNumber": 7,
+                            "DayNumber": 7,
+                            "ItineraryDate": "2027-09-25"
+                        },
+                        {
+                            "SequenceNumber": 8,
+                            "DayNumber": 8,
+                            "ItineraryDate": "2027-09-26"
+                        }
+                    ],
+                    "PortsOfCall": [
+                        "RHO",
+                        "NIS",
+                        "ANI",
+                        "ATN",
+                        "PMS",
+                        "KUS",
+                        "JKH",
+                        "IZM"
+                    ],
+                    "CruiseLength": 7,
+                    "Regions": [
+                        "MED"
+                    ],
+                    "DeparturePortCode": "RHO",
+                    "DepartureDate": "2027-09-19",
+                    "DepartureTime": "2027-09-19T19:00",
+                    "DeparturePortCountryCode": "GR",
+                    "ArrivalPortCode": "IZM",
+                    "ArrivalDate": "2027-09-26",
+                    "ArrivalTime": "2027-09-26T05:00",
+                    "ArrivalPortCountryCode": "TR",
+                    "ShipClassCode": "YACHT",
+                    "CruiseType": "OCEAN"
+                }
+            },
+
+
+            {
+                "ItineraryCode": "AG270919RHOIZM",
+                "Regions": [
+                    "MED"
+                ],
+                "ItineraryLength": 8,
+                "DeparturePort": "RHO",
+                "ArrivalPort": "IZM",
+                "PreCruiseOvernightStay": false,
+                "PostCruiseOvernightStay": false,
+                "DepartureDay": 1,
+                "DepartureTime": "19:00",
+                "ArrivalDay": 8,
+                "ArrivalTime": "05:00",
+                "DaySchedule": [
+                    {
+                        "SequenceNumber": 1,
+                        "DayNumber": 1,
+                        "PortCode": "RHO",
+                        "DepartureTime": "19:00",
+                        "TenderPort": false,
+                        "PortCountryCode": "GR",
+                        "AtSea": false
+                    },
+                    {
+                        "SequenceNumber": 2,
+                        "DayNumber": 2,
+                        "PortCode": "NIS",
+                        "DepartureTime": "21:00",
+                        "ArrivalTime": "06:00",
+                        "TenderPort": false,
+                        "PortCountryCode": "GR",
+                        "AtSea": false
+                    },
+                    {
+                        "SequenceNumber": 3,
+                        "DayNumber": 3,
+                        "PortCode": "ANI",
+                        "DepartureTime": "23:00",
+                        "ArrivalTime": "08:00",
+                        "TenderPort": false,
+                        "PortCountryCode": "GR",
+                        "AtSea": false
+                    },
+                    {
+                        "SequenceNumber": 4,
+                        "DayNumber": 4,
+                        "PortCode": "ATN",
+                        "DepartureTime": "23:00",
+                        "ArrivalTime": "06:00",
+                        "TenderPort": true,
+                        "PortCountryCode": "GR",
+                        "AtSea": false
+                    },
+                    {
+                        "SequenceNumber": 5,
+                        "DayNumber": 5,
+                        "PortCode": "PMS",
+                        "DepartureTime": "23:00",
+                        "ArrivalTime": "07:00",
+                        "TenderPort": true,
+                        "PortCountryCode": "GR",
+                        "AtSea": false
+                    },
+                    {
+                        "SequenceNumber": 6,
+                        "DayNumber": 6,
+                        "PortCode": "KUS",
+                        "DepartureTime": "23:00",
+                        "ArrivalTime": "06:00",
+                        "TenderPort": false,
+                        "PortCountryCode": "TR",
+                        "AtSea": false
+                    },
+                    {
+                        "SequenceNumber": 7,
+                        "DayNumber": 7,
+                        "PortCode": "JKH",
+                        "DepartureTime": "23:00",
+                        "ArrivalTime": "06:00",
+                        "TenderPort": true,
+                        "PortCountryCode": "GR",
+                        "AtSea": false
+                    },
+                    {
+                        "SequenceNumber": 8,
+                        "DayNumber": 8,
+                        "PortCode": "IZM",
+                        "ArrivalTime": "05:00",
+                        "TenderPort": false,
+                        "PortCountryCode": "TR",
+                        "AtSea": false
+                    }
+                ]
+            }
+            ]
