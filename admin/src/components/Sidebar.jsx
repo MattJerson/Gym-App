@@ -1,5 +1,4 @@
 "use client";
-
 import {
   Bell,
   Users,
@@ -22,7 +21,7 @@ import { useState } from "react";
 
 const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
-
+  
   const sidebarItems = [
     { label: "Dashboard", icon: Home, path: "/" },
     { label: "Meal Plans", icon: UtensilsCrossed, path: "/meals" },
@@ -59,16 +58,16 @@ const Sidebar = () => {
           ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
       >
         {/* Logo */}
-        <div className="flex justify-center items-center p-6 border-b border-gray-100">
+        <div className="flex justify-center items-center p-4 border-b border-gray-100 flex-shrink-0">
           <img
             src={logo}
             alt="Brick After Brick Logo"
-            className="h-24 object-contain"
+            className="h-20 object-contain"
           />
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto py-4">
+        {/* Navigation - Removed overflow-y-auto */}
+        <nav className="flex-1 py-4 flex flex-col">
           {sidebarItems.map(({ label, icon: Icon, path }) => (
             <NavLink
               key={path}
@@ -83,21 +82,21 @@ const Sidebar = () => {
               }
               onClick={() => setIsOpen(false)}
             >
-              <Icon className="h-5 w-5" />
+              <Icon className="h-5 w-5 flex-shrink-0" />
               <span className="text-sm">{label}</span>
             </NavLink>
           ))}
         </nav>
 
-        {/* Footer */}
-        <div className="border-t border-gray-100 p-4">
-          <button className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 rounded-xl transition-all">
-            <Settings className="h-5 w-5" />
-            <span className="text-sm">Settings</span>
+        {/* Footer - Fixed at bottom */}
+        <div className="border-t border-gray-100 p-4 flex-shrink-0">
+          <button className="w-full flex items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50 rounded-lg transition-all">
+            <Settings className="h-4 w-4 flex-shrink-0" />
+            <span className="text-xs">Settings</span>
           </button>
-          <button className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-600 hover:bg-red-50 rounded-xl transition-all mt-2">
-            <LogOut className="h-5 w-5" />
-            <span className="text-sm">Logout</span>
+          <button className="w-full flex items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg transition-all mt-1">
+            <LogOut className="h-4 w-4 flex-shrink-0" />
+            <span className="text-xs">Logout</span>
           </button>
         </div>
       </div>

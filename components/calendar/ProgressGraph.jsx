@@ -1,10 +1,15 @@
 import React, { useMemo } from "react";
 import { View, Text, StyleSheet, Dimensions } from "react-native";
 import { LineChart } from "react-native-chart-kit";
+import EmptyDataState from "./EmptyDataState";
 
 const screenWidth = Dimensions.get("window").width;
 
 export default function ProgressGraph({ chart }) {
+  // Check if we have sufficient data (at least 2 data points)
+  const hasSufficientData = chart?.values && chart.values.length >= 2 && 
+    chart.values.filter(v => v && v > 0).length >= 2;
+
   // Data is filtered for the 7-day view
   const filteredData = useMemo(() => {
     if (!chart?.labels || !chart?.values || chart.labels.length === 0 || chart.values.length === 0) {
@@ -73,14 +78,42 @@ const aestheticChartConfig = {
       {/* Header with Title and Weekly Average */}
       <View style={styles.headerRow}>
         <Text style={styles.title}>{chart.title}</Text>
-        <View>
-          <Text style={styles.averageValue}>{formatLabel(weeklyAverage)}</Text>
-          <Text style={styles.averageLabel}>Weekly Avg.</Text>
-        </View>
+        {hasSufficientData && (
+          <View>
+            <Text style={styles.averageValue}>{formatLabel(weeklyAverage)}</Text>
+            <Text style={styles.averageLabel}>Weekly Avg.</Text>
+          </View>
+        )}
       </View>
 
-      {/* Chart with Gradient Fill */}
-      {filteredData.values.length > 0 && filteredData.labels.length > 0 ? (
+      {/* Chart with Gradient Fill or Empty State */}
+      {!hasSufficientData ? (
+        <EmptyDataState
+          title="Start Tracking"
+          message="Complete more workouts to see your progress trends"
+          icon="trending-up-outline"
+          iconColor="#0A84FF"
+          sampleComponent={
+            <LineChart
+              data={{
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [{ data: [65, 68, 67, 70, 69, 72, 71] }],
+              }}
+              width={screenWidth - 40}
+              height={220}
+              chartConfig={aestheticChartConfig}
+              bezier
+              style={styles.chart}
+              withShadow={false}
+              withInnerLines={true}
+              withOuterLines={false}
+              withVerticalLines={false}
+              withHorizontalLines={true}
+              formatYLabel={formatLabel}
+            />
+          }
+        />
+      ) : filteredData.values.length > 0 && filteredData.labels.length > 0 ? (
         <LineChart
           data={{
             labels: filteredData.labels,

@@ -9,7 +9,7 @@ const PageHeader = ({
   actions 
 }) => {
   return (
-    <div className="mb-8">
+    <div className="mb-5">
       {/* Breadcrumbs */}
       {breadcrumbs.length > 0 && (
         <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
@@ -33,7 +33,7 @@ const PageHeader = ({
             </div>
           )}
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
             {subtitle && <p className="text-gray-600 mt-1">{subtitle}</p>}
           </div>
         </div>

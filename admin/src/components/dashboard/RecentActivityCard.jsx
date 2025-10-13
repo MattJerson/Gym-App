@@ -33,16 +33,18 @@ const RecentActivityCard = ({ activities, loading }) => {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl p-6 shadow-sm">
+      <div className="bg-white rounded-2xl p-4 shadow-sm">
         <h3 className="text-xl font-bold text-gray-900 mb-4">Recent Activity</h3>
-        <div className="space-y-4 animate-pulse">
+        <div className="space-y-3 animate-pulse">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="flex items-start gap-4">
-              <div className="h-10 w-10 bg-gray-200 rounded-full"></div>
+            <div key={i} className="flex items-start gap-4 p-4 rounded-xl bg-gray-50">
+              <div className="h-5 w-5 bg-gray-200 rounded mt-1"></div>
               <div className="flex-1">
-                <div className="h-4 bg-gray-200 rounded w-48 mb-2"></div>
+                <div className="h-5 bg-gray-200 rounded w-48 mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded w-40 mb-1"></div>
                 <div className="h-3 bg-gray-200 rounded w-32"></div>
               </div>
+              <div className="h-3 bg-gray-200 rounded w-16"></div>
             </div>
           ))}
         </div>
@@ -51,8 +53,8 @@ const RecentActivityCard = ({ activities, loading }) => {
   }
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm">
-      <h3 className="text-2xl font-bold text-gray-900 mb-6">Recent Activity</h3>
+    <div className="bg-white rounded-2xl p-4 shadow-sm">
+      <h3 className="text-xl font-bold text-gray-900 mb-4">Recent Activity</h3>
       <div className="space-y-3">
         {activities && activities.length > 0 ? (
           activities.map((activity) => (

@@ -2,12 +2,14 @@ import {
   View,
   Text,
   Alert,
+  Image,
   Animated,
   Platform,
-  StatusBar,
   Pressable,
+  StatusBar,
   StyleSheet,
   ScrollView,
+  Dimensions,
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -17,15 +19,21 @@ import { useState, useEffect, useRef } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import DropDownPicker from "react-native-dropdown-picker";
 
 export default function SelectMealPlan() {
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const [mealPlans, setMealPlans] = useState([]);
+  const [filteredPlans, setFilteredPlans] = useState([]);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCompleting, setIsCompleting] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("recommended");
+  const [userPreferences, setUserPreferences] = useState(null);
+  const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -39,6 +47,23 @@ export default function SelectMealPlan() {
 
   const loadMealPlans = async () => {
     try {
+      // Load user preferences first
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      let userPrefs = null;
+      if (user) {
+        const { data: profile } = await supabase
+          .from("registration_profiles")
+          .select("meal_type, restrictions, favorite_foods, fitness_goal")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        userPrefs = profile;
+        setUserPreferences(profile);
+      }
+
       const { data, error } = await supabase
         .from("meal_plan_templates")
         .select("*")
@@ -52,7 +77,64 @@ export default function SelectMealPlan() {
       }
 
       console.log("Loaded meal plans:", data?.length || 0);
-      setMealPlans(data || []);
+
+      // Calculate recommendation scores for each plan
+      const plansWithScores = (data || []).map((plan) => {
+        let score = 0;
+
+        if (userPrefs) {
+          // Match meal type (meal plan diet_type vs user meal_type)
+          if (
+            plan.diet_type &&
+            userPrefs.meal_type &&
+            plan.diet_type.toLowerCase() === userPrefs.meal_type.toLowerCase()
+          ) {
+            score += 10;
+          }
+
+          // Match restrictions (if plan avoids user's restrictions)
+          if (userPrefs.restrictions && Array.isArray(userPrefs.restrictions)) {
+            const planRestrictions = plan.dietary_restrictions || [];
+            const matchingRestrictions = userPrefs.restrictions.filter((r) =>
+              planRestrictions.includes(r)
+            );
+            score += matchingRestrictions.length * 5;
+          }
+
+          // Match favorite foods (if plan includes user's favorite foods)
+          if (userPrefs.favorite_foods && Array.isArray(userPrefs.favorite_foods)) {
+            const planIngredients = (plan.common_ingredients || []).map((i) =>
+              i.toLowerCase()
+            );
+            const matchingFoods = userPrefs.favorite_foods.filter((food) =>
+              planIngredients.some((ing) =>
+                ing.includes(food.toLowerCase()) || food.toLowerCase().includes(ing)
+              )
+            );
+            score += matchingFoods.length * 3;
+          }
+
+          // Match fitness goal to plan type
+          if (userPrefs.fitness_goal) {
+            const goalToPlanType = {
+              lose: "weight_loss",
+              gain: "bulking",
+              maintain: "maintenance",
+            };
+            if (
+              goalToPlanType[userPrefs.fitness_goal] ===
+              plan.plan_type.toLowerCase()
+            ) {
+              score += 15;
+            }
+          }
+        }
+
+        return { ...plan, recommendationScore: score };
+      });
+
+      setMealPlans(plansWithScores);
+      setFilteredPlans(plansWithScores);
     } catch (error) {
       console.error("Error loading meal plans:", error);
       Alert.alert("Error", "Failed to load meal plans. Please try again.");
@@ -60,6 +142,41 @@ export default function SelectMealPlan() {
       setIsLoading(false);
     }
   };
+
+  // Filter and sort meal plans
+  useEffect(() => {
+    let filtered = [...mealPlans];
+
+    // Apply filter
+    if (selectedFilter !== "all") {
+      filtered = filtered.filter(
+        (plan) => plan.plan_type.toLowerCase() === selectedFilter.toLowerCase()
+      );
+    }
+
+    // Apply sort
+    switch (sortBy) {
+      case "recommended":
+        filtered.sort((a, b) => b.recommendationScore - a.recommendationScore);
+        break;
+      case "calories_low":
+        filtered.sort((a, b) => a.daily_calories - b.daily_calories);
+        break;
+      case "calories_high":
+        filtered.sort((a, b) => b.daily_calories - a.daily_calories);
+        break;
+      case "protein_high":
+        filtered.sort((a, b) => b.daily_protein - a.daily_protein);
+        break;
+      case "name":
+        filtered.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      default:
+        break;
+    }
+
+    setFilteredPlans(filtered);
+  }, [selectedFilter, sortBy, mealPlans]);
 
   const getPlanTypeColor = (planType) => {
     const colors = {
@@ -329,6 +446,133 @@ export default function SelectMealPlan() {
             </Text>
           </View>
 
+          {/* Filter & Sort Section */}
+          <View style={styles.filterSortContainer}>
+            {/* Plan Type Filter */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterTabsContent}
+              style={styles.filterTabsScroll}
+            >
+              <Pressable
+                style={[
+                  styles.filterTab,
+                  selectedFilter === "all" && styles.filterTabActive,
+                ]}
+                onPress={() => setSelectedFilter("all")}
+              >
+                <Text
+                  style={[
+                    styles.filterTabText,
+                    selectedFilter === "all" && styles.filterTabTextActive,
+                  ]}
+                >
+                  All Plans
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.filterTab,
+                  selectedFilter === "weight_loss" && styles.filterTabActive,
+                ]}
+                onPress={() => setSelectedFilter("weight_loss")}
+              >
+                <Ionicons name="trending-down" size={14} color={selectedFilter === "weight_loss" ? "#fff" : "#FF6B6B"} />
+                <Text
+                  style={[
+                    styles.filterTabText,
+                    selectedFilter === "weight_loss" && styles.filterTabTextActive,
+                  ]}
+                >
+                  Weight Loss
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.filterTab,
+                  selectedFilter === "bulking" && styles.filterTabActive,
+                ]}
+                onPress={() => setSelectedFilter("bulking")}
+              >
+                <Ionicons name="trending-up" size={14} color={selectedFilter === "bulking" ? "#fff" : "#00D4AA"} />
+                <Text
+                  style={[
+                    styles.filterTabText,
+                    selectedFilter === "bulking" && styles.filterTabTextActive,
+                  ]}
+                >
+                  Bulking
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.filterTab,
+                  selectedFilter === "cutting" && styles.filterTabActive,
+                ]}
+                onPress={() => setSelectedFilter("cutting")}
+              >
+                <Ionicons name="flash" size={14} color={selectedFilter === "cutting" ? "#fff" : "#FFA500"} />
+                <Text
+                  style={[
+                    styles.filterTabText,
+                    selectedFilter === "cutting" && styles.filterTabTextActive,
+                  ]}
+                >
+                  Cutting
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.filterTab,
+                  selectedFilter === "maintenance" && styles.filterTabActive,
+                ]}
+                onPress={() => setSelectedFilter("maintenance")}
+              >
+                <Ionicons name="pause" size={14} color={selectedFilter === "maintenance" ? "#fff" : "#4A9EFF"} />
+                <Text
+                  style={[
+                    styles.filterTabText,
+                    selectedFilter === "maintenance" && styles.filterTabTextActive,
+                  ]}
+                >
+                  Maintenance
+                </Text>
+              </Pressable>
+            </ScrollView>
+
+            {/* Sort Dropdown */}
+            <View style={styles.sortContainer}>
+              <Ionicons name="swap-vertical" size={16} color="#999" style={{ marginRight: 8 }} />
+              <Text style={styles.sortLabel}>Sort:</Text>
+              <View style={styles.sortDropdownWrapper}>
+                <DropDownPicker
+                  open={sortDropdownOpen}
+                  value={sortBy}
+                  items={[
+                    { label: "Recommended", value: "recommended" },
+                    { label: "Calories (Low to High)", value: "calories_low" },
+                    { label: "Calories (High to Low)", value: "calories_high" },
+                    { label: "Protein (High to Low)", value: "protein_high" },
+                    { label: "Name (A-Z)", value: "name" },
+                  ]}
+                  setOpen={setSortDropdownOpen}
+                  setValue={setSortBy}
+                  placeholder="Select Sort"
+                  style={styles.sortDropdownPicker}
+                  dropDownContainerStyle={styles.sortDropdownContainer}
+                  textStyle={styles.sortDropdownText}
+                  placeholderStyle={styles.sortDropdownPlaceholder}
+                  showArrowIcon={true}
+                  arrowIconStyle={{ tintColor: "#999" }}
+                  listMode="SCROLLVIEW"
+                  scrollViewProps={{ nestedScrollEnabled: true }}
+                  zIndex={5000}
+                />
+              </View>
+            </View>
+          </View>
+
           {/* Meal Plans List */}
           <ScrollView
             style={styles.scrollView}
@@ -354,9 +598,10 @@ export default function SelectMealPlan() {
               </View>
             ) : (
               <View style={styles.plansContainer}>
-                {mealPlans.map((plan) => {
+                {filteredPlans.map((plan) => {
                   const isSelected = selectedPlan?.id === plan.id;
                   const accentColor = getPlanTypeColor(plan.plan_type);
+                  const isRecommended = plan.recommendationScore > 0;
 
                   return (
                     <Pressable
@@ -379,6 +624,13 @@ export default function SelectMealPlan() {
                             size={28}
                             color="#00D4AA"
                           />
+                        </View>
+                      )}
+
+                      {isRecommended && sortBy === "recommended" && (
+                        <View style={styles.recommendedBadge}>
+                          <Ionicons name="star" size={12} color="#FFD700" />
+                          <Text style={styles.recommendedText}>Recommended</Text>
                         </View>
                       )}
 
@@ -582,6 +834,77 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     color: "rgba(255, 255, 255, 0.7)",
   },
+  filterSortContainer: {
+    marginBottom: 16,
+  },
+  filterTabsScroll: {
+    marginBottom: 12,
+  },
+  filterTabsContent: {
+    paddingHorizontal: 4,
+    gap: 8,
+  },
+  filterTab: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    gap: 6,
+  },
+  filterTabActive: {
+    backgroundColor: "#00D4AA",
+    borderColor: "#00D4AA",
+  },
+  filterTabText: {
+    fontSize: 13,
+    color: "rgba(255, 255, 255, 0.7)",
+    fontWeight: "600",
+  },
+  filterTabTextActive: {
+    color: "#fff",
+  },
+  sortContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    paddingHorizontal: 4,
+    gap: 8,
+    zIndex: 5000,
+  },
+  sortLabel: {
+    fontSize: 13,
+    color: "#999",
+    fontWeight: "600",
+  },
+  sortDropdownWrapper: {
+    width: 200,
+    zIndex: 5000,
+  },
+  sortDropdownPicker: {
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 12,
+    minHeight: 36,
+  },
+  sortDropdownContainer: {
+    backgroundColor: "#333333",
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 12,
+  },
+  sortDropdownText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  sortDropdownPlaceholder: {
+    color: "#999",
+    fontSize: 13,
+  },
   scrollView: {
     flex: 1,
   },
@@ -656,6 +979,27 @@ const styles = StyleSheet.create({
     right: 16,
     zIndex: 10,
     position: "absolute",
+  },
+  recommendedBadge: {
+    top: 16,
+    left: 16,
+    zIndex: 10,
+    position: "absolute",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 215, 0, 0.2)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 215, 0, 0.4)",
+    gap: 4,
+  },
+  recommendedText: {
+    fontSize: 10,
+    color: "#FFD700",
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
   accentBar: {
     top: 0,

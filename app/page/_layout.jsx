@@ -21,7 +21,7 @@ export default function PageLayout() {
     const currentPage = segments[segments.length - 1];
     switch (currentPage) {
       case "home":
-        setPageTitle("Welcome! 💪");
+        setPageTitle("Welcome!");
         break;
       case "calendar":
         setPageTitle("Calendar");

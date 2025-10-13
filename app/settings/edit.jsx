@@ -9,11 +9,13 @@ import {
   ScrollView,
   SafeAreaView,
   ActivityIndicator,
+  Keyboard,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../services/supabase";
 import SettingsHeader from "../../components/SettingsHeader";
+import DropDownPicker from "react-native-dropdown-picker";
 
 export default function EditProfile() {
   const [isLoading, setIsLoading] = useState(true);
@@ -38,7 +40,7 @@ export default function EditProfile() {
     fitness_level: "",
     training_location: "",
     training_duration: "",
-    muscle_focus: "",
+    muscle_focus: [],
     injuries: [],
     training_frequency: "",
     meal_type: "",
@@ -49,6 +51,10 @@ export default function EditProfile() {
 
   // Dropdown states
   const [openDropdown, setOpenDropdown] = useState("");
+  
+  // Food input states
+  const [foodInput, setFoodInput] = useState("");
+  const [foodError, setFoodError] = useState("");
 
   // Fetch user data on mount
   useEffect(() => {
@@ -100,7 +106,9 @@ export default function EditProfile() {
           fitness_level: profileData.fitness_level || "",
           training_location: profileData.training_location || "",
           training_duration: profileData.training_duration?.toString() || "",
-          muscle_focus: profileData.muscle_focus || "",
+          muscle_focus: Array.isArray(profileData.muscle_focus) 
+            ? profileData.muscle_focus 
+            : (profileData.muscle_focus ? [profileData.muscle_focus] : []),
           injuries: profileData.injuries || [],
           training_frequency: profileData.training_frequency || "",
           meal_type: profileData.meal_type || "",
@@ -115,6 +123,53 @@ export default function EditProfile() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const addFood = () => {
+    const trimmed = foodInput.trim();
+    setFoodError("");
+    
+    if (!trimmed) return;
+    
+    if (/^\d+$/.test(trimmed)) {
+      setFoodError("Food name cannot be only numbers");
+      return;
+    }
+    
+    const isDuplicate = profileData.favorite_foods.some(
+      (food) => food.toLowerCase() === trimmed.toLowerCase()
+    );
+    
+    if (isDuplicate) {
+      setFoodError("You've already added this food");
+      return;
+    }
+    
+    setProfileData(prev => ({
+      ...prev,
+      favorite_foods: [...prev.favorite_foods, trimmed]
+    }));
+    setFoodInput("");
+  };
+
+  const removeFood = (index) => {
+    setProfileData(prev => ({
+      ...prev,
+      favorite_foods: prev.favorite_foods.filter((_, i) => i !== index)
+    }));
+  };
+
+  const toggleMuscleFocus = (value) => {
+    if (!isEditing) return;
+    
+    setProfileData(prev => {
+      const current = prev.muscle_focus || [];
+      if (current.includes(value)) {
+        return { ...prev, muscle_focus: current.filter(v => v !== value) };
+      } else {
+        return { ...prev, muscle_focus: [...current, value] };
+      }
+    });
   };
 
   const handleSave = async () => {
@@ -278,13 +333,38 @@ export default function EditProfile() {
               <View style={styles.twoColumnRow}>
                 <View style={styles.halfInput}>
                   <Text style={styles.label}>Gender</Text>
-                  <View
-                    style={[styles.input, !isEditing && styles.inputDisabled]}
-                  >
-                    <Text style={styles.valueText}>
-                      {profileData.gender || "Not set"}
-                    </Text>
-                  </View>
+                  {isEditing ? (
+                    <DropDownPicker
+                      open={openDropdown === "gender"}
+                      value={profileData.gender}
+                      items={[
+                        { label: "Male", value: "male" },
+                        { label: "Female", value: "female" },
+                        { label: "Other", value: "other" },
+                      ]}
+                      setOpen={() => {
+                        Keyboard.dismiss();
+                        setOpenDropdown(openDropdown === "gender" ? "" : "gender");
+                      }}
+                      setValue={(callback) => {
+                        const value = typeof callback === 'function' ? callback(profileData.gender) : callback;
+                        setProfileData({ ...profileData, gender: value });
+                      }}
+                      placeholder="Select Gender"
+                      style={styles.dropdown}
+                      dropDownContainerStyle={styles.dropdownContainer}
+                      textStyle={styles.dropdownText}
+                      placeholderStyle={{ color: "#666" }}
+                      zIndex={3000}
+                      listMode="SCROLLVIEW"
+                    />
+                  ) : (
+                    <View style={[styles.input, styles.inputDisabled]}>
+                      <Text style={styles.valueText}>
+                        {profileData.gender || "Not set"}
+                      </Text>
+                    </View>
+                  )}
                 </View>
                 <View style={styles.halfInput}>
                   <Text style={styles.label}>Age</Text>
@@ -356,24 +436,75 @@ export default function EditProfile() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Activity Level</Text>
-                <View
-                  style={[styles.input, !isEditing && styles.inputDisabled]}
-                >
-                  <Text style={styles.valueText}>
-                    {profileData.activity_level || "Not set"}
-                  </Text>
-                </View>
+                {isEditing ? (
+                  <DropDownPicker
+                    open={openDropdown === "activity_level"}
+                    value={profileData.activity_level}
+                    items={[
+                      { label: "Sedentary", value: "sedentary" },
+                      { label: "Lightly Active", value: "light" },
+                      { label: "Moderately Active", value: "moderate" },
+                      { label: "Very Active", value: "active" },
+                    ]}
+                    setOpen={() => {
+                      Keyboard.dismiss();
+                      setOpenDropdown(openDropdown === "activity_level" ? "" : "activity_level");
+                    }}
+                    setValue={(callback) => {
+                      const value = typeof callback === 'function' ? callback(profileData.activity_level) : callback;
+                      setProfileData({ ...profileData, activity_level: value });
+                    }}
+                    placeholder="Select Activity Level"
+                    style={styles.dropdown}
+                    dropDownContainerStyle={styles.dropdownContainer}
+                    textStyle={styles.dropdownText}
+                    placeholderStyle={{ color: "#666" }}
+                    zIndex={2000}
+                    listMode="SCROLLVIEW"
+                  />
+                ) : (
+                  <View style={[styles.input, styles.inputDisabled]}>
+                    <Text style={styles.valueText}>
+                      {profileData.activity_level || "Not set"}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Fitness Goal</Text>
-                <View
-                  style={[styles.input, !isEditing && styles.inputDisabled]}
-                >
-                  <Text style={styles.valueText}>
-                    {profileData.fitness_goal || "Not set"}
-                  </Text>
-                </View>
+                {isEditing ? (
+                  <DropDownPicker
+                    open={openDropdown === "fitness_goal"}
+                    value={profileData.fitness_goal}
+                    items={[
+                      { label: "Lose Weight", value: "lose" },
+                      { label: "Maintain Weight", value: "maintain" },
+                      { label: "Gain Muscle", value: "gain" },
+                    ]}
+                    setOpen={() => {
+                      Keyboard.dismiss();
+                      setOpenDropdown(openDropdown === "fitness_goal" ? "" : "fitness_goal");
+                    }}
+                    setValue={(callback) => {
+                      const value = typeof callback === 'function' ? callback(profileData.fitness_goal) : callback;
+                      setProfileData({ ...profileData, fitness_goal: value });
+                    }}
+                    placeholder="Select Fitness Goal"
+                    style={styles.dropdown}
+                    dropDownContainerStyle={styles.dropdownContainer}
+                    textStyle={styles.dropdownText}
+                    placeholderStyle={{ color: "#666" }}
+                    zIndex={1000}
+                    listMode="SCROLLVIEW"
+                  />
+                ) : (
+                  <View style={[styles.input, styles.inputDisabled]}>
+                    <Text style={styles.valueText}>
+                      {profileData.fitness_goal || "Not set"}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -388,24 +519,73 @@ export default function EditProfile() {
             <View style={styles.card}>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Fitness Level</Text>
-                <View
-                  style={[styles.input, !isEditing && styles.inputDisabled]}
-                >
-                  <Text style={styles.valueText}>
-                    {profileData.fitness_level || "Not set"}
-                  </Text>
-                </View>
+                {isEditing ? (
+                  <DropDownPicker
+                    open={openDropdown === "fitness_level"}
+                    value={profileData.fitness_level}
+                    items={[
+                      { label: "Beginner", value: "basic" },
+                      { label: "Intermediate", value: "intermediate" },
+                      { label: "Advanced", value: "advanced" },
+                    ]}
+                    setOpen={() => {
+                      Keyboard.dismiss();
+                      setOpenDropdown(openDropdown === "fitness_level" ? "" : "fitness_level");
+                    }}
+                    setValue={(callback) => {
+                      const value = typeof callback === 'function' ? callback(profileData.fitness_level) : callback;
+                      setProfileData({ ...profileData, fitness_level: value });
+                    }}
+                    placeholder="Select Fitness Level"
+                    style={styles.dropdown}
+                    dropDownContainerStyle={styles.dropdownContainer}
+                    textStyle={styles.dropdownText}
+                    placeholderStyle={{ color: "#666" }}
+                    zIndex={6000}
+                    listMode="SCROLLVIEW"
+                  />
+                ) : (
+                  <View style={[styles.input, styles.inputDisabled]}>
+                    <Text style={styles.valueText}>
+                      {profileData.fitness_level || "Not set"}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Training Location</Text>
-                <View
-                  style={[styles.input, !isEditing && styles.inputDisabled]}
-                >
-                  <Text style={styles.valueText}>
-                    {profileData.training_location || "Not set"}
-                  </Text>
-                </View>
+                {isEditing ? (
+                  <DropDownPicker
+                    open={openDropdown === "training_location"}
+                    value={profileData.training_location}
+                    items={[
+                      { label: "At Home", value: "home" },
+                      { label: "At the Gym", value: "gym" },
+                    ]}
+                    setOpen={() => {
+                      Keyboard.dismiss();
+                      setOpenDropdown(openDropdown === "training_location" ? "" : "training_location");
+                    }}
+                    setValue={(callback) => {
+                      const value = typeof callback === 'function' ? callback(profileData.training_location) : callback;
+                      setProfileData({ ...profileData, training_location: value });
+                    }}
+                    placeholder="Select Location"
+                    style={styles.dropdown}
+                    dropDownContainerStyle={styles.dropdownContainer}
+                    textStyle={styles.dropdownText}
+                    placeholderStyle={{ color: "#666" }}
+                    zIndex={5000}
+                    listMode="SCROLLVIEW"
+                  />
+                ) : (
+                  <View style={[styles.input, styles.inputDisabled]}>
+                    <Text style={styles.valueText}>
+                      {profileData.training_location || "Not set"}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               <View style={styles.twoColumnRow}>
@@ -424,43 +604,119 @@ export default function EditProfile() {
                   />
                 </View>
                 <View style={styles.halfInput}>
-                  <Text style={styles.label}>Frequency (days/week)</Text>
-                  <View
-                    style={[styles.input, !isEditing && styles.inputDisabled]}
-                  >
-                    <Text style={styles.valueText}>
-                      {profileData.training_frequency || "Not set"}
-                    </Text>
-                  </View>
+                  <Text style={styles.label}>Frequency (days)</Text>
+                  {isEditing ? (
+                    <DropDownPicker
+                      open={openDropdown === "training_frequency"}
+                      value={profileData.training_frequency}
+                      items={[
+                        { label: "2 days/week", value: "2" },
+                        { label: "3 days/week", value: "3" },
+                        { label: "4 days/week", value: "4" },
+                        { label: "5 days/week", value: "5" },
+                        { label: "6 days/week", value: "6" },
+                      ]}
+                      setOpen={() => {
+                        Keyboard.dismiss();
+                        setOpenDropdown(openDropdown === "training_frequency" ? "" : "training_frequency");
+                      }}
+                      setValue={(callback) => {
+                        const value = typeof callback === 'function' ? callback(profileData.training_frequency) : callback;
+                        setProfileData({ ...profileData, training_frequency: value });
+                      }}
+                      placeholder="Select Frequency"
+                      style={styles.dropdown}
+                      dropDownContainerStyle={styles.dropdownContainer}
+                      textStyle={styles.dropdownText}
+                      placeholderStyle={{ color: "#666" }}
+                      zIndex={4000}
+                      listMode="SCROLLVIEW"
+                    />
+                  ) : (
+                    <View style={[styles.input, styles.inputDisabled]}>
+                      <Text style={styles.valueText}>
+                        {profileData.training_frequency || "Not set"}
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Muscle Focus</Text>
-                <View
-                  style={[styles.input, !isEditing && styles.inputDisabled]}
-                >
-                  <Text style={styles.valueText}>
-                    {profileData.muscle_focus || "Not set"}
-                  </Text>
+                <View style={styles.multiButtonContainer}>
+                  {[
+                    { label: "General Growth", value: "general" },
+                    { label: "Legs & Glutes", value: "legs_glutes" },
+                    { label: "Back", value: "back" },
+                    { label: "Chest", value: "chest" },
+                    { label: "Shoulders & Arms", value: "shoulders_arms" },
+                    { label: "Core", value: "core" },
+                  ].map((option) => (
+                    <Pressable
+                      key={option.value}
+                      style={[
+                        styles.multiButton,
+                        (profileData.muscle_focus || []).includes(option.value) && styles.multiButtonSelected,
+                        !isEditing && styles.multiButtonDisabled,
+                      ]}
+                      onPress={() => toggleMuscleFocus(option.value)}
+                      disabled={!isEditing}
+                    >
+                      <Text
+                        style={[
+                          styles.multiButtonText,
+                          (profileData.muscle_focus || []).includes(option.value) && styles.multiButtonTextSelected,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  ))}
                 </View>
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Current Injuries</Text>
-                <View
-                  style={[
-                    styles.input,
-                    !isEditing && styles.inputDisabled,
-                    { minHeight: 56 },
-                  ]}
-                >
-                  <Text style={styles.valueText}>
-                    {profileData.injuries?.length > 0
-                      ? profileData.injuries.join(", ")
-                      : "None"}
-                  </Text>
-                </View>
+                {isEditing ? (
+                  <DropDownPicker
+                    open={openDropdown === "injuries"}
+                    value={profileData.injuries}
+                    items={[
+                      { label: "Lower Back", value: "lower_back" },
+                      { label: "Knees", value: "knees" },
+                      { label: "Shoulder", value: "shoulder" },
+                      { label: "Wrist", value: "wrist" },
+                      { label: "Ankle", value: "ankle" },
+                    ]}
+                    setOpen={() => {
+                      Keyboard.dismiss();
+                      setOpenDropdown(openDropdown === "injuries" ? "" : "injuries");
+                    }}
+                    setValue={(callback) => {
+                      const value = typeof callback === 'function' ? callback(profileData.injuries) : callback;
+                      setProfileData({ ...profileData, injuries: value });
+                    }}
+                    placeholder="Select Injuries (Optional)"
+                    style={styles.dropdown}
+                    dropDownContainerStyle={styles.dropdownContainer}
+                    textStyle={styles.dropdownText}
+                    placeholderStyle={{ color: "#666" }}
+                    multiple={true}
+                    mode="BADGE"
+                    badgeDotColors={["#e74c3c"]}
+                    zIndex={3000}
+                    listMode="SCROLLVIEW"
+                  />
+                ) : (
+                  <View style={[styles.input, styles.inputDisabled, { minHeight: 44 }]}>
+                    <Text style={styles.valueText}>
+                      {profileData.injuries?.length > 0
+                        ? profileData.injuries.join(", ")
+                        : "None"}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -475,13 +731,39 @@ export default function EditProfile() {
             <View style={styles.card}>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Meal Type</Text>
-                <View
-                  style={[styles.input, !isEditing && styles.inputDisabled]}
-                >
-                  <Text style={styles.valueText}>
-                    {profileData.meal_type || "Not set"}
-                  </Text>
-                </View>
+                {isEditing ? (
+                  <DropDownPicker
+                    open={openDropdown === "meal_type"}
+                    value={profileData.meal_type}
+                    items={[
+                      { label: "Omnivore", value: "omnivore" },
+                      { label: "Vegetarian", value: "vegetarian" },
+                      { label: "Vegan", value: "vegan" },
+                      { label: "Pescatarian", value: "pescatarian" },
+                    ]}
+                    setOpen={() => {
+                      Keyboard.dismiss();
+                      setOpenDropdown(openDropdown === "meal_type" ? "" : "meal_type");
+                    }}
+                    setValue={(callback) => {
+                      const value = typeof callback === 'function' ? callback(profileData.meal_type) : callback;
+                      setProfileData({ ...profileData, meal_type: value });
+                    }}
+                    placeholder="Select Meal Preference"
+                    style={styles.dropdown}
+                    dropDownContainerStyle={styles.dropdownContainer}
+                    textStyle={styles.dropdownText}
+                    placeholderStyle={{ color: "#666" }}
+                    zIndex={3000}
+                    listMode="SCROLLVIEW"
+                  />
+                ) : (
+                  <View style={[styles.input, styles.inputDisabled]}>
+                    <Text style={styles.valueText}>
+                      {profileData.meal_type || "Not set"}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               <View style={styles.twoColumnRow}>
@@ -517,36 +799,95 @@ export default function EditProfile() {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Dietary Restrictions</Text>
-                <View
-                  style={[
-                    styles.input,
-                    !isEditing && styles.inputDisabled,
-                    { minHeight: 56 },
-                  ]}
-                >
-                  <Text style={styles.valueText}>
-                    {profileData.restrictions?.length > 0
-                      ? profileData.restrictions.join(", ")
-                      : "None"}
-                  </Text>
-                </View>
+                {isEditing ? (
+                  <DropDownPicker
+                    open={openDropdown === "restrictions"}
+                    value={profileData.restrictions}
+                    items={[
+                      { label: "Gluten-Free", value: "gluten-free" },
+                      { label: "Dairy-Free", value: "dairy-free" },
+                      { label: "Nut-Free", value: "nut-free" },
+                      { label: "Soy-Free", value: "soy-free" },
+                    ]}
+                    setOpen={() => {
+                      Keyboard.dismiss();
+                      setOpenDropdown(openDropdown === "restrictions" ? "" : "restrictions");
+                    }}
+                    setValue={(callback) => {
+                      const value = typeof callback === 'function' ? callback(profileData.restrictions) : callback;
+                      setProfileData({ ...profileData, restrictions: value });
+                    }}
+                    placeholder="Select Restrictions (Optional)"
+                    style={styles.dropdown}
+                    dropDownContainerStyle={styles.dropdownContainer}
+                    textStyle={styles.dropdownText}
+                    placeholderStyle={{ color: "#666" }}
+                    multiple={true}
+                    mode="BADGE"
+                    badgeDotColors={["#FF6B35"]}
+                    zIndex={2000}
+                    listMode="SCROLLVIEW"
+                  />
+                ) : (
+                  <View style={[styles.input, styles.inputDisabled, { minHeight: 44 }]}>
+                    <Text style={styles.valueText}>
+                      {profileData.restrictions?.length > 0
+                        ? profileData.restrictions.join(", ")
+                        : "None"}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Favorite Foods</Text>
-                <View
-                  style={[
-                    styles.input,
-                    !isEditing && styles.inputDisabled,
-                    { minHeight: 56 },
-                  ]}
-                >
-                  <Text style={styles.valueText}>
-                    {profileData.favorite_foods?.length > 0
-                      ? profileData.favorite_foods.join(", ")
-                      : "None added"}
-                  </Text>
-                </View>
+                {isEditing ? (
+                  <>
+                    <View style={styles.foodInputContainer}>
+                      <TextInput
+                        style={styles.foodInput}
+                        value={foodInput}
+                        onChangeText={setFoodInput}
+                        placeholder="Add a food..."
+                        placeholderTextColor="#666"
+                        onSubmitEditing={addFood}
+                        returnKeyType="done"
+                        editable={isEditing}
+                      />
+                      <Pressable 
+                        style={styles.addFoodButton} 
+                        onPress={addFood}
+                        disabled={!isEditing}
+                      >
+                        <Ionicons name="add-circle" size={32} color="#00D4AA" />
+                      </Pressable>
+                    </View>
+                    {foodError ? (
+                      <Text style={styles.foodError}>{foodError}</Text>
+                    ) : null}
+                    <View style={styles.foodTagsContainer}>
+                      {(profileData.favorite_foods || []).map((food, index) => (
+                        <View key={index} style={styles.foodTag}>
+                          <Text style={styles.foodTagText}>{food}</Text>
+                          <Pressable 
+                            onPress={() => removeFood(index)}
+                            disabled={!isEditing}
+                          >
+                            <Ionicons name="close-circle" size={18} color="#fff" />
+                          </Pressable>
+                        </View>
+                      ))}
+                    </View>
+                  </>
+                ) : (
+                  <View style={[styles.input, styles.inputDisabled, { minHeight: 44 }]}>
+                    <Text style={styles.valueText}>
+                      {profileData.favorite_foods?.length > 0
+                        ? profileData.favorite_foods.join(", ")
+                        : "None added"}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -583,82 +924,82 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 10,
-    paddingBottom: 40,
-    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 30,
+    paddingHorizontal: 16,
   },
   loadingText: {
-    fontSize: 16,
-    marginTop: 15,
+    fontSize: 14,
+    marginTop: 12,
     color: "#aaa",
   },
   editModeContainer: {
-    marginBottom: 20,
+    marginBottom: 14,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
     justifyContent: "space-between",
   },
   editModeText: {
-    fontSize: 18,
+    fontSize: 16,
     color: "#fff",
     fontWeight: "bold",
   },
   editButton: {
-    gap: 8,
-    borderRadius: 20,
-    paddingVertical: 10,
+    gap: 6,
+    borderRadius: 16,
+    paddingVertical: 8,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   editButtonActive: {
     backgroundColor: "#00D4AA",
   },
   editButtonText: {
-    fontSize: 15,
+    fontSize: 14,
     color: "#fff",
     fontWeight: "600",
   },
   sectionContainer: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   sectionHeader: {
-    gap: 10,
-    marginBottom: 12,
+    gap: 8,
+    marginBottom: 8,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     color: "#fff",
     fontWeight: "bold",
   },
   card: {
-    padding: 20,
-    borderRadius: 24,
+    padding: 14,
+    borderRadius: 18,
     backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   inputGroup: {
-    marginBottom: 18,
+    marginBottom: 12,
   },
   label: {
-    fontSize: 13,
+    fontSize: 11,
     color: "#aaa",
-    paddingLeft: 5,
-    marginBottom: 8,
+    paddingLeft: 4,
+    marginBottom: 6,
     fontWeight: "600",
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
     textTransform: "uppercase",
   },
   input: {
-    padding: 15,
-    fontSize: 16,
+    padding: 12,
+    fontSize: 15,
     color: "#fff",
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 12,
     borderColor: "rgba(255, 255, 255, 0.1)",
     backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
@@ -668,54 +1009,145 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.03)",
   },
   valueText: {
-    fontSize: 16,
+    fontSize: 15,
     color: "#fff",
   },
   helperText: {
-    fontSize: 12,
-    marginTop: 6,
+    fontSize: 11,
+    marginTop: 4,
     color: "#666",
-    paddingLeft: 5,
+    paddingLeft: 4,
     fontStyle: "italic",
   },
   twoColumnRow: {
-    gap: 12,
-    marginBottom: 18,
+    gap: 10,
+    marginBottom: 12,
     flexDirection: "row",
   },
   halfInput: {
     flex: 1,
   },
   switchRow: {
-    marginBottom: 18,
-    paddingVertical: 12,
-    paddingHorizontal: 5,
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
   },
   saveButton: {
-    gap: 10,
-    padding: 18,
-    elevation: 4,
-    marginTop: 10,
-    shadowRadius: 8,
-    borderRadius: 24,
-    shadowOpacity: 0.3,
+    gap: 8,
+    padding: 14,
+    elevation: 3,
+    marginTop: 8,
+    shadowRadius: 6,
+    borderRadius: 18,
+    shadowOpacity: 0.25,
     flexDirection: "row",
     alignItems: "center",
     shadowColor: "#f7971e",
     justifyContent: "center",
     backgroundColor: "#f7971e",
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 3 },
   },
   saveButtonDisabled: {
     opacity: 0.7,
     backgroundColor: "#666",
   },
   saveButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     color: "#fff",
     fontWeight: "bold",
+  },
+  dropdown: {
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 12,
+    minHeight: 44,
+  },
+  dropdownContainer: {
+    backgroundColor: "rgba(30, 30, 30, 0.98)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 12,
+  },
+  dropdownText: {
+    color: "#fff",
+    fontSize: 15,
+  },
+  multiButtonContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  multiButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  multiButtonSelected: {
+    borderColor: "#00D4AA",
+    backgroundColor: "rgba(0, 212, 170, 0.2)",
+  },
+  multiButtonDisabled: {
+    opacity: 0.5,
+  },
+  multiButtonText: {
+    fontSize: 13,
+    color: "#aaa",
+    fontWeight: "600",
+  },
+  multiButtonTextSelected: {
+    color: "#00D4AA",
+  },
+  foodInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  foodInput: {
+    flex: 1,
+    padding: 12,
+    fontSize: 15,
+    color: "#fff",
+    borderWidth: 1,
+    borderRadius: 12,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+  addFoodButton: {
+    padding: 4,
+  },
+  foodError: {
+    fontSize: 11,
+    color: "#e74c3c",
+    marginBottom: 8,
+    paddingLeft: 4,
+  },
+  foodTagsContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 4,
+  },
+  foodTag: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingLeft: 12,
+    paddingRight: 8,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: "rgba(0, 212, 170, 0.2)",
+    borderWidth: 1,
+    borderColor: "rgba(0, 212, 170, 0.3)",
+  },
+  foodTagText: {
+    fontSize: 13,
+    color: "#00D4AA",
+    fontWeight: "600",
   },
 });

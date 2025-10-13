@@ -146,8 +146,8 @@ const Analytics = () => {
     { value: "90", label: "Last 90 days" }
   ];
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-5">
+      <div className="max-w-7xl mx-auto space-y-5">
         {/* Header */}
         <PageHeader
           icon={BarChart3}
@@ -174,7 +174,8 @@ const Analytics = () => {
         />
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
             icon={Users}
             label="User Engagement"
@@ -206,9 +207,9 @@ const Analytics = () => {
         </div>
 
         {/* Revenue & Active Users */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-2xl shadow-sm p-8">
-            <div className="flex items-center justify-between mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white rounded-2xl shadow-sm p-5">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
                   <Award className="w-6 h-6 text-white" />
@@ -242,8 +243,8 @@ const Analytics = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm p-8">
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-white rounded-2xl shadow-sm p-5">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
                   <Zap className="w-6 h-6 text-white" />
@@ -277,10 +278,10 @@ const Analytics = () => {
         </div>
 
         {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Popular Workouts */}
-          <div className="bg-white rounded-2xl shadow-sm p-8">
-            <div className="flex items-center gap-3 mb-6">
+          <div className="bg-white rounded-2xl shadow-sm p-5">
+            <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center">
                 <BarChart3 className="w-6 h-6 text-white" />
               </div>
@@ -318,8 +319,8 @@ const Analytics = () => {
           </div>
 
           {/* Subscription Breakdown */}
-          <div className="bg-white rounded-2xl shadow-sm p-8">
-            <div className="flex items-center gap-3 mb-6">
+          <div className="bg-white rounded-2xl shadow-sm p-5">
+            <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
                 <PieChart className="w-6 h-6 text-white" />
               </div>
@@ -360,37 +361,37 @@ const Analytics = () => {
         </div>
 
         {/* Performance Insights */}
-        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl shadow-lg p-8 text-white">
-          <div className="flex items-center gap-3 mb-6">
+        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl shadow-lg p-5 text-white">
+          <div className="flex items-center gap-3 mb-4">
             <TrendingUp className="w-8 h-8" />
             <div>
-              <h3 className="text-2xl font-bold">Performance Insights</h3>
+              <h3 className="text-xl font-bold">Performance Insights</h3>
               <p className="text-blue-100">Key takeaways from the last {period} days</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <TrendingUp className="w-5 h-5 text-green-300" />
                 <p className="text-sm font-semibold text-blue-100">Growth</p>
               </div>
-              <p className="text-2xl font-bold mb-1">{analytics.activeUsers}</p>
+              <p className="text-xl font-bold mb-1">{analytics.activeUsers}</p>
               <p className="text-sm text-blue-100">Active users this period</p>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Award className="w-5 h-5 text-yellow-300" />
                 <p className="text-sm font-semibold text-blue-100">Engagement</p>
               </div>
-              <p className="text-2xl font-bold mb-1">{analytics.userEngagement}%</p>
+              <p className="text-xl font-bold mb-1">{analytics.userEngagement}%</p>
               <p className="text-sm text-blue-100">Overall engagement rate</p>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Target className="w-5 h-5 text-orange-300" />
                 <p className="text-sm font-semibold text-blue-100">Completion</p>
               </div>
-              <p className="text-2xl font-bold mb-1">{analytics.workoutCompletion}%</p>
+              <p className="text-xl font-bold mb-1">{analytics.workoutCompletion}%</p>
               <p className="text-sm text-blue-100">Workout completion rate</p>
             </div>
           </div>

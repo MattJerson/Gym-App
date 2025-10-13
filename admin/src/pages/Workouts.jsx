@@ -296,8 +296,8 @@ const Workouts = () => {
           }
         />
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
           <StatsCard
             title="Total Categories"
             value={categories.length}
@@ -322,7 +322,7 @@ const Workouts = () => {
         </div>
 
         {/* Action Bar */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-4">
           <SearchBar
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}

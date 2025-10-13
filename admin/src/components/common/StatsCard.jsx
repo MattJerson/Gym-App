@@ -19,7 +19,7 @@ const StatsCard = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-4">
         <div>
           <p className="text-sm font-semibold text-gray-600 uppercase tracking-wider">{title}</p>
@@ -32,7 +32,7 @@ const StatsCard = ({
       </div>
       
       <div className="mb-2">
-        <p className="text-3xl font-bold text-gray-900">{value}</p>
+        <p className="text-2xl font-bold text-gray-900">{value}</p>
       </div>
 
       {change !== undefined && (

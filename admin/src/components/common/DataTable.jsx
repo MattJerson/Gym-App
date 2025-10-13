@@ -21,7 +21,7 @@ const DataTable = ({
         <div className="animate-pulse">
           <div className="h-14 bg-gray-100"></div>
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 bg-gray-50 border-t border-gray-100"></div>
+            <div key={i} className="h-12 bg-gray-50 border-t border-gray-100"></div>
           ))}
         </div>
       </div>

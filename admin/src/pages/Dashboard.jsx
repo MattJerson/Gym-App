@@ -345,7 +345,7 @@ const Dashboard = () => {
         </div>
 
         {/* Main Stats Grid - Compact */}
-        <div className="admin-grid-4 mb-6">
+        <div className="admin-grid-4 mb-4">
           <StatCard
             title="Total Users"
             value={dashboardData.totalUsers.toLocaleString()}
@@ -389,7 +389,7 @@ const Dashboard = () => {
         </div>
 
         {/* Content Grid - Tighter */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
           {/* Recent Activity */}
           <div className="lg:col-span-2">
             <RecentActivityCard 
@@ -408,7 +408,7 @@ const Dashboard = () => {
         </div>
 
         {/* Top Items Grid - Compact */}
-        <div className="admin-grid-2 mb-6">
+        <div className="admin-grid-2 mb-4">
           <TopItemsCard
             title="🏆 Top Users by Points"
             items={dashboardData.topUsers}
@@ -424,26 +424,27 @@ const Dashboard = () => {
         </div>
 
         {/* Executive Summary Footer - Streamlined */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+                {/* Subscription Performance Banner */}
+        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl p-5 text-white shadow-lg">
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="h-6 w-6" />
             <h3 className="text-xl font-bold">Key Business Metrics</h3>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
-              <p className="text-3xl font-bold">${dashboardData.mrr.toFixed(0).toLocaleString()}</p>
+              <p className="text-2xl font-bold">${dashboardData.mrr.toFixed(0).toLocaleString()}</p>
               <p className="text-xs text-blue-100 mt-1 font-medium">Monthly Recurring Revenue</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold">{dashboardData.conversionRate}%</p>
+              <p className="text-2xl font-bold">{dashboardData.conversionRate}%</p>
               <p className="text-xs text-blue-100 mt-1 font-medium">Conversion Rate</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold">{dashboardData.engagementRate}%</p>
+              <p className="text-2xl font-bold">{dashboardData.engagementRate}%</p>
               <p className="text-xs text-blue-100 mt-1 font-medium">User Engagement</p>
             </div>
             <div className="text-center">
-              <p className="text-3xl font-bold">{dashboardData.churnRisk}%</p>
+              <p className="text-2xl font-bold">{dashboardData.churnRisk}%</p>
               <p className="text-xs text-blue-100 mt-1 font-medium">Churn Risk</p>
             </div>
           </div>

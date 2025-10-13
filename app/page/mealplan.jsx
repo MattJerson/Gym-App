@@ -16,7 +16,6 @@ import { supabase } from "../../services/supabase";
 import MealPlans from "../../components/mealplan/MealPlans";
 import TodaysMeals from "../../components/mealplan/TodaysMeals";
 import RecentMeals from "../../components/mealplan/RecentMeals";
-import MealPlanHeader from "../../components/mealplan/MealPlanHeader";
 import PlanActionSheet from "../../components/mealplan/PlanActionSheet";
 import { MealPlanDataService } from "../../services/MealPlanDataService";
 import MacroProgressSummary from "../../components/mealplan/MacroProgressSummary";
@@ -36,7 +35,6 @@ export default function Mealplan() {
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
-  const [notifications, setNotifications] = useState(0);
 
   // 🔄 Get actual user ID from Supabase
   const [userId, setUserId] = useState(null);
@@ -314,9 +312,6 @@ export default function Mealplan() {
   return (
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <MealPlanHeader notifications={notifications} />
-
         {/* Loading State */}
         {isLoading ? (
           <MealPlanPageSkeleton />
@@ -400,7 +395,7 @@ export default function Mealplan() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: {
-    paddingTop: 60,
+    paddingTop: 20,
     paddingBottom: 10,
     paddingHorizontal: 20,
   },

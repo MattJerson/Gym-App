@@ -24,7 +24,7 @@ import { logger } from "../../services/logger";
  * Determines the next onboarding step based on what data is missing
  * This makes onboarding truly dynamic - users only complete what they haven't done yet
  */
-const determineNextOnboardingStep = (profile) => {
+const determineNextOnboardingStep = async (profile, userId) => {
   // No profile at all - start from beginning
   if (!profile) {
     return "/features/registrationprocess";
@@ -54,19 +54,78 @@ const determineNextOnboardingStep = (profile) => {
     return "/features/registrationprocess";
   }
 
-  // Check bodyfat data
-  const hasBodyfat = 
-    profile.current_body_fat != null && 
-    profile.goal_body_fat != null;
+  // Check bodyfat data (from bodyfat_profiles table, not registration_profiles)
+  try {
+    const { data: bodyfatData } = await supabase
+      .from("bodyfat_profiles")
+      .select("current_body_fat, goal_body_fat")
+      .eq("user_id", userId)
+      .maybeSingle();
+    
+    const hasBodyfat = 
+      bodyfatData?.current_body_fat != null && 
+      bodyfatData?.goal_body_fat != null;
 
-  if (!hasBodyfat) {
+    if (!hasBodyfat) {
+      return "/features/bodyfatuser";
+    }
+  } catch (e) {
+    logger.warn("Failed to check bodyfat data", e);
     return "/features/bodyfatuser";
   }
 
-  // If we get here, registration and bodyfat are complete
-  // Check subscription status (will be checked in subscriptionpackages page)
-  // For now, route to subscription page and let it decide
-  return "/features/subscriptionpackages";
+  // Check subscription status
+  try {
+    const { data: subscription } = await supabase
+      .from("user_subscriptions")
+      .select("id, status")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (!subscription) {
+      return "/features/subscriptionpackages";
+    }
+  } catch (e) {
+    logger.warn("Failed to check subscription", e);
+    return "/features/subscriptionpackages";
+  }
+
+  // Check if user has selected workouts
+  try {
+    const { data: userWorkouts } = await supabase
+      .from("user_selected_workouts")
+      .select("id")
+      .eq("user_id", userId)
+      .limit(1);
+
+    if (!userWorkouts || userWorkouts.length === 0) {
+      return "/features/selectworkouts";
+    }
+  } catch (e) {
+    logger.warn("Failed to check user workouts", e);
+    return "/features/selectworkouts";
+  }
+
+  // Check if user has selected a meal plan
+  try {
+    const { data: userMealPlan } = await supabase
+      .from("user_meal_plans")
+      .select("id, is_active")
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (!userMealPlan) {
+      return "/features/selectmealplan";
+    }
+  } catch (e) {
+    logger.warn("Failed to check meal plan", e);
+    return "/features/selectmealplan";
+  }
+
+  // All onboarding steps complete!
+  return "/page/home";
 };
 
 /* -------------------- REGISTER/LOGIN SCREEN -------------------- */
@@ -416,12 +475,15 @@ export default function Register() {
             .eq("user_id", data.user.id)
             .maybeSingle();
             
-          if (!profile || !profile.onboarding_completed) {
-            // Dynamically determine what's missing and route accordingly
-            const nextStep = determineNextOnboardingStep(profile);
+          // Always check what's missing, regardless of onboarding_completed flag
+          // This ensures users who partially completed onboarding are routed correctly
+          const nextStep = await determineNextOnboardingStep(profile, data.user.id);
+          
+          if (nextStep !== "/page/home") {
             logger.info(`Routing to next onboarding step: ${nextStep}`);
             router.replace(nextStep);
           } else {
+            logger.info("Onboarding complete, routing to home");
             router.replace("/page/home");
           }
         } catch (err) {

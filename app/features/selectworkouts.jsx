@@ -1,6 +1,7 @@
 import {
   View,
   Text,
+  Alert,
   Image,
   Animated,
   Platform,
@@ -36,6 +37,8 @@ export default function SelectWorkouts() {
 
   const [categories, setCategories] = useState([]);
   const [workouts, setWorkouts] = useState([]);
+  const [filteredWorkouts, setFilteredWorkouts] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedWorkouts, setSelectedWorkouts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -94,12 +97,24 @@ export default function SelectWorkouts() {
 
       setCategories(categoriesWithImages);
       setWorkouts(workoutsWithImages);
+      setFilteredWorkouts(workoutsWithImages); // Initially show all
     } catch (error) {
       console.error("Error loading workouts:", error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Filter workouts when category changes
+  useEffect(() => {
+    if (selectedCategory === "all") {
+      setFilteredWorkouts(workouts);
+    } else {
+      setFilteredWorkouts(
+        workouts.filter((w) => w.category_id === selectedCategory)
+      );
+    }
+  }, [selectedCategory, workouts]);
 
   const toggleWorkout = (workoutId) => {
     setSelectedWorkouts((prev) => {
@@ -122,16 +137,47 @@ export default function SelectWorkouts() {
 
     setIsSaving(true);
     try {
-      // Save selected workout template IDs
+      // Get authenticated user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        console.error("Error getting user:", userError);
+        Alert.alert("Error", "Please log in to continue");
+        setIsSaving(false);
+        return;
+      }
+
+      // Save selected workouts to database
+      const workoutInserts = selectedWorkouts.map(templateId => ({
+        user_id: user.id,
+        workout_template_id: templateId,
+        selected_at: new Date().toISOString(),
+      }));
+
+      const { error: insertError } = await supabase
+        .from("user_selected_workouts")
+        .insert(workoutInserts);
+
+      if (insertError) {
+        console.error("Error saving workouts:", insertError);
+        Alert.alert("Error", "Failed to save workout selections");
+        setIsSaving(false);
+        return;
+      }
+
+      // Also save to AsyncStorage as backup
       await AsyncStorage.setItem(
         "onboarding:selectedWorkouts",
         JSON.stringify(selectedWorkouts)
       );
 
+      console.log("✅ Successfully saved", selectedWorkouts.length, "workouts");
+
       // Navigate to meal plan selection
       router.push("/features/selectmealplan");
     } catch (error) {
       console.error("Error saving selections:", error);
+      Alert.alert("Error", "An unexpected error occurred");
     } finally {
       setIsSaving(false);
     }
@@ -176,6 +222,54 @@ export default function SelectWorkouts() {
             </Text>
           </View>
 
+          {/* Category Filter Tabs */}
+          <View style={styles.categoryTabsContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryTabsContent}
+            >
+              <Pressable
+                style={[
+                  styles.categoryTab,
+                  selectedCategory === "all" && styles.categoryTabActive,
+                ]}
+                onPress={() => setSelectedCategory("all")}
+              >
+                <Text
+                  style={[
+                    styles.categoryTabText,
+                    selectedCategory === "all" &&
+                      styles.categoryTabTextActive,
+                  ]}
+                >
+                  All
+                </Text>
+              </Pressable>
+              {categories.map((cat) => (
+                <Pressable
+                  key={cat.id}
+                  style={[
+                    styles.categoryTab,
+                    selectedCategory === cat.id && styles.categoryTabActive,
+                  ]}
+                  onPress={() => setSelectedCategory(cat.id)}
+                >
+                  <Text style={styles.categoryTabEmoji}>{cat.emoji}</Text>
+                  <Text
+                    style={[
+                      styles.categoryTabText,
+                      selectedCategory === cat.id &&
+                        styles.categoryTabTextActive,
+                    ]}
+                  >
+                    {cat.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+
           {/* Workouts Grid */}
           <ScrollView
             style={styles.scrollView}
@@ -189,7 +283,7 @@ export default function SelectWorkouts() {
               </View>
             ) : (
               <View style={styles.categoriesGrid}>
-                {workouts.map((workout) => {
+                {filteredWorkouts.map((workout) => {
                   const isSelected = selectedWorkouts.includes(workout.id);
                   return (
                     <Pressable
@@ -398,6 +492,39 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 16,
     backgroundColor: "rgba(74, 158, 255, 0.15)",
+  },
+  categoryTabsContainer: {
+    marginBottom: 16,
+  },
+  categoryTabsContent: {
+    paddingHorizontal: 4,
+    gap: 8,
+  },
+  categoryTab: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    gap: 6,
+  },
+  categoryTabActive: {
+    backgroundColor: "#4A9EFF",
+    borderColor: "#4A9EFF",
+  },
+  categoryTabEmoji: {
+    fontSize: 16,
+  },
+  categoryTabText: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.7)",
+    fontWeight: "600",
+  },
+  categoryTabTextActive: {
+    color: "#fff",
   },
   scrollView: {
     flex: 1,

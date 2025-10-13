@@ -44,7 +44,7 @@ export default function AchievementBadges({ userBadges, userStats }) {
             <View style={[styles.achievementIcon, { backgroundColor: getBadgeColor(badge) }]}>
               <MaterialCommunityIcons 
                 name={getBadgeIconName(badge.badges?.name)} 
-                size={18} 
+                size={16} 
                 color="#fff" 
               />
             </View>
@@ -64,63 +64,64 @@ export default function AchievementBadges({ userBadges, userStats }) {
 const styles = StyleSheet.create({
   achievementsHeader: {
     alignItems: "center",
-    marginBottom: 15,
-    paddingVertical: 12,
+    marginBottom: 6,
+    paddingVertical: 6,
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.08)",
   },
   achievementsTitle: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: "800",
     color: "#fff",
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
   },
   achievementsSubtitle: {
-    fontSize: 11,
+    fontSize: 9,
     color: "#f1c40f",
     fontWeight: "600",
-    marginTop: 2,
+    marginTop: 1,
   },
   achievementsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    gap: 10,
+    gap: 6,
   },
   achievementCard: {
     width: "47%",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    borderRadius: 8,
     backgroundColor: "rgba(255, 255, 255, 0.04)",
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
   },
   achievementIcon: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 8,
+    marginBottom: 4,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
   },
   achievementName: {
-    fontSize: 10,
+    fontSize: 8,
     color: "#fff",
     fontWeight: "600",
     textAlign: "center",
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   emptyText: {
     color: '#888',
     textAlign: 'center',
     width: '100%',
-    paddingVertical: 20,
+    paddingVertical: 10,
+    fontSize: 11,
   },
 });

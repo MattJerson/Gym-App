@@ -26,15 +26,22 @@ const StatCard = ({
 
   if (loading) {
     return (
-      <div className="bg-white rounded-2xl p-6 shadow-sm border-l-8 border-gray-300 animate-pulse">
-        <div className="h-5 bg-gray-200 rounded w-24 mb-4"></div>
-        <div className="h-10 bg-gray-200 rounded w-32"></div>
+      <div className="bg-white rounded-2xl p-4 shadow-sm border-l-8 border-gray-300 animate-pulse">
+        <div className="flex items-start justify-between mb-4">
+          <div className="h-5 bg-gray-200 rounded w-24"></div>
+          <div className="h-12 w-12 bg-gray-200 rounded-xl"></div>
+        </div>
+        <div className="mb-3">
+          <div className="h-12 bg-gray-200 rounded w-32"></div>
+        </div>
+        <div className="h-4 bg-gray-200 rounded w-28 mb-2"></div>
+        <div className="h-4 bg-gray-200 rounded w-24"></div>
       </div>
     );
   }
 
   return (
-    <div className={`bg-white rounded-2xl p-6 shadow-sm border-l-8 ${colorClasses[color].split(" ")[2]} hover:shadow-md transition-shadow`}>
+    <div className={`bg-white rounded-2xl p-4 shadow-sm border-l-8 ${colorClasses[color].split(" ")[2]} hover:shadow-md transition-shadow`}>
       <div className="flex items-start justify-between mb-4">
         <div>
           <p className="text-sm font-semibold text-gray-600 uppercase tracking-wider">{title}</p>

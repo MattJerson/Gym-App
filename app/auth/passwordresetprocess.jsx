@@ -1,6 +1,7 @@
 import {
   View,
   Text,
+  Keyboard,
   Platform,
   Animated,
   StatusBar,
@@ -8,6 +9,7 @@ import {
   Pressable,
   StyleSheet,
   Dimensions,
+  TouchableWithoutFeedback,
   KeyboardAvoidingView,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -16,6 +18,8 @@ import SubmitButton from "../../components/SubmitButton";
 import React, { useState, useRef, useEffect } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import HeaderBar from "../../components/onboarding/HeaderBar";
+import ProgressBar from "../../components/onboarding/ProgressBar";
 
 const stepsConfig = [
   {
@@ -298,9 +302,11 @@ export default function ForgotPasswordFlow() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#0B0B0B",
   },
   safeArea: {
     flex: 1,
+    backgroundColor: "#0B0B0B",
   },
   content: {
     flex: 1,

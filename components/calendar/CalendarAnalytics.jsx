@@ -1,9 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import EmptyDataState from './EmptyDataState';
 
 const CalendarAnalytics = ({ analytics }) => {
   if (!analytics) return null;
+
+  // Check if we have sufficient data (at least 2 workouts completed)
+  const hasSufficientData = analytics.totalWorkouts >= 2;
 
   const analyticsItems = [
     {
@@ -34,32 +38,84 @@ const CalendarAnalytics = ({ analytics }) => {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Monthly Analytics</Text> 
-      <View style={styles.analyticsGrid}>
-        {analyticsItems.map((item, index) => (
-          <View key={index} style={styles.analyticsItem}>
-            <Ionicons name={item.icon} size={26} color={item.color} style={styles.icon} />
-            <Text style={styles.analyticsValue}>{item.value}</Text>
-            <Text style={styles.analyticsLabel}>{item.label}</Text>
+      <Text style={styles.title}>Monthly Analytics</Text>
+      
+      {!hasSufficientData ? (
+        <EmptyDataState
+          title="Build Your Stats"
+          message="Complete more workouts this month to unlock detailed analytics and insights"
+          icon="analytics-outline"
+          iconColor="#BF5AF2"
+          sampleComponent={
+            <>
+              <View style={styles.analyticsGrid}>
+                <View style={styles.analyticsItem}>
+                  <Ionicons name="fitness-outline" size={26} color="#0A84FF" style={styles.icon} />
+                  <Text style={styles.analyticsValue}>24</Text>
+                  <Text style={styles.analyticsLabel}>Total Workouts</Text>
+                </View>
+                <View style={styles.analyticsItem}>
+                  <Ionicons name="checkmark-done-outline" size={26} color="#30D158" style={styles.icon} />
+                  <Text style={styles.analyticsValue}>92%</Text>
+                  <Text style={styles.analyticsLabel}>Completion Rate</Text>
+                </View>
+                <View style={styles.analyticsItem}>
+                  <Ionicons name="flame-outline" size={26} color="#FF9F0A" style={styles.icon} />
+                  <Text style={styles.analyticsValue}>7 days</Text>
+                  <Text style={styles.analyticsLabel}>Current Streak</Text>
+                </View>
+                <View style={styles.analyticsItem}>
+                  <Ionicons name="trending-up-outline" size={26} color="#BF5AF2" style={styles.icon} />
+                  <Text style={styles.analyticsValue}>85%</Text>
+                  <Text style={styles.analyticsLabel}>Progress to Goal</Text>
+                </View>
+              </View>
+              <View style={styles.insightsContainer}>
+                <View style={styles.insightItem}>
+                  <Text style={styles.insightLabel}>Avg. Duration</Text>
+                  <Text style={styles.insightValue}>45 min</Text>
+                </View>
+                <View style={styles.insightItem}>
+                  <Text style={styles.insightLabel}>Calories Burned</Text>
+                  <Text style={styles.insightValue}>12,400</Text>
+                </View>
+                <View style={styles.insightItem}>
+                  <Text style={styles.insightLabel}>Favorite</Text>
+                  <Text style={styles.insightValue}>Strength</Text>
+                </View>
+              </View>
+            </>
+          }
+        />
+      ) : (
+        <>
+          <View style={styles.analyticsGrid}>
+            {analyticsItems.map((item, index) => (
+              <View key={index} style={styles.analyticsItem}>
+                <Ionicons name={item.icon} size={26} color={item.color} style={styles.icon} />
+                <Text style={styles.analyticsValue}>{item.value}</Text>
+                <Text style={styles.analyticsLabel}>{item.label}</Text>
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
 
-      {/* Additional Insights */}
-      <View style={styles.insightsContainer}>
-          <View style={styles.insightItem}>
-            <Text style={styles.insightLabel}>Avg. Duration</Text>
-            <Text style={styles.insightValue}>{analytics.avgWorkoutDuration} min</Text>
+          {/* Additional Insights */}
+          <View style={styles.insightsContainer}>
+              <View style={styles.insightItem}>
+                <Text style={styles.insightLabel}>Avg. Duration</Text>
+                <Text style={styles.insightValue}>{analytics.avgWorkoutDuration} min</Text>
+              </View>
+              <View style={styles.insightItem}>
+                <Text style={styles.insightLabel}>Calories Burned</Text>
+                <Text style={styles.insightValue}>{analytics.caloriesBurned.toLocaleString()}</Text>
+              </View>
+              <View style={styles.insightItem}>
+                <Text style={styles.insightLabel}>Favorite</Text>
+                <Text style={styles.insightValue}>{analytics.favoriteWorkoutType}</Text>
+              </View>
           </View>
-          <View style={styles.insightItem}>
-            <Text style={styles.insightLabel}>Calories Burned</Text>
-            <Text style={styles.insightValue}>{analytics.caloriesBurned.toLocaleString()}</Text>
-          </View>
-          <View style={styles.insightItem}>
-            <Text style={styles.insightLabel}>Favorite</Text>
-            <Text style={styles.insightValue}>{analytics.favoriteWorkoutType}</Text>
-          </View>
-      </View>
+        </>
+      )}
     </View>
   );
 };

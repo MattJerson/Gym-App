@@ -1,11 +1,16 @@
 import React, { useState, useMemo } from "react";
 import { View, Text, StyleSheet, Dimensions, Pressable } from "react-native";
 import { BarChart } from "react-native-chart-kit";
+import EmptyDataState from "./EmptyDataState";
 
 const screenWidth = Dimensions.get("window").width;
 
 export default function StepsBarGraph({ dailyData }) {
   const [range, setRange] = useState("1M");
+
+  // Check if we have sufficient data
+  const hasSufficientData = dailyData?.values && dailyData.values.length >= 2 &&
+    dailyData.values.filter(v => v && v > 0).length >= 2;
 
   const filteredData = useMemo(() => {
     if (!dailyData?.dates || !dailyData?.values || dailyData.dates.length === 0 || dailyData.values.length === 0) {
@@ -134,26 +139,57 @@ const aestheticChartConfig = {
       <View style={styles.headerRow}>
         <View>
           <Text style={styles.title}>Daily Steps</Text>
-          <Text style={styles.averageValue}>{formatLabel(averageValue)} <Text style={styles.averageLabel}>{averageLabel}</Text></Text>
+          {hasSufficientData && (
+            <Text style={styles.averageValue}>
+              {formatLabel(averageValue)} <Text style={styles.averageLabel}>{averageLabel}</Text>
+            </Text>
+          )}
         </View>
-        {/* Range Buttons are now inside the header */}
-        <View style={styles.rangeButtonsContainer}>
-          {["1W", "1M", "1Y"].map((r) => (
-            <Pressable
-              key={r}
-              style={[styles.rangeButton, range === r && styles.rangeButtonActive]}
-              onPress={() => setRange(r)}
-            >
-              <Text style={[styles.rangeText, range === r && styles.rangeTextActive]}>
-                {r}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        {/* Range Buttons are now inside the header - only show if we have data */}
+        {hasSufficientData && (
+          <View style={styles.rangeButtonsContainer}>
+            {["1W", "1M", "1Y"].map((r) => (
+              <Pressable
+                key={r}
+                style={[styles.rangeButton, range === r && styles.rangeButtonActive]}
+                onPress={() => setRange(r)}
+              >
+                <Text style={[styles.rangeText, range === r && styles.rangeTextActive]}>
+                  {r}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
       </View>
 
-      {/* Chart */}
-      {filteredData.values.length > 0 && filteredData.labels.length > 0 ? (
+      {/* Chart or Empty State */}
+      {!hasSufficientData ? (
+        <EmptyDataState
+          title="No Steps Recorded"
+          message="Start tracking your daily steps to see your activity trends"
+          icon="footsteps-outline"
+          iconColor="#0A84FF"
+          sampleComponent={
+            <BarChart
+              data={{
+                labels: ['W1', 'W2', 'W3', 'W4'],
+                datasets: [{ data: [8500, 9200, 7800, 10100] }],
+              }}
+              width={screenWidth - 48}
+              height={220}
+              fromZero
+              withInnerLines={true}
+              showBarTops={false}
+              chartConfig={aestheticChartConfig}
+              style={styles.chartStyle}
+              yAxisLabel=""
+              yAxisSuffix=""
+              formatYLabel={formatLabel}
+            />
+          }
+        />
+      ) : filteredData.values.length > 0 && filteredData.labels.length > 0 ? (
         <BarChart
           data={{
             labels: filteredData.labels,

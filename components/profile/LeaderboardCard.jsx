@@ -31,7 +31,10 @@ export default function LeaderboardCard({
           const leaderKey = leaderUser.anon_id || leaderUser.user_id || `pos-${leaderUser.position || index}`;
           const isCurrentUser = currentUserPosition && (leaderUser.position === currentUserPosition);
           
-          let displayName = leaderUser.display_name || leaderUser.user_name || 'User';
+          // Use the display_name from the database (already includes nickname logic from GamificationDataService)
+          let displayName = leaderUser.display_name || leaderUser.user_name || `User ${leaderUser.position || index + 1}`;
+          
+          // Only override with currentUserNickname if this is actually the current user
           if (isCurrentUser && currentUserNickname) {
             displayName = currentUserNickname;
           }

@@ -36,6 +36,7 @@ const formConfig = [
         type: "dropdown",
         placeholder: "Gender",
         zIndex: 3000,
+        required: true,
         items: [
           { label: "Male", value: "male" },
           { label: "Female", value: "female" },
@@ -48,7 +49,7 @@ const formConfig = [
         type: "text",
         placeholder: "Age",
         keyboardType: "numeric",
-        validation: { min: 13, max: 120, required: false },
+        validation: { min: 13, max: 120, required: true },
         returnKeyType: "next",
       },
 
@@ -65,7 +66,7 @@ const formConfig = [
           max: 250,
           minImperial: 36,
           maxImperial: 96,
-          required: false,
+          required: true,
         },
         returnKeyType: "next",
       },
@@ -82,7 +83,7 @@ const formConfig = [
           max: 300,
           minImperial: 66,
           maxImperial: 660,
-          required: false,
+          required: true,
         },
         returnKeyType: "next",
       },
@@ -93,6 +94,7 @@ const formConfig = [
         type: "dropdown",
         placeholder: "Activity Level",
         zIndex: 2000,
+        required: true,
         items: [
           { label: "Sedentary", value: "sedentary" },
           { label: "Lightly Active", value: "light" },
@@ -106,6 +108,7 @@ const formConfig = [
         type: "dropdown",
         placeholder: "Fitness Goal",
         zIndex: 1000,
+        required: true,
         items: [
           { label: "Lose Weight", value: "lose" },
           { label: "Maintain Weight", value: "maintain" },
@@ -124,6 +127,7 @@ const formConfig = [
         type: "dropdown",
         placeholder: "Select Fitness Level",
         zIndex: 6000,
+        required: true,
         items: [
           { label: "Beginner", value: "basic" },
           { label: "Intermediate", value: "intermediate" },
@@ -136,6 +140,7 @@ const formConfig = [
         type: "dropdown",
         placeholder: "Select Location",
         zIndex: 5000,
+        required: true,
         items: [
           { label: "At Home", value: "home" },
           { label: "At the Gym", value: "gym" },
@@ -147,6 +152,7 @@ const formConfig = [
         type: "dropdown",
         placeholder: "Select Duration",
         zIndex: 4000,
+        required: true,
         items: [
           { label: "20 mins", value: "20" },
           { label: "30 mins", value: "30" },
@@ -160,6 +166,7 @@ const formConfig = [
         label: "Interested in growing specific muscles?",
         type: "multi-button",
         placeholder: "Select Muscle Groups",
+        required: false,
         items: [
           { label: "General Growth", value: "general" },
           { label: "Legs & Glutes", value: "legs_glutes" },
@@ -173,9 +180,10 @@ const formConfig = [
         key: "injuries",
         label: "Any current injuries?",
         type: "dropdown",
-        placeholder: "Select Injuries (Leave Blank if empty)",
+        placeholder: "Select Injuries (Optional)",
         zIndex: 2000,
         multiple: true,
+        required: false,
         items: [
           { label: "Lower Back", value: "lower_back" },
           { label: "Knees", value: "knees" },
@@ -190,6 +198,7 @@ const formConfig = [
         type: "dropdown",
         placeholder: "Select Frequency",
         zIndex: 1000,
+        required: true,
         items: [
           { label: "2 days/week", value: "2" },
           { label: "3 days/week", value: "3" },
@@ -210,6 +219,7 @@ const formConfig = [
         type: "dropdown",
         placeholder: "Meal Preference",
         zIndex: 3000,
+        required: true,
         items: [
           { label: "Omnivore", value: "omnivore" },
           { label: "Vegetarian", value: "vegetarian" },
@@ -223,7 +233,7 @@ const formConfig = [
         type: "text",
         placeholder: "Daily Calorie Goal",
         keyboardType: "numeric",
-        validation: { min: 800, max: 5000, required: false },
+        validation: { min: 800, max: 5000, required: true },
         returnKeyType: "next",
       },
       {
@@ -232,16 +242,17 @@ const formConfig = [
         type: "text",
         placeholder: "Meals per Day",
         keyboardType: "numeric",
-        validation: { min: 1, max: 8, required: false },
+        validation: { min: 1, max: 8, required: true },
         returnKeyType: "next",
       },
       {
         key: "restrictions",
         label: "Any dietary restrictions?",
         type: "dropdown",
-        placeholder: "Dietary Restrictions",
+        placeholder: "Dietary Restrictions (Optional)",
         zIndex: 2000,
         multiple: true,
+        required: false,
         items: [
           { label: "Gluten-Free", value: "gluten-free" },
           { label: "Dairy-Free", value: "dairy-free" },
@@ -255,11 +266,31 @@ const formConfig = [
 
 // Validation utilities
 const validateField = (field, value, useMetric = true) => {
+  // Check if field is required (can be set at field level or in validation)
+  const isRequired = field.required || field.validation?.required;
+
+  // Handle dropdown fields
+  if (field.type === "dropdown") {
+    if (isRequired && (!value || value === "")) {
+      return "This field is required";
+    }
+    return null;
+  }
+
+  // Handle multi-button fields (array)
+  if (field.type === "multi-button") {
+    if (isRequired && (!value || !Array.isArray(value) || value.length === 0)) {
+      return "Please select at least one option";
+    }
+    return null;
+  }
+
+  // Handle text input fields
   if (!field.validation) return null;
 
   const { min, max, minImperial, maxImperial, required } = field.validation;
 
-  if (required && (!value || value.trim() === "")) {
+  if ((isRequired || required) && (!value || value.trim() === "")) {
     return "This field is required";
   }
 
@@ -848,7 +879,7 @@ export default function BasicInfo() {
                   title={
                     step === formConfig.length - 1
                       ? "Submit Info"
-                      : "Continue →"
+                      : "Continue"
                   }
                   onPress={handleNextStep}
                   isLoading={isLoading}

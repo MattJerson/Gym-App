@@ -301,7 +301,7 @@ const Badges = () => {
   const totalPoints = badges.reduce((sum, b) => sum + (b.points_value || 0), 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-5">
       <div className="max-w-7xl mx-auto">        <PageHeader
           icon={Award}
           title="Badges & Achievements"
@@ -333,8 +333,8 @@ const Badges = () => {
           }
         />
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
           <StatsCard
             title="Total Badges"
             value={totalBadges}
@@ -380,9 +380,9 @@ const Badges = () => {
 
         {/* Active Challenge + Weekly Leaderboard Section */}
         <div className="mt-8">
-          <div className="bg-white rounded-2xl shadow-sm p-8">
+          <div className="bg-white rounded-2xl shadow-sm p-5">
             {/* Active Challenge Card */}
-            <div className="mb-6">
+            <div className="mb-4">
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Active Challenge</h3>
               {activeChallenge ? (
                 <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200">
@@ -404,7 +404,7 @@ const Badges = () => {
               )}
             </div>
 
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
                   <Trophy className="h-6 w-6 text-white" />
@@ -462,7 +462,7 @@ const Badges = () => {
                         </div>
 
                         {/* Stats */}
-                        <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-4">
                           <div className="text-center">
                             <p className="text-xs text-gray-500 uppercase tracking-wider">Points</p>
                             <p className="text-xl font-bold text-purple-600">

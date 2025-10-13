@@ -1,20 +1,23 @@
 const TopItemsCard = ({ title, items, type = "users", loading = false }) => {
   if (loading) {
     return (
-      <div className="bg-white p-6 rounded-xl shadow-sm">
+      <div className="bg-white p-4 rounded-xl shadow-sm">
         <div className="animate-pulse">
           <div className="h-6 bg-gray-200 rounded w-32 mb-4"></div>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="flex items-center justify-between p-3 border-b border-gray-100">
+              <div key={i} className="flex items-center justify-between p-3 rounded-lg border-b border-gray-100">
                 <div className="flex items-center gap-3 flex-1">
-                  <div className="h-8 w-8 bg-gray-200 rounded"></div>
+                  <div className="h-6 w-10 bg-gray-200 rounded"></div>
                   <div className="flex-1">
-                    <div className="h-4 bg-gray-200 rounded w-24 mb-1"></div>
-                    <div className="h-3 bg-gray-200 rounded w-16"></div>
+                    <div className="h-4 bg-gray-200 rounded w-32 mb-1"></div>
+                    <div className="h-3 bg-gray-200 rounded w-24"></div>
                   </div>
                 </div>
-                <div className="h-6 bg-gray-200 rounded w-12"></div>
+                <div className="text-right">
+                  <div className="h-5 bg-gray-200 rounded w-12 mb-1"></div>
+                  <div className="h-3 bg-gray-200 rounded w-16"></div>
+                </div>
               </div>
             ))}
           </div>
@@ -31,7 +34,7 @@ const TopItemsCard = ({ title, items, type = "users", loading = false }) => {
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
       <div className="space-y-2">
         {items && items.length > 0 ? (

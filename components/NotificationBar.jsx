@@ -56,20 +56,17 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
         userId,
         (newNotif) => {
           if (__DEV__) {
-            console.log('NotificationBar: Received new notification via real-time:', newNotif.title);
+            console.log('NotificationBar: Received notification via real-time:', {
+              id: newNotif.id,
+              title: newNotif.title,
+              status: newNotif.status,
+              type: newNotif.type
+            });
           }
           
-          // Check if notification already exists (prevent duplicates)
-          setNotifications(prev => {
-            const exists = prev.some(n => n.id === newNotif.id);
-            if (exists) {
-              return prev;
-            }
-            return [newNotif, ...prev];
-          });
-          
-          // Increment unread count
-          setUnreadCount(prev => prev + 1);
+          // Reload all notifications to ensure we have the latest state
+          // This handles both new notifications and status updates (draft -> sent)
+          loadNotifications();
           
           // Shake the bell icon to draw attention
           shakeNotificationBell();

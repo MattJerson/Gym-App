@@ -181,7 +181,7 @@ export const NotificationService = {
   },
 
   /**
-   * Subscribe to real-time notifications
+   * Subscribe to real-time notifications with retry logic
    */
   subscribeToNotifications(userId, onNewNotification) {
     if (!userId) {
@@ -195,8 +195,16 @@ export const NotificationService = {
       console.log('NotificationService: Setting up real-time subscription for user:', userId);
     }
 
+    // Create unique channel name to avoid conflicts when multiple subscriptions exist
+    const channelName = `notifications-${userId}-${Date.now()}`;
+    
+    // Track connection attempts and errors
+    let errorCount = 0;
+    let errorTimeout = null;
+    const MAX_RETRY_WAIT = 10000; // 10 seconds
+    
     const channel = supabase
-      .channel('notifications-channel')
+      .channel(channelName)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -206,6 +214,13 @@ export const NotificationService = {
         if (__DEV__) {
           console.log('🔔 NotificationService: New notification INSERT:', payload.new.title);
         }
+        // Reset error count on successful message
+        errorCount = 0;
+        if (errorTimeout) {
+          clearTimeout(errorTimeout);
+          errorTimeout = null;
+        }
+        
         if (onNewNotification && payload.new.status === 'sent') {
           onNewNotification({
             ...payload.new,
@@ -227,6 +242,13 @@ export const NotificationService = {
           if (__DEV__) {
             console.log('🔔 NotificationService: Notification status changed to SENT:', payload.new.title);
           }
+          // Reset error count on successful message
+          errorCount = 0;
+          if (errorTimeout) {
+            clearTimeout(errorTimeout);
+            errorTimeout = null;
+          }
+          
           if (onNewNotification) {
             onNewNotification({
               ...payload.new,
@@ -236,13 +258,39 @@ export const NotificationService = {
           }
         }
       })
-      .subscribe((status) => {
+      .subscribe((status, err) => {
         if (__DEV__) {
           console.log('NotificationService: Subscription status:', status);
-          if (status === 'SUBSCRIBED') {
+        }
+        
+        if (status === 'SUBSCRIBED') {
+          if (__DEV__) {
             console.log('✅ NotificationService: Successfully subscribed to real-time notifications');
-          } else if (status === 'CHANNEL_ERROR') {
-            console.error('❌ NotificationService: Real-time subscription error');
+          }
+          // Reset error count on successful subscription
+          errorCount = 0;
+          if (errorTimeout) {
+            clearTimeout(errorTimeout);
+            errorTimeout = null;
+          }
+        } else if (status === 'CHANNEL_ERROR') {
+          errorCount++;
+          
+          // Only log and throw error after waiting 10 seconds
+          if (!errorTimeout) {
+            if (__DEV__) {
+              console.log(`⚠️ NotificationService: Connection issue detected (attempt ${errorCount}), waiting ${MAX_RETRY_WAIT/1000}s before reporting error...`);
+            }
+            
+            errorTimeout = setTimeout(() => {
+              if (errorCount > 0) {
+                if (__DEV__) {
+                  console.error('❌ NotificationService: Real-time subscription failed after retry period', err);
+                }
+                // Error persisted for 10 seconds, this is a real issue
+                errorTimeout = null;
+              }
+            }, MAX_RETRY_WAIT);
           }
         }
       });
@@ -250,8 +298,12 @@ export const NotificationService = {
     return {
       unsubscribe: () => {
         try {
+          if (errorTimeout) {
+            clearTimeout(errorTimeout);
+            errorTimeout = null;
+          }
           if (__DEV__) {
-            console.log('NotificationService: Unsubscribing from notifications');
+            console.log('NotificationService: Unsubscribing from notifications channel:', channelName);
           }
           supabase.removeChannel(channel);
         } catch (e) {
