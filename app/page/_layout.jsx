@@ -1,18 +1,88 @@
 import { Tabs, useRouter, useSegments } from "expo-router";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
-import { TouchableOpacity, StyleSheet, View } from "react-native";
+import { TouchableOpacity, StyleSheet, View, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { useState, useEffect } from "react";
+import { supabase } from "../../services/supabase";
+import PageHeader from "../../components/PageHeader";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function PageLayout() {
   const router = useRouter();
   const segments = useSegments();
+  const [userName, setUserName] = useState("User");
+  const [currentPage, setCurrentPage] = useState("home");
+  const [showWelcomeAnimation, setShowWelcomeAnimation] = useState(false);
 
+  // Get authenticated user
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        
+        if (user) {
+          // Get user name from metadata or email
+          const displayName = user.user_metadata?.display_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User';
+          setUserName(displayName);
+          
+          // Check if user just logged in (for welcome animation)
+          const justLoggedIn = await AsyncStorage.getItem('justLoggedIn');
+          if (justLoggedIn === 'true') {
+            setShowWelcomeAnimation(true);
+            // Clear the flag after reading it
+            await AsyncStorage.removeItem('justLoggedIn');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user:', error);
+      }
+    };
+    getUser();
+  }, []);
+
+  // Update current page based on segments
+  useEffect(() => {
+    const page = segments[segments.length - 1];
+    if (page) {
+      setCurrentPage(page);
+    }
+  }, [segments]);
 
   const isChatbot = segments.includes("chatbot");
   const isCommunityChat = segments.includes("communitychat");
 
+  // Get page title based on current page
+  const getPageTitle = () => {
+    switch (currentPage) {
+      case "home":
+        return { title: null, showUserName: true, showAnimation: showWelcomeAnimation };
+      case "calendar":
+        return { title: "Calendar", showUserName: false, showAnimation: false };
+      case "training":
+        return { title: "Training", showUserName: false, showAnimation: false };
+      case "mealplan":
+        return { title: "Nutrition", showUserName: false, showAnimation: false };
+      case "profile":
+        return { title: "Profile", showUserName: false, showAnimation: false };
+      default:
+        return { title: "Home", showUserName: false, showAnimation: false };
+    }
+  };
+
+  const pageInfo = getPageTitle();
+
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: "#0B0B0B" }}>
+      {/* Static Header - Always visible, doesn't hide with chatbot/communitychat */}
+      {!isChatbot && !isCommunityChat && (
+        <PageHeader 
+          title={pageInfo.title} 
+          userName={pageInfo.showUserName ? userName : null}
+          showWelcomeAnimation={pageInfo.showAnimation}
+        />
+      )}
+      
       <Tabs
         screenOptions={{
           headerShown: false,

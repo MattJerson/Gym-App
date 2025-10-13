@@ -21,6 +21,7 @@ import { supabase } from '../../services/supabase';
 import { LinearGradient } from "expo-linear-gradient";
 import { useStripe } from "@stripe/stripe-react-native";
 import * as Haptics from 'expo-haptics';
+import { getNextOnboardingStep } from "../../utils/onboardingFlow";
 import HeaderBar from "../../components/onboarding/HeaderBar";
 import ProgressBar from "../../components/onboarding/ProgressBar";
 import SubscriptionCard from "../../components/subscription/SubscriptionCard";
@@ -206,6 +207,33 @@ export default function SubscriptionPackages() {
       // Free trial - no payment needed
       if (subscription.price === 0 || subscription.slug === 'free-trial') {
         console.log('Starting free trial...');
+        console.log('User ID:', user.id);
+        console.log('Subscription slug:', subscription.slug);
+        
+        // Check if user already has an active subscription
+        const { data: existingSub, error: checkError } = await supabase
+          .from('user_subscriptions')
+          .select('id, status, expires_at')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (checkError && checkError.code !== 'PGRST116') {
+          console.error('Error checking existing subscription:', checkError);
+        }
+
+        console.log('Existing active subscription:', existingSub);
+
+        // If user already has an active subscription, skip creation
+        if (existingSub) {
+          console.log('User already has active subscription, skipping creation');
+          const nextStep = await getNextOnboardingStep('subscriptionpackages', user.id);
+          console.log('Next onboarding step:', nextStep);
+          router.replace(nextStep);
+          return;
+        }
         
         // Get the subscription package ID
         const { data: packageData, error: packageError } = await supabase
@@ -221,12 +249,16 @@ export default function SubscriptionPackages() {
           return;
         }
 
+        console.log('Package data:', packageData);
+
         // Create free trial subscription in database
         const startDate = new Date();
         const endDate = new Date();
         endDate.setDate(endDate.getDate() + 7); // 7-day free trial
 
-        const { error: subscriptionError } = await supabase
+        console.log('Creating new subscription...');
+
+        const { data: subscriptionData, error: subscriptionError } = await supabase
           .from('user_subscriptions')
           .insert({
             user_id: user.id,
@@ -234,7 +266,9 @@ export default function SubscriptionPackages() {
             status: 'active',
             started_at: startDate.toISOString(),
             expires_at: endDate.toISOString()
-          });
+          })
+          .select()
+          .single();
 
         if (subscriptionError) {
           console.error('Error creating subscription:', subscriptionError);
@@ -243,8 +277,12 @@ export default function SubscriptionPackages() {
           return;
         }
 
-        console.log('Free trial created successfully!');
-        router.push('/features/selectworkouts');
+        console.log('Free trial created successfully!', subscriptionData);
+        
+        // Determine next step dynamically
+        const nextStep = await getNextOnboardingStep('subscriptionpackages', user.id);
+        console.log('Next onboarding step:', nextStep);
+        router.replace(nextStep);
         return;
       }
 

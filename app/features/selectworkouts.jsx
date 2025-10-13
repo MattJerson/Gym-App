@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "../../services/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getNextOnboardingStep } from "../../utils/onboardingFlow";
 
 const { width } = Dimensions.get("window");
 
@@ -90,6 +91,22 @@ export default function SelectWorkouts() {
       
       setCategories(categoriesWithImages);
       setWorkouts(workoutsWithImages);
+      
+      // Load user's previously selected workouts if any
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: userWorkouts } = await supabase
+          .from('user_saved_workouts')
+          .select('template_id')
+          .eq('user_id', user.id);
+        
+        if (userWorkouts && userWorkouts.length > 0) {
+          setSelectedWorkouts(userWorkouts.map(w => w.template_id));
+        }
+      }
+      
+      setCategories(categoriesWithImages);
+      setWorkouts(workoutsWithImages);
     } catch (error) {
       console.error('Error loading workouts:', error);
     } finally {
@@ -118,14 +135,43 @@ export default function SelectWorkouts() {
 
     setIsSaving(true);
     try {
-      // Save selected workout template IDs
-      await AsyncStorage.setItem(
-        'onboarding:selectedWorkouts',
-        JSON.stringify(selectedWorkouts)
-      );
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
       
-      // Navigate to meal plan selection
-      router.push('/features/selectmealplan');
+      if (user) {
+        // Save selected workouts to database
+        // Get workout details for saving
+        const selectedWorkoutDetails = workouts.filter(w => selectedWorkouts.includes(w.id));
+        const workoutRecords = selectedWorkoutDetails.map(workout => ({
+          user_id: user.id,
+          template_id: workout.id,
+          workout_name: workout.name,
+          workout_type: 'Pre-Made',
+        }));
+        
+        // Delete existing and insert new
+        await supabase
+          .from('user_saved_workouts')
+          .delete()
+          .eq('user_id', user.id);
+        
+        if (workoutRecords.length > 0) {
+          await supabase
+            .from('user_saved_workouts')
+            .insert(workoutRecords);
+        }
+        
+        // Determine next step dynamically
+        const nextStep = await getNextOnboardingStep('selectworkouts', user.id);
+        router.replace(nextStep);
+      } else {
+        // Fallback: save to local storage
+        await AsyncStorage.setItem(
+          'onboarding:selectedWorkouts',
+          JSON.stringify(selectedWorkouts)
+        );
+        router.push('/features/selectmealplan');
+      }
     } catch (error) {
       console.error('Error saving selections:', error);
     } finally {
@@ -133,8 +179,18 @@ export default function SelectWorkouts() {
     }
   };
 
-  const handleSkip = () => {
-    router.push('/features/selectmealplan');
+  const handleSkip = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const nextStep = await getNextOnboardingStep('selectworkouts', user.id);
+        router.replace(nextStep);
+      } else {
+        router.push('/features/selectmealplan');
+      }
+    } catch (error) {
+      router.push('/features/selectmealplan');
+    }
   };
 
   return (

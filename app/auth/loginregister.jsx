@@ -15,10 +15,13 @@ import {
 import { useRouter } from "expo-router";
 import { Alert } from "react-native";
 import * as Haptics from "expo-haptics";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import FormInput from "../../components/FormInput";
 import SubmitButton from "../../components/SubmitButton";
 import { supabase, pingSupabase } from "../../services/supabase";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@env";
+import { checkOnboardingStatus } from "../../utils/onboardingFlow";
+import { NotificationService } from "../../services/NotificationService";
 
 /* -------------------- REGISTER/LOGIN SCREEN -------------------- */
 export default function Register() {
@@ -158,52 +161,28 @@ export default function Register() {
     }
 
     try {
-      dlog("handleSubmit start", {
-        isRegistering,
-        emailMasked: email?.replace(/(.{2}).+(@.*)/, "$1***$2"),
-      });
       setIsLoading(true);
       if (Platform.OS === "ios") {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
 
-      console.time("auth:ping");
       const healthy = await pingSupabase(4000);
-      console.timeEnd("auth:ping");
-      dlog("pingSupabase", { healthy });
       if (!healthy) throw new Error("Unable to reach the server. Check your internet connection or try again shortly.");
 
-      // Log Supabase client status
-      if (__DEV__) {
-        try {
-          dlog("getSession:start");
-          const { data: { session } } = await supabase.auth.getSession();
-          dlog("existing-session", { hasSession: !!session, userId: session?.user?.id });
-        } catch (e) {
-          dlog("session-check-error", e.message);
-        }
-      }
-
       if (isRegistering) {
-        dlog("signup:begin");
         try {
           try {
-            console.time("auth:signup");
-            dlog("signup:calling:supabase.auth.signUp", { email });
             const { data, error } = await withTimeout(
               supabase.auth.signUp({ email, password, options: { data: { nickname } } }),
               8000,
               "Sign up"
             );
-            dlog("signup:sdk:result", { ok: !error, hasUser: !!data?.user, error });
             if (error) {
-              dlog("signup:sdk:error", error.message);
               if (error instanceof Error && error.message?.includes("Password should be at least")) {
                 throw new Error("Password must be at least 6 characters.");
               }
               // Fallback: direct signup
               try {
-                dlog("signup:fallback:start");
                 const controller = new AbortController();
                 const to = setTimeout(() => controller.abort(), 12000);
                 const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
@@ -213,161 +192,166 @@ export default function Register() {
                   signal: controller.signal,
                 });
                 clearTimeout(to);
-                dlog("signup:fallback:status", res.status);
                 if (!res.ok) {
                   const text = await res.text();
-                  dlog("signup:fallback:error", text);
                   throw new Error(text || "Sign up failed");
                 }
               } catch (e2) {
-                dlog("signup:fallback:exception", e2.message);
-                console.timeEnd("auth:signup");
                 throw error;
               }
             }
-            console.timeEnd("auth:signup");
 
-            dlog("signup:post:metadata", { hasUser: !!data?.user });
             if (data?.user) {
               try {
-                dlog("signup:post:updateUser:start");
                 // Always set full_name, nickname, and display_name in user_metadata
                 await withTimeout(
                   supabase.auth.updateUser({ data: { full_name: nickname, nickname, display_name: nickname } }),
                   8000,
                   "Profile update"
                 );
-                dlog("signup:post:updateUser:done");
               } catch (updateErr) {
-                dlog("signup:post:updateUser:error", updateErr.message);
               }
               // Create registration_profiles row
               try {
-                dlog("creating:profile:rpc:start", { userId: data.user.id });
                 const { data: rpcData, error: profileError } = await supabase.rpc('create_profile_for_user', {
                   user_id_param: data.user.id
                 });
-                dlog("creating:profile:rpc:done", { rpcData, profileError });
                 if (profileError) {
-                  dlog("profile:create:error", profileError.message);
-                } else {
-                  dlog("profile:created", { userId: data.user.id });
                 }
               } catch (rpcErr) {
-                dlog("creating:profile:rpc:exception", rpcErr.message);
               }
             }
           } catch (innerErr) {
-            dlog("signup:catchall:exception", String(innerErr?.message || innerErr));
             throw innerErr;
           }
         } catch (upErr) {
-          dlog("signup:post:exception", upErr.message);
           console.warn("Failed to update user metadata:", upErr);
         }
 
         router.push("/features/registrationprocess");
       } else {
         // SDK sign-in with timeout
-        dlog("signin:start");
-        dlog("Supabase URL/ANON", { url: SUPABASE_URL, anon: SUPABASE_ANON_KEY });
-        console.time("auth:signin");
         const { data, error: sdkErr } = await withTimeout(
           supabase.auth.signInWithPassword({ email, password }),
           15000,
           "Sign in"
         );
-        console.timeEnd("auth:signin");
         if (sdkErr) {
-          dlog("signin:sdk:fail", { 
-            message: sdkErr.message, 
-            status: sdkErr.status,
-            code: sdkErr.code,
-            name: sdkErr.name
-          });
           throw sdkErr;
         }
-        dlog("signin:sdk:ok", { userId: data?.user?.id });
 
         // After login, if display name is missing, set it from registration_profiles or fallback to email
-        dlog("login:post:updateUser:step");
         try {
-          dlog("login:post:updateUser:start");
           // Try to get nickname from registration_profiles
           let nickname = null;
+          let fullProfile = null;
           try {
             const { data: profile } = await supabase
               .from("registration_profiles")
-              .select("nickname")
+              .select("*")
               .eq("user_id", data.user.id)
               .maybeSingle();
-            dlog("login:post:updateUser:profile", { profile });
+            
+            fullProfile = profile;
             nickname = profile?.nickname || data.user.email?.split("@") [0] || "User";
+            
+            // 📊 LOG USER PROFILE DATA
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('🔐 USER LOGIN SUCCESS');
+            console.log('═══════════════════════════════════════════════════════');
+            console.log('User ID:', data.user.id);
+            console.log('Email:', data.user.email);
+            console.log('Nickname:', nickname);
+            console.log('\n📝 REGISTRATION PROFILE DATA:');
+            if (fullProfile) {
+              console.log('  ├─ Gender:', fullProfile.gender || '(not set)');
+              console.log('  ├─ Age:', fullProfile.age || '(not set)');
+              console.log('  ├─ Height:', fullProfile.height ? `${fullProfile.height} ${fullProfile.use_metric ? 'cm' : 'ft'}` : '(not set)');
+              console.log('  ├─ Weight:', fullProfile.weight ? `${fullProfile.weight} ${fullProfile.use_metric ? 'kg' : 'lbs'}` : '(not set)');
+              console.log('  ├─ Activity Level:', fullProfile.activity_level || '(not set)');
+              console.log('  ├─ Fitness Goal:', fullProfile.fitness_goal || '(not set)');
+              console.log('  ├─ Fitness Level:', fullProfile.fitness_level || '(not set)');
+              console.log('  ├─ Training Location:', fullProfile.training_location || '(not set)');
+              console.log('  ├─ Training Duration:', fullProfile.training_duration || '(not set)');
+              console.log('  ├─ Training Frequency:', fullProfile.training_frequency || '(not set)');
+              console.log('  ├─ Muscle Focus:', fullProfile.muscle_focus || '(not set)');
+              console.log('  ├─ Injuries:', fullProfile.injuries || '(none)');
+              console.log('  ├─ Meal Type:', fullProfile.meal_type || '(not set)');
+              console.log('  ├─ Calorie Goal:', fullProfile.calorie_goal || '(not set)');
+              console.log('  ├─ Meals Per Day:', fullProfile.meals_per_day || '(not set)');
+              console.log('  ├─ Dietary Restrictions:', fullProfile.restrictions || '(none)');
+              console.log('  ├─ Current Body Fat:', fullProfile.current_body_fat ? `${fullProfile.current_body_fat}%` : '(not set)');
+              console.log('  ├─ Goal Body Fat:', fullProfile.goal_body_fat ? `${fullProfile.goal_body_fat}%` : '(not set)');
+              console.log('  ├─ Registration Complete:', fullProfile.registration_complete ? '✅ Yes' : '❌ No');
+              console.log('  └─ Profile Created:', fullProfile.created_at || '(unknown)');
+            } else {
+              console.log('  └─ No profile data found (new user or incomplete registration)');
+            }
+            console.log('═══════════════════════════════════════════════════════\n');
           } catch (e) {
-            dlog("login:post:updateUser:profile:error", String(e?.message || e));
             nickname = data.user.email?.split("@") [0] || "User";
+            console.log('⚠️  Failed to fetch full profile data:', e.message);
           }
           await withTimeout(
             supabase.auth.updateUser({ data: { full_name: nickname, nickname, display_name: nickname } }),
             8000,
             "Profile update (login)"
           );
-          dlog("login:post:updateUser:done", { nickname });
         } catch (updateErr) {
-          dlog("login:post:updateUser:error", String(updateErr?.message || updateErr));
+        }
+
+        // 🔔 Initialize notification subscription (happens once in background)
+        try {
+          console.log('[AUTH] Initializing notification subscription for user:', data.user.id);
+          // Subscribe to real-time notifications
+          NotificationService.subscribeToNotifications(
+            data.user.id,
+            (newNotif) => {
+              console.log('[AUTH] Background notification received:', newNotif.title);
+              // Notifications will be handled by NotificationBar when it mounts
+            }
+          );
+        } catch (notifErr) {
+          console.warn('[AUTH] Failed to initialize notifications:', notifErr);
+        }
+
+        // 🎬 Set flag for welcome animation (only on login, not navigation)
+        try {
+          await AsyncStorage.setItem('justLoggedIn', 'true');
+          console.log('[AUTH] Set justLoggedIn flag for welcome animation');
+        } catch (storageErr) {
+          console.warn('[AUTH] Failed to set justLoggedIn flag:', storageErr);
         }
 
         // Check if onboarding is complete (with DB function, profile will be created if missing)
-        dlog("onboarding:check:step");
         try {
           // First, ensure profile exists (for existing users who signed up before this fix)
-          dlog("ensuring:profile:rpc:start", { userId: data.user.id });
           const { data: rpcData, error: rpcError } = await supabase.rpc('create_profile_for_user', {
             user_id_param: data.user.id
           });
-          dlog("ensuring:profile:rpc:done", { rpcData, rpcError });
-          // Now check onboarding status
-          dlog("profile:check:select:start", { userId: data.user.id });
-          const { data: profile, error: selectError } = await supabase
-            .from("registration_profiles")
-            .select("onboarding_completed")
-            .eq("user_id", data.user.id)
-            .maybeSingle();
-          dlog("profile:check:select:done", { hasProfile: !!profile, onboardingComplete: profile?.onboarding_completed, selectError });
-          if (!profile || !profile.onboarding_completed) {
-            // Onboarding not complete, go to registration flow
-            dlog("nav:to:registrationprocess");
-            try {
-              router.replace("/features/registrationprocess");
-              dlog("nav:to:registrationprocess:done");
-            } catch (navErr) {
-              dlog("nav:to:registrationprocess:error", String(navErr?.message || navErr));
-            }
-          } else {
-            // Onboarding complete, go to home
-            dlog("nav:to:home");
-            try {
-              router.replace("/page/home");
-              dlog("nav:to:home:done");
-            } catch (navErr) {
-              dlog("nav:to:home:error", String(navErr?.message || navErr));
-            }
+          
+          // Check onboarding status dynamically
+          const { status, nextStep } = await checkOnboardingStatus(data.user.id);
+          dlog("profile:check:select:done", { 
+            hasProfile: !!status, 
+            onboardingComplete: status.registrationComplete && status.hasBodyFat && status.hasSubscription && status.hasWorkouts && status.hasMealPlan,
+            nextStep 
+          });
+          
+          try {
+            router.replace(nextStep);
+          } catch (navErr) {
           }
         } catch (err) {
-          dlog("profile:check:exception", String(err?.message || err));
           try {
             router.replace("/features/registrationprocess");
-            dlog("profile:check:exception:navdone");
           } catch (navErr) {
-            dlog("profile:check:exception:naverror", String(navErr?.message || navErr));
           }
         }
       }
     } catch (error) {
-      dlog("Authentication error:", String(error?.message || error));
       Alert.alert("Authentication error", error.message || "An error occurred");
     } finally {
-      dlog("handleSubmit:end");
       setIsLoading(false);
     }
   };

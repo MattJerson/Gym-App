@@ -19,6 +19,7 @@ import { Alert } from 'react-native';
 import { logger } from "../../services/logger";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from 'expo-haptics';
+import { mapProfileToFormData, getNextOnboardingStep } from "../../utils/onboardingFlow";
 import SubmitButton from "../../components/SubmitButton";
 import HeaderBar from "../../components/onboarding/HeaderBar";
 import ProgressBar from "../../components/onboarding/ProgressBar";
@@ -140,20 +141,36 @@ export default function BasicInfo() {
     let cancelled = false;
     (async () => {
       try {
-        const [savedStr, savedStepStr] = await Promise.all([
-          AsyncStorage.getItem('onboarding:registration'),
-          AsyncStorage.getItem('onboarding:registration:step'),
-        ]);
-        if (cancelled) return;
-        if (savedStr) {
-          const parsed = JSON.parse(savedStr);
-          // Backward compatibility: ensure all keys exist
-          const initial = getInitialState();
-          const merged = { ...initial, ...parsed };
-          setFormData(merged);
-          setFoods(Array.isArray(parsed.favoriteFoods) ? parsed.favoriteFoods : []);
-          logger.info('Restored registration draft from storage');
+        // First, try to load existing profile data from database
+        const userResp = await supabase.auth.getUser();
+        const userId = userResp?.data?.user?.id;
+        
+        if (userId) {
+          const { data: profile } = await supabase
+            .from('registration_profiles')
+            .select('*')
+            .eq('user_id', userId)
+            .maybeSingle();
+          
+          if (profile) {
+            // Map profile data to form fields
+            const profileData = mapProfileToFormData(profile);
+            logger.info('Loaded existing profile data', { hasData: !!profile });
+            
+            // Merge with any local storage data (local takes precedence)
+            const savedStr = await AsyncStorage.getItem('onboarding:registration');
+            const localData = savedStr ? JSON.parse(savedStr) : {};
+            
+            const mergedData = { ...profileData, ...localData };
+            setFormData(mergedData);
+            setFoods(Array.isArray(mergedData.favoriteFoods) ? mergedData.favoriteFoods : []);
+          }
         }
+        
+        // Load saved step
+        const savedStepStr = await AsyncStorage.getItem('onboarding:registration:step');
+        if (cancelled) return;
+        
         if (savedStepStr) {
           const savedStep = parseInt(savedStepStr, 10);
           if (!Number.isNaN(savedStep)) {
@@ -357,7 +374,21 @@ export default function BasicInfo() {
         Alert.alert('Save error', 'Unexpected error saving registration');
       } finally {
         setIsLoading(false);
-        router.replace('../features/bodyfatuser');
+        
+        // Determine next step dynamically
+        try {
+          const userResp = await supabase.auth.getUser();
+          const userId = userResp?.data?.user?.id;
+          if (userId) {
+            const nextStep = await getNextOnboardingStep('registrationprocess', userId);
+            router.replace(nextStep);
+          } else {
+            router.replace('../features/bodyfatuser');
+          }
+        } catch (navErr) {
+          logger.error('Navigation error:', navErr);
+          router.replace('../features/bodyfatuser');
+        }
       }
     } else {
       // Move to next step
@@ -374,7 +405,8 @@ export default function BasicInfo() {
       lightHaptic();
       setStep(prev => prev - 1);
     } else {
-      router.back();
+      lightHaptic();
+      router.replace('/auth/loginregister');
     }
   };
 

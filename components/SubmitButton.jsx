@@ -34,25 +34,25 @@ const SubmitButton = ({
         >
           {isLoading ? (
             <View style={styles.loadingContent}>
-              <ActivityIndicator 
-                size="small" 
-                color="#fff" 
-                style={styles.loadingSpinner} 
+              <ActivityIndicator
+                size="small"
+                color="#fff"
+                style={styles.loadingSpinner}
               />
               <Text style={styles.submitButtonText}>{loadingText}</Text>
             </View>
           ) : (
-            <>
+            <View style={styles.buttonContent}>
               <Text style={styles.submitButtonText}>{text}</Text>
               {icon && (
-                <Ionicons 
-                  name={icon} 
-                  size={20} 
-                  color="#fff" 
+                <Ionicons
+                  name={icon}
+                  size={20}
+                  color="#fff"
                   style={styles.submitButtonIcon}
                 />
               )}
-            </>
+            </View>
           )}
         </LinearGradient>
       </Pressable>

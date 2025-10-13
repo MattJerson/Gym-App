@@ -17,7 +17,6 @@ import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
 import BrowseWorkouts from "../../components/training/BrowseWorkouts";
 import MyWorkouts from "../../components/training/MyWorkouts";
 import RecentWorkouts from "../../components/training/RecentWorkouts";
-import NotificationBar from "../../components/NotificationBar";
 import { TrainingPageSkeleton } from "../../components/skeletons/TrainingPageSkeleton";
 import { TrainingDataService } from "../../services/TrainingDataService";
 import { WorkoutSessionService } from "../../services/WorkoutSessionService";
@@ -27,7 +26,6 @@ export default function Training() {
   const router = useRouter();
   
   // 🔄 Data-driven state management
-  const [notifications, setNotifications] = useState(0);
   const [workoutProgress, setWorkoutProgress] = useState(null);
   const [continueWorkout, setContinueWorkout] = useState(null);
   const [todaysWorkout, setTodaysWorkout] = useState(null);
@@ -87,13 +85,11 @@ export default function Training() {
       
       // Load other training data in parallel
       const [
-        notificationsData,
         progressData,
         continueData,
         todaysData,
         recentData,
       ] = await Promise.all([
-        TrainingDataService.fetchUserNotifications(userId),
         TrainingDataService.fetchWorkoutProgress(userId),
         TrainingDataService.fetchContinueWorkout(userId),
         TrainingDataService.fetchTodaysWorkout(userId),
@@ -101,7 +97,6 @@ export default function Training() {
       ]);
 
       // Update state with fetched data
-      setNotifications(notificationsData.count);
       setWorkoutProgress(progressData);
       setContinueWorkout(continueData);
       setTodaysWorkout(todaysData);
@@ -166,11 +161,6 @@ export default function Training() {
   return (
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <Text style={styles.headerText}>Training</Text>
-          <NotificationBar notifications={notifications} />
-        </View>
 
         {/* Loading State */}
         {isLoading ? (
@@ -264,20 +254,9 @@ export default function Training() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: {
-    paddingTop: 60, 
+    paddingTop: 10, 
     paddingBottom: 40,
     paddingHorizontal: 20,
-  },
-  headerRow: {
-    marginBottom: 24,
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  headerText: {
-    fontSize: 28,
-    color: "#fff",
-    fontWeight: "bold",
   },
   loadingContainer: {
     flex: 1,

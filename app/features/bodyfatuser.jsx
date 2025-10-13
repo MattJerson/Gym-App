@@ -12,6 +12,7 @@ import {
   TouchableWithoutFeedback,
   StatusBar,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,6 +21,8 @@ import { useState, useEffect, useRef } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from 'expo-haptics';
+import { supabase } from '../../services/supabase';
+import { getNextOnboardingStep } from "../../utils/onboardingFlow";
 import SubmitButton from "../../components/SubmitButton";
 import HeaderBar from "../../components/onboarding/HeaderBar";
 import ProgressBar from "../../components/onboarding/ProgressBar";
@@ -53,6 +56,33 @@ export default function BodyFatUser() {
         useNativeDriver: true,
       }),
     ]).start();
+    
+    // Load existing body fat data if available
+    (async () => {
+      try {
+        const userResp = await supabase.auth.getUser();
+        const userId = userResp?.data?.user?.id;
+        
+        if (userId) {
+          const { data: profile } = await supabase
+            .from('bodyfat_profiles')
+            .select('current_body_fat, goal_body_fat')
+            .eq('user_id', userId)
+            .maybeSingle();
+          
+          if (profile) {
+            if (profile.current_body_fat) {
+              setCurrentBodyFat(profile.current_body_fat);
+            }
+            if (profile.goal_body_fat) {
+              setGoalBodyFat(profile.goal_body_fat);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading body fat data:', error);
+      }
+    })();
   }, [fadeAnim, slideAnim]);
 
   useEffect(() => {
@@ -113,20 +143,71 @@ export default function BodyFatUser() {
       setShowConfirmation(true);
     }
   };
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     lightHaptic();
     setShowConfirmation(false);
+    setIsLoading(true);
     console.log("Current Body Fat:", `${Math.round(currentBodyFat)}%`);
     console.log("Goal Body Fat:", `${Math.round(goalBodyFat)}%`);
-    // persist bodyfat data for final onboarding
-    (async () => {
-      try {
-        await AsyncStorage.setItem('onboarding:bodyfat', JSON.stringify({ currentBodyFat: Math.round(currentBodyFat), goalBodyFat: Math.round(goalBodyFat) }));
-      } catch (e) {
-        console.warn('Failed to persist bodyfat data', e);
+    
+    try {
+      // Save body fat data to database
+      const userResp = await supabase.auth.getUser();
+      const userId = userResp?.data?.user?.id;
+      
+      if (userId) {
+        // First, try to insert into bodyfat_profiles
+        const { error: insertError } = await supabase
+          .from('bodyfat_profiles')
+          .insert({
+            user_id: userId,
+            current_body_fat: Math.round(currentBodyFat),
+            goal_body_fat: Math.round(goalBodyFat),
+          });
+        
+        // If insert fails (user already exists), update instead
+        if (insertError) {
+          if (insertError.code === '23505') { // Unique constraint violation
+            const { error: updateError } = await supabase
+              .from('bodyfat_profiles')
+              .update({
+                current_body_fat: Math.round(currentBodyFat),
+                goal_body_fat: Math.round(goalBodyFat),
+              })
+              .eq('user_id', userId);
+            
+            if (updateError) {
+              console.error('Error updating body fat data:', updateError);
+              Alert.alert('Error', 'Failed to save body fat data');
+              setIsLoading(false);
+              return;
+            }
+          } else {
+            console.error('Error saving body fat data:', insertError);
+            Alert.alert('Error', 'Failed to save body fat data');
+            setIsLoading(false);
+            return;
+          }
+        }
+        
+        console.log('Body fat data saved successfully to database');
+        
+        // Clear AsyncStorage draft
+        await AsyncStorage.removeItem('onboarding:bodyfat');
+        
+        // Determine next step dynamically
+        const nextStep = await getNextOnboardingStep('bodyfatuser', userId);
+        router.replace(nextStep);
+      } else {
+        router.replace("features/subscriptionpackages");
       }
-      router.push("features/subscriptionpackages");
-    })();
+    } catch (error) {
+      console.error('Error in handleConfirm:', error);
+      Alert.alert('Error', 'Something went wrong');
+      router.replace("features/subscriptionpackages");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCancel = () => {
@@ -144,15 +225,53 @@ export default function BodyFatUser() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setIsLoading(true);
     console.log("Current Body Fat:", `${Math.round(currentBodyFat)}%`);
     console.log("Goal Body Fat:", `${Math.round(goalBodyFat)}%`);
     
-    setTimeout(() => {
+    try {
+      // Save body fat data to database
+      const userResp = await supabase.auth.getUser();
+      const userId = userResp?.data?.user?.id;
+      
+      if (userId) {
+        // First, try to insert into bodyfat_profiles
+        const { error: insertError } = await supabase
+          .from('bodyfat_profiles')
+          .insert({
+            user_id: userId,
+            current_body_fat: Math.round(currentBodyFat),
+            goal_body_fat: Math.round(goalBodyFat),
+          });
+        
+        // If insert fails (user already exists), update instead
+        if (insertError) {
+          if (insertError.code === '23505') { // Unique constraint violation
+            await supabase
+              .from('bodyfat_profiles')
+              .update({
+                current_body_fat: Math.round(currentBodyFat),
+                goal_body_fat: Math.round(goalBodyFat),
+              })
+              .eq('user_id', userId);
+          } else {
+            console.error('Error saving body fat data:', insertError);
+          }
+        }
+        
+        // Determine next step dynamically
+        const nextStep = await getNextOnboardingStep('bodyfatuser', userId);
+        router.replace(nextStep);
+      } else {
+        router.replace("features/subscriptionpackages");
+      }
+    } catch (error) {
+      console.error('Error saving body fat data:', error);
+      router.replace("features/subscriptionpackages");
+    } finally {
       setIsLoading(false);
-      router.push("features/subscriptionpackages");
-    }, 1500);
+    }
   };
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -250,7 +369,7 @@ export default function BodyFatUser() {
               )}
             </View>
 
-                        {/* Bottom Section */}
+            {/* Bottom Section */}
             <View style={styles.bottomSection}>
               <Text style={styles.disclaimer}>
                 You can always adjust these values later in your profile settings.

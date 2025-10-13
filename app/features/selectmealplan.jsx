@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { supabase } from "../../services/supabase";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getNextOnboardingStep } from "../../utils/onboardingFlow";
 
 export default function SelectMealPlan() {
   const router = useRouter();
@@ -53,6 +54,24 @@ export default function SelectMealPlan() {
       
       console.log('Loaded meal plans:', data?.length || 0);
       setMealPlans(data || []);
+      
+      // Load user's previously selected meal plan if any
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: userMealPlan } = await supabase
+          .from('user_meal_plans')
+          .select('plan_id')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .maybeSingle();
+        
+        if (userMealPlan && userMealPlan.plan_id) {
+          const selectedPlanData = data?.find(p => p.id === userMealPlan.plan_id);
+          if (selectedPlanData) {
+            setSelectedPlan(selectedPlanData);
+          }
+        }
+      }
     } catch (error) {
       console.error('Error loading meal plans:', error);
       Alert.alert('Error', 'Failed to load meal plans. Please try again.');
@@ -181,43 +200,34 @@ export default function SelectMealPlan() {
       // Assign selected meal plan to user
       const { error: mealError } = await supabase
         .from('user_meal_plans')
-        .insert({
+        .upsert({
           user_id: user.id,
           plan_id: selectedPlan.id,
+          start_date: new Date().toISOString().split('T')[0],
           is_active: true,
-        });
+        }, { onConflict: 'user_id' });
 
       if (mealError) {
         console.error('Failed to assign meal plan:', mealError);
-      }      // Assign selected workout templates to user (if any)
-      if (selectedWorkouts.length > 0) {
-        const workoutAssignments = selectedWorkouts.map(templateId => ({
-          user_id: user.id,
-          template_id: templateId,
-          workout_name: 'Onboarding Workout', // This will be updated when they view the template
-          is_favorite: true,
-        }));
-
-        // Use upsert to handle existing entries gracefully
-        const { error: workoutError } = await supabase
-          .from('user_saved_workouts')
-          .upsert(workoutAssignments, { 
-            onConflict: 'user_id,template_id',
-            ignoreDuplicates: false // Update existing records
-          });
-
-        if (workoutError) {
-          console.error('Failed to save workout preferences:', workoutError);
-        }
+        Alert.alert('Error', 'Failed to assign meal plan. Please try again.');
+        setIsCompleting(false);
+        return;
       }
+
+      // Mark onboarding as complete
+      await supabase
+        .from('registration_profiles')
+        .update({ onboarding_completed: true })
+        .eq('user_id', user.id);
 
       // Clean up local storage
       await AsyncStorage.removeItem('onboarding:registration');
       await AsyncStorage.removeItem('onboarding:bodyfat');
       await AsyncStorage.removeItem('onboarding:selectedWorkouts');
 
-      // Navigate to home
-      router.replace('/page/home');
+      // Determine next step dynamically (should be home)
+      const nextStep = await getNextOnboardingStep('selectmealplan', user.id);
+      router.replace(nextStep);
     } catch (error) {
       console.error('Error completing onboarding:', error);
       Alert.alert('Error', 'An unexpected error occurred');
@@ -226,25 +236,32 @@ export default function SelectMealPlan() {
     }
   };
 
-  const handleSkip = () => {
-    // Complete without meal plan selection
-    (async () => {
-      setIsCompleting(true);
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          // Save minimal data and navigate to home
-          await AsyncStorage.removeItem('onboarding:registration');
-          await AsyncStorage.removeItem('onboarding:bodyfat');
-          await AsyncStorage.removeItem('onboarding:selectedWorkouts');
-          router.replace('/page/home');
-        }
-      } catch (error) {
-        console.error('Error skipping:', error);
-      } finally {
-        setIsCompleting(false);
+  const handleSkip = async () => {
+    setIsCompleting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Mark onboarding as complete
+        await supabase
+          .from('registration_profiles')
+          .update({ onboarding_completed: true })
+          .eq('user_id', user.id);
+        
+        // Clean up local storage
+        await AsyncStorage.removeItem('onboarding:registration');
+        await AsyncStorage.removeItem('onboarding:bodyfat');
+        await AsyncStorage.removeItem('onboarding:selectedWorkouts');
+        
+        // Determine next step dynamically
+        const nextStep = await getNextOnboardingStep('selectmealplan', user.id);
+        router.replace(nextStep);
       }
-    })();
+    } catch (error) {
+      console.error('Error skipping:', error);
+      router.replace('/page/home');
+    } finally {
+      setIsCompleting(false);
+    }
   };
 
   return (

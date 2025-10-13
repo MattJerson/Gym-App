@@ -25,8 +25,6 @@ import TodaysMeals from "../../components/mealplan/TodaysMeals";
 import RecentMeals from "../../components/mealplan/RecentMeals";
 import MealPlans from "../../components/mealplan/MealPlans";
 import PlanActionSheet from "../../components/mealplan/PlanActionSheet";
-import MealPlanHeader from "../../components/mealplan/MealPlanHeader";
-import NotificationBar from "../../components/NotificationBar";
 import { MealPlanPageSkeleton } from "../../components/skeletons/MealPlanPageSkeleton";
 import { MealPlanDataService } from "../../services/MealPlanDataService";
 import { supabase } from "../../services/supabase";
@@ -35,7 +33,6 @@ const router = useRouter();
 
 export default function Mealplan() {
   // 🔄 Data-driven state management
-  const [notifications, setNotifications] = useState(0);
   const [macroGoals, setMacroGoals] = useState(null);
   const [weeklyPlan, setWeeklyPlan] = useState([]);
   const [todaysMeals, setTodaysMeals] = useState([]);
@@ -80,7 +77,6 @@ export default function Mealplan() {
       
       // Load all meal plan data in parallel
       const [
-        notificationsData,
         macroData,
         weeklyData,
         mealLogsData,
@@ -89,7 +85,6 @@ export default function Mealplan() {
         activePlanData,
         dailyTrackingData
       ] = await Promise.all([
-        MealPlanDataService.fetchUserNotifications(userId),
         MealPlanDataService.fetchMacroProgress(userId, selectedDate),
         MealPlanDataService.fetchWeeklyPlan(userId, selectedDate),
         MealPlanDataService.getMealLogsForDate(userId, selectedDate),
@@ -103,7 +98,6 @@ export default function Mealplan() {
       const transformedMeals = transformMealLogs(mealLogsData);
 
       // Update state with fetched data
-      setNotifications(notificationsData.count);
       setMacroGoals(macroData);
       setWeeklyPlan(weeklyData);
       setTodaysMeals(transformedMeals);
@@ -320,9 +314,6 @@ export default function Mealplan() {
   return (
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <MealPlanHeader notifications={notifications} />
-
         {/* Loading State */}
         {isLoading ? (
           <MealPlanPageSkeleton />
@@ -402,7 +393,7 @@ export default function Mealplan() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: {
-    paddingTop: 60,
+    paddingTop: 10,
     paddingBottom: 10,
     paddingHorizontal: 20,
   },

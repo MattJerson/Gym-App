@@ -27,7 +27,6 @@ import CalendarAnalytics from "../../components/calendar/CalendarAnalytics";
 import CalendarStatsCard from "../../components/calendar/CalendarStatsCard";
 import WorkoutLogModal from "../../components/calendar/WorkoutLogModal";
 import WorkoutDetailsModal from "../../components/calendar/WorkoutDetailsModal";
-import NotificationBar from "../../components/NotificationBar";
 import { CalendarPageSkeleton } from "../../components/skeletons/CalendarPageSkeleton";
 import { CalendarDataService } from "../../services/CalendarDataService";
 import { supabase } from "../../services/supabase";
@@ -38,7 +37,7 @@ export default function Calendar() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [showWorkoutModal, setShowWorkoutModal] = useState(false);
   const [workoutNote, setWorkoutNote] = useState("");
-  const [selectedWorkoutType, setSelectedWorkoutType] = useState("strength");
+  const [selectedWorkoutType, setSelectedWorkoutType] = useState("workout");
   
   // For double-tap detection
   const lastTapTimestamp = useRef(null);
@@ -48,7 +47,6 @@ export default function Calendar() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [viewingWorkout, setViewingWorkout] = useState(null);
 
-  const [notifications, setNotifications] = useState(0);
   const [workoutData, setWorkoutData] = useState({});
   const [recentActivitiesData, setRecentActivitiesData] = useState([]);
   const [workoutTypes, setWorkoutTypes] = useState([]);
@@ -87,10 +85,9 @@ export default function Calendar() {
     try {
       setIsLoading(true);
       const [
-        notificationsData, calendarData, activitiesData, typesData,
+        calendarData, activitiesData, typesData,
         chartData, stepsResponse, analyticsData
       ] = await Promise.all([
-        CalendarDataService.fetchUserNotifications(userId),
         CalendarDataService.fetchWorkoutCalendar(userId, "2025-08-01", "2025-10-31"),
         CalendarDataService.fetchRecentActivities(userId),
         CalendarDataService.fetchWorkoutTypes(),
@@ -98,7 +95,6 @@ export default function Calendar() {
         CalendarDataService.fetchStepsData(userId),
         CalendarDataService.fetchCalendarAnalytics(userId)
       ]);
-      setNotifications(notificationsData.count);
       setWorkoutData(calendarData);
       setRecentActivitiesData(activitiesData);
       setWorkoutTypes(typesData);
@@ -120,13 +116,13 @@ export default function Calendar() {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ["Cancel", "Strength", "Cardio", "Yoga", "Rest"],
+          options: ["Cancel", "Workout", "Meal Plan", "Steps"],
           cancelButtonIndex: 0,
-          title: "Log Workout",
+          title: "Log Activity",
         },
         (buttonIndex) => {
           if (buttonIndex === 0) return;
-          const typeMap = ["strength", "cardio", "yoga", "rest"];
+          const typeMap = ["workout", "mealplan", "steps"];
           setSelectedWorkoutType(typeMap[buttonIndex - 1]);
           addWorkout(); // Note: addWorkout uses the selected date from state
         }
@@ -141,13 +137,22 @@ export default function Calendar() {
     const now = Date.now();
     const DOUBLE_PRESS_DELAY = 300; // ms
     const dateString = day.dateString;
+    
+    // Check if date is in the future
+    const selectedDateObj = new Date(dateString);
+    const todayObj = new Date();
+    todayObj.setHours(0, 0, 0, 0);
+    selectedDateObj.setHours(0, 0, 0, 0);
+    const isFutureDate = selectedDateObj > todayObj;
 
     // Check for double tap
     if (lastTapTimestamp.current && (now - lastTapTimestamp.current) < DOUBLE_PRESS_DELAY && lastTapDate.current === dateString) {
-      // It's a double tap: show the log UI IF THE DAY IS EMPTY
-      if (!workoutData[dateString]) {
+      // It's a double tap: show the log UI IF THE DAY IS EMPTY AND NOT IN THE FUTURE
+      if (!workoutData[dateString] && !isFutureDate) {
          setSelectedDate(dateString);
          showLogWorkoutUI();
+      } else if (isFutureDate) {
+        Alert.alert("Cannot Log", "You can only log activities for today or past dates.");
       }
       // Reset tap detection
       lastTapTimestamp.current = null;
@@ -249,14 +254,17 @@ export default function Calendar() {
       if (workout && workout.completed) {
         currentStreakCount++;
       } else {
-        // If it's today or yesterday and no workout, continue checking
-        // This allows for "grace period" - streak doesn't break until you miss 2 days
+        // If it's today and no workout, keep checking backwards (grace period)
         if (i === 0) {
           continue; // Today - keep checking backwards
         }
-        break; // Streak broken
+        // Streak broken
+        break;
       }
     }
+    
+    // Ensure streak is never negative
+    currentStreakCount = Math.max(0, currentStreakCount);
     
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     const goalPercentage = Math.round((workouts / daysInMonth) * 100);
@@ -267,22 +275,6 @@ export default function Calendar() {
   return (
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.headerRow}>
-          <Text style={styles.headerText}>Calendar</Text>
-          <View style={styles.headerRight}>
-            <NotificationBar notifications={notifications} />
-            <Pressable
-              style={styles.addButton}
-              onPress={() => {
-                const today = formatDateKey(new Date());
-                setSelectedDate(today);
-                showLogWorkoutUI();
-              }}
-            >
-              <Ionicons name="add-circle-outline" size={32} color="#74b9ff" />
-            </Pressable>
-          </View>
-        </View>
         
         {isLoading ? (
           <CalendarPageSkeleton />
@@ -354,9 +346,8 @@ export default function Calendar() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { paddingTop: 60, paddingBottom: 40, paddingHorizontal: 15 },
-  headerRow: { marginBottom: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 5 },
-  headerText: { fontSize: 28, color: "#fff", fontWeight: "bold" },
+  scrollContent: { paddingTop: 10, paddingBottom: 40, paddingHorizontal: 15 },
+  headerRow: { marginBottom: 20, flexDirection: "row", justifyContent: "flex-end", alignItems: "center", paddingHorizontal: 5 },
   headerRight: { flexDirection: "row", alignItems: "center", gap: 15 },
   addButton: { padding: 4 },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", paddingVertical: 60 },

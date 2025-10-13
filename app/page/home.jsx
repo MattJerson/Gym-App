@@ -7,7 +7,6 @@ import { View, Text, Pressable, StyleSheet, ScrollView, Alert } from "react-nati
 import QuickStart from "../../components/home/QuickStart";
 import RecentActivity from "../../components/home/RecentActivity";
 import FeaturedVideo from "../../components/home/FeaturedVideo";
-import NotificationBar from "../../components/NotificationBar";
 import { HomePageSkeleton } from "../../components/skeletons/HomePageSkeleton";
 import { HomeDataService } from "../../services/HomeDataService";
 import { supabase } from "../../services/supabase";
@@ -18,8 +17,6 @@ export default function Home() {
   
   // User state
   const [userId, setUserId] = useState(null);
-  const [userName, setUserName] = useState("User");
-  const [notifications, setNotifications] = useState(0);
   
   // Data state
   const [dailyProgress, setDailyProgress] = useState(null);
@@ -37,8 +34,6 @@ export default function Home() {
         
         if (user) {
           setUserId(user.id);
-          // Get user name from metadata or email
-          setUserName(user.user_metadata?.name || user.email?.split('@')[0] || 'User');
         }
       } catch (error) {
         console.error('Error fetching user:', error);
@@ -64,13 +59,11 @@ export default function Home() {
         featuredData,
         activitiesData,
         categoriesData,
-        notificationsData,
       ] = await Promise.all([
         HomeDataService.fetchUserDailyStats(userId),
         HomeDataService.fetchFeaturedContent(),
         HomeDataService.fetchRecentActivities(userId, 4),
         HomeDataService.fetchQuickStartCategories(),
-        HomeDataService.fetchUserNotifications(userId),
       ]);
 
       // Update state with real data
@@ -78,7 +71,6 @@ export default function Home() {
       setFeaturedContent(featuredData);
       setRecentActivities(activitiesData);
       setQuickStartCategories(categoriesData);
-      setNotifications(notificationsData.count);
       
     } catch (error) {
       console.error("Error loading home data:", error);
@@ -108,12 +100,6 @@ export default function Home() {
   return (
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <Text style={styles.headerText}>Welcome, {userName}! 💪</Text>
-          <NotificationBar notifications={notifications} />
-        </View>
 
         {/* Loading State */}
         {isLoading ? (
