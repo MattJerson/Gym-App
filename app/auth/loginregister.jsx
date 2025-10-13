@@ -18,6 +18,56 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@env";
 import SubmitButton from "../../components/SubmitButton";
 import React, { useState, useRef, useEffect } from "react";
 import { supabase, pingSupabase } from "../../services/supabase";
+import { logger } from "../../services/logger";
+
+/**
+ * Determines the next onboarding step based on what data is missing
+ * This makes onboarding truly dynamic - users only complete what they haven't done yet
+ */
+const determineNextOnboardingStep = (profile) => {
+  // No profile at all - start from beginning
+  if (!profile) {
+    return "/features/registrationprocess";
+  }
+
+  // Check registration process completion (required fields only)
+  const hasBasicInfo = 
+    profile.gender && 
+    profile.age && 
+    profile.height_cm && 
+    profile.weight_kg &&
+    profile.activity_level && 
+    profile.fitness_goal;
+  
+  const hasWorkoutPlan = 
+    profile.fitness_level && 
+    profile.training_location && 
+    profile.training_frequency;
+  
+  const hasMealPlan = 
+    profile.meal_type && 
+    profile.calorie_goal && 
+    profile.meals_per_day;
+
+  // If registration is incomplete, route there
+  if (!hasBasicInfo || !hasWorkoutPlan || !hasMealPlan) {
+    return "/features/registrationprocess";
+  }
+
+  // Check bodyfat data
+  const hasBodyfat = 
+    profile.current_body_fat != null && 
+    profile.goal_body_fat != null;
+
+  if (!hasBodyfat) {
+    return "/features/bodyfatuser";
+  }
+
+  // If we get here, registration and bodyfat are complete
+  // Check subscription status (will be checked in subscriptionpackages page)
+  // For now, route to subscription page and let it decide
+  return "/features/subscriptionpackages";
+};
 
 /* -------------------- REGISTER/LOGIN SCREEN -------------------- */
 export default function Register() {
@@ -100,6 +150,9 @@ export default function Register() {
     }
   };
 
+  // Slide animation refs for smooth transitions
+  const slideInAnim = useRef(new Animated.Value(0)).current;
+
   /* -------------------- HANDLERS -------------------- */
   const handleToggle = async () => {
     try {
@@ -107,22 +160,44 @@ export default function Register() {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       }
       Keyboard.dismiss();
-      Animated.timing(formAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => {
+      
+      // Slide out to the right if going to signup, left if going to login
+      const slideDirection = isRegistering ? -300 : 300;
+      
+      Animated.parallel([
+        Animated.timing(formAnim, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideInAnim, {
+          toValue: slideDirection,
+          duration: 250,
+          useNativeDriver: true,
+        })
+      ]).start(() => {
         setIsRegistering((prev) => !prev);
         setNickname("");
         setEmail("");
         setPassword("");
         setConfirmPassword("");
         setErrors({});
-        Animated.timing(formAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }).start();
+        
+        // Reset and slide in from opposite direction
+        slideInAnim.setValue(-slideDirection);
+        
+        Animated.parallel([
+          Animated.timing(formAnim, {
+            toValue: 1,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+          Animated.timing(slideInAnim, {
+            toValue: 0,
+            duration: 250,
+            useNativeDriver: true,
+          })
+        ]).start();
       });
     } catch (error) {
       console.error("Toggle error:", error);
@@ -161,46 +236,20 @@ export default function Register() {
     }
 
     try {
-      dlog("handleSubmit start", {
-        isRegistering,
-        emailMasked: email?.replace(/(.{2}).+(@.*)/, "$1***$2"),
-      });
       setIsLoading(true);
       if (Platform.OS === "ios") {
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
 
-      console.time("auth:ping");
       const healthy = await pingSupabase(4000);
-      console.timeEnd("auth:ping");
-      dlog("pingSupabase", { healthy });
       if (!healthy)
         throw new Error(
           "Unable to reach the server. Check your internet connection or try again shortly."
         );
 
-      // Log Supabase client status
-      if (__DEV__) {
-        try {
-          dlog("getSession:start");
-          const {
-            data: { session },
-          } = await supabase.auth.getSession();
-          dlog("existing-session", {
-            hasSession: !!session,
-            userId: session?.user?.id,
-          });
-        } catch (e) {
-          dlog("session-check-error", e.message);
-        }
-      }
-
       if (isRegistering) {
-        dlog("signup:begin");
         try {
           try {
-            console.time("auth:signup");
-            dlog("signup:calling:supabase.auth.signUp", { email });
             const { data, error } = await withTimeout(
               supabase.auth.signUp({
                 email,
@@ -304,28 +353,18 @@ export default function Register() {
         router.push("/features/registrationprocess");
       } else {
         // SDK sign-in with timeout
-        dlog("signin:start");
-        dlog("Supabase URL/ANON", {
-          url: SUPABASE_URL,
-          anon: SUPABASE_ANON_KEY,
-        });
-        console.time("auth:signin");
         const { data, error: sdkErr } = await withTimeout(
           supabase.auth.signInWithPassword({ email, password }),
           15000,
           "Sign in"
         );
-        console.timeEnd("auth:signin");
         if (sdkErr) {
-          dlog("signin:sdk:fail", {
-            message: sdkErr.message,
-            status: sdkErr.status,
-            code: sdkErr.code,
-            name: sdkErr.name,
-          });
           throw sdkErr;
         }
-        dlog("signin:sdk:ok", { userId: data?.user?.id });
+        
+        if (__DEV__) {
+          console.log("[AUTH] User logged in:", data?.user?.id);
+        }
 
         // After login, if display name is missing, set it from registration_profiles or fallback to email
         dlog("login:post:updateUser:step");
@@ -358,76 +397,47 @@ export default function Register() {
           );
           dlog("login:post:updateUser:done", { nickname });
         } catch (updateErr) {
-          dlog(
-            "login:post:updateUser:error",
-            String(updateErr?.message || updateErr)
-          );
+          if (__DEV__) {
+            console.error("[AUTH] Profile update error:", updateErr.message);
+          }
         }
 
-        // Check if onboarding is complete (with DB function, profile will be created if missing)
-        dlog("onboarding:check:step");
+        // Check if onboarding is complete - DYNAMIC routing based on missing data
         try {
-          // First, ensure profile exists (for existing users who signed up before this fix)
-          dlog("ensuring:profile:rpc:start", { userId: data.user.id });
-          const { data: rpcData, error: rpcError } = await supabase.rpc(
-            "create_profile_for_user",
-            {
-              user_id_param: data.user.id,
-            }
-          );
-          dlog("ensuring:profile:rpc:done", { rpcData, rpcError });
-          // Now check onboarding status
-          dlog("profile:check:select:start", { userId: data.user.id });
-          const { data: profile, error: selectError } = await supabase
+          // Ensure profile exists
+          await supabase.rpc("create_profile_for_user", {
+            user_id_param: data.user.id,
+          });
+          
+          // Check onboarding status and missing data
+          const { data: profile } = await supabase
             .from("registration_profiles")
-            .select("onboarding_completed")
+            .select("*")
             .eq("user_id", data.user.id)
             .maybeSingle();
-          dlog("profile:check:select:done", {
-            hasProfile: !!profile,
-            onboardingComplete: profile?.onboarding_completed,
-            selectError,
-          });
+            
           if (!profile || !profile.onboarding_completed) {
-            // Onboarding not complete, go to registration flow
-            dlog("nav:to:registrationprocess");
-            try {
-              router.replace("/features/registrationprocess");
-              dlog("nav:to:registrationprocess:done");
-            } catch (navErr) {
-              dlog(
-                "nav:to:registrationprocess:error",
-                String(navErr?.message || navErr)
-              );
-            }
+            // Dynamically determine what's missing and route accordingly
+            const nextStep = determineNextOnboardingStep(profile);
+            logger.info(`Routing to next onboarding step: ${nextStep}`);
+            router.replace(nextStep);
           } else {
-            // Onboarding complete, go to home
-            dlog("nav:to:home");
-            try {
-              router.replace("/page/home");
-              dlog("nav:to:home:done");
-            } catch (navErr) {
-              dlog("nav:to:home:error", String(navErr?.message || navErr));
-            }
+            router.replace("/page/home");
           }
         } catch (err) {
-          dlog("profile:check:exception", String(err?.message || err));
-          try {
-            router.replace("/features/registrationprocess");
-            dlog("profile:check:exception:navdone");
-          } catch (navErr) {
-            dlog(
-              "profile:check:exception:naverror",
-              String(navErr?.message || navErr)
-            );
+          if (__DEV__) {
+            console.error("[AUTH] Onboarding check error:", err.message);
           }
+          // Fallback to home
+          router.replace("/page/home");
         }
       }
     } catch (error) {
-      dlog("Authentication error:", String(error?.message || error));
+      if (__DEV__) {
+        console.error("[AUTH] Authentication error:", error.message);
+      }
       Alert.alert("Authentication error", error.message || "An error occurred");
     } finally {
-      dlog("handleSubmit:end");
       setIsLoading(false);
     }
   };
@@ -483,10 +493,7 @@ export default function Register() {
                 opacity: formAnim,
                 transform: [
                   {
-                    translateY: formAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [30, 0],
-                    }),
+                    translateX: slideInAnim,
                   },
                 ],
               },
@@ -563,41 +570,6 @@ export default function Register() {
               icon="arrow-forward"
               variant="solid"
             />
-
-            {/* Minimal login test button for debugging */}
-            {!isRegistering && (
-              <Pressable
-                style={{
-                  marginTop: 12,
-                  padding: 12,
-                  backgroundColor: "#e0e0e0",
-                  borderRadius: 8,
-                }}
-                onPress={async () => {
-                  dlog("testMinimalLogin:start", { email });
-                  try {
-                    const { data, error } =
-                      await supabase.auth.signInWithPassword({
-                        email,
-                        password,
-                      });
-                    dlog("testMinimalLogin:result", {
-                      user: data?.user,
-                      error,
-                    });
-                  } catch (err) {
-                    dlog(
-                      "testMinimalLogin:exception",
-                      String(err?.message || err)
-                    );
-                  }
-                }}
-              >
-                <Text style={{ color: "#333", textAlign: "center" }}>
-                  Test Minimal Login (Debug)
-                </Text>
-              </Pressable>
-            )}
 
             <Pressable style={styles.toggleContainer} onPress={handleToggle}>
               <Text style={styles.toggleText}>

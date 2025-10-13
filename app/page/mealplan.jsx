@@ -14,7 +14,6 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 // Import components
 import { supabase } from "../../services/supabase";
 import MealPlans from "../../components/mealplan/MealPlans";
-import NotificationBar from "../../components/NotificationBar";
 import TodaysMeals from "../../components/mealplan/TodaysMeals";
 import RecentMeals from "../../components/mealplan/RecentMeals";
 import MealPlanHeader from "../../components/mealplan/MealPlanHeader";
@@ -27,7 +26,6 @@ const router = useRouter();
 
 export default function Mealplan() {
   // 🔄 Data-driven state management
-  const [notifications, setNotifications] = useState(0);
   const [macroGoals, setMacroGoals] = useState(null);
   const [weeklyPlan, setWeeklyPlan] = useState([]);
   const [todaysMeals, setTodaysMeals] = useState([]);
@@ -38,6 +36,7 @@ export default function Mealplan() {
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
+  const [notifications, setNotifications] = useState(0);
 
   // 🔄 Get actual user ID from Supabase
   const [userId, setUserId] = useState(null);
@@ -74,7 +73,6 @@ export default function Mealplan() {
 
       // Load all meal plan data in parallel
       const [
-        notificationsData,
         macroData,
         weeklyData,
         mealLogsData,
@@ -83,7 +81,6 @@ export default function Mealplan() {
         activePlanData,
         dailyTrackingData,
       ] = await Promise.all([
-        MealPlanDataService.fetchUserNotifications(userId),
         MealPlanDataService.fetchMacroProgress(userId, selectedDate),
         MealPlanDataService.fetchWeeklyPlan(userId, selectedDate),
         MealPlanDataService.getMealLogsForDate(userId, selectedDate),
@@ -97,7 +94,6 @@ export default function Mealplan() {
       const transformedMeals = transformMealLogs(mealLogsData);
 
       // Update state with fetched data
-      setNotifications(notificationsData.count);
       setMacroGoals(macroData);
       setWeeklyPlan(weeklyData);
       setTodaysMeals(transformedMeals);

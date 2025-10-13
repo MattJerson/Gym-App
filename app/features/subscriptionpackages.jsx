@@ -58,8 +58,38 @@ export default function SubscriptionPackages() {
       }),
     ]).start();
 
-    loadSubscriptions();
+    checkExistingSubscription();
   }, []);
+
+  const checkExistingSubscription = async () => {
+    try {
+      const userResp = await supabase.auth.getUser();
+      const userId = userResp?.data?.user?.id;
+
+      if (userId) {
+        // Check for existing active subscription
+        const { data: existingSubscription } = await supabase
+          .from("user_subscriptions")
+          .select("id, status, package_slug")
+          .eq("user_id", userId)
+          .eq("status", "active")
+          .single();
+
+        if (existingSubscription) {
+          logger.info("User already has active subscription, skipping to workout selection");
+          router.replace("../features/selectworkouts");
+          return;
+        }
+      }
+
+      // No subscription found, load packages
+      loadSubscriptions();
+    } catch (err) {
+      logger.warn("Error checking existing subscription:", err);
+      // Continue to load subscriptions even if check fails
+      loadSubscriptions();
+    }
+  };
 
   const loadSubscriptions = async () => {
     try {
@@ -224,20 +254,20 @@ export default function SubscriptionPackages() {
           return;
         }
 
-        // Create free trial subscription in database
+        // Create free trial subscription using RPC function to avoid duplicates
         const startDate = new Date();
         const endDate = new Date();
         endDate.setDate(endDate.getDate() + 7); // 7-day free trial
 
-        const { error: subscriptionError } = await supabase
-          .from("user_subscriptions")
-          .insert({
-            user_id: user.id,
-            package_id: packageData.id,
-            status: "active",
-            started_at: startDate.toISOString(),
-            expires_at: endDate.toISOString(),
-          });
+        const { data: subscriptionId, error: subscriptionError } = await supabase.rpc(
+          'create_user_subscription',
+          {
+            p_user_id: user.id,
+            p_package_id: packageData.id,
+            p_started_at: startDate.toISOString(),
+            p_expires_at: endDate.toISOString()
+          }
+        );
 
         if (subscriptionError) {
           console.error("Error creating subscription:", subscriptionError);

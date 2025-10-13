@@ -11,8 +11,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../services/supabase";
-import { useState, useEffect, useMemo, useRef } from "react"; // Added useRef
-import NotificationBar from "../../components/NotificationBar";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Calendar as RNCalendar } from "react-native-calendars";
 import RecentActivity from "../../components/home/RecentActivity";
 import ProgressGraph from "../../components/calendar/ProgressGraph";
@@ -40,7 +39,6 @@ export default function Calendar() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [viewingWorkout, setViewingWorkout] = useState(null);
 
-  const [notifications, setNotifications] = useState(0);
   const [workoutData, setWorkoutData] = useState({});
   const [recentActivitiesData, setRecentActivitiesData] = useState([]);
   const [workoutTypes, setWorkoutTypes] = useState([]);
@@ -49,6 +47,7 @@ export default function Calendar() {
   const [analytics, setAnalytics] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState(null);
+  const [notifications, setNotifications] = useState(0);
 
   // Get authenticated user
   useEffect(() => {
@@ -145,6 +144,12 @@ export default function Calendar() {
     const now = Date.now();
     const DOUBLE_PRESS_DELAY = 300; // ms
     const dateString = day.dateString;
+    const selectedDateObj = new Date(dateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    selectedDateObj.setHours(0, 0, 0, 0);
+    
+    const isFutureDate = selectedDateObj > today;
 
     // Check for double tap
     if (
@@ -152,10 +157,15 @@ export default function Calendar() {
       now - lastTapTimestamp.current < DOUBLE_PRESS_DELAY &&
       lastTapDate.current === dateString
     ) {
-      // It's a double tap: show the log UI IF THE DAY IS EMPTY
-      if (!workoutData[dateString]) {
+      // It's a double tap: show the log UI IF THE DAY IS EMPTY AND NOT IN FUTURE
+      if (!workoutData[dateString] && !isFutureDate) {
         setSelectedDate(dateString);
         showLogWorkoutUI();
+      } else if (isFutureDate) {
+        Alert.alert(
+          "Cannot Log Future Data",
+          "You can only log workouts for past or current days."
+        );
       }
       // Reset tap detection
       lastTapTimestamp.current = null;
@@ -296,23 +306,6 @@ export default function Calendar() {
   return (
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.headerRow}>
-          <Text style={styles.headerText}>Calendar</Text>
-          <View style={styles.headerRight}>
-            <NotificationBar notifications={notifications} />
-            <Pressable
-              style={styles.addButton}
-              onPress={() => {
-                const today = formatDateKey(new Date());
-                setSelectedDate(today);
-                showLogWorkoutUI();
-              }}
-            >
-              <Ionicons name="add-circle-outline" size={32} color="#74b9ff" />
-            </Pressable>
-          </View>
-        </View>
-
         {isLoading ? (
           <CalendarPageSkeleton />
         ) : (
@@ -385,17 +378,7 @@ export default function Calendar() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { paddingTop: 60, paddingBottom: 40, paddingHorizontal: 15 },
-  headerRow: {
-    marginBottom: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 5,
-    justifyContent: "space-between",
-  },
-  headerText: { fontSize: 28, color: "#fff", fontWeight: "bold" },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 15 },
-  addButton: { padding: 4 },
+  scrollContent: { paddingTop: 10, paddingBottom: 40, paddingHorizontal: 15 },
   loadingContainer: {
     flex: 1,
     paddingVertical: 60,

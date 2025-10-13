@@ -2,16 +2,47 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Tabs, useRouter, useSegments } from "expo-router";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { TouchableOpacity, StyleSheet, View } from "react-native";
+import PageHeader from "../../components/page/PageHeader";
+import { useState, useEffect } from "react";
 
 export default function PageLayout() {
   const router = useRouter();
   const segments = useSegments();
+  const [pageTitle, setPageTitle] = useState("Home");
 
   const isChatbot = segments.includes("chatbot");
   const isCommunityChat = segments.includes("communitychat");
+  
+  // Hide header on chatbot and community chat pages
+  const showHeader = !isChatbot && !isCommunityChat;
+
+  // Update page title based on current route
+  useEffect(() => {
+    const currentPage = segments[segments.length - 1];
+    switch (currentPage) {
+      case "home":
+        setPageTitle("Welcome! 💪");
+        break;
+      case "calendar":
+        setPageTitle("Calendar");
+        break;
+      case "training":
+        setPageTitle("Training");
+        break;
+      case "mealplan":
+        setPageTitle("Nutrition");
+        break;
+      case "profile":
+        setPageTitle("Profile");
+        break;
+      default:
+        setPageTitle("Home");
+    }
+  }, [segments]);
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: "#0B0B0B" }}>
+      {showHeader && <PageHeader title={pageTitle} />}
       <Tabs
         screenOptions={{
           headerShown: false,

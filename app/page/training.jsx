@@ -11,7 +11,6 @@ import { supabase } from "../../services/supabase";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useState, useEffect, useCallback } from "react";
 import MyWorkouts from "../../components/training/MyWorkouts";
-import NotificationBar from "../../components/NotificationBar";
 import BrowseWorkouts from "../../components/training/BrowseWorkouts";
 import RecentWorkouts from "../../components/training/RecentWorkouts";
 import { TrainingDataService } from "../../services/TrainingDataService";
@@ -25,7 +24,6 @@ export default function Training() {
   const router = useRouter();
 
   // 🔄 Data-driven state management
-  const [notifications, setNotifications] = useState(0);
   const [workoutProgress, setWorkoutProgress] = useState(null);
   const [continueWorkout, setContinueWorkout] = useState(null);
   const [todaysWorkout, setTodaysWorkout] = useState(null);
@@ -33,6 +31,7 @@ export default function Training() {
   const [recentWorkouts, setRecentWorkouts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState(null);
+  const [notifications, setNotifications] = useState(0);
 
   // Get authenticated user
   useEffect(() => {
@@ -166,12 +165,6 @@ export default function Training() {
   return (
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <Text style={styles.headerText}>Training</Text>
-          <NotificationBar notifications={notifications} />
-        </View>
-
         {/* Loading State */}
         {isLoading ? (
           <TrainingPageSkeleton />
@@ -271,20 +264,9 @@ export default function Training() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: {
-    paddingTop: 60,
+    paddingTop: 10,
     paddingBottom: 40,
     paddingHorizontal: 20,
-  },
-  headerRow: {
-    marginBottom: 24,
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  headerText: {
-    fontSize: 28,
-    color: "#fff",
-    fontWeight: "bold",
   },
   loadingContainer: {
     flex: 1,

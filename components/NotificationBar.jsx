@@ -33,17 +33,14 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
       try {
         const { data: { user }, error } = await supabase.auth.getUser();
         if (error) {
-          console.error('NotificationBar: Error getting user:', error);
+          console.error('NotificationBar: Error getting user:', error.message);
           return;
         }
         if (user) {
-          console.log('NotificationBar: User logged in:', user.id);
           setUserId(user.id);
-        } else {
-          console.log('NotificationBar: No user logged in');
         }
       } catch (error) {
-        console.error('NotificationBar: Exception getting user:', error);
+        console.error('NotificationBar: Exception getting user:', error.message);
       }
     };
     getUser();
@@ -55,20 +52,19 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
       loadNotifications();
       
       // Subscribe to real-time notifications
-      console.log('NotificationBar: Setting up real-time subscription...');
       const subscription = NotificationService.subscribeToNotifications(
         userId,
         (newNotif) => {
-          console.log('NotificationBar: Received new notification via real-time:', newNotif.title);
+          if (__DEV__) {
+            console.log('NotificationBar: Received new notification via real-time:', newNotif.title);
+          }
           
           // Check if notification already exists (prevent duplicates)
           setNotifications(prev => {
             const exists = prev.some(n => n.id === newNotif.id);
             if (exists) {
-              console.log('NotificationBar: Notification already exists, skipping');
               return prev;
             }
-            console.log('NotificationBar: Adding new notification to list');
             return [newNotif, ...prev];
           });
           
@@ -81,7 +77,6 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
       );
 
       return () => {
-        console.log('NotificationBar: Cleaning up real-time subscription');
         subscription.unsubscribe();
       };
     }
@@ -89,20 +84,17 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
 
   const loadNotifications = async () => {
     if (!userId) {
-      console.log('NotificationBar: Cannot load notifications - no userId');
       return;
     }
     
     try {
-      console.log('NotificationBar: Loading notifications...');
       const data = await NotificationService.fetchUserNotifications(userId, 10);
       setNotifications(data);
       
       const count = await NotificationService.getUnreadCount(userId);
       setUnreadCount(count);
-      console.log('NotificationBar: Loaded', data.length, 'notifications,', count, 'unread');
     } catch (error) {
-      console.error('NotificationBar: Error loading notifications:', error);
+      console.error('NotificationBar: Error loading notifications:', error.message);
     }
   };
 

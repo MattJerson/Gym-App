@@ -5,6 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 
 const SubmitButton = ({
   text,
+  title, // Support both text and title props for backward compatibility
   onPress,
   isLoading = false,
   disabled = false,
@@ -17,6 +18,7 @@ const SubmitButton = ({
   ...props
 }) => {
   const isDisabled = disabled || isLoading;
+  const buttonText = text || title || "Submit"; // Fallback to ensure there's always text
 
   if (variant === "gradient") {
     return (
@@ -34,25 +36,25 @@ const SubmitButton = ({
         >
           {isLoading ? (
             <View style={styles.loadingContent}>
-              <ActivityIndicator 
-                size="small" 
-                color="#fff" 
-                style={styles.loadingSpinner} 
+              <ActivityIndicator
+                size="small"
+                color="#fff"
+                style={styles.loadingSpinner}
               />
               <Text style={styles.submitButtonText}>{loadingText}</Text>
             </View>
           ) : (
-            <>
-              <Text style={styles.submitButtonText}>{text}</Text>
+            <View style={styles.buttonContent}>
+              <Text style={styles.submitButtonText}>{buttonText}</Text>
               {icon && (
-                <Ionicons 
-                  name={icon} 
-                  size={20} 
-                  color="#fff" 
+                <Ionicons
+                  name={icon}
+                  size={20}
+                  color="#fff"
                   style={styles.submitButtonIcon}
                 />
               )}
-            </>
+            </View>
           )}
         </LinearGradient>
       </Pressable>
@@ -75,7 +77,7 @@ const SubmitButton = ({
           </View>
         ) : (
           <View style={styles.buttonContent}>
-            <Text style={styles.submitButtonText}>{text}</Text>
+            <Text style={styles.submitButtonText}>{buttonText}</Text>
             {icon && (
               <Ionicons
                 name={icon}

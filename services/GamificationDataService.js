@@ -401,8 +401,9 @@ const GamificationDataService = {
   },
 
   /**
-   * Get weekly leaderboard (PRIVACY-SAFE)
+   * Get weekly leaderboard (safe, privacy-respecting)
    * Only reads from safe_weekly_leaderboard. No fallback to unsafe views.
+   * Enhanced to fetch actual nicknames from profiles table.
    */
   async getWeeklyLeaderboard(limit = 100) {
     try {
@@ -416,10 +417,37 @@ const GamificationDataService = {
         throw error;
       }
 
-      // Normalize returned rows to a predictable client shape
+      // Get all user IDs from the leaderboard (if available)
+      const userIds = (data || [])
+        .map(row => row.user_id)
+        .filter(id => id != null);
+
+      // Fetch nicknames from profiles table for all users at once
+      let nicknameMap = {};
+      if (userIds.length > 0) {
+        const { data: profiles, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, nickname, full_name')
+          .in('id', userIds);
+
+        if (!profileError && profiles) {
+          profiles.forEach(profile => {
+            // Use nickname, fallback to first name from full_name, or 'User'
+            const displayName = profile.nickname || 
+                              (profile.full_name ? profile.full_name.split(' ')[0] : null) || 
+                              'User';
+            nicknameMap[profile.id] = displayName;
+          });
+        }
+      }
+
+      // Normalize returned rows to a predictable client shape with real nicknames
       const leaderboard = (data || []).map((row, index) => ({
         anon_id: row.anon_id || `anon-${index + 1}`,
-        display_name: row.display_name || `User-${index + 1}`,
+        user_id: row.user_id || null, // Include user_id for reference
+        display_name: row.user_id && nicknameMap[row.user_id] 
+          ? nicknameMap[row.user_id]
+          : (row.display_name || `User ${index + 1}`),
         total_points: Number(row.total_points) || 0,
         current_streak: Number(row.current_streak) || 0,
         total_workouts: Number(row.total_workouts) || 0,

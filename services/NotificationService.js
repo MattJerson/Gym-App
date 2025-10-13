@@ -10,11 +10,15 @@ export const NotificationService = {
   async fetchUserNotifications(userId, limit = 20) {
     try {
       if (!userId) {
-        console.log('NotificationService: No userId provided');
+        if (__DEV__) {
+          console.log('NotificationService: No userId provided');
+        }
         return [];
       }
 
-      console.log('NotificationService: Fetching notifications for user:', userId);
+      if (__DEV__) {
+        console.log('NotificationService: Fetching notifications for user:', userId);
+      }
 
       // Get all sent notifications (broadcast to all users)
       const { data: notifications, error: notifError } = await supabase
@@ -25,12 +29,14 @@ export const NotificationService = {
         .limit(limit);
 
       if (notifError) {
-        console.error('Error fetching notifications:', notifError);
+        console.error('Error fetching notifications:', notifError.message || 'Unknown error');
         throw notifError;
       }
 
       if (!notifications || notifications.length === 0) {
-        console.log('NotificationService: No sent notifications found');
+        if (__DEV__) {
+          console.log('NotificationService: No sent notifications found');
+        }
         return [];
       }
 
@@ -43,11 +49,13 @@ export const NotificationService = {
         .in('notification_id', notificationIds);
 
       if (readsError) {
-        console.error('Error fetching read status:', readsError);
+        console.error('Error fetching read status:', readsError.message || 'Unknown error');
         // Continue without read status rather than failing
       }
 
-      console.log('NotificationService: Fetched', notifications.length, 'notifications');
+      if (__DEV__) {
+        console.log('NotificationService: Fetched', notifications.length, 'notifications');
+      }
 
       // Merge notifications with read status
       const readsMap = new Map(reads?.map(r => [r.notification_id, r]) || []);
@@ -62,7 +70,7 @@ export const NotificationService = {
       });
 
     } catch (error) {
-      console.error('Error in fetchUserNotifications:', error);
+      console.error('Error in fetchUserNotifications:', error.message || 'Unknown error');
       return [];
     }
   },
@@ -73,7 +81,9 @@ export const NotificationService = {
   async getUnreadCount(userId) {
     try {
       if (!userId) {
-        console.log('NotificationService: No userId for unread count');
+        if (__DEV__) {
+          console.log('NotificationService: No userId for unread count');
+        }
         return 0;
       }
 
@@ -84,7 +94,7 @@ export const NotificationService = {
         .eq('status', 'sent');
 
       if (notifError) {
-        console.error('Error fetching notifications for count:', notifError);
+        console.error('Error fetching notifications for count:', notifError.message || 'Unknown error');
         return 0;
       }
 
@@ -103,18 +113,20 @@ export const NotificationService = {
         .in('notification_id', notificationIds);
 
       if (readsError) {
-        console.error('Error fetching read count:', readsError);
+        console.error('Error fetching read count:', readsError.message || 'Unknown error');
         return notifications.length; // Assume all unread if we can't check
       }
 
       const readCount = reads?.length || 0;
       const unreadCount = notifications.length - readCount;
 
-      console.log('NotificationService: Unread count:', unreadCount);
+      if (__DEV__) {
+        console.log('NotificationService: Unread count:', unreadCount);
+      }
       return unreadCount;
 
     } catch (error) {
-      console.error('Error in getUnreadCount:', error);
+      console.error('Error in getUnreadCount:', error.message || 'Unknown error');
       return 0;
     }
   },
@@ -142,7 +154,7 @@ export const NotificationService = {
 
       return true;
     } catch (error) {
-      console.error('Error in markAsRead:', error);
+      console.error('Error in markAsRead:', error.message || 'Unknown error');
       return false;
     }
   },
@@ -163,7 +175,7 @@ export const NotificationService = {
       await Promise.all(promises);
       return true;
     } catch (error) {
-      console.error('Error in markAllAsRead:', error);
+      console.error('Error in markAllAsRead:', error.message || 'Unknown error');
       return false;
     }
   },
@@ -173,11 +185,15 @@ export const NotificationService = {
    */
   subscribeToNotifications(userId, onNewNotification) {
     if (!userId) {
-      console.log('NotificationService: No userId for subscription');
+      if (__DEV__) {
+        console.log('NotificationService: No userId for subscription');
+      }
       return { unsubscribe: () => {} };
     }
 
-    console.log('NotificationService: Setting up real-time subscription for user:', userId);
+    if (__DEV__) {
+      console.log('NotificationService: Setting up real-time subscription for user:', userId);
+    }
 
     const channel = supabase
       .channel('notifications-channel')
@@ -187,7 +203,9 @@ export const NotificationService = {
         table: 'notifications',
         filter: 'status=eq.sent'
       }, payload => {
-        console.log('🔔 NotificationService: New notification INSERT:', payload.new.title);
+        if (__DEV__) {
+          console.log('🔔 NotificationService: New notification INSERT:', payload.new.title);
+        }
         if (onNewNotification && payload.new.status === 'sent') {
           onNewNotification({
             ...payload.new,
@@ -206,7 +224,9 @@ export const NotificationService = {
         const isNowSent = payload.new?.status === 'sent';
         
         if (wasNotSent && isNowSent) {
-          console.log('🔔 NotificationService: Notification status changed to SENT:', payload.new.title);
+          if (__DEV__) {
+            console.log('🔔 NotificationService: Notification status changed to SENT:', payload.new.title);
+          }
           if (onNewNotification) {
             onNewNotification({
               ...payload.new,
@@ -217,21 +237,25 @@ export const NotificationService = {
         }
       })
       .subscribe((status) => {
-        console.log('NotificationService: Subscription status:', status);
-        if (status === 'SUBSCRIBED') {
-          console.log('✅ NotificationService: Successfully subscribed to real-time notifications');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ NotificationService: Real-time subscription error');
+        if (__DEV__) {
+          console.log('NotificationService: Subscription status:', status);
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ NotificationService: Successfully subscribed to real-time notifications');
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('❌ NotificationService: Real-time subscription error');
+          }
         }
       });
 
     return {
       unsubscribe: () => {
-        try { 
-          console.log('NotificationService: Unsubscribing from notifications');
-          supabase.removeChannel(channel); 
+        try {
+          if (__DEV__) {
+            console.log('NotificationService: Unsubscribing from notifications');
+          }
+          supabase.removeChannel(channel);
         } catch (e) {
-          console.error('Error unsubscribing from notifications:', e);
+          console.error('Error unsubscribing from notifications:', e.message || 'Unknown error');
         }
       }
     };

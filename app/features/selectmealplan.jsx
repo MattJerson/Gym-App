@@ -246,6 +246,18 @@ export default function SelectMealPlan() {
       await AsyncStorage.removeItem("onboarding:bodyfat");
       await AsyncStorage.removeItem("onboarding:selectedWorkouts");
 
+      // Mark onboarding as complete in database
+      const { error: completeError } = await supabase
+        .from("registration_profiles")
+        .update({ onboarding_completed: true })
+        .eq("user_id", user.id);
+
+      if (completeError) {
+        console.error("Failed to mark onboarding complete:", completeError);
+      } else {
+        console.log("✅ Onboarding marked as complete");
+      }
+
       // Navigate to home
       router.replace("/page/home");
     } catch (error) {
@@ -265,6 +277,12 @@ export default function SelectMealPlan() {
           data: { user },
         } = await supabase.auth.getUser();
         if (user) {
+          // Mark onboarding as complete even if skipped
+          await supabase
+            .from("registration_profiles")
+            .update({ onboarding_completed: true })
+            .eq("user_id", user.id);
+
           // Save minimal data and navigate to home
           await AsyncStorage.removeItem("onboarding:registration");
           await AsyncStorage.removeItem("onboarding:bodyfat");

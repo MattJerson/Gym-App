@@ -10,7 +10,6 @@ import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../services/supabase";
 import { useRouter, usePathname } from "expo-router";
-import NotificationBar from "../../components/NotificationBar";
 import ProfileHeader from "../../components/profile/ProfileHeader";
 import LeaderboardCard from "../../components/profile/LeaderboardCard";
 import ProfileStatsCard from "../../components/profile/ProfileStatsCard";
@@ -22,7 +21,6 @@ import { ProfilePageSkeleton } from "../../components/skeletons/ProfilePageSkele
 export default function Profile() {
   const router = useRouter();
   const pathname = usePathname();
-  const [notifications] = useState(3);
   const [selectedTheme, setSelectedTheme] = useState("dark");
   // User data
   const [user, setUser] = useState(null);
@@ -187,10 +185,6 @@ export default function Profile() {
     return (
       <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.headerRow}>
-            <Text style={styles.headerText}>Profile</Text>
-            <NotificationBar notifications={notifications} />
-          </View>
           <ProfilePageSkeleton />
         </ScrollView>
       </View>
@@ -249,12 +243,6 @@ export default function Profile() {
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* Header */}
-          <View style={styles.headerRow}>
-            <Text style={styles.headerText}>Profile</Text>
-            <NotificationBar notifications={notifications} />
-          </View>
-
           {/* Profile Header */}
           <ProfileHeader user={user} />
 

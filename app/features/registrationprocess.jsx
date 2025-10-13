@@ -324,11 +324,105 @@ export default function BasicInfo() {
   // Input refs for navigation
   const inputRefs = useRef({});
 
-  // Hydrate saved progress on mount
+  // Hydrate saved progress on mount (prioritize database data over AsyncStorage)
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
+        // First, try to get existing data from database
+        const userResp = await supabase.auth.getUser();
+        const userId = userResp?.data?.user?.id;
+
+        if (userId) {
+          // Load existing registration data from database
+          const { data: existingProfile, error: profileError } = await supabase
+            .from("registration_profiles")
+            .select("*")
+            .eq("user_id", userId)
+            .single();
+
+          if (cancelled) return;
+
+          if (!profileError && existingProfile) {
+            logger.info("Loading existing registration data from database");
+            
+            // Map database columns to form state
+            const dbFormData = {
+              gender: existingProfile.gender || "",
+              age: existingProfile.age?.toString() || "",
+              height: existingProfile.height_cm?.toString() || "",
+              weight: existingProfile.weight_kg?.toString() || "",
+              useMetric: existingProfile.use_metric !== false,
+              activityLevel: existingProfile.activity_level || "",
+              fitnessGoal: existingProfile.fitness_goal || "",
+              fitnessLevel: existingProfile.fitness_level || "",
+              trainingLocation: existingProfile.training_location || "",
+              trainingDuration: existingProfile.training_duration?.toString() || "",
+              muscleFocus: existingProfile.muscle_focus || [],
+              injuries: existingProfile.injuries || "",
+              trainingFrequency: existingProfile.training_frequency || "",
+              mealType: existingProfile.meal_type || "",
+              restrictions: existingProfile.restrictions || [],
+              mealsPerDay: existingProfile.meals_per_day?.toString() || "",
+              calorieGoal: existingProfile.calorie_goal?.toString() || "",
+              favoriteFoods: Array.isArray(existingProfile.favorite_foods) 
+                ? existingProfile.favorite_foods 
+                : [],
+            };
+
+            // Merge with initial state to ensure all keys exist
+            const initial = getInitialState();
+            const merged = { ...initial, ...dbFormData };
+            setFormData(merged);
+            setFoods(dbFormData.favoriteFoods);
+
+            // Determine which step to start on based on data completeness
+            // Only consider truly required fields (not optional ones like injuries, restrictions)
+            let startStep = 0;
+            
+            // Step 0: Basic Info - Check required fields only
+            const hasBasicInfo = 
+              existingProfile.gender && 
+              existingProfile.age && 
+              existingProfile.height_cm && 
+              existingProfile.weight_kg &&
+              existingProfile.activity_level && 
+              existingProfile.fitness_goal;
+            
+            // Step 1: Workout Plan - Check required fields (not injuries which is optional)
+            const hasWorkoutPlan = 
+              existingProfile.fitness_level && 
+              existingProfile.training_location && 
+              existingProfile.training_frequency;
+            
+            // Step 2: Meal Plan - Check required fields (not restrictions which is optional)
+            const hasMealPlan = 
+              existingProfile.meal_type && 
+              existingProfile.calorie_goal && 
+              existingProfile.meals_per_day;
+            
+            // Determine starting step based on completion
+            if (hasBasicInfo && hasWorkoutPlan && hasMealPlan) {
+              // All steps complete - go to last step to review
+              startStep = 2;
+            } else if (hasBasicInfo && hasWorkoutPlan) {
+              // Basic and workout done, need meal plan
+              startStep = 2;
+            } else if (hasBasicInfo) {
+              // Only basic done, need workout plan
+              startStep = 1;
+            } else {
+              // Nothing done or incomplete basic info
+              startStep = 0;
+            }
+            
+            setStep(startStep);
+            logger.info(`Starting at step ${startStep} based on existing data (Basic: ${hasBasicInfo}, Workout: ${hasWorkoutPlan}, Meal: ${hasMealPlan})`);
+            return; // Skip AsyncStorage if we have database data
+          }
+        }
+
+        // Fallback to AsyncStorage if no database data
         const [savedStr, savedStepStr] = await Promise.all([
           AsyncStorage.getItem("onboarding:registration"),
           AsyncStorage.getItem("onboarding:registration:step"),
@@ -564,6 +658,8 @@ export default function BasicInfo() {
             "Save failed",
             error.message || "Failed to save registration to server"
           );
+          setIsLoading(false);
+          return;
         } else {
           logger.info("Registration saved to Supabase successfully");
           await Promise.all([
@@ -571,12 +667,50 @@ export default function BasicInfo() {
             AsyncStorage.removeItem("onboarding:registration:step"),
           ]);
         }
+
+        // Check if bodyfat data already exists
+        const { data: existingBodyFat } = await supabase
+          .from("bodyfat_profiles")
+          .select("current_body_fat, goal_body_fat")
+          .eq("user_id", userId)
+          .single();
+
+        const hasBodyFatData = 
+          existingBodyFat?.current_body_fat != null && 
+          existingBodyFat?.goal_body_fat != null;
+
+        if (hasBodyFatData) {
+          logger.info("Bodyfat data already exists, checking subscription...");
+          
+          // Check if subscription already exists
+          const { data: existingSubscription } = await supabase
+            .from("user_subscriptions")
+            .select("id, status")
+            .eq("user_id", userId)
+            .eq("status", "active")
+            .single();
+
+          if (existingSubscription) {
+            logger.info("Active subscription found, skipping to workout selection");
+            setIsLoading(false);
+            router.replace("../features/selectworkouts");
+            return;
+          } else {
+            logger.info("No active subscription, routing to subscription packages");
+            setIsLoading(false);
+            router.replace("../features/subscriptionpackages");
+            return;
+          }
+        } else {
+          logger.info("No bodyfat data found, routing to bodyfat page");
+          setIsLoading(false);
+          router.replace("../features/bodyfatuser");
+          return;
+        }
       } catch (err) {
         logger.error("Unexpected error saving registration:", err);
         Alert.alert("Save error", "Unexpected error saving registration");
-      } finally {
         setIsLoading(false);
-        router.replace("../features/bodyfatuser");
       }
     } else {
       // Move to next step

@@ -15,13 +15,14 @@ import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Ionicons} from "@expo/vector-icons";
 import { useState, useEffect, useRef } from "react";
-import { LinearGradient } from "expo-linear-gradient";
 import SubmitButton from "../../components/SubmitButton";
 import { SafeAreaView } from "react-native-safe-area-context";
 import HeaderBar from "../../components/onboarding/HeaderBar";
 import ProgressBar from "../../components/onboarding/ProgressBar";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import BodyFatSlider from "../../components/onboarding/BodyFatSlider";
+import { supabase } from "../../services/supabase";
+import { logger } from "../../services/logger";
 
 export default function BodyFatUser() {
   const router = useRouter();
@@ -37,6 +38,43 @@ export default function BodyFatUser() {
 
   const modalScale = useRef(new Animated.Value(0.9)).current;
   const modalOpacity = useRef(new Animated.Value(0)).current;
+
+  // Load existing bodyfat data from database on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const userResp = await supabase.auth.getUser();
+        const userId = userResp?.data?.user?.id;
+
+        if (userId) {
+          const { data: existingProfile } = await supabase
+            .from("bodyfat_profiles")
+            .select("current_body_fat, goal_body_fat")
+            .eq("user_id", userId)
+            .single();
+
+          if (cancelled) return;
+
+          if (existingProfile) {
+            if (existingProfile.current_body_fat != null) {
+              setCurrentBodyFat(existingProfile.current_body_fat);
+              logger.info("Loaded current body fat from database:", existingProfile.current_body_fat);
+            }
+            if (existingProfile.goal_body_fat != null) {
+              setGoalBodyFat(existingProfile.goal_body_fat);
+              logger.info("Loaded goal body fat from database:", existingProfile.goal_body_fat);
+            }
+          }
+        }
+      } catch (e) {
+        logger.warn("Failed to load bodyfat data from database", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     Animated.parallel([
@@ -113,26 +151,83 @@ export default function BodyFatUser() {
       setShowConfirmation(true);
     }
   };
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     lightHaptic();
     setShowConfirmation(false);
-    console.log("Current Body Fat:", `${Math.round(currentBodyFat)}%`);
-    console.log("Goal Body Fat:", `${Math.round(goalBodyFat)}%`);
-    // persist bodyfat data for final onboarding
-    (async () => {
-      try {
+    setIsLoading(true);
+    
+    const currentBF = Math.round(currentBodyFat);
+    const goalBF = Math.round(goalBodyFat);
+    
+    console.log("Current Body Fat:", `${currentBF}%`);
+    console.log("Goal Body Fat:", `${goalBF}%`);
+    
+    try {
+      // Get authenticated user
+      const userResp = await supabase.auth.getUser();
+      const userId = userResp?.data?.user?.id;
+
+      if (!userId) {
+        logger.warn("No authenticated user - saving to AsyncStorage only");
         await AsyncStorage.setItem(
           "onboarding:bodyfat",
-          JSON.stringify({
-            currentBodyFat: Math.round(currentBodyFat),
-            goalBodyFat: Math.round(goalBodyFat),
-          })
+          JSON.stringify({ currentBodyFat: currentBF, goalBodyFat: goalBF })
         );
-      } catch (e) {
-        console.warn("Failed to persist bodyfat data", e);
+        router.push("features/subscriptionpackages");
+        return;
       }
+
+      // Save to database (bodyfat_profiles table)
+      logger.info("Saving bodyfat data to database for user", userId);
+      const { error } = await supabase
+        .from("bodyfat_profiles")
+        .upsert({
+          user_id: userId,
+          current_body_fat: currentBF,
+          goal_body_fat: goalBF,
+        }, {
+          onConflict: "user_id",
+        });
+
+      if (error) {
+        logger.error("Failed to save bodyfat data:", error);
+        // Save to AsyncStorage as fallback
+        await AsyncStorage.setItem(
+          "onboarding:bodyfat",
+          JSON.stringify({ currentBodyFat: currentBF, goalBodyFat: goalBF })
+        );
+      } else {
+        logger.info("Bodyfat data saved to database successfully");
+        // Clear AsyncStorage since we saved to DB
+        await AsyncStorage.removeItem("onboarding:bodyfat");
+      }
+
+      // Check if subscription already exists
+      const { data: existingSubscription } = await supabase
+        .from("user_subscriptions")
+        .select("id, status")
+        .eq("user_id", userId)
+        .eq("status", "active")
+        .single();
+
+      if (existingSubscription) {
+        logger.info("Active subscription found, skipping to workout selection");
+        router.replace("../features/selectworkouts");
+      } else {
+        logger.info("No active subscription, routing to subscription packages");
+        router.push("features/subscriptionpackages");
+      }
+    } catch (e) {
+      logger.error("Error saving bodyfat data:", e);
+      // Fallback to AsyncStorage
+      await AsyncStorage.setItem(
+        "onboarding:bodyfat",
+        JSON.stringify({ currentBodyFat: currentBF, goalBodyFat: goalBF })
+      );
       router.push("features/subscriptionpackages");
-    })();
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCancel = () => {
@@ -162,8 +257,8 @@ export default function BodyFatUser() {
   };
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
-        <StatusBar barStyle="light-content" backgroundColor="#0F1419" />
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#0B0B0B" />
         <SafeAreaView style={styles.safeArea}>
           <Animated.View
             style={[
@@ -183,29 +278,24 @@ export default function BodyFatUser() {
               onHapticFeedback={lightHaptic}
             />
             {/* Progress Bar */}
-            <ProgressBar currentStep={currentStep + 1} totalSteps={2} />{" "}
+            <ProgressBar currentStep={currentStep + 1} totalSteps={2} />
+            
+            {/* Subtitle */}
+            <Text style={styles.subtitle}>
+              {currentStep === 0 
+                ? "Slide to select your current body fat percentage"
+                : "Set your target body fat percentage"}
+            </Text>
+
             {/* Main Content */}
             <View style={styles.mainContent}>
-              {currentStep === 0 ? (
+                              {currentStep === 0 ? (
                 // Current Body Fat Step
                 <>
-                  <View style={styles.titleSection}>
-                    <Text style={styles.mainTitle}>Current Body Fat</Text>
-                    <Text style={styles.subtitle}>
-                      Slide to select your current body fat percentage
-                    </Text>
-                  </View>
-
                   <View style={styles.imageContainer}>
-                    <View style={styles.imageBorder}>
-                      <Image
-                        source={getBodyImage(currentBodyFat)}
-                        style={styles.bodyImage}
-                      />
-                    </View>
-                    <LinearGradient
-                      colors={["transparent", "rgba(11,11,11,0.3)"]}
-                      style={styles.imageOverlay}
+                    <Image
+                      source={getBodyImage(currentBodyFat)}
+                      style={styles.bodyImage}
                     />
                   </View>
 
@@ -221,23 +311,10 @@ export default function BodyFatUser() {
               ) : (
                 // Goal Body Fat Step
                 <>
-                  <View style={styles.titleSection}>
-                    <Text style={styles.mainTitle}>Goal Body Fat</Text>
-                    <Text style={styles.subtitle}>
-                      Set your target body fat percentage
-                    </Text>
-                  </View>
-
                   <View style={styles.imageContainer}>
-                    <View style={styles.imageBorder}>
-                      <Image
-                        source={getBodyImage(goalBodyFat)}
-                        style={styles.bodyImage}
-                      />
-                    </View>
-                    <LinearGradient
-                      colors={["transparent", "rgba(11,11,11,0.3)"]}
-                      style={styles.imageOverlay}
+                    <Image
+                      source={getBodyImage(goalBodyFat)}
+                      style={styles.bodyImage}
                     />
                   </View>
 
@@ -252,22 +329,7 @@ export default function BodyFatUser() {
                 </>
               )}
             </View>
-            {/* Bottom Section */}
-            <View style={styles.bottomSection}>
-              <Text style={styles.disclaimer}>
-                You can always adjust these values later in your profile
-                settings.
-              </Text>
-
-              <SubmitButton
-                text={currentStep === 0 ? "Next" : "Save & Continue"}
-                onPress={handleNext}
-                isLoading={isLoading}
-                loadingText="Loading..."
-                icon="arrow-forward"
-                variant="solid"
-              />
-            </View>
+            
             {/* Confirmation Modal */}
             {showConfirmation && (
               <Animated.View
@@ -285,13 +347,13 @@ export default function BodyFatUser() {
                   <View style={styles.modalHeader}>
                     <View style={styles.modalIconContainer}>
                       <Ionicons
-                        name="checkmark-circle"
-                        size={48}
+                        name="fitness"
+                        size={40}
                         color="#4A9EFF"
                       />
                     </View>
-                    <Text style={styles.modalTitle}>Confirm Your Goal</Text>
-                    <Text style={styles.modalSubtitle}>Your Progress Goal</Text>
+                    <Text style={styles.modalTitle}>Ready to Begin?</Text>
+                    <Text style={styles.modalSubtitle}>Review your body fat goals</Text>
                   </View>
 
                   <View style={styles.modalContent}>
@@ -302,8 +364,15 @@ export default function BodyFatUser() {
                           <Text style={styles.progressCardValue}>
                             {Math.round(currentBodyFat)}%
                           </Text>
+                          <View style={[styles.progressCardBadge, { backgroundColor: "rgba(74, 158, 255, 0.15)" }]}>
+                            <Text style={[styles.progressCardBadgeText, { color: "#4A9EFF" }]}>Starting Point</Text>
+                          </View>
                         </View>
-                        <Ionicons name="arrow-forward" size={24} color="#666" />
+                        
+                        <View style={styles.arrowContainer}>
+                          <Ionicons name="arrow-forward" size={28} color="#4A9EFF" />
+                        </View>
+                        
                         <View style={styles.progressCardItem}>
                           <Text style={styles.progressCardLabel}>Goal</Text>
                           <Text
@@ -314,20 +383,29 @@ export default function BodyFatUser() {
                           >
                             {Math.round(goalBodyFat)}%
                           </Text>
+                          <View style={[styles.progressCardBadge, { backgroundColor: "rgba(0, 212, 170, 0.15)" }]}>
+                            <Text style={[styles.progressCardBadgeText, { color: "#00D4AA" }]}>Target</Text>
+                          </View>
                         </View>
                       </View>
+                      
                       <View style={styles.progressCardDivider} />
-                      <Text style={styles.modalDetailText}>
-                        {currentBodyFat > goalBodyFat
-                          ? `${Math.abs(
-                              Math.round(currentBodyFat - goalBodyFat)
-                            )}% to lose`
-                          : currentBodyFat < goalBodyFat
-                          ? `${Math.abs(
-                              Math.round(goalBodyFat - currentBodyFat)
-                            )}% to gain`
-                          : "Maintain current body fat"}
-                      </Text>
+                      
+                      <View style={styles.progressInsight}>
+                        <Ionicons 
+                          name={currentBodyFat > goalBodyFat ? "trending-down" : currentBodyFat < goalBodyFat ? "trending-up" : "remove"} 
+                          size={20} 
+                          color={currentBodyFat > goalBodyFat ? "#00D4AA" : currentBodyFat < goalBodyFat ? "#4A9EFF" : "#999"}
+                          style={styles.progressInsightIcon}
+                        />
+                        <Text style={styles.modalDetailText}>
+                          {currentBodyFat > goalBodyFat
+                            ? `Reduce by ${Math.abs(Math.round(currentBodyFat - goalBodyFat))}% body fat`
+                            : currentBodyFat < goalBodyFat
+                            ? `Increase by ${Math.abs(Math.round(goalBodyFat - currentBodyFat))}% body fat`
+                            : "Maintain current body composition"}
+                        </Text>
+                      </View>
                     </View>
                   </View>
 
@@ -337,7 +415,8 @@ export default function BodyFatUser() {
                       onPress={handleCancel}
                       android_ripple={{ color: "rgba(255, 255, 255, 0.1)" }}
                     >
-                      <Text style={styles.cancelButtonText}>Cancel</Text>
+                      <Ionicons name="close" size={18} color="rgba(255, 255, 255, 0.7)" style={{ marginRight: 6 }} />
+                      <Text style={styles.cancelButtonText}>Go Back</Text>
                     </Pressable>
                     <Pressable
                       style={styles.confirmButton}
@@ -346,12 +425,12 @@ export default function BodyFatUser() {
                     >
                       <View style={styles.confirmButtonSolid}>
                         <Ionicons
-                          name="checkmark"
+                          name="checkmark-circle"
                           size={20}
                           color="#fff"
                           style={styles.confirmButtonIcon}
                         />
-                        <Text style={styles.confirmButtonText}>Confirm</Text>
+                        <Text style={styles.confirmButtonText}>Let's Go!</Text>
                       </View>
                     </Pressable>
                   </View>
@@ -359,6 +438,19 @@ export default function BodyFatUser() {
               </Animated.View>
             )}
           </Animated.View>
+
+          {/* Fixed Footer - Outside Animated.View */}
+          <View style={styles.footer}>
+            <Text style={styles.disclaimer}>
+              Want to change something? You can customize everything later in your profile.
+            </Text>
+            <SubmitButton
+              title={currentStep === 0 ? "Continue" : "Submit"}
+              onPress={handleNext}
+              isLoading={isLoading}
+              disabled={isLoading}
+            />
+          </View>
         </SafeAreaView>
       </View>
     </TouchableWithoutFeedback>
@@ -368,70 +460,59 @@ export default function BodyFatUser() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#0B0B0B",
   },
   safeArea: {
     flex: 1,
   },
   content: {
     flex: 1,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#999",
+    marginBottom: 12,
+    textAlign: "center",
     paddingHorizontal: 20,
   },
   mainContent: {
     flex: 1,
-    paddingTop: 10,
+    paddingTop: 20,
     alignItems: "center",
+    paddingHorizontal: 20,
     justifyContent: "flex-start",
   },
-  titleSection: {
-    width: "100%",
-    marginBottom: 16,
-    alignItems: "center",
-  },
-  mainTitle: {
-    fontSize: 24,
-    color: "#fff",
-    marginBottom: 6,
-    fontWeight: "700",
-    textAlign: "center",
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: "500",
-    textAlign: "center",
-    paddingHorizontal: 20,
-    color: "rgba(255, 255, 255, 0.6)",
-  },
   imageContainer: {
-    height: 220,
+    height: 280,
     width: "100%",
-    borderRadius: 20,
-    marginBottom: 24,
-    overflow: "hidden",
+    marginBottom: 32,
     alignItems: "center",
     justifyContent: "center",
-  },
-  imageBorder: {
-    width: "90%",
-    height: "100%",
-    borderWidth: 1,
-    borderRadius: 20,
-    overflow: "hidden",
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
   },
   bodyImage: {
     width: "100%",
     height: "100%",
     resizeMode: "contain",
   },
-  imageOverlay: {
+  footer: {
     left: 0,
     right: 0,
     bottom: 0,
-    height: "30%",
+    paddingBottom: 24,
+    borderTopWidth: 1,
+    paddingVertical: 16,
     position: "absolute",
+    paddingHorizontal: 20,
+    backgroundColor: "#0B0B0B",
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
+  },
+  disclaimer: {
+    fontSize: 12,
+    color: "#666",
+    lineHeight: 18,
+    marginBottom: 12,
+    textAlign: "center",
+    paddingHorizontal: 20,
   },
   modalOverlay: {
     top: 0,
@@ -443,48 +524,48 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 24,
     justifyContent: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    backgroundColor: "rgba(0, 0, 0, 0.85)",
   },
   modalContainer: {
-    padding: 24,
+    padding: 28,
     width: "100%",
-    maxWidth: 380,
-    elevation: 12,
-    borderRadius: 24,
-    borderWidth: 1.5,
-    shadowRadius: 24,
-    shadowOpacity: 0.5,
+    maxWidth: 400,
+    elevation: 20,
+    borderRadius: 28,
+    borderWidth: 1,
+    shadowRadius: 30,
+    shadowOpacity: 0.6,
     shadowColor: "#000",
     backgroundColor: "#1A1A1A",
-    shadowOffset: { width: 0, height: 12 },
-    borderColor: "rgba(255, 255, 255, 0.12)",
+    shadowOffset: { width: 0, height: 16 },
+    borderColor: "rgba(74, 158, 255, 0.2)",
   },
   modalHeader: {
-    marginBottom: 20,
+    marginBottom: 24,
     alignItems: "center",
   },
   modalIconContainer: {
-    width: 64,
-    height: 64,
-    borderWidth: 1,
-    borderRadius: 32,
+    width: 72,
+    height: 72,
+    borderWidth: 2,
+    borderRadius: 36,
     marginBottom: 16,
     alignItems: "center",
     justifyContent: "center",
-    borderColor: "rgba(74, 158, 255, 0.3)",
-    backgroundColor: "rgba(74, 158, 255, 0.15)",
+    borderColor: "rgba(74, 158, 255, 0.4)",
+    backgroundColor: "rgba(74, 158, 255, 0.12)",
   },
   modalTitle: {
-    fontSize: 24,
+    fontSize: 26,
     color: "#fff",
-    marginBottom: 6,
-    fontWeight: "700",
+    marginBottom: 8,
+    fontWeight: "800",
     letterSpacing: -0.5,
     textAlign: "center",
   },
   modalSubtitle: {
-    fontSize: 14,
-    letterSpacing: 1,
+    fontSize: 13,
+    letterSpacing: 0.5,
     fontWeight: "600",
     textTransform: "uppercase",
     color: "rgba(255, 255, 255, 0.5)",
@@ -493,14 +574,14 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   progressCard: {
-    padding: 20,
+    padding: 24,
     borderWidth: 1,
-    borderRadius: 16,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 20,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
   },
   progressCardRow: {
-    marginBottom: 16,
+    marginBottom: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -510,32 +591,56 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   progressCardLabel: {
-    fontSize: 12,
-    marginBottom: 6,
-    fontWeight: "600",
-    letterSpacing: 0.5,
+    fontSize: 11,
+    marginBottom: 8,
+    fontWeight: "700",
+    letterSpacing: 1,
     textTransform: "uppercase",
     color: "rgba(255, 255, 255, 0.5)",
   },
   progressCardValue: {
-    fontSize: 32,
+    fontSize: 36,
     color: "#fff",
-    fontWeight: "800",
-    letterSpacing: -1,
+    fontWeight: "900",
+    letterSpacing: -1.5,
+    marginBottom: 8,
   },
   progressCardValueGoal: {
-    color: "#4A9EFF",
+    color: "#00D4AA",
+  },
+  progressCardBadge: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  progressCardBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  arrowContainer: {
+    paddingHorizontal: 12,
   },
   progressCardDivider: {
     height: 1,
     marginBottom: 16,
     backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
+  progressInsight: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 4,
+  },
+  progressInsightIcon: {
+    marginRight: 8,
+  },
   modalDetailText: {
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "700",
     textAlign: "center",
-    color: "rgba(255, 255, 255, 0.7)",
+    color: "rgba(255, 255, 255, 0.85)",
   },
   modalButtons: {
     gap: 12,
@@ -544,30 +649,31 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    height: 52,
-    borderWidth: 1,
+    height: 56,
+    borderWidth: 1.5,
     borderRadius: 16,
     alignItems: "center",
+    flexDirection: "row",
     justifyContent: "center",
-    borderColor: "rgba(255, 255, 255, 0.12)",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   cancelButtonText: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.7)",
+    fontWeight: "700",
+    color: "rgba(255, 255, 255, 0.8)",
   },
   confirmButton: {
-    flex: 1,
-    height: 52,
-    elevation: 6,
-    shadowRadius: 8,
+    flex: 1.2,
+    height: 56,
+    elevation: 8,
+    shadowRadius: 12,
     borderRadius: 16,
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.4,
     overflow: "hidden",
     shadowColor: "#4A9EFF",
     backgroundColor: "#4A9EFF",
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 6 },
   },
   confirmButtonSolid: {
     gap: 8,
@@ -577,23 +683,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   confirmButtonIcon: {
-    marginRight: -4,
+    marginRight: -2,
   },
   confirmButtonText: {
-    fontSize: 16,
+    fontSize: 17,
     color: "#fff",
-    fontWeight: "700",
-  },
-  bottomSection: {
-    paddingTop: 16,
-    paddingBottom: 20,
-  },
-  disclaimer: {
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 16,
-    textAlign: "center",
-    paddingHorizontal: 10,
-    color: "rgba(255, 255, 255, 0.5)",
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
 });

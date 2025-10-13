@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { supabase } from "../../services/supabase";
 import { useRouter, usePathname } from "expo-router";
 import QuickStart from "../../components/home/QuickStart";
-import NotificationBar from "../../components/NotificationBar";
 import FeaturedVideo from "../../components/home/FeaturedVideo";
 import { HomeDataService } from "../../services/HomeDataService";
 import RecentActivity from "../../components/home/RecentActivity";
@@ -16,8 +15,6 @@ export default function Home() {
 
   // User state
   const [userId, setUserId] = useState(null);
-  const [userName, setUserName] = useState("User");
-  const [notifications, setNotifications] = useState(0);
 
   // Data state
   const [dailyProgress, setDailyProgress] = useState(null);
@@ -38,10 +35,6 @@ export default function Home() {
 
         if (user) {
           setUserId(user.id);
-          // Get user name from metadata or email
-          setUserName(
-            user.user_metadata?.name || user.email?.split("@")[0] || "User"
-          );
         }
       } catch (error) {
         console.error("Error fetching user:", error);
@@ -67,13 +60,11 @@ export default function Home() {
         featuredData,
         activitiesData,
         categoriesData,
-        notificationsData,
       ] = await Promise.all([
         HomeDataService.fetchUserDailyStats(userId),
         HomeDataService.fetchFeaturedContent(),
         HomeDataService.fetchRecentActivities(userId, 4),
         HomeDataService.fetchQuickStartCategories(),
-        HomeDataService.fetchUserNotifications(userId),
       ]);
 
       // Update state with real data
@@ -81,7 +72,6 @@ export default function Home() {
       setFeaturedContent(featuredData);
       setRecentActivities(activitiesData);
       setQuickStartCategories(categoriesData);
-      setNotifications(notificationsData.count);
     } catch (error) {
       console.error("Error loading home data:", error);
       Alert.alert("Error", "Failed to load home data. Please try again.");
@@ -113,12 +103,6 @@ export default function Home() {
   return (
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <View style={styles.headerRow}>
-          <Text style={styles.headerText}>Welcome, {userName}! 💪</Text>
-          <NotificationBar notifications={notifications} />
-        </View>
-
         {/* Loading State */}
         {isLoading ? (
           <HomePageSkeleton />
@@ -169,24 +153,6 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 40,
     paddingHorizontal: 20,
-  },
-  backRow: {
-    top: 60,
-    left: 20,
-    zIndex: 10,
-    position: "absolute",
-  },
-  headerRow: {
-    marginBottom: 20,
-    marginVertical: 60,
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  headerText: {
-    fontSize: 26,
-    color: "#fff",
-    fontWeight: "bold",
   },
   logo: {
     width: 180,
