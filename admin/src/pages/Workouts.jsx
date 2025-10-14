@@ -68,7 +68,6 @@ const Workouts = () => {
     description: '',
     difficulty: 'Beginner',
     duration_minutes: 30,
-    estimated_calories: 200,
     equipment: [],
     muscle_groups: [],
     thumbnail_url: '',
@@ -180,17 +179,31 @@ const Workouts = () => {
   const handleSubmitTemplate = async (e) => {
     e.preventDefault();
     try {
+      // Calculate estimated calories from existing exercises in this template
+      let calculatedCalories = 200; // Default
+      if (editingItem) {
+        const templateExercises = exercises.filter(ex => ex.template_id === editingItem.id);
+        calculatedCalories = templateExercises.reduce((total, ex) => {
+          return total + ((ex.sets || 0) * (ex.calories_per_set || 0));
+        }, 0) || 200;
+      }
+
+      const templateData = {
+        ...templateForm,
+        estimated_calories: calculatedCalories,
+      };
+
       if (editingItem) {
         const { error } = await supabase
           .from('workout_templates')
-          .update(templateForm)
+          .update(templateData)
           .eq('id', editingItem.id);
         
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('workout_templates')
-          .insert([templateForm]);
+          .insert([templateData]);
         
         if (error) throw error;
       }
@@ -226,8 +239,36 @@ const Workouts = () => {
       setEditingItem(null);
       resetExerciseForm();
       await fetchExercises();
+      
+      // Recalculate calories for the parent template
+      if (exerciseForm.template_id) {
+        await updateTemplateCalories(exerciseForm.template_id);
+      }
     } catch (err) {
       alert('Error: ' + err.message);
+    }
+  };
+
+  // Helper function to recalculate template calories
+  const updateTemplateCalories = async (templateId) => {
+    try {
+      const { data: templateExercises } = await supabase
+        .from('workout_exercises')
+        .select('*')
+        .eq('template_id', templateId);
+      
+      const calculatedCalories = templateExercises?.reduce((total, ex) => {
+        return total + ((ex.sets || 0) * (ex.calories_per_set || 0));
+      }, 0) || 200;
+
+      await supabase
+        .from('workout_templates')
+        .update({ estimated_calories: calculatedCalories })
+        .eq('id', templateId);
+      
+      await fetchTemplates(); // Refresh templates list
+    } catch (err) {
+      console.error('Error updating template calories:', err);
     }
   };
 
@@ -254,7 +295,6 @@ const Workouts = () => {
       description: template.description || '',
       difficulty: template.difficulty || 'Beginner',
       duration_minutes: template.duration_minutes || 30,
-      estimated_calories: template.estimated_calories || 200,
       equipment: template.equipment || [],
       muscle_groups: template.muscle_groups || [],
       thumbnail_url: template.thumbnail_url || '',
@@ -309,15 +349,26 @@ const Workouts = () => {
     if (!confirm(`Delete template "${template.name}"? This will also delete all exercises in this template.`)) return;
     
     try {
-      const { error } = await supabase
-        .from('workout_templates')
-        .delete()
-        .eq('id', template.id);
+      // Use the safe delete function to avoid RLS issues
+      const { data, error } = await supabase.rpc('delete_workout_template', {
+        p_template_id: template.id
+      });
       
       if (error) throw error;
+      
+      if (data && !data.success) {
+        throw new Error(data.error || 'Failed to delete template');
+      }
+      
+      // Show success message with details
+      if (data && data.exercises_deleted > 0) {
+        alert(`Template deleted successfully!\n${data.exercises_deleted} exercise(s) removed.`);
+      }
+      
       await fetchTemplates();
       await fetchExercises();
     } catch (err) {
+      console.error('Delete template error:', err);
       alert('Error deleting template: ' + err.message);
     }
   };
@@ -326,6 +377,8 @@ const Workouts = () => {
     if (!confirm(`Delete exercise "${exercise.exercise_name}"?`)) return;
     
     try {
+      const templateId = exercise.template_id;
+      
       const { error } = await supabase
         .from('workout_exercises')
         .delete()
@@ -333,6 +386,11 @@ const Workouts = () => {
       
       if (error) throw error;
       await fetchExercises();
+      
+      // Recalculate template calories after deletion
+      if (templateId) {
+        await updateTemplateCalories(templateId);
+      }
     } catch (err) {
       alert('Error deleting exercise: ' + err.message);
     }
@@ -357,7 +415,6 @@ const Workouts = () => {
       description: '',
       difficulty: 'Beginner',
       duration_minutes: 30,
-      estimated_calories: 200,
       equipment: [],
       muscle_groups: [],
       thumbnail_url: '',
@@ -1506,13 +1563,16 @@ const Workouts = () => {
                           <Flame className="h-3.5 w-3.5 text-gray-500" />
                           Estimated Calories
                         </label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={templateForm.estimated_calories}
-                          onChange={(e) => setTemplateForm({ ...templateForm, estimated_calories: parseInt(e.target.value) || 200 })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        />
+                        <div className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 flex items-center justify-between">
+                          <span>
+                            {editingItem 
+                              ? exercises.filter(e => e.template_id === editingItem.id).reduce((total, ex) => total + ((ex.sets || 0) * (ex.calories_per_set || 0)), 0) || 200
+                              : 200
+                            }
+                          </span>
+                          <span className="text-xs text-gray-500 font-normal">Auto-calculated</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Based on exercises (sets × calories/set)</p>
                       </div>
                     </div>
 

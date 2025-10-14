@@ -73,10 +73,13 @@ export default function Training() {
     try {
       setIsLoading(true);
 
-      // Fetch workout categories from Supabase
+      // Fetch workout categories with template counts from Supabase
       const { data: categoriesData, error: categoriesError } = await supabase
         .from("workout_categories")
-        .select("*")
+        .select(`
+          *,
+          workout_templates:workout_templates(count)
+        `)
         .eq("is_active", true)
         .order("display_order", { ascending: true });
 
@@ -84,6 +87,14 @@ export default function Training() {
         console.error("Error fetching workout categories:", categoriesError);
         throw categoriesError;
       }
+
+      // Filter out categories with 0 templates and format the data
+      const categoriesWithTemplates = categoriesData
+        ?.map(category => ({
+          ...category,
+          workout_count: category.workout_templates?.[0]?.count || 0
+        }))
+        .filter(category => category.workout_count > 0) || [];
 
       // Load other training data in parallel
       const [
@@ -105,7 +116,7 @@ export default function Training() {
       setWorkoutProgress(progressData);
       setContinueWorkout(continueData);
       setTodaysWorkout(todaysData);
-      setWorkoutCategories(categoriesData || []);
+      setWorkoutCategories(categoriesWithTemplates);
       setRecentWorkouts(recentData);
     } catch (error) {
       console.error("Error loading training data:", error);

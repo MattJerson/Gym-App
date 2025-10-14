@@ -56,9 +56,74 @@ const FeaturedContent = () => {
     display_order: 0
   });
 
+  // Auto-shuffle state
+  const [shuffleSettings, setShuffleSettings] = useState(null);
+  const [shuffling, setShuffling] = useState(false);
+
   useEffect(() => {
     fetchFeaturedContent();
+    fetchShuffleSettings();
   }, []);
+
+  const fetchShuffleSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('featured_content_settings')
+        .select('*')
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.error('Error fetching shuffle settings:', error);
+        return;
+      }
+      setShuffleSettings(data);
+    } catch (err) {
+      console.error('Error fetching shuffle settings:', err);
+    }
+  };
+
+  const toggleAutoShuffle = async () => {
+    try {
+      const newValue = !shuffleSettings?.auto_shuffle_enabled;
+      
+      const { error } = await supabase
+        .from('featured_content_settings')
+        .update({ 
+          auto_shuffle_enabled: newValue,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', shuffleSettings.id);
+
+      if (error) throw error;
+      
+      setShuffleSettings(prev => ({ ...prev, auto_shuffle_enabled: newValue }));
+    } catch (err) {
+      alert('Error updating shuffle settings: ' + err.message);
+    }
+  };
+
+  const handleManualShuffle = async () => {
+    if (!confirm('Shuffle all active featured content now?')) return;
+    
+    try {
+      setShuffling(true);
+      
+      // Call the shuffle function
+      const { data, error } = await supabase
+        .rpc('shuffle_featured_content');
+
+      if (error) throw error;
+      
+      alert('Content shuffled successfully!');
+      await fetchFeaturedContent();
+      await fetchShuffleSettings();
+    } catch (err) {
+      alert('Error shuffling content: ' + err.message);
+    } finally {
+      setShuffling(false);
+    }
+  };
 
   const fetchFeaturedContent = async () => {
     try {
@@ -293,6 +358,65 @@ const FeaturedContent = () => {
             color="green"
             subtitle="Content types"
           />
+        </div>
+
+        {/* Auto-Shuffle Control Panel */}
+        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200 p-5 mb-5 shadow-sm">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center gap-4">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="p-3 bg-white rounded-lg shadow-sm">
+                <Sparkles className="h-6 w-6 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  Auto-Shuffle Content
+                  {shuffleSettings?.auto_shuffle_enabled && (
+                    <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
+                      Active
+                    </span>
+                  )}
+                </h3>
+                <p className="text-xs text-gray-600 mt-1">
+                  {shuffleSettings?.auto_shuffle_enabled 
+                    ? `Automatically shuffles active content daily. Last shuffle: ${
+                        shuffleSettings?.last_shuffle_date 
+                          ? new Date(shuffleSettings.last_shuffle_date).toLocaleDateString()
+                          : 'Never'
+                      }`
+                    : 'Enable to automatically randomize content order every day'}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              {/* Toggle Switch */}
+              <button
+                onClick={toggleAutoShuffle}
+                disabled={!shuffleSettings}
+                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                  shuffleSettings?.auto_shuffle_enabled 
+                    ? 'bg-purple-600' 
+                    : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                    shuffleSettings?.auto_shuffle_enabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+
+              {/* Manual Shuffle Button */}
+              <button
+                onClick={handleManualShuffle}
+                disabled={shuffling}
+                className="px-4 py-2 bg-white border border-purple-300 text-purple-700 rounded-lg text-sm font-semibold hover:bg-purple-50 hover:border-purple-400 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <Sparkles className={`h-4 w-4 ${shuffling ? 'animate-spin' : ''}`} />
+                {shuffling ? 'Shuffling...' : 'Shuffle Now'}
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Search and Filter Section */}

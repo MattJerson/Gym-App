@@ -328,6 +328,55 @@ export default function SubscriptionPackages() {
         console.error("Payment failed:", paymentError);
       } else {
         console.log("Payment successful ✅");
+        
+        // Create subscription record in database after successful payment
+        try {
+          const { data: packageData, error: pkgError } = await supabase
+            .from("subscription_packages")
+            .select("id")
+            .eq("slug", subscription.slug)
+            .single();
+
+          if (pkgError) {
+            console.error("Error fetching package for subscription:", pkgError);
+          } else if (packageData) {
+            const startDate = new Date();
+            const endDate = new Date();
+            
+            // Calculate expiration based on billing interval
+            if (subscription.billing_interval === 'month') {
+              endDate.setMonth(endDate.getMonth() + 1);
+            } else if (subscription.billing_interval === 'year') {
+              endDate.setFullYear(endDate.getFullYear() + 1);
+            } else if (subscription.billing_interval === 'one_time') {
+              endDate.setFullYear(endDate.getFullYear() + 100); // Lifetime
+            }
+
+            const { data: subscriptionId, error: subError } = await supabase.rpc(
+              'create_user_subscription',
+              {
+                p_user_id: user.id,
+                p_package_id: packageData.id,
+                p_started_at: startDate.toISOString(),
+                p_expires_at: endDate.toISOString()
+              }
+            );
+
+            if (subError) {
+              console.error("Failed to create subscription record:", subError);
+              Alert.alert(
+                "Warning",
+                "Payment successful but subscription tracking failed. Please contact support."
+              );
+            } else {
+              console.log("Subscription record created in database ✅");
+            }
+          }
+        } catch (dbError) {
+          console.error("Database error after payment:", dbError);
+          // Still navigate since payment succeeded
+        }
+        
         router.push("/page/home");
       }
     } catch (err) {
