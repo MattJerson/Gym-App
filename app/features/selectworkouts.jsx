@@ -148,14 +148,18 @@ export default function SelectWorkouts() {
       }
 
       // Save selected workouts to database
-      const workoutInserts = selectedWorkouts.map(templateId => ({
+      // Get workout details for the selected workouts
+      const selectedWorkoutData = workouts.filter(w => selectedWorkouts.includes(w.id));
+      
+      const workoutInserts = selectedWorkoutData.map(workout => ({
         user_id: user.id,
-        workout_template_id: templateId,
-        selected_at: new Date().toISOString(),
+        template_id: workout.id,
+        workout_name: workout.name,
+        workout_type: 'Pre-Made',
       }));
 
       const { error: insertError } = await supabase
-        .from("user_selected_workouts")
+        .from("user_saved_workouts")
         .insert(workoutInserts);
 
       if (insertError) {

@@ -178,30 +178,30 @@ const Analytics = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
             icon={Users}
-            label="User Engagement"
+            title="User Engagement"
             value={`${analytics.userEngagement}%`}
-            trend={5.2}
+            subtitle="Active users in selected period"
             color="blue"
           />
           <StatsCard
             icon={Target}
-            label="Workout Completion"
+            title="Workout Completion"
             value={`${analytics.workoutCompletion}%`}
-            trend={3.1}
+            subtitle="Successfully finished workouts"
             color="green"
           />
           <StatsCard
             icon={Clock}
-            label="Average Session"
+            title="Average Session"
             value={`${analytics.avgSession}m`}
-            trend={-8.7}
+            subtitle="Time spent per workout"
             color="purple"
           />
           <StatsCard
             icon={Activity}
-            label="Retention Rate"
+            title="Retention Rate"
             value={`${analytics.retentionRate}%`}
-            trend={1.8}
+            subtitle="Users returning to platform"
             color="orange"
           />
         </div>

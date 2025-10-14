@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase, checkAdminRole } from '../lib/supabase';
-import StatCard from '../components/dashboard/StatCard';
+import StatsCard from '../components/common/StatsCard';
 import RecentActivityCard from '../components/dashboard/RecentActivityCard';
 import QuickStatsGrid from '../components/dashboard/QuickStatsGrid';
 import TopItemsCard from '../components/dashboard/TopItemsCard';
@@ -346,45 +346,33 @@ const Dashboard = () => {
 
         {/* Main Stats Grid - Compact */}
         <div className="admin-grid-4 mb-4">
-          <StatCard
+          <StatsCard
             title="Total Users"
             value={dashboardData.totalUsers.toLocaleString()}
             icon={Users}
             color="blue"
-            change={dashboardData.userGrowth}
-            changeLabel={`${dashboardData.userGrowth > 0 ? '+' : ''}${dashboardData.userGrowth}% vs last month`}
-            subMetric={`${dashboardData.newUsersThisMonth} new this month`}
-            loading={loading}
+            subtitle={`${dashboardData.newUsersThisMonth} new this month • ${dashboardData.userGrowth > 0 ? '+' : ''}${dashboardData.userGrowth}% growth`}
           />
-          <StatCard
+          <StatsCard
             title="Active Subscriptions"
             value={dashboardData.activeSubscriptions.toLocaleString()}
             icon={Crown}
             color="purple"
-            change={dashboardData.subsGrowth}
-            changeLabel={`${dashboardData.subsGrowth > 0 ? '+' : ''}${dashboardData.subsGrowth}% growth`}
-            subMetric={`${dashboardData.conversionRate}% conversion rate`}
-            loading={loading}
+            subtitle={`${dashboardData.conversionRate}% conversion rate • ${dashboardData.subsGrowth > 0 ? '+' : ''}${dashboardData.subsGrowth}% growth`}
           />
-          <StatCard
+          <StatsCard
             title="Workouts This Month"
             value={dashboardData.totalWorkouts.toLocaleString()}
             icon={Dumbbell}
             color="orange"
-            change={dashboardData.workoutGrowth}
-            changeLabel={`${dashboardData.workoutGrowth > 0 ? '+' : ''}${dashboardData.workoutGrowth}% vs last month`}
-            subMetric={`${dashboardData.engagementRate}% user engagement`}
-            loading={loading}
+            subtitle={`${dashboardData.engagementRate}% user engagement • ${dashboardData.workoutGrowth > 0 ? '+' : ''}${dashboardData.workoutGrowth}% growth`}
           />
-          <StatCard
+          <StatsCard
             title="Meals Logged (7d)"
             value={dashboardData.totalMeals.toLocaleString()}
             icon={Apple}
             color="green"
-            change={15}
-            changeLabel="+15% vs last week"
-            subMetric="Nutrition tracking active"
-            loading={loading}
+            subtitle="Nutrition tracking active • +15% vs last week"
           />
         </div>
 

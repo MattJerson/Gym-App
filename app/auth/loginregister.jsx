@@ -94,7 +94,7 @@ const determineNextOnboardingStep = async (profile, userId) => {
   // Check if user has selected workouts
   try {
     const { data: userWorkouts } = await supabase
-      .from("user_selected_workouts")
+      .from("user_saved_workouts")
       .select("id")
       .eq("user_id", userId)
       .limit(1);

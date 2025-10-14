@@ -389,11 +389,17 @@ export default function BasicInfo() {
               fitnessLevel: existingProfile.fitness_level || "",
               trainingLocation: existingProfile.training_location || "",
               trainingDuration: existingProfile.training_duration?.toString() || "",
-              muscleFocus: existingProfile.muscle_focus || [],
-              injuries: existingProfile.injuries || "",
+              muscleFocus: Array.isArray(existingProfile.muscle_focus) 
+                ? existingProfile.muscle_focus 
+                : [],
+              injuries: Array.isArray(existingProfile.injuries) 
+                ? existingProfile.injuries 
+                : [],
               trainingFrequency: existingProfile.training_frequency || "",
               mealType: existingProfile.meal_type || "",
-              restrictions: existingProfile.restrictions || [],
+              restrictions: Array.isArray(existingProfile.restrictions) 
+                ? existingProfile.restrictions 
+                : [],
               mealsPerDay: existingProfile.meals_per_day?.toString() || "",
               calorieGoal: existingProfile.calorie_goal?.toString() || "",
               favoriteFoods: Array.isArray(existingProfile.favorite_foods) 

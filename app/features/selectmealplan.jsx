@@ -223,7 +223,16 @@ export default function SelectMealPlan() {
         Alert.alert("Error", "You must be signed in to complete onboarding.");
         setIsCompleting(false);
         return;
-      } // Get locally saved data
+      }
+      
+      // Check if bodyfat data already exists in database
+      const { data: existingBodyfat } = await supabase
+        .from("bodyfat_profiles")
+        .select("current_body_fat, goal_body_fat")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      // Get locally saved data
       const regRaw = await AsyncStorage.getItem("onboarding:registration");
       const bodyRaw = await AsyncStorage.getItem("onboarding:bodyfat");
       const workoutsRaw = await AsyncStorage.getItem(
@@ -231,7 +240,7 @@ export default function SelectMealPlan() {
       );
 
       const registration = regRaw ? JSON.parse(regRaw) : {};
-      const bodyfat = bodyRaw ? JSON.parse(bodyRaw) : null;
+      const bodyfatFromStorage = bodyRaw ? JSON.parse(bodyRaw) : null;
       const selectedWorkouts = workoutsRaw ? JSON.parse(workoutsRaw) : [];
 
       console.log("=== SELECTMEALPLAN DEBUG ===");
@@ -240,6 +249,16 @@ export default function SelectMealPlan() {
         "Has registration data?",
         Object.keys(registration).length > 0
       );
+      console.log("Bodyfat from database:", existingBodyfat);
+      console.log("Bodyfat from AsyncStorage:", bodyfatFromStorage);
+
+      // Use bodyfat from database if it exists, otherwise from AsyncStorage
+      const bodyfat = existingBodyfat 
+        ? {
+            currentBodyFat: existingBodyfat.current_body_fat,
+            goalBodyFat: existingBodyfat.goal_body_fat,
+          }
+        : bodyfatFromStorage;
 
       if (!bodyfat) {
         Alert.alert(
