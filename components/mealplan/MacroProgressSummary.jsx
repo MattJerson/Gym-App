@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Svg, { Path, Circle } from "react-native-svg";
-import { supabase } from "../../services/supabase";
 
 // Helper functions remain the same
 const describeArc = (x, y, radius, startAngle, endAngle) => {
@@ -38,67 +37,29 @@ const Arc = ({ radius, progress, startAngle, totalAngle, color }) => {
   );
 };
 
-export default function MacroProgressSummary({ macroGoals, selectedDate }) {
-  const [activePlan, setActivePlan] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  // Fetch user's active meal plan on mount
-  useEffect(() => {
-    fetchActiveMealPlan();
-  }, []);
-
-  const fetchActiveMealPlan = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('v_active_meal_plans')
-        .select('daily_calories, daily_protein, daily_carbs, daily_fats')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // No active plan - use default goals
-          setActivePlan(null);
-        } else {
-          console.error("❌ Error fetching active meal plan:", error);
-        }
-      } else {
-        setActivePlan(data);
-      }
-    } catch (error) {
-      console.error("❌ Error in fetchActiveMealPlan:", error);
-    } finally {
-      setLoading(false);
-    }
+export default function MacroProgressSummary({ macroGoals, selectedDate, activePlan }) {
+  // Use targets directly from macroGoals prop (already fetched by parent with correct view)
+  const targets = {
+    calories: macroGoals?.calories?.target || 2200,
+    protein: macroGoals?.protein?.target || 140,
+    carbs: macroGoals?.carbs?.target || 200,
+    fats: macroGoals?.fats?.target || 85,
   };
-
-  // Use active plan targets if available, otherwise use macroGoals prop or defaults
-  const getTargets = () => {
-    if (activePlan) {
-      return {
-        calories: activePlan.daily_calories,
-        protein: activePlan.daily_protein,
-        carbs: activePlan.daily_carbs,
-        fats: activePlan.daily_fats,
-      };
-    }
-    
-    // Fallback to macroGoals prop or defaults
-    return {
-      calories: macroGoals?.calories?.target || 2200,
-      protein: macroGoals?.protein?.target || 140,
-      carbs: macroGoals?.carbs?.target || 200,
-      fats: macroGoals?.fats?.target || 85,
+  
+  // Determine plan type color
+  const getPlanColor = (planType) => {
+    const colors = {
+      'weight_loss': '#00D4AA',
+      'bulking': '#FF6B35',
+      'cutting': '#007AFF',
+      'maintenance': '#FFB300',
+      'keto': '#8E44AD',
+      'vegan': '#4CAF50',
     };
+    return colors[planType] || '#00D4AA';
   };
-
-  const targets = getTargets();
+  
+  const planColor = activePlan ? getPlanColor(activePlan.plan_type) : '#00D4AA';
   const { calories, protein, carbs, fats } = macroGoals;
 
   const carbsProgress = Math.min(carbs.current / targets.carbs, 1);
@@ -153,13 +114,13 @@ export default function MacroProgressSummary({ macroGoals, selectedDate }) {
 
   return (
     <View style={styles.outerContainer}>
-      {/* Header Section - Only show Meal Plan Active badge */}
+      {/* Plan Indicator - Show when meal plan is active */}
       {activePlan && (
-        <View style={styles.headerSection}>
-          <View style={styles.planActiveBadge}>
-            <Text style={styles.planActiveDot}>●</Text>
-            <Text style={styles.planActiveText}>Meal Plan Active</Text>
-          </View>
+        <View style={styles.planIndicator}>
+          <View style={[styles.planIndicatorDot, { backgroundColor: planColor }]} />
+          <Text style={styles.planIndicatorText}>
+            Tracking with <Text style={[styles.planIndicatorName, { color: planColor }]}>{activePlan.plan_name}</Text>
+          </Text>
         </View>
       )}
 
@@ -244,33 +205,33 @@ const styles = StyleSheet.create({
   outerContainer: {
     marginBottom: 25,
   },
-  headerSection: {
-    flexDirection: "row",
-    justifyContent: "flex-start",
-    alignItems: "center",
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
-  planActiveBadge: {
+  planIndicator: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: "rgba(142, 68, 173, 0.15)",
-    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 20,
+    alignSelf: "flex-start",
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: "rgba(142, 68, 173, 0.3)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
-  planActiveDot: {
-    fontSize: 8,
-    color: "#8e44ad",
-    marginRight: 4,
+  planIndicatorDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
   },
-  planActiveText: {
-    fontSize: 10,
-    color: "#8e44ad",
+  planIndicatorText: {
+    fontSize: 11,
     fontWeight: "600",
-    letterSpacing: 0.3,
+    color: "#888",
+    letterSpacing: 0.2,
+  },
+  planIndicatorName: {
+    fontWeight: "800",
+    letterSpacing: -0.2,
   },
   card: {
     paddingVertical: 25,

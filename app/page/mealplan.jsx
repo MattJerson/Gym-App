@@ -257,16 +257,57 @@ export default function Mealplan() {
   const handleViewDetails = () => {
     if (!currentPlan) return;
 
+    // Build details message with personalized info if available
+    let detailsMessage = `Type: ${formatPlanType(currentPlan.plan_type)}\n\n`;
+    
+    // Show BMR/TDEE if available (from dynamic calculation)
+    if (currentPlan.bmr && currentPlan.tdee) {
+      detailsMessage += `🔥 Your Metabolism:\n`;
+      detailsMessage += `BMR: ${Math.round(currentPlan.bmr)} kcal\n`;
+      detailsMessage += `TDEE: ${Math.round(currentPlan.tdee)} kcal\n`;
+      
+      if (currentPlan.calorie_adjustment_percent !== undefined) {
+        const adjustmentPercent = (currentPlan.calorie_adjustment_percent * 100).toFixed(0);
+        const adjustmentType = adjustmentPercent > 0 ? 'surplus' : adjustmentPercent < 0 ? 'deficit' : 'maintenance';
+        detailsMessage += `Strategy: ${adjustmentPercent > 0 ? '+' : ''}${adjustmentPercent}% ${adjustmentType}\n\n`;
+      }
+    }
+    
+    detailsMessage += `Daily Targets:\n`;
+    detailsMessage += `Calories: ${currentPlan.daily_calories} kcal\n`;
+    detailsMessage += `Protein: ${currentPlan.daily_protein}g`;
+    
+    if (currentPlan.protein_percent) {
+      detailsMessage += ` (${currentPlan.protein_percent}%)`;
+    }
+    
+    detailsMessage += `\nCarbs: ${currentPlan.daily_carbs}g`;
+    
+    if (currentPlan.carbs_percent) {
+      detailsMessage += ` (${currentPlan.carbs_percent}%)`;
+    }
+    
+    detailsMessage += `\nFats: ${currentPlan.daily_fats}g`;
+    
+    if (currentPlan.fat_percent) {
+      detailsMessage += ` (${currentPlan.fat_percent}%)`;
+    }
+    
+    if (currentPlan.duration_weeks) {
+      detailsMessage += `\n\nDuration: ${currentPlan.duration_weeks} weeks`;
+    }
+    
+    if (currentPlan.progress_percentage !== undefined) {
+      detailsMessage += `\nProgress: ${currentPlan.progress_percentage.toFixed(1)}%`;
+    }
+    
+    if (currentPlan.adherence_score !== undefined) {
+      detailsMessage += `\nAdherence: ${currentPlan.adherence_score.toFixed(1)}%`;
+    }
+
     Alert.alert(
       currentPlan.plan_name,
-      `Type: ${formatPlanType(currentPlan.plan_type)}\n\n` +
-        `Calories: ${currentPlan.daily_calories} kcal\n` +
-        `Protein: ${currentPlan.daily_protein}g\n` +
-        `Carbs: ${currentPlan.daily_carbs}g\n` +
-        `Fats: ${currentPlan.daily_fats}g\n\n` +
-        `Duration: ${currentPlan.duration_weeks} weeks\n` +
-        `Progress: ${currentPlan.progress_percentage?.toFixed(1)}%\n` +
-        `Adherence: ${currentPlan.adherence_score?.toFixed(1)}%`,
+      detailsMessage,
       [{ text: "OK" }]
     );
   };
@@ -322,6 +363,7 @@ export default function Mealplan() {
               <MacroProgressSummary
                 macroGoals={macroGoals}
                 selectedDate={selectedDate}
+                activePlan={currentPlan}
               />
             )}
 

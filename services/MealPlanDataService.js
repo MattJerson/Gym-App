@@ -22,9 +22,8 @@ export const MealPlanDataService = {
       // Get actual totals from meal logs
       const totals = await this.getDailyMacroTotals(userId, date);
 
-      // TODO: Get user's macro goals from user profile table
-      // For now using default goals
-      const goals = {
+      // 🔥 Get user's active meal plan with personalized targets
+      let goals = {
         calories: 2200,
         protein: 140,
         carbs: 200,
@@ -32,6 +31,29 @@ export const MealPlanDataService = {
         fiber: 30,
         sugar: 60
       };
+
+      try {
+        // Try to fetch from the dynamic calculation view
+        const { data: planData, error: planError } = await supabase
+          .from('user_meal_plan_calculations')
+          .select('daily_calories, daily_protein, daily_carbs, daily_fats')
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (!planError && planData) {
+          // Use personalized values from the dynamic calculation
+          goals.calories = planData.daily_calories || goals.calories;
+          goals.protein = planData.daily_protein || goals.protein;
+          goals.carbs = planData.daily_carbs || goals.carbs;
+          goals.fats = planData.daily_fats || goals.fats;
+          console.log(`✅ Using personalized macro goals: ${goals.calories} cal`);
+        } else {
+          console.log('⚠️ No active meal plan, using default goals');
+        }
+      } catch (err) {
+        console.log('⚠️ Could not fetch personalized goals, using defaults:', err.message);
+      }
 
       return {
         calories: { 
@@ -1042,18 +1064,23 @@ export const MealPlanDataService = {
    */
   async getUserActivePlan(userId) {
     try {
+      // 🔥 Use the dynamic calculation view for personalized values
       const { data, error } = await supabase
-        .from('v_active_meal_plans')
+        .from('user_meal_plan_calculations')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .eq('is_active', true)
+        .maybeSingle();
 
       if (error) {
-        if (error.code === 'PGRST116') {
-          // No active plan found
-          return null;
-        }
-        throw error;
+        console.error("❌ Error fetching user active plan:", error);
+        return null;
+      }
+
+      if (data) {
+        console.log(`✅ Loaded personalized meal plan: ${data.plan_name} (${data.daily_calories} cal)`);
+      } else {
+        console.log('ℹ️ No active meal plan found for user');
       }
 
       return data;

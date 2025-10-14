@@ -78,8 +78,45 @@ export default function SelectMealPlan() {
 
       console.log("Loaded meal plans:", data?.length || 0);
 
+      // 🔥 Calculate personalized values for each plan using the dynamic function
+      const plansWithPersonalization = await Promise.all(
+        (data || []).map(async (plan) => {
+          let personalizedPlan = { ...plan };
+          
+          // If user is logged in and plan is dynamic, get personalized values
+          if (user && plan.is_dynamic) {
+            try {
+              const { data: calcData, error: calcError } = await supabase
+                .rpc('calculate_user_meal_plan', {
+                  p_user_id: user.id,
+                  p_plan_id: plan.id
+                });
+
+              if (!calcError && calcData && calcData.length > 0) {
+                const personalized = calcData[0];
+                // Override static values with personalized calculations
+                personalizedPlan.daily_calories = personalized.daily_calories;
+                personalizedPlan.daily_protein = personalized.daily_protein;
+                personalizedPlan.daily_carbs = personalized.daily_carbs;
+                personalizedPlan.daily_fats = personalized.daily_fats;
+                personalizedPlan.bmr = personalized.bmr;
+                personalizedPlan.tdee = personalized.tdee;
+                personalizedPlan.is_personalized = true;
+                
+                console.log(`✅ Personalized ${plan.name}: ${personalized.daily_calories} cal (TDEE: ${Math.round(personalized.tdee)})`);
+              }
+            } catch (calcError) {
+              console.error(`Failed to calculate personalized values for ${plan.name}:`, calcError);
+              // Fall back to static values - no error shown to user
+            }
+          }
+
+          return personalizedPlan;
+        })
+      );
+
       // Calculate recommendation scores for each plan
-      const plansWithScores = (data || []).map((plan) => {
+      const plansWithScores = plansWithPersonalization.map((plan) => {
         let score = 0;
 
         if (userPrefs) {
@@ -667,7 +704,14 @@ export default function SelectMealPlan() {
                           />
                         </View>
                         <View style={styles.headerContent}>
-                          <Text style={styles.planName}>{plan.name}</Text>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <Text style={styles.planName}>{plan.name}</Text>
+                            {plan.is_personalized && (
+                              <View style={styles.personalizedBadge}>
+                                <Ionicons name="person" size={10} color="#00D4AA" />
+                              </View>
+                            )}
+                          </View>
                           <View
                             style={[
                               styles.typeBadge,
@@ -689,6 +733,15 @@ export default function SelectMealPlan() {
                       <Text style={styles.planDescription}>
                         {plan.description}
                       </Text>
+
+                      {plan.is_personalized && plan.bmr && (
+                        <View style={styles.personalizationInfo}>
+                          <Ionicons name="calculator" size={14} color="#00D4AA" />
+                          <Text style={styles.personalizationText}>
+                            Personalized: BMR {Math.round(plan.bmr)} • TDEE {Math.round(plan.tdee)}
+                          </Text>
+                        </View>
+                      )}
 
                       <View style={styles.macroContainer}>
                         <View style={styles.macroItem}>
@@ -1094,5 +1147,28 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#fff",
     fontWeight: "700",
+  },
+  personalizedBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0, 212, 170, 0.2)",
+  },
+  personalizationInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginBottom: 12,
+    borderRadius: 8,
+    backgroundColor: "rgba(0, 212, 170, 0.1)",
+  },
+  personalizationText: {
+    fontSize: 12,
+    color: "#00D4AA",
+    fontWeight: "600",
   },
 });

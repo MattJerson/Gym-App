@@ -229,12 +229,11 @@ const formConfig = [
       },
       {
         key: "calorieGoal",
-        label: "What is your daily calorie goal?",
-        type: "text",
-        placeholder: "Daily Calorie Goal",
-        keyboardType: "numeric",
-        validation: { min: 800, max: 5000, required: true },
-        returnKeyType: "next",
+        label: "Your Recommended Daily Calories",
+        type: "calculated",
+        placeholder: "Calculated based on your profile",
+        helpText: "Based on your BMR (Basal Metabolic Rate) and activity level",
+        readOnly: true,
       },
       {
         key: "mealsPerDay",
@@ -264,8 +263,66 @@ const formConfig = [
   },
 ];
 
+// Calculate BMR and TDEE based on user data
+const calculateDailyCalories = (formData) => {
+  const { gender, age, height, weight, activityLevel, useMetric } = formData;
+
+  // Return null if required fields are missing
+  if (!gender || !age || !height || !weight || !activityLevel) {
+    return null;
+  }
+
+  const ageNum = parseInt(age, 10);
+  const heightNum = parseFloat(height);
+  const weightNum = parseFloat(weight);
+
+  if (isNaN(ageNum) || isNaN(heightNum) || isNaN(weightNum)) {
+    return null;
+  }
+
+  // Convert to metric if needed
+  const heightCm = useMetric ? heightNum : heightNum * 2.54; // inches to cm
+  const weightKg = useMetric ? weightNum : weightNum * 0.453592; // lbs to kg
+
+  // Calculate BMR using Mifflin-St Jeor equation
+  let bmr;
+  if (gender === 'male') {
+    bmr = (10 * weightKg) + (6.25 * heightCm) - (5 * ageNum) + 5;
+  } else if (gender === 'female') {
+    bmr = (10 * weightKg) + (6.25 * heightCm) - (5 * ageNum) - 161;
+  } else {
+    // For "other", use average of male and female
+    const maleBmr = (10 * weightKg) + (6.25 * heightCm) - (5 * ageNum) + 5;
+    const femaleBmr = (10 * weightKg) + (6.25 * heightCm) - (5 * ageNum) - 161;
+    bmr = (maleBmr + femaleBmr) / 2;
+  }
+
+  // Apply activity multiplier
+  const activityMultipliers = {
+    sedentary: 1.2,
+    light: 1.375,
+    moderate: 1.55,
+    active: 1.725,
+    very_active: 1.9,
+  };
+
+  const multiplier = activityMultipliers[activityLevel] || 1.55;
+  const tdee = bmr * multiplier;
+
+  return {
+    bmr: Math.round(bmr),
+    tdee: Math.round(tdee),
+    recommended: Math.round(tdee), // Default recommendation is maintenance (TDEE)
+  };
+};
+
 // Validation utilities
 const validateField = (field, value, useMetric = true) => {
+  // Skip validation for calculated fields
+  if (field.type === "calculated") {
+    return null;
+  }
+
   // Check if field is required (can be set at field level or in validation)
   const isRequired = field.required || field.validation?.required;
 
@@ -354,6 +411,27 @@ export default function BasicInfo() {
 
   // Input refs for navigation
   const inputRefs = useRef({});
+
+  // Auto-calculate daily calories when relevant fields change
+  useEffect(() => {
+    const calories = calculateDailyCalories(formData);
+    if (calories && calories.recommended) {
+      // Only update if the value actually changed to avoid infinite loops
+      if (formData.calorieGoal !== calories.recommended.toString()) {
+        setFormData((prev) => ({
+          ...prev,
+          calorieGoal: calories.recommended.toString(),
+        }));
+      }
+    }
+  }, [
+    formData.gender,
+    formData.age,
+    formData.height,
+    formData.weight,
+    formData.activityLevel,
+    formData.useMetric,
+  ]);
 
   // Hydrate saved progress on mount (prioritize database data over AsyncStorage)
   useEffect(() => {

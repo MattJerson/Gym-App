@@ -4,6 +4,7 @@ import TextField from "./fields/TextField";
 import DropdownField from "./fields/DropdownField";
 import SwitchField from "./fields/SwitchField";
 import MultiButtonField from "./fields/MultiButtonField";
+import CalculatedField from "./fields/CalculatedField";
 
 export default function FormStep({
   step,
@@ -75,6 +76,13 @@ export default function FormStep({
             {...commonProps}
             onChange={(value) => handleInputChange(field.key, value)}
             onPress={onHapticFeedback}
+          />
+        );
+
+      case "calculated":
+        return (
+          <CalculatedField
+            {...commonProps}
           />
         );
 
