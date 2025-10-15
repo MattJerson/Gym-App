@@ -18,7 +18,18 @@ import {
   Play,
   BookOpen,
   Award,
-  Sparkles
+  Sparkles,
+  Download,
+  Clock,
+  Link as LinkIcon,
+  RefreshCw,
+  CheckCircle,
+  AlertCircle,
+  Book,
+  Newspaper,
+  FileVideo,
+  Edit2,
+  X
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import PageHeader from '../components/common/PageHeader';
@@ -27,6 +38,13 @@ import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Badge from '../components/common/Badge';
 import StatsCard from '../components/common/StatsCard';
+
+// YouTube API Key - Add this to your .env file
+const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY || 'YOUR_API_KEY';
+
+// Debug: Log API key status (remove in production)
+console.log('YouTube API Key loaded:', YOUTUBE_API_KEY !== 'YOUR_API_KEY' ? '✅ Yes' : '❌ No');
+console.log('API Key value:', YOUTUBE_API_KEY?.substring(0, 10) + '...');
 
 const FeaturedContent = () => {
   const [contents, setContents] = useState([]);
@@ -53,8 +71,27 @@ const FeaturedContent = () => {
     category: 'Education',
     duration: '',
     is_active: true,
-    display_order: 0
+    display_order: 0,
+    // New fields
+    video_id: '',
+    channel_name: '',
+    view_count: 0,
+    published_at: null,
+    tags: [],
+    description: '',
+    article_excerpt: '',
+    read_time_minutes: 0,
+    ebook_file_url: '',
+    ebook_page_count: 0,
+    ebook_file_size_mb: 0,
+    ebook_isbn: '',
+    auto_fetched: false
   });
+
+  // Auto-fetch state
+  const [isFetching, setIsFetching] = useState(false);
+  const [fetchError, setFetchError] = useState(null);
+  const [manualMode, setManualMode] = useState(false); // NEW: Manual entry mode
 
   // Auto-shuffle state
   const [shuffleSettings, setShuffleSettings] = useState(null);
@@ -64,6 +101,169 @@ const FeaturedContent = () => {
     fetchFeaturedContent();
     fetchShuffleSettings();
   }, []);
+
+  // Extract YouTube video ID from URL
+  const extractYouTubeVideoId = (url) => {
+    if (!url) return null;
+    
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+      /youtube\.com\/v\/([a-zA-Z0-9_-]{11})/
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) return match[1];
+    }
+    
+    return null;
+  };
+
+  // Fetch YouTube video metadata
+  const fetchYouTubeMetadata = async (videoId) => {
+    try {
+      setIsFetching(true);
+      setFetchError(null);
+
+      const response = await fetch(
+        `https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${videoId}&key=${YOUTUBE_API_KEY}`
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch YouTube data');
+      }
+
+      const data = await response.json();
+
+      if (!data.items || data.items.length === 0) {
+        throw new Error('Video not found');
+      }
+
+      const video = data.items[0];
+      const snippet = video.snippet;
+      const statistics = video.statistics;
+      const contentDetails = video.contentDetails;
+
+      // Parse ISO 8601 duration (PT#M#S) to readable format
+      const durationMatch = contentDetails.duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+      const hours = durationMatch[1] ? parseInt(durationMatch[1]) : 0;
+      const minutes = durationMatch[2] ? parseInt(durationMatch[2]) : 0;
+      const seconds = durationMatch[3] ? parseInt(durationMatch[3]) : 0;
+      const totalMinutes = hours * 60 + minutes + (seconds > 30 ? 1 : 0);
+      const durationStr = hours > 0 
+        ? `${hours}h ${minutes}m`
+        : `${minutes}m`;
+
+      // Update form data with fetched metadata
+      setFormData(prev => ({
+        ...prev,
+        title: snippet.title,
+        subtitle: snippet.description.substring(0, 150) || '',
+        thumbnail_url: snippet.thumbnails.maxres?.url || snippet.thumbnails.high?.url || snippet.thumbnails.medium?.url,
+        author: snippet.channelTitle,
+        channel_name: snippet.channelTitle,
+        video_id: videoId,
+        view_count: parseInt(statistics.viewCount) || 0,
+        published_at: snippet.publishedAt,
+        tags: snippet.tags || [],
+        description: snippet.description,
+        duration: durationStr,
+        auto_fetched: true
+      }));
+
+      setFetchError(null);
+    } catch (err) {
+      console.error('Error fetching YouTube metadata:', err);
+      setFetchError(err.message);
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  // Fetch Article/eBook metadata using Link Preview (Open Graph tags)
+  // This works because we're only fetching publicly available metadata
+  // (same data Google uses for search results previews)
+  const fetchArticleMetadata = async (url) => {
+    try {
+      setIsFetching(true);
+      setFetchError(null);
+
+      // Use Microlink API - free service with good CORS support
+      // Extracts Open Graph metadata that sites expose for link previews
+      const response = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch link preview');
+      }
+
+      const result = await response.json();
+      
+      if (!result.data) {
+        throw new Error('No metadata found');
+      }
+
+      const data = result.data;
+
+      // Extract metadata
+      const title = data.title || '';
+      const description = data.description || '';
+      const image = data.image?.url || data.logo?.url || '';
+      const siteName = data.publisher || new URL(url).hostname;
+
+      // Calculate estimated read time from description
+      const wordCount = description.split(/\s+/).length;
+      const readTime = Math.max(1, Math.ceil(wordCount / 50)); // Conservative estimate
+
+      setFormData(prev => ({
+        ...prev,
+        title: title || prev.title,
+        subtitle: description || prev.subtitle,
+        thumbnail_url: image || prev.thumbnail_url,
+        author: siteName || prev.author,
+        article_excerpt: description.substring(0, 200) || prev.article_excerpt,
+        read_time_minutes: readTime,
+        auto_fetched: true
+      }));
+
+      setFetchError(null);
+      setManualMode(false);
+    } catch (err) {
+      console.error('Error fetching link preview:', err);
+      setFetchError('Could not auto-fetch link preview. Please fill manually.');
+      setManualMode(true);
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  // Handle YouTube URL input
+  const handleYouTubeUrlChange = async (url) => {
+    setFormData(prev => ({ ...prev, youtube_url: url }));
+
+    const videoId = extractYouTubeVideoId(url);
+    if (videoId) {
+      await fetchYouTubeMetadata(videoId);
+    }
+  };
+
+  // Handle Article URL input
+  const handleArticleUrlChange = async (url) => {
+    setFormData(prev => ({ ...prev, article_url: url }));
+
+    if (url && url.startsWith('http')) {
+      await fetchArticleMetadata(url);
+    }
+  };
+
+  // Handle eBook URL input (works same as article - just fetching link preview)
+  const handleEbookUrlChange = async (url) => {
+    setFormData(prev => ({ ...prev, ebook_file_url: url }));
+
+    if (url && url.startsWith('http')) {
+      await fetchArticleMetadata(url); // Same function - just fetching Open Graph data
+    }
+  };
 
   const fetchShuffleSettings = async () => {
     try {
@@ -199,7 +399,21 @@ const FeaturedContent = () => {
       category: content.category || 'Education',
       duration: content.duration || '',
       is_active: content.is_active || false,
-      display_order: content.display_order || 0
+      display_order: content.display_order || 0,
+      // New fields
+      video_id: content.video_id || '',
+      channel_name: content.channel_name || '',
+      view_count: content.view_count || 0,
+      published_at: content.published_at || null,
+      tags: content.tags || [],
+      description: content.description || '',
+      article_excerpt: content.article_excerpt || '',
+      read_time_minutes: content.read_time_minutes || 0,
+      ebook_file_url: content.ebook_file_url || '',
+      ebook_page_count: content.ebook_page_count || 0,
+      ebook_file_size_mb: content.ebook_file_size_mb || 0,
+      ebook_isbn: content.ebook_isbn || '',
+      auto_fetched: content.auto_fetched || false
     });
     setShowModal(true);
   };
@@ -216,13 +430,29 @@ const FeaturedContent = () => {
       category: 'Education',
       duration: '',
       is_active: true,
-      display_order: 0
+      display_order: 0,
+      video_id: '',
+      channel_name: '',
+      view_count: 0,
+      published_at: null,
+      tags: [],
+      description: '',
+      article_excerpt: '',
+      read_time_minutes: 0,
+      ebook_file_url: '',
+      ebook_page_count: 0,
+      ebook_file_size_mb: 0,
+      ebook_isbn: '',
+      auto_fetched: false
     });
+    setFetchError(null);
+    setManualMode(false); // Reset manual mode
   };
 
   const contentTypes = [
     { value: 'video', label: 'Video', icon: Youtube, color: 'red' },
-    { value: 'article', label: 'Article', icon: FileText, color: 'blue' }
+    { value: 'article', label: 'Article', icon: FileText, color: 'blue' },
+    { value: 'ebook', label: 'eBook', icon: Book, color: 'purple' }
   ];
 
   const categories = [
@@ -230,8 +460,19 @@ const FeaturedContent = () => {
     { value: 'Workout Tips', label: 'Workout Tips', icon: Star, color: 'orange' },
     { value: 'Nutrition', label: 'Nutrition', icon: Sparkles, color: 'green' },
     { value: 'Motivation', label: 'Motivation', icon: Award, color: 'purple' },
-    { value: 'Success Stories', label: 'Success Stories', icon: Award, color: 'pink' }
+    { value: 'Lifestyle', label: 'Lifestyle', icon: Star, color: 'pink' },
+    { value: 'Tips', label: 'Tips', icon: Sparkles, color: 'yellow' },
+    { value: 'Success Stories', label: 'Success Stories', icon: Award, color: 'teal' }
   ];
+
+  // Calculate stats
+  const stats = {
+    total: contents.length,
+    videos: contents.filter(c => c.content_type === 'video').length,
+    articles: contents.filter(c => c.content_type === 'article').length,
+    ebooks: contents.filter(c => c.content_type === 'ebook').length,
+    active: contents.filter(c => c.is_active).length
+  };
 
   // Filtering and sorting logic
   const getFilteredAndSortedData = () => {
@@ -332,33 +573,56 @@ const FeaturedContent = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
           <StatsCard
             title="Total Content"
-            value={totalContent}
+            value={stats.total}
             icon={Star}
             color="purple"
-            subtitle={`${activeContent} active`}
+            subtitle={`${stats.active} active`}
           />
           <StatsCard
             title="Videos"
-            value={videoContent}
+            value={stats.videos}
             icon={Youtube}
             color="red"
             subtitle="Video content"
           />
           <StatsCard
             title="Articles"
-            value={articleContent}
-            icon={FileText}
+            value={stats.articles}
+            icon={Newspaper}
             color="blue"
             subtitle="Article content"
           />
           <StatsCard
-            title="Categories"
-            value={categories.length}
-            icon={BookOpen}
+            title="eBooks"
+            value={stats.ebooks}
+            icon={Book}
             color="green"
-            subtitle="Content types"
+            subtitle="eBook library"
           />
         </div>
+
+        {/* Info Banner for Auto-Fetch */}
+        {!YOUTUBE_API_KEY || YOUTUBE_API_KEY === 'YOUR_API_KEY' ? (
+          <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border border-orange-200 p-5 mb-5 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-white rounded-lg shadow-sm">
+                <AlertCircle className="h-5 w-5 text-orange-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-gray-900 mb-1">
+                  🎬 YouTube Auto-Fetch Not Configured
+                </h3>
+                <p className="text-xs text-gray-700 leading-relaxed mb-2">
+                  To enable automatic metadata fetching for YouTube videos, add your YouTube API key to <code className="px-1 py-0.5 bg-white rounded text-orange-600 font-mono text-xs">.env</code> file.
+                  Get your free API key from <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-semibold">Google Cloud Console</a>.
+                </p>
+                <p className="text-xs text-gray-600">
+                  <strong>Quick Start:</strong> Check <code className="px-1 py-0.5 bg-white rounded font-mono">FEATURED_CONTENT_QUICK_START.md</code> for setup instructions.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {/* Auto-Shuffle Control Panel */}
         <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200 p-5 mb-5 shadow-sm">
@@ -646,6 +910,8 @@ const FeaturedContent = () => {
                               className={`h-14 w-20 rounded-lg bg-gradient-to-br ${
                                 content.content_type === 'video' 
                                   ? 'from-red-500 to-red-600' 
+                                  : content.content_type === 'ebook'
+                                  ? 'from-purple-500 to-purple-600'
                                   : 'from-blue-500 to-blue-600'
                               } flex items-center justify-center flex-shrink-0 ${content.thumbnail_url ? 'hidden' : 'flex'}`}
                             >
@@ -663,6 +929,8 @@ const FeaturedContent = () => {
                           <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold text-xs ${
                             content.content_type === 'video'
                               ? 'bg-red-100 text-red-700 border border-red-200'
+                              : content.content_type === 'ebook'
+                              ? 'bg-purple-100 text-purple-700 border border-purple-200'
                               : 'bg-blue-100 text-blue-700 border border-blue-200'
                           }`}>
                             {typeInfo && <typeInfo.icon className="h-3.5 w-3.5" />}
@@ -718,15 +986,19 @@ const FeaturedContent = () => {
                         {/* Actions */}
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1">
-                            {(content.youtube_url || content.article_url) && (
+                            {(content.youtube_url || content.article_url || content.ebook_file_url) && (
                               <a
-                                href={content.youtube_url || content.article_url}
+                                href={content.youtube_url || content.article_url || content.ebook_file_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="p-2 text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition-colors"
-                                title="View Content"
+                                title={content.content_type === 'ebook' ? 'Download eBook' : 'View Content'}
                               >
-                                <Play className="h-4 w-4" />
+                                {content.content_type === 'ebook' ? (
+                                  <Download className="h-4 w-4" />
+                                ) : (
+                                  <Play className="h-4 w-4" />
+                                )}
                               </a>
                             )}
                             <button
@@ -794,193 +1066,590 @@ const FeaturedContent = () => {
         >
           <form onSubmit={handleSubmit} className="space-y-6 px-6 py-4">
             
-            {/* Basic Information */}
+            {/* STEP 1: Content Type Selection */}
             <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-3 flex items-center gap-2">
-                  <Star className="h-4 w-4 text-purple-600" />
-                  Content Information
-                </h3>
-                <div className="space-y-3">
-                  <Input
-                    label="Content Title"
-                    placeholder="e.g., 10-Minute Morning Workout Routine"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Content Type
+                  </label>
+                  <select
+                    value={formData.content_type}
+                    onChange={(e) => setFormData({ ...formData, content_type: e.target.value })}
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-medium"
                     required
-                  />
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Subtitle / Description
-                    </label>
-                    <textarea
-                      placeholder="Brief description of the content..."
-                      value={formData.subtitle}
-                      onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Content Type
-                      </label>
-                      <select
-                        value={formData.content_type}
-                        onChange={(e) => setFormData({ ...formData, content_type: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        required
-                      >
-                        <option value="video">📹 Video</option>
-                        <option value="article">📄 Article</option>
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Category
-                      </label>
-                      <select
-                        value={formData.category}
-                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        required
-                      >
-                        {categories.map(cat => (
-                          <option key={cat.value} value={cat.value}>
-                            {cat.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
-                      <ImageIcon className="h-3.5 w-3.5 text-gray-500" />
-                      Thumbnail URL
-                    </label>
-                    <input
-                      type="url"
-                      placeholder="https://example.com/thumbnail.jpg"
-                      value={formData.thumbnail_url}
-                      onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Enter an image URL for the content thumbnail</p>
-                    {formData.thumbnail_url && (
-                      <div className="mt-2">
-                        <img 
-                          src={formData.thumbnail_url} 
-                          alt="Preview"
-                          className="h-20 w-32 rounded-lg object-cover border border-gray-200"
-                          onError={(e) => e.target.style.display = 'none'}
-                        />
-                      </div>
-                    )}
-                  </div>
+                  >
+                    <option value="video">📹 YouTube Video</option>
+                    <option value="article">📄 Article</option>
+                    <option value="ebook">📚 eBook</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Category
+                  </label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-medium"
+                    required
+                  >
+                    {categories.map(cat => (
+                      <option key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
+            </div>
 
-              {/* Content Links */}
-              <div>
-                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-3 flex items-center gap-2">
-                  <Video className="h-4 w-4 text-blue-600" />
-                  Content Links
-                </h3>
-                <div className="space-y-3">
-                  {formData.content_type === 'video' ? (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
-                        <Youtube className="h-3.5 w-3.5 text-red-600" />
-                        YouTube URL
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="https://youtube.com/watch?v=..."
-                        value={formData.youtube_url}
-                        onChange={(e) => setFormData({ ...formData, youtube_url: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">YouTube, Vimeo, or direct video URL</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
-                        <ExternalLink className="h-3.5 w-3.5 text-blue-600" />
-                        Article URL
-                      </label>
-                      <input
-                        type="url"
-                        placeholder="https://example.com/article"
-                        value={formData.article_url}
-                        onChange={(e) => setFormData({ ...formData, article_url: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">Link to the full article</p>
+            {/* STEP 2: Content Type Specific Sections */}
+            
+            {/* VIDEO SECTION */}
+            {formData.content_type === 'video' && (
+              <div className="border-2 border-red-200 bg-red-50/30 rounded-xl p-5 space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Youtube className="h-5 w-5 text-red-600" />
+                  <h3 className="text-base font-bold text-gray-900">YouTube Video</h3>
+                </div>
+                
+                {/* URL Input */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    YouTube URL
+                    {isFetching && <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-600" />}
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://youtube.com/watch?v=..."
+                    value={formData.youtube_url}
+                    onChange={(e) => handleYouTubeUrlChange(e.target.value)}
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm font-medium"
+                    disabled={isFetching}
+                  />
+                  {fetchError && (
+                    <div className="flex items-center gap-1.5 mt-2 text-xs text-red-600 bg-red-50 px-3 py-2 rounded-md">
+                      <AlertCircle className="h-3.5 w-3.5" />
+                      {fetchError}
                     </div>
                   )}
+                  {formData.auto_fetched && !fetchError && (
+                    <div className="flex items-center gap-1.5 mt-2 text-xs text-green-700 bg-green-50 px-3 py-2 rounded-md">
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      Video details fetched automatically
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-600 mt-1.5">
+                    Paste a YouTube URL - title, thumbnail, duration & channel will be fetched automatically
+                  </p>
                 </div>
+
+                {/* Auto-fetched fields (grayed out) */}
+                {formData.youtube_url && (
+                  <>
+                    <div className="flex justify-between items-center pt-2">
+                      <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                        {formData.auto_fetched ? '✨ Auto-Fetched Details' : 'Video Details'}
+                      </p>
+                      {formData.auto_fetched && !manualMode && (
+                        <button
+                          type="button"
+                          onClick={() => setManualMode(true)}
+                          className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 px-2 py-1 hover:bg-blue-50 rounded transition-colors"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                          Edit Manually
+                        </button>
+                      )}
+                      {manualMode && (
+                        <button
+                          type="button"
+                          onClick={() => setManualMode(false)}
+                          className="text-xs font-medium text-gray-600 hover:text-gray-700 flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                          Cancel Edit
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-3 pt-2">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Video Title
+                        </label>
+                        <Input
+                          placeholder="e.g., 10-Minute Morning Workout"
+                          value={formData.title}
+                          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                          required
+                          disabled={formData.auto_fetched && !manualMode}
+                          className={formData.auto_fetched && !manualMode ? 'bg-gray-100 text-gray-600' : ''}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Description
+                        </label>
+                        <textarea
+                          placeholder="Brief description..."
+                          value={formData.subtitle}
+                          onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                          rows={2}
+                          disabled={formData.auto_fetched && !manualMode}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none text-sm ${formData.auto_fetched && !manualMode ? 'bg-gray-100 text-gray-600' : ''}`}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Channel / Creator
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g., FitnessBlender"
+                            value={formData.author}
+                            onChange={(e) => setFormData({ ...formData, author: e.target.value })}
+                            disabled={formData.auto_fetched && !manualMode}
+                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm ${formData.auto_fetched && !manualMode ? 'bg-gray-100 text-gray-600' : ''}`}
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Duration
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g., 10:30"
+                            value={formData.duration}
+                            onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                            disabled={formData.auto_fetched && !manualMode}
+                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm ${formData.auto_fetched && !manualMode ? 'bg-gray-100 text-gray-600' : ''}`}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
+                          <ImageIcon className="h-3.5 w-3.5 text-gray-500" />
+                          Thumbnail URL
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="https://i.ytimg.com/vi/..."
+                          value={formData.thumbnail_url}
+                          onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
+                          disabled={formData.auto_fetched && !manualMode}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm ${formData.auto_fetched && !manualMode ? 'bg-gray-100 text-gray-600' : ''}`}
+                        />
+                        {formData.thumbnail_url && (
+                          <div className="mt-2">
+                            <img 
+                              src={formData.thumbnail_url} 
+                              alt="Preview"
+                              className="h-20 w-32 rounded-lg object-cover border border-gray-200"
+                              onError={(e) => e.target.style.display = 'none'}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
+            )}
 
-              {/* Additional Details */}
-              <div>
-                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-3 flex items-center gap-2">
-                  <BookOpen className="h-4 w-4 text-green-600" />
-                  Additional Details
-                </h3>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Author / Creator
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g., John Doe"
-                        value={formData.author}
-                        onChange={(e) => setFormData({ ...formData, author: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
-                        <Calendar className="h-3.5 w-3.5 text-gray-500" />
-                        Duration
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g., 10 min or 5:30"
-                        value={formData.duration}
-                        onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
-                      <ListOrdered className="h-3.5 w-3.5 text-gray-500" />
-                      Display Order
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.display_order}
-                      onChange={(e) => setFormData({ ...formData, display_order: parseInt(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Lower numbers appear first in the app</p>
-                  </div>
+            {/* ARTICLE SECTION */}
+            {formData.content_type === 'article' && (
+              <div className="border-2 border-blue-200 bg-blue-50/30 rounded-xl p-5 space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <FileText className="h-5 w-5 text-blue-600" />
+                  <h3 className="text-base font-bold text-gray-900">Article</h3>
                 </div>
+                
+                {/* URL Input */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    Article URL
+                    {isFetching && <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-600" />}
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://example.com/article"
+                    value={formData.article_url}
+                    onChange={(e) => handleArticleUrlChange(e.target.value)}
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm font-medium"
+                    required
+                    disabled={isFetching}
+                  />
+                  {fetchError && (
+                    <div className="flex items-start gap-1.5 mt-2 text-xs text-orange-600 bg-orange-50 border border-orange-200 px-3 py-2 rounded-md">
+                      <AlertCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">{fetchError}</p>
+                      </div>
+                    </div>
+                  )}
+                  {formData.auto_fetched && !fetchError && (
+                    <div className="flex items-center gap-1.5 mt-2 text-xs text-green-700 bg-green-50 px-3 py-2 rounded-md">
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      Article metadata fetched automatically
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-600 mt-1.5">
+                    Paste an article URL - title, description & thumbnail will be fetched automatically
+                  </p>
+                </div>
+
+                {/* Auto-fetched/Manual fields */}
+                {formData.article_url && (
+                  <>
+                    <div className="flex justify-between items-center pt-2">
+                      <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                        {formData.auto_fetched ? '✨ Auto-Fetched Details' : 'Article Details'}
+                      </p>
+                      {formData.auto_fetched && !manualMode && (
+                        <button
+                          type="button"
+                          onClick={() => setManualMode(true)}
+                          className="text-xs font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1 px-2 py-1 hover:bg-blue-50 rounded transition-colors"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                          Edit Manually
+                        </button>
+                      )}
+                      {manualMode && (
+                        <button
+                          type="button"
+                          onClick={() => setManualMode(false)}
+                          className="text-xs font-medium text-gray-600 hover:text-gray-700 flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                          Cancel Edit
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-3 pt-2">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Article Title
+                        </label>
+                        <Input
+                          placeholder="e.g., The Ultimate Guide to Home Workouts"
+                          value={formData.title}
+                          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                          required
+                          disabled={formData.auto_fetched && !manualMode}
+                          className={formData.auto_fetched && !manualMode ? 'bg-gray-100 text-gray-600' : ''}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Brief Description
+                        </label>
+                        <textarea
+                          placeholder="Brief description..."
+                          value={formData.subtitle}
+                          onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                          rows={2}
+                          disabled={formData.auto_fetched && !manualMode}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm ${formData.auto_fetched && !manualMode ? 'bg-gray-100 text-gray-600' : ''}`}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Article Excerpt
+                        </label>
+                        <textarea
+                          placeholder="Full excerpt or summary..."
+                          value={formData.article_excerpt}
+                          onChange={(e) => setFormData({ ...formData, article_excerpt: e.target.value })}
+                          rows={3}
+                          disabled={formData.auto_fetched && !manualMode}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm ${formData.auto_fetched && !manualMode ? 'bg-gray-100 text-gray-600' : ''}`}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Author
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g., Jane Smith"
+                            value={formData.author}
+                            onChange={(e) => setFormData({ ...formData, author: e.target.value })}
+                            disabled={formData.auto_fetched && !manualMode}
+                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${formData.auto_fetched && !manualMode ? 'bg-gray-100 text-gray-600' : ''}`}
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 text-gray-600" />
+                            Read Time (min)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            placeholder="e.g., 5"
+                            value={formData.read_time_minutes}
+                            onChange={(e) => setFormData({ ...formData, read_time_minutes: parseInt(e.target.value) || 0 })}
+                            disabled={formData.auto_fetched && !manualMode}
+                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${formData.auto_fetched && !manualMode ? 'bg-gray-100 text-gray-600' : ''}`}
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
+                          <ImageIcon className="h-3.5 w-3.5 text-gray-500" />
+                          Thumbnail URL
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="https://example.com/image.jpg"
+                          value={formData.thumbnail_url}
+                          onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
+                          disabled={formData.auto_fetched && !manualMode}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm ${formData.auto_fetched && !manualMode ? 'bg-gray-100 text-gray-600' : ''}`}
+                        />
+                        {formData.thumbnail_url && (
+                          <div className="mt-2">
+                            <img 
+                              src={formData.thumbnail_url} 
+                              alt="Preview"
+                              className="h-20 w-32 rounded-lg object-cover border border-gray-200"
+                              onError={(e) => e.target.style.display = 'none'}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* EBOOK SECTION */}
+            {formData.content_type === 'ebook' && (
+              <div className="border-2 border-purple-200 bg-purple-50/30 rounded-xl p-5 space-y-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <BookOpen className="h-5 w-5 text-purple-600" />
+                  <h3 className="text-base font-bold text-gray-900">eBook</h3>
+                </div>
+                
+                {/* URL Input */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <Download className="h-4 w-4 text-purple-600" />
+                    eBook URL or Landing Page
+                    {isFetching && <RefreshCw className="h-3.5 w-3.5 animate-spin text-purple-600" />}
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://example.com/ebook-page or direct PDF link"
+                    value={formData.ebook_file_url}
+                    onChange={(e) => handleEbookUrlChange(e.target.value)}
+                    className="w-full px-4 py-2.5 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm font-medium"
+                    required
+                    disabled={isFetching}
+                  />
+                  {fetchError && (
+                    <div className="flex items-start gap-1.5 mt-2 text-xs text-orange-600 bg-orange-50 border border-orange-200 px-3 py-2 rounded-md">
+                      <AlertCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium">{fetchError}</p>
+                      </div>
+                    </div>
+                  )}
+                  {formData.auto_fetched && !fetchError && (
+                    <div className="flex items-center gap-1.5 mt-2 text-xs text-green-700 bg-green-50 px-3 py-2 rounded-md">
+                      <CheckCircle className="h-3.5 w-3.5" />
+                      eBook preview metadata fetched automatically
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-600 mt-1.5">
+                    Paste eBook landing page or direct download link - preview details will be fetched
+                  </p>
+                </div>
+
+                {/* Auto-fetched/Manual fields */}
+                {formData.ebook_file_url && (
+                  <>
+                    <div className="flex justify-between items-center pt-2">
+                      <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                        {formData.auto_fetched ? '✨ Auto-Fetched Details' : 'eBook Details'}
+                      </p>
+                      {formData.auto_fetched && !manualMode && (
+                        <button
+                          type="button"
+                          onClick={() => setManualMode(true)}
+                          className="text-xs font-medium text-purple-600 hover:text-purple-700 flex items-center gap-1 px-2 py-1 hover:bg-purple-50 rounded transition-colors"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                          Edit Manually
+                        </button>
+                      )}
+                      {manualMode && (
+                        <button
+                          type="button"
+                          onClick={() => setManualMode(false)}
+                          className="text-xs font-medium text-gray-600 hover:text-gray-700 flex items-center gap-1 px-2 py-1 hover:bg-gray-100 rounded transition-colors"
+                        >
+                          <X className="h-3 w-3" />
+                          Cancel Edit
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-3 pt-2">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          eBook Title
+                        </label>
+                        <Input
+                          placeholder="e.g., Complete Fitness Guide"
+                          value={formData.title}
+                          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                          required
+                          disabled={formData.auto_fetched && !manualMode}
+                          className={formData.auto_fetched && !manualMode ? 'bg-gray-100 text-gray-600' : ''}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Description
+                        </label>
+                        <textarea
+                          placeholder="Brief description of the eBook..."
+                          value={formData.subtitle}
+                          onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                          rows={2}
+                          disabled={formData.auto_fetched && !manualMode}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none text-sm ${formData.auto_fetched && !manualMode ? 'bg-gray-100 text-gray-600' : ''}`}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Author / Publisher
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g., Dr. Fitness"
+                            value={formData.author}
+                            onChange={(e) => setFormData({ ...formData, author: e.target.value })}
+                            disabled={formData.auto_fetched && !manualMode}
+                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm ${formData.auto_fetched && !manualMode ? 'bg-gray-100 text-gray-600' : ''}`}
+                          />
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            ISBN (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="978-3-16-148410-0"
+                            value={formData.ebook_isbn}
+                            onChange={(e) => setFormData({ ...formData, ebook_isbn: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Page Count (Optional)
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            placeholder="e.g., 150"
+                            value={formData.ebook_page_count}
+                            onChange={(e) => setFormData({ ...formData, ebook_page_count: parseInt(e.target.value) || 0 })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            File Size (Optional)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            placeholder="e.g., 2.5 MB"
+                            value={formData.ebook_file_size_mb}
+                            onChange={(e) => setFormData({ ...formData, ebook_file_size_mb: parseFloat(e.target.value) || 0 })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
+                          <ImageIcon className="h-3.5 w-3.5 text-gray-500" />
+                          Cover Image / Thumbnail
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="https://example.com/cover.jpg"
+                          value={formData.thumbnail_url}
+                          onChange={(e) => setFormData({ ...formData, thumbnail_url: e.target.value })}
+                          disabled={formData.auto_fetched && !manualMode}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm ${formData.auto_fetched && !manualMode ? 'bg-gray-100 text-gray-600' : ''}`}
+                        />
+                        {formData.thumbnail_url && (
+                          <div className="mt-2">
+                            <img 
+                              src={formData.thumbnail_url} 
+                              alt="Preview"
+                              className="h-20 w-32 rounded-lg object-cover border border-gray-200"
+                              onError={(e) => e.target.style.display = 'none'}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* STEP 3: Common Settings */}
+            <div className="border-t pt-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
+                  <ListOrdered className="h-3.5 w-3.5 text-gray-500" />
+                  Display Order
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.display_order}
+                  onChange={(e) => setFormData({ ...formData, display_order: parseInt(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-1">Lower numbers appear first in the app</p>
               </div>
 
               {/* Active Status Toggle */}
-              <div className="pt-3 border-t">
+              <div className="pt-2">
                 <label className="flex items-center gap-3 cursor-pointer group">
                   <div className="relative">
                     <input

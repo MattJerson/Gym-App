@@ -129,6 +129,7 @@ export default function Home() {
                 duration={featuredContent.duration}
                 youtubeUrl={featuredContent.youtubeUrl}
                 articleUrl={featuredContent.articleUrl}
+                ebookUrl={featuredContent.ebookUrl}
                 contentType={featuredContent.contentType}
               />
             )}

@@ -118,6 +118,7 @@ export const HomeDataService = {
           duration: data.duration || '',
           youtubeUrl: data.youtube_url || '',
           articleUrl: data.article_url || '',
+          ebookUrl: data.ebook_file_url || '',
           contentType: data.content_type || 'video',
         };
       }

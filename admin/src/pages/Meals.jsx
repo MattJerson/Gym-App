@@ -652,7 +652,7 @@ const Meals = () => {
                                     ? 'bg-green-100 text-green-700'
                                     : 'bg-blue-100 text-blue-700'
                                 }`}>
-                                  TDEE {plan.calorie_adjustment_percent > 0 ? '+' : ''}
+                                  {plan.calorie_adjustment_percent > 0 ? '+' : ''}
                                   {(plan.calorie_adjustment_percent * 100).toFixed(0)}%
                                 </div>
                               </div>
@@ -880,7 +880,7 @@ const Meals = () => {
                       <span className="text-sm font-semibold text-gray-900">Dynamic Calculation</span>
                       <p className="text-xs text-gray-600">
                         {formData.is_dynamic 
-                          ? 'Personalized based on user BMR/TDEE'
+                          ? 'Personalized based on user activity & body metrics'
                           : 'Static values for all users'
                         }
                       </p>
@@ -973,7 +973,7 @@ const Meals = () => {
                     {/* Calorie Adjustment Slider */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Calorie Adjustment from TDEE
+                        Calorie Adjustment (% from Daily Needs)
                       </label>
                       <div className="flex items-center gap-4">
                         <input
@@ -1083,11 +1083,11 @@ const Meals = () => {
                       <p className="text-xs font-semibold text-gray-700 mb-2">💡 Example (80kg, 180cm, 30yo, moderate activity):</p>
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div>
-                          <span className="text-gray-600">BMR:</span>
+                          <span className="text-gray-600">Base Calories:</span>
                           <span className="font-bold text-gray-900 ml-1">~1,850 cal</span>
                         </div>
                         <div>
-                          <span className="text-gray-600">TDEE:</span>
+                          <span className="text-gray-600">Daily Needs:</span>
                           <span className="font-bold text-gray-900 ml-1">~2,867 cal</span>
                         </div>
                         <div>

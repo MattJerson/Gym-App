@@ -5,7 +5,7 @@ import { HomeDataService } from "../../services/HomeDataService";
 
 export default function FeaturedVideo({
   id = null,
-  thumbnail = "https://placehold.co/400x225/3498db/ffffff?text=Featured+Video",
+  thumbnail = "https://placehold.co/400x225/3498db/ffffff?text=Featured+Content",
   title = "5 Science-Backed Ways to Build Better Habits",
   subtitle = "Discover the psychology behind habit formation and learn practical strategies to create lasting positive changes in your daily routine.",
   duration = "8:42",
@@ -14,65 +14,90 @@ export default function FeaturedVideo({
   views = "2.4M",
   youtubeUrl = null,
   articleUrl = null,
+  ebookUrl = null,
   contentType = "video",
 }) {
 
-  const handlePlayVideo = async () => {
-    if (contentType === 'video' && youtubeUrl) {
-      try {
-        // Increment view count if we have an ID
-        if (id) {
-          await HomeDataService.incrementFeaturedViews(id);
-        }
-        
-        // Open YouTube URL
-        const canOpen = await Linking.canOpenURL(youtubeUrl);
-        if (canOpen) {
-          await Linking.openURL(youtubeUrl);
-        } else {
-          Alert.alert("Error", "Cannot open YouTube link");
-        }
-      } catch (error) {
-        console.error("Error opening video:", error);
-        Alert.alert("Error", "Failed to open video");
+  const handleContentAction = async () => {
+    try {
+      // Increment view count if we have an ID
+      if (id) {
+        await HomeDataService.incrementFeaturedViews(id);
       }
-    } else if (contentType === 'article' && articleUrl) {
-      try {
-        // Increment view count if we have an ID
-        if (id) {
-          await HomeDataService.incrementFeaturedViews(id);
-        }
-        
-        const canOpen = await Linking.canOpenURL(articleUrl);
-        if (canOpen) {
-          await Linking.openURL(articleUrl);
-        } else {
-          Alert.alert("Error", "Cannot open article link");
-        }
-      } catch (error) {
-        console.error("Error opening article:", error);
-        Alert.alert("Error", "Failed to open article");
+
+      let targetUrl = null;
+      let errorMessage = "Cannot open link";
+      
+      // Determine target URL based on content type
+      if (contentType === 'video' && youtubeUrl) {
+        targetUrl = youtubeUrl;
+        errorMessage = "Cannot open YouTube link";
+      } else if (contentType === 'article' && articleUrl) {
+        targetUrl = articleUrl;
+        errorMessage = "Cannot open article link";
+      } else if (contentType === 'ebook' && ebookUrl) {
+        targetUrl = ebookUrl;
+        errorMessage = "Cannot open eBook link";
       }
-    } else {
-      Alert.alert(
-        "Coming Soon",
-        `${contentType === 'video' ? 'Video' : 'Article'} playback will be available soon!`
-      );
+
+      if (targetUrl) {
+        const canOpen = await Linking.canOpenURL(targetUrl);
+        if (canOpen) {
+          await Linking.openURL(targetUrl);
+        } else {
+          Alert.alert("Error", errorMessage);
+        }
+      } else {
+        Alert.alert(
+          "Coming Soon",
+          `${contentType === 'video' ? 'Video' : contentType === 'ebook' ? 'eBook' : 'Article'} will be available soon!`
+        );
+      }
+    } catch (error) {
+      console.error(`Error opening ${contentType}:`, error);
+      Alert.alert("Error", `Failed to open ${contentType}`);
+    }
+  };
+
+  const getActionLabel = () => {
+    switch (contentType) {
+      case 'video':
+        return 'Watch';
+      case 'ebook':
+        return 'Download';
+      case 'article':
+      default:
+        return 'Read';
+    }
+  };
+
+  const getActionIcon = () => {
+    switch (contentType) {
+      case 'video':
+        return 'play-circle';
+      case 'ebook':
+        return 'download';
+      case 'article':
+      default:
+        return 'document-text';
     }
   };
 
   const handleCardPress = () => {
+    const contentTypeLabel = contentType === 'video' ? 'video' : contentType === 'ebook' ? 'eBook' : 'article';
+    const actionLabel = getActionLabel().toLowerCase();
+    
     Alert.alert(
       "Featured Content",
-      `"${title}"\n\nBy: ${author}\nViews: ${views}\nDuration: ${duration}\nCategory: ${category}\n\nWould you like to ${contentType === 'video' ? 'watch this video' : 'read this article'}?`,
+      `"${title}"\n\nBy: ${author}\nViews: ${views}\n${duration ? `Duration: ${duration}\n` : ''}Category: ${category}\n\nWould you like to ${actionLabel} this ${contentTypeLabel}?`,
       [
         {
           text: "Not Now",
           style: "cancel"
         },
         {
-          text: contentType === 'video' ? "Watch" : "Read",
-          onPress: handlePlayVideo
+          text: getActionLabel(),
+          onPress: handleContentAction
         }
       ]
     );
@@ -94,14 +119,18 @@ export default function FeaturedVideo({
           {/* Play Button Overlay */}
           <Pressable 
             style={styles.playButtonOverlay}
-            onPress={handlePlayVideo}
+            onPress={handleContentAction}
           >
             <LinearGradient
               colors={['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.1)']}
               style={styles.playButtonGradient}
             >
               <View style={styles.playButton}>
-                <Ionicons name="play" size={24} color="#000" />
+                <Ionicons 
+                  name={getActionIcon()} 
+                  size={24} 
+                  color="#000" 
+                />
               </View>
             </LinearGradient>
           </Pressable>
@@ -136,15 +165,15 @@ export default function FeaturedVideo({
           <View style={styles.actionRow}>
             <Pressable 
               style={styles.primaryButton}
-              onPress={handlePlayVideo}
+              onPress={handleContentAction}
             >
               <Ionicons 
-                name={contentType === 'video' ? "play-circle" : "document-text"} 
+                name={getActionIcon()} 
                 size={18} 
                 color="#fff" 
               />
               <Text style={styles.primaryButtonText}>
-                {contentType === 'video' ? "Watch Now" : "Read Now"}
+                {getActionLabel()} Now
               </Text>
             </Pressable>
           </View>
