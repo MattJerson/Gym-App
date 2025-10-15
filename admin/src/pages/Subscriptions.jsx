@@ -142,12 +142,20 @@ const Subscriptions = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Convert feature strings to objects {text: "...", included: true}
+      const featureObjects = formData.features
+        .filter(f => f && f.trim()) // Remove empty features
+        .map(f => ({
+          text: typeof f === 'string' ? f : f.text,
+          included: true
+        }));
+      
       const packageData = {
         name: formData.name,
         slug: formData.slug || formData.name.toLowerCase().replace(/\s+/g, '-'),
         price: parseFloat(formData.price),
         billing_interval: formData.billing_interval,
-        features: formData.features,
+        features: featureObjects,
         badge: formData.badge,
         emoji: formData.emoji,
         accent_color: formData.accent_color,
@@ -198,12 +206,18 @@ const Subscriptions = () => {
 
   const handleEdit = (pkg) => {
     setEditingPackage(pkg);
+    
+    // Convert features from objects {text: "...", included: true} to plain strings
+    const featureStrings = Array.isArray(pkg.features) 
+      ? pkg.features.map(f => typeof f === 'object' ? f.text : f)
+      : [];
+    
     setFormData({
       name: pkg.name,
       slug: pkg.slug,
       price: pkg.price || 0,
       billing_interval: pkg.billing_interval || 'month',
-      features: Array.isArray(pkg.features) ? pkg.features : [],
+      features: featureStrings,
       badge: pkg.badge || '',
       emoji: pkg.emoji || '💎',
       accent_color: pkg.accent_color || '#4A9EFF',

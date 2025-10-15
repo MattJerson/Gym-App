@@ -1,28 +1,21 @@
 import { 
   Users as UsersIcon, 
-  Mail, 
   Calendar, 
   Shield, 
   Search,
   TrendingUp,
   Pencil,
-  Trash2,
-  UserCheck,
-  UserX,
   Clock,
   Activity,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  CreditCard
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from '../lib/supabase';
-import PageHeader from '../components/common/PageHeader';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
-import Input from '../components/common/Input';
-import Badge from '../components/common/Badge';
-import StatsCard from '../components/common/StatsCard';
 
 const Users = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -30,7 +23,10 @@ const Users = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
-  const [formData, setFormData] = useState({ email: '', display_name: '', password: '' });
+  const [formData, setFormData] = useState({ 
+    account_status: 'active',
+    suspend_reason: ''
+  });
   const [error, setError] = useState(null);
 
   // Filters and sorting
@@ -54,7 +50,7 @@ const Users = () => {
       setLoading(true);
       setError(null);
 
-      // Use the new admin function to get user overview with status
+      // Use the admin function to get user overview with status
       const { data, error: fetchError } = await supabase.rpc('get_admin_user_overview');
       
       if (fetchError) {
@@ -62,14 +58,46 @@ const Users = () => {
         throw fetchError;
       }
 
-      console.log('Raw RPC data:', data); // Debug log
+      console.log('Raw RPC data:', data);
 
-      // Map the RPC function results to user rows
+      // Fetch subscriptions for all users
+      const { data: subscriptionsData, error: subError } = await supabase
+        .from('subscriptions')
+        .select(`
+          user_id,
+          status,
+          start_date,
+          end_date,
+          subscription_packages (
+            name,
+            slug,
+            price,
+            billing_period
+          )
+        `)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false });
+
+      if (subError) {
+        console.error('Subscriptions Error:', subError);
+      }
+
+      // Create a map of user subscriptions
+      const subscriptionsMap = {};
+      if (subscriptionsData) {
+        subscriptionsData.forEach(sub => {
+          if (!subscriptionsMap[sub.user_id]) {
+            subscriptionsMap[sub.user_id] = sub;
+          }
+        });
+      }
+
+      // Map the RPC function results to user rows with subscription info
       const rows = (data || []).map(u => ({
         uid: u.id,
         email: u.email,
         phone: u.phone || null,
-        display_name: u.email?.split('@')[0] || 'User', // Extract from email
+        display_name: u.email?.split('@')[0] || 'User',
         created_at: u.created_at,
         last_sign_in_at: u.last_sign_in_at,
         account_status: u.account_status || 'active',
@@ -77,10 +105,11 @@ const Users = () => {
         suspended_reason: u.suspended_reason,
         is_admin: u.is_admin || false,
         onboarding_completed: u.onboarding_completed || false,
+        subscription: subscriptionsMap[u.id] || null,
         raw: u,
       }));
 
-      console.log('Mapped users:', rows); // Debug log
+      console.log('Mapped users with subscriptions:', rows);
       setUsers(rows);
 
       // Calculate stats
@@ -108,68 +137,58 @@ const Users = () => {
     }
   };
 
-  const handleDelete = async (user) => {
-    const isInactive = user.account_status === 'inactive';
-    const action = isInactive ? 'activate' : 'deactivate';
-    const confirmMsg = action === 'deactivate'
-      ? `Deactivate user ${user.email}? They won't be able to log in.`
-      : `Activate user ${user.email}? They will be able to log in again.`;
-
-    if (!confirm(confirmMsg)) return;
-
-    try {
-      const functionName = action === 'deactivate' ? 'deactivate_user' : 'activate_user';
-      const params = action === 'deactivate'
-        ? { target_user_id: user.uid, reason: 'Deactivated by admin' }
-        : { target_user_id: user.uid };
-
-      const { error } = await supabase.rpc(functionName, params);
-      if (error) throw error;
-
-      await fetchUsers();
-    } catch (err) {
-      alert(`Error ${action}ing user: ` + err.message);
-    }
-  };
-
   const handleEdit = (user) => {
+    // Open modal to view/change user status only
     setEditingUser(user);
     setFormData({
-      email: user.email,
-      display_name: user.display_name,
-      password: ''
+      account_status: user.account_status,
+      suspend_reason: user.suspended_reason || ''
     });
     setIsModalOpen(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!editingUser) return;
+
     try {
-      if (editingUser) {
-        const updates = {};
-        if (formData.email !== editingUser.email) updates.email = formData.email;
-        if (formData.password) updates.password = formData.password;
-        if (formData.display_name !== editingUser.display_name) {
-          updates.user_metadata = { full_name: formData.display_name };
-        }
-        
-        const { error } = await supabase.auth.admin.updateUserById(editingUser.uid, updates);
+      const newStatus = formData.account_status;
+      const currentStatus = editingUser.account_status;
+
+      if (newStatus === currentStatus) {
+        // No change
+        setIsModalOpen(false);
+        return;
+      }
+
+      if (newStatus === 'suspended') {
+        // Suspend user
+        const { error } = await supabase.rpc('suspend_user', {
+          target_user_id: editingUser.uid,
+          reason: formData.suspend_reason || 'Suspended by admin'
+        });
         if (error) throw error;
-      } else {
-        const { error } = await supabase.auth.admin.createUser({
-          email: formData.email,
-          password: formData.password,
-          user_metadata: { full_name: formData.display_name }
+      } else if (newStatus === 'active') {
+        // Activate user
+        const { error } = await supabase.rpc('activate_user', {
+          target_user_id: editingUser.uid
+        });
+        if (error) throw error;
+      } else if (newStatus === 'inactive') {
+        // Deactivate user
+        const { error } = await supabase.rpc('deactivate_user', {
+          target_user_id: editingUser.uid,
+          reason: formData.suspend_reason || 'Deactivated by admin'
         });
         if (error) throw error;
       }
       
       setIsModalOpen(false);
       setEditingUser(null);
-      setFormData({ email: '', display_name: '', password: '' });
+      setFormData({ account_status: 'active', suspend_reason: '' });
       await fetchUsers();
     } catch (err) {
-      alert('Error: ' + err.message);
+      alert('Error updating user status: ' + err.message);
     }
   };
 
@@ -431,6 +450,9 @@ const Users = () => {
                       Status
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      Subscription
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                       Joined
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
@@ -483,6 +505,11 @@ const Users = () => {
                                 Since {new Date(user.suspended_at).toLocaleDateString()}
                               </p>
                             )}
+                            {user.suspended_reason && (
+                              <p className="text-xs text-gray-600 mt-1 italic">
+                                "{user.suspended_reason}"
+                              </p>
+                            )}
                           </div>
                         )}
                         {user.account_status === 'inactive' && (
@@ -495,6 +522,37 @@ const Users = () => {
                           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
                             <XCircle className="h-3 w-3 mr-1" />
                             Banned
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {user.subscription ? (
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <CreditCard className="h-4 w-4 text-blue-600" />
+                              <span className="font-semibold text-sm text-gray-900">
+                                {user.subscription.subscription_packages?.name || 'Unknown'}
+                              </span>
+                            </div>
+                            <div className="mt-1 text-xs text-gray-600">
+                              {user.subscription.subscription_packages?.price === 0 ? (
+                                <span className="text-green-600 font-medium">Free</span>
+                              ) : (
+                                <span>
+                                  ${user.subscription.subscription_packages?.price}/
+                                  {user.subscription.subscription_packages?.billing_period}
+                                </span>
+                              )}
+                            </div>
+                            {user.subscription.end_date && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                {user.subscription.status === 'trialing' ? 'Trial ends' : 'Expires'}: {new Date(user.subscription.end_date).toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">
+                            No Subscription
                           </span>
                         )}
                       </td>
@@ -524,27 +582,13 @@ const Users = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2">
+                          {/* Edit Status Button */}
                           <button
                             onClick={() => handleEdit(user)}
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Edit user"
+                            title="Manage user status"
                           >
                             <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(user)}
-                            className={`p-2 rounded-lg transition-colors ${
-                              user.account_status === 'inactive'
-                                ? 'text-green-600 hover:bg-green-50'
-                                : 'text-yellow-600 hover:bg-yellow-50'
-                            }`}
-                            title={user.account_status === 'inactive' ? 'Activate user' : 'Deactivate user'}
-                          >
-                            {user.account_status === 'inactive' ? (
-                              <UserCheck className="h-4 w-4" />
-                            ) : (
-                              <UserX className="h-4 w-4" />
-                            )}
                           </button>
                         </div>
                       </td>
@@ -564,20 +608,24 @@ const Users = () => {
           </div>
         )}
 
-        {/* Create/Edit Modal */}
+        {/* Edit Status Modal */}
         <Modal
           isOpen={isModalOpen}
           onClose={() => {
             setIsModalOpen(false);
             setEditingUser(null);
-            setFormData({ email: '', display_name: '', password: '' });
+            setFormData({ account_status: 'active', suspend_reason: '' });
           }}
-          title={editingUser ? 'Edit User' : 'Create New User'}
+          title={editingUser ? `Manage User Status: ${editingUser.email}` : 'User Status'}
           footer={
             <>
               <Button
                 variant="outline"
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setEditingUser(null);
+                  setFormData({ account_status: 'active', suspend_reason: '' });
+                }}
               >
                 Cancel
               </Button>
@@ -585,37 +633,186 @@ const Users = () => {
                 variant="primary"
                 onClick={handleSubmit}
               >
-                {editingUser ? 'Update User' : 'Create User'}
+                Update Status
               </Button>
             </>
           }
         >
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <Input
-              label="Email Address"
-              type="email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              icon={Mail}
-              required
-            />
-            
-            <Input
-              label="Display Name"
-              value={formData.display_name}
-              onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
-              icon={UsersIcon}
-              required
-            />
-            
-            <Input
-              label={editingUser ? 'New Password (leave blank to keep current)' : 'Password'}
-              type="password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              required={!editingUser}
-            />
-          </form>
+          {editingUser && (
+            <div className="space-y-6">
+              {/* User Info (Read-only) */}
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">User Information</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-600">Email:</span>
+                    <span className="text-sm font-medium text-gray-900">{editingUser.email}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-600">Display Name:</span>
+                    <span className="text-sm font-medium text-gray-900">{editingUser.display_name}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-600">Current Status:</span>
+                    <span className={`text-sm font-semibold ${
+                      editingUser.account_status === 'active' ? 'text-green-600' :
+                      editingUser.account_status === 'suspended' ? 'text-yellow-600' :
+                      editingUser.account_status === 'inactive' ? 'text-gray-600' :
+                      'text-red-600'
+                    }`}>
+                      {editingUser.account_status.charAt(0).toUpperCase() + editingUser.account_status.slice(1)}
+                    </span>
+                  </div>
+                  {editingUser.subscription && (
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                      <span className="text-xs text-gray-600">Subscription:</span>
+                      <span className="text-sm font-medium text-blue-600">
+                        {editingUser.subscription.subscription_packages?.name}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Selection */}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    Change Status To:
+                  </label>
+                  <div className="space-y-3">
+                    {/* Active */}
+                    <label className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      formData.account_status === 'active'
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-gray-200 hover:border-green-300'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="account_status"
+                        value="active"
+                        checked={formData.account_status === 'active'}
+                        onChange={(e) => setFormData({ ...formData, account_status: e.target.value })}
+                        className="mt-1 mr-3"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          <span className="font-semibold text-gray-900">Active</span>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">
+                          User can log in and use all features normally
+                        </p>
+                      </div>
+                    </label>
+
+                    {/* Suspended */}
+                    <label className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      formData.account_status === 'suspended'
+                        ? 'border-yellow-500 bg-yellow-50'
+                        : 'border-gray-200 hover:border-yellow-300'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="account_status"
+                        value="suspended"
+                        checked={formData.account_status === 'suspended'}
+                        onChange={(e) => setFormData({ ...formData, account_status: e.target.value })}
+                        className="mt-1 mr-3"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-yellow-600" />
+                          <span className="font-semibold text-gray-900">Suspended</span>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">
+                          Temporary suspension - user cannot log in (reversible)
+                        </p>
+                      </div>
+                    </label>
+
+                    {/* Inactive */}
+                    <label className={`flex items-start p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      formData.account_status === 'inactive'
+                        ? 'border-gray-500 bg-gray-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="account_status"
+                        value="inactive"
+                        checked={formData.account_status === 'inactive'}
+                        onChange={(e) => setFormData({ ...formData, account_status: e.target.value })}
+                        className="mt-1 mr-3"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <XCircle className="h-4 w-4 text-gray-600" />
+                          <span className="font-semibold text-gray-900">Inactive</span>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">
+                          Account deactivated - user cannot log in (can be reactivated)
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Reason field (shown for suspended/inactive) */}
+                {(formData.account_status === 'suspended' || formData.account_status === 'inactive') && (
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Reason {formData.account_status === 'suspended' ? '(Required)' : '(Optional)'}
+                    </label>
+                    <textarea
+                      value={formData.suspend_reason}
+                      onChange={(e) => setFormData({ ...formData, suspend_reason: e.target.value })}
+                      placeholder={`Why is this user being ${formData.account_status}?`}
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm resize-none"
+                      rows={3}
+                      required={formData.account_status === 'suspended'}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      This reason will be logged and shown to other admins
+                    </p>
+                  </div>
+                )}
+
+                {/* Warning for status change */}
+                {formData.account_status !== editingUser.account_status && (
+                  <div className={`p-4 rounded-xl border ${
+                    formData.account_status === 'active' 
+                      ? 'bg-green-50 border-green-200' 
+                      : 'bg-yellow-50 border-yellow-200'
+                  }`}>
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className={`h-5 w-5 mt-0.5 ${
+                        formData.account_status === 'active' ? 'text-green-600' : 'text-yellow-600'
+                      }`} />
+                      <div>
+                        <p className={`text-sm font-semibold ${
+                          formData.account_status === 'active' ? 'text-green-800' : 'text-yellow-800'
+                        }`}>
+                          {formData.account_status === 'active' 
+                            ? 'This will restore user access' 
+                            : 'This will restrict user access'}
+                        </p>
+                        <p className={`text-xs mt-1 ${
+                          formData.account_status === 'active' ? 'text-green-700' : 'text-yellow-700'
+                        }`}>
+                          {formData.account_status === 'active'
+                            ? 'The user will be able to log in and use the app again.'
+                            : formData.account_status === 'suspended'
+                            ? 'The user will be temporarily unable to log in until unsuspended.'
+                            : 'The user will be unable to log in until reactivated.'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </form>
+            </div>
+          )}
         </Modal>
       </div>
     </div>

@@ -75,7 +75,7 @@ const Sidebar = () => {
           <img
             src={logo}
             alt="Brick After Brick Logo"
-            className="h-20 object-contain"
+            className="h-32 object-contain"
           />
         </div>
 
@@ -103,10 +103,6 @@ const Sidebar = () => {
 
         {/* Footer - Fixed at bottom */}
         <div className="border-t border-gray-100 p-4 flex-shrink-0">
-          <button className="w-full flex items-center gap-2 px-3 py-2 text-left text-gray-700 hover:bg-gray-50 rounded-lg transition-all">
-            <Settings className="h-4 w-4 flex-shrink-0" />
-            <span className="text-xs">Settings</span>
-          </button>
           <button 
             onClick={handleLogout}
             className="w-full flex items-center gap-2 px-3 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg transition-all mt-1"

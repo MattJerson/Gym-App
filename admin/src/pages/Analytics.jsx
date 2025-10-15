@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { 
   Download, 
   Calendar, 
-  TrendingUp, 
-  TrendingDown,
+  TrendingUp,
   Users,
   Activity,
   Clock,

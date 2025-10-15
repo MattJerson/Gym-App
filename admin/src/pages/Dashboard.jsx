@@ -8,11 +8,10 @@ import {
   Trophy,
   TrendingUp,
   Crown,
-  Zap,
-  TrendingDown
+  Zap
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { supabase, checkAdminRole } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import StatsCard from '../components/common/StatsCard';
 import RecentActivityCard from '../components/dashboard/RecentActivityCard';
 import QuickStatsGrid from '../components/dashboard/QuickStatsGrid';
