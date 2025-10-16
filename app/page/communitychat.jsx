@@ -28,6 +28,10 @@ import {
   getOrCreateConversation,
   subscribeToDirectMessages,
   subscribeToChannelMessages,
+  getAllUnreadCounts,
+  markChannelRead,
+  markDMRead,
+  MAX_MESSAGE_LENGTH,
 } from "../../services/ChatServices";
 
 export default function CommunityChat() {
@@ -47,16 +51,35 @@ export default function CommunityChat() {
   const [dmList, setDmList] = useState([]);
   const [dmMessages, setDmMessages] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  
+  // Unread tracking
+  const [unreadCounts, setUnreadCounts] = useState({ channels: [], dms: [], totalUnread: 0 });
+  const [characterCount, setCharacterCount] = useState(0);
+  const [rateLimitError, setRateLimitError] = useState(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(-280)).current;
   const messageSubscription = useRef(null);
+  const unreadSubscription = useRef(null);
+  const flatListRef = useRef(null); // Add ref for FlatList to control scrolling
 
   // Get current user on mount
   useEffect(() => {
     getCurrentUser();
     loadChannels();
   }, []);
+
+  // Load unread counts when user is available
+  useEffect(() => {
+    if (currentUser) {
+      loadUnreadCounts();
+      
+      // Set up real-time unread count updates
+      const interval = setInterval(loadUnreadCounts, 30000); // Every 30 seconds
+      
+      return () => clearInterval(interval);
+    }
+  }, [currentUser]);
 
   // Animate on mount
   useEffect(() => {
@@ -100,6 +123,16 @@ export default function CommunityChat() {
       }
     };
   }, [activeConversationId]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (flatListRef.current && currentMessages.length > 0) {
+      // Delay scroll to ensure FlatList has rendered
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [channelMessages, dmMessages, viewMode]);
 
   // Update online status
   useEffect(() => {
@@ -234,6 +267,8 @@ export default function CommunityChat() {
         text: msg.content,
         timestamp: formatTimestamp(msg.created_at),
         isOnline: msg.chats.is_online,
+        isMe: msg.user_id === currentUser?.id, // Check if it's my message
+        userId: msg.user_id, // Add userId for DM functionality
         reactions: groupReactions(msg.message_reactions || []),
       }));
       setChannelMessages(formattedMessages);
@@ -298,13 +333,18 @@ export default function CommunityChat() {
           const newMessage = {
             id: data.id,
             user: data.chats?.username || "unknown",
-            avatar: data.chats?.avatar || "?",
+            avatar: data.chats?.avatar || "👤",
             text: data.content,
             timestamp: formatTimestamp(data.created_at),
             isOnline: data.chats?.is_online || false,
+            isMe: data.user_id === currentUser?.id,
+            userId: data.user_id,
             reactions: data.message_reactions || [],
           };
           setChannelMessages((prev) => [...prev, newMessage]);
+          
+          // Reload unread counts for real-time badge updates
+          loadUnreadCounts();
         } catch (err) {
           console.warn(
             "[CommunityChat] failed to handle channel realtime payload",
@@ -335,6 +375,9 @@ export default function CommunityChat() {
             isMe: data.sender_id === currentUser.id,
           };
           setDmMessages((prev) => [...prev, newMessage]);
+          
+          // Reload unread counts for real-time badge updates
+          loadUnreadCounts();
         } catch (err) {
           console.warn(
             "[CommunityChat] failed to handle DM realtime payload",
@@ -353,6 +396,7 @@ export default function CommunityChat() {
     }
 
     setSending(true);
+    setRateLimitError(null);
 
     const payloadPreview = message.trim().slice(0, 140);
     if (!currentUser || !currentUser.id) {
@@ -365,6 +409,7 @@ export default function CommunityChat() {
         "Your user profile is not loaded yet. Try again in a moment."
       );
       setMessage("");
+      setCharacterCount(0);
       setSending(false);
       return;
     }
@@ -399,9 +444,18 @@ export default function CommunityChat() {
             "[CommunityChat] sendChannelMessage returned error",
             error
           );
-          Alert.alert("Error", "Failed to send message");
+          
+          // Handle rate limit error
+          if (error.code === 'RATE_LIMIT') {
+            setRateLimitError(`Too many messages. Please wait ${error.waitSeconds} seconds.`);
+            setTimeout(() => setRateLimitError(null), error.waitSeconds * 1000);
+          } else {
+            Alert.alert("Error", error.message || "Failed to send message");
+          }
         } else {
           console.log("[CommunityChat] channel message sent", { id: data?.id });
+          setMessage("");
+          setCharacterCount(0);
         }
       } else if (activeConversationId) {
         const { data, error } = await sendDirectMessage(
@@ -415,15 +469,22 @@ export default function CommunityChat() {
             "[CommunityChat] sendDirectMessage returned error",
             error
           );
-          Alert.alert("Error", "Failed to send message");
+          
+          // Handle rate limit error
+          if (error.code === 'RATE_LIMIT') {
+            setRateLimitError(`Too many messages. Please wait ${error.waitSeconds} seconds.`);
+            setTimeout(() => setRateLimitError(null), error.waitSeconds * 1000);
+          } else {
+            Alert.alert("Error", error.message || "Failed to send message");
+          }
         } else {
           console.log("[CommunityChat] direct message sent", { id: data?.id });
+          setMessage("");
+          setCharacterCount(0);
         }
       } else {
         console.warn("[CommunityChat] no active target to send message to");
       }
-
-      setMessage("");
     } catch (err) {
       console.error("[CommunityChat] unexpected error sending message", err);
       Alert.alert("Error", "An unexpected error occurred while sending");
@@ -475,20 +536,38 @@ export default function CommunityChat() {
     }
   };
 
-  const openDM = (conversationId) => {
+  const openDM = async (conversationId) => {
     setActiveConversationId(conversationId);
     setActiveDM(conversationId);
     setActiveChannel("");
     setViewMode("dms");
     closeSidebar();
+    
+    // Mark DM as read after messages load
+    setTimeout(async () => {
+      if (currentUser && dmMessages.length > 0) {
+        const lastMsg = dmMessages[dmMessages.length - 1];
+        await markDMRead(currentUser.id, conversationId, lastMsg.id);
+        loadUnreadCounts();
+      }
+    }, 500);
   };
 
-  const openChannel = (channelId) => {
+  const openChannel = async (channelId) => {
     setActiveChannel(channelId);
     setActiveDM(null);
     setActiveConversationId(null);
     setViewMode("channels");
     closeSidebar();
+    
+    // Mark channel as read after messages load
+    setTimeout(async () => {
+      if (currentUser && channelMessages.length > 0) {
+        const lastMsg = channelMessages[channelMessages.length - 1];
+        await markChannelRead(currentUser.id, channelId, lastMsg.id);
+        loadUnreadCounts();
+      }
+    }, 500);
   };
 
   const toggleSidebar = () => setShowSidebar(!showSidebar);
@@ -534,6 +613,28 @@ export default function CommunityChat() {
     return Object.values(grouped);
   };
 
+  // Load unread counts for all channels and DMs
+  const loadUnreadCounts = async () => {
+    if (!currentUser) return;
+    
+    const { data, error } = await getAllUnreadCounts(currentUser.id);
+    if (data && !error) {
+      setUnreadCounts(data);
+    }
+  };
+
+  // Get unread count for specific channel
+  const getChannelUnreadCount = (channelId) => {
+    const unread = unreadCounts.channels.find(c => c.channel_id === channelId);
+    return unread?.unread_count || 0;
+  };
+
+  // Get unread count for specific DM
+  const getDMUnreadCount = (conversationId) => {
+    const unread = unreadCounts.dms.find(d => d.conversation_id === conversationId);
+    return unread?.unread_count || 0;
+  };
+
   const currentMessages = viewMode === "dms" ? dmMessages : channelMessages;
 
   const getHeaderTitle = () => {
@@ -555,68 +656,74 @@ export default function CommunityChat() {
   const renderChannelCategory = ({ item }) => (
     <View style={styles.categoryContainer}>
       <Text style={styles.categoryTitle}>{item.name}</Text>
-      {item.channels.map((channel) => (
-        <Pressable
-          key={channel.id}
-          style={[
-            styles.channelItem,
-            activeChannel === channel.id && styles.activeChannelItem,
-          ]}
-          onPress={() => openChannel(channel.id)}
-        >
-          <MaterialCommunityIcons
-            name={channel.icon}
-            size={18}
-            color={activeChannel === channel.id ? "#fff" : "#aaa"}
-            style={styles.channelIcon}
-          />
-          <Text
+      {item.channels.map((channel) => {
+        const unreadCount = getChannelUnreadCount(channel.id);
+        return (
+          <Pressable
+            key={channel.id}
             style={[
-              styles.channelName,
-              activeChannel === channel.id && styles.activeChannelName,
+              styles.channelItem,
+              activeChannel === channel.id && styles.activeChannelItem,
             ]}
+            onPress={() => openChannel(channel.id)}
           >
-            {channel.name}
-          </Text>
-          {channel.unread > 0 && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadCount}>{channel.unread}</Text>
-            </View>
-          )}
-        </Pressable>
-      ))}
+            <MaterialCommunityIcons
+              name={channel.icon}
+              size={18}
+              color={activeChannel === channel.id ? "#fff" : "#aaa"}
+              style={styles.channelIcon}
+            />
+            <Text
+              style={[
+                styles.channelName,
+                activeChannel === channel.id && styles.activeChannelName,
+              ]}
+            >
+              {channel.name}
+            </Text>
+            {unreadCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadCount}>{unreadCount}</Text>
+              </View>
+            )}
+          </Pressable>
+        );
+      })}
     </View>
   );
 
-  const renderDMItem = ({ item }) => (
-    <Pressable
-      style={[styles.dmItem, activeDM === item.id && styles.activeDMItem]}
-      onPress={() => openDM(item.id)}
-    >
-      <View style={styles.dmAvatarContainer}>
-        <Text style={styles.dmAvatar}>{item.avatar}</Text>
-        {item.isOnline && <View style={styles.onlineIndicator} />}
-      </View>
-      <View style={styles.dmContent}>
-        <View style={styles.dmHeader}>
-          <Text style={styles.dmUsername}>{item.user}</Text>
-          <Text style={styles.dmTimestamp}>{item.timestamp}</Text>
+  const renderDMItem = ({ item }) => {
+    const unreadCount = getDMUnreadCount(item.id);
+    return (
+      <Pressable
+        style={[styles.dmItem, activeDM === item.id && styles.activeDMItem]}
+        onPress={() => openDM(item.id)}
+      >
+        <View style={styles.dmAvatarContainer}>
+          <Text style={styles.dmAvatar}>{item.avatar}</Text>
+          {item.isOnline && <View style={styles.onlineIndicator} />}
         </View>
-        <Text style={styles.dmLastMessage} numberOfLines={1}>
-          {item.lastMessage}
-        </Text>
-      </View>
-      {item.unread > 0 && (
-        <View style={styles.dmUnreadBadge}>
-          <Text style={styles.unreadCount}>{item.unread}</Text>
+        <View style={styles.dmContent}>
+          <View style={styles.dmHeader}>
+            <Text style={styles.dmUsername}>{item.user}</Text>
+            <Text style={styles.dmTimestamp}>{item.timestamp}</Text>
+          </View>
+          <Text style={styles.dmLastMessage} numberOfLines={1}>
+            {item.lastMessage}
+          </Text>
         </View>
-      )}
-    </Pressable>
-  );
+        {unreadCount > 0 && (
+          <View style={styles.dmUnreadBadge}>
+            <Text style={styles.unreadCount}>{unreadCount}</Text>
+          </View>
+        )}
+      </Pressable>
+    );
+  };
 
   const renderMessage = ({ item }) => {
     const isDM = viewMode === "dms";
-    const isMyMessage = isDM && item.isMe;
+    const isMyMessage = item.isMe; // Works for both channels and DMs now
 
     return (
       <View
@@ -626,31 +733,34 @@ export default function CommunityChat() {
         ]}
       >
         <View style={[styles.messageCard, isMyMessage && styles.myMessageCard]}>
-          {!isMyMessage && (
-            <View style={styles.messageHeader}>
-              <Pressable
-                style={styles.userInfo}
-                onPress={() => {
-                  if (!isDM && currentUser) {
-                    // Get user ID from the message to start DM
-                    startDMWithUser(
-                      item.user,
-                      item.userId,
-                      item.avatar,
-                      item.isOnline
-                    );
-                  }
-                }}
-              >
-                <View style={styles.avatarContainer}>
-                  <Text style={styles.userAvatar}>{item.avatar}</Text>
-                  {item.isOnline && <View style={styles.onlineIndicator} />}
-                </View>
-                <Text style={styles.userName}>{item.user}</Text>
-                <Text style={styles.messageTimestamp}>{item.timestamp}</Text>
-              </Pressable>
-            </View>
-          )}
+          <View style={styles.messageHeader}>
+            <Pressable
+              style={styles.userInfo}
+              onPress={() => {
+                if (!isDM && !isMyMessage && currentUser) {
+                  // Get user ID from the message to start DM
+                  startDMWithUser(
+                    item.user,
+                    item.userId,
+                    item.avatar,
+                    item.isOnline
+                  );
+                }
+              }}
+            >
+              <View style={styles.avatarContainer}>
+                <Text style={styles.userAvatar}>{item.avatar || '👤'}</Text>
+                {item.isOnline && <View style={styles.onlineIndicator} />}
+              </View>
+              <Text style={styles.userName}>
+                @{item.user || 'unknown'}
+                {isMyMessage && (
+                  <Text style={styles.youLabel}> (You)</Text>
+                )}
+              </Text>
+              <Text style={styles.messageTimestamp}>{item.timestamp}</Text>
+            </Pressable>
+          </View>
           <Text
             style={[styles.messageText, isMyMessage && styles.myMessageText]}
           >
@@ -708,12 +818,17 @@ export default function CommunityChat() {
         <Animated.View style={[styles.mainContent, { opacity: fadeAnim }]}>
           <View style={styles.chatArea}>
             <FlatList
+              ref={flatListRef}
               style={styles.messagesList}
               data={currentMessages}
               renderItem={renderMessage}
               keyExtractor={(item) => item.id.toString()}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.messagesContainer}
+              onContentSizeChange={() => {
+                // Also scroll on content size change (when new messages added)
+                flatListRef.current?.scrollToEnd({ animated: true });
+              }}
               ListHeaderComponent={
                 !activeDM && (
                   <View style={styles.channelIntro}>
@@ -740,6 +855,14 @@ export default function CommunityChat() {
               }
             />
 
+            {/* Rate Limit Error Banner */}
+            {rateLimitError && (
+              <View style={styles.errorBanner}>
+                <MaterialCommunityIcons name="alert-circle" size={20} color="#991b1b" />
+                <Text style={styles.errorText}>{rateLimitError}</Text>
+              </View>
+            )}
+
             <View style={styles.inputContainer}>
               <View style={styles.inputWrapper}>
                 <Pressable style={styles.attachButton}>
@@ -749,21 +872,34 @@ export default function CommunityChat() {
                     color="#aaa"
                   />
                 </Pressable>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder={
-                    activeDM
-                      ? `Message ${
-                          dmList.find((d) => d.id === activeDM)?.user
-                        }...`
-                      : `Message #${activeChannel}...`
-                  }
-                  placeholderTextColor="#888"
-                  value={message}
-                  onChangeText={setMessage}
-                  multiline
-                  maxLength={500}
-                />
+                <View style={styles.textInputContainer}>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder={
+                      activeDM
+                        ? `Message ${
+                            dmList.find((d) => d.id === activeDM)?.user
+                          }...`
+                        : `Message #${activeChannel}...`
+                    }
+                    placeholderTextColor="#888"
+                    value={message}
+                    onChangeText={(text) => {
+                      if (text.length <= MAX_MESSAGE_LENGTH) {
+                        setMessage(text);
+                        setCharacterCount(text.length);
+                      }
+                    }}
+                    multiline
+                    maxLength={MAX_MESSAGE_LENGTH}
+                  />
+                  <Text style={[
+                    styles.characterCounter,
+                    { color: characterCount >= MAX_MESSAGE_LENGTH ? '#ef4444' : '#9ca3af' }
+                  ]}>
+                    {characterCount}/{MAX_MESSAGE_LENGTH}
+                  </Text>
+                </View>
                 <Pressable style={styles.emojiButton}>
                   <MaterialCommunityIcons
                     name="emoticon-happy-outline"
@@ -1226,6 +1362,12 @@ const styles = StyleSheet.create({
     marginRight: 10,
     fontWeight: "600",
   },
+  youLabel: {
+    fontSize: 14,
+    color: "#aaa",
+    fontWeight: "400",
+    fontStyle: "italic",
+  },
   messageTimestamp: {
     fontSize: 12,
     color: "#888",
@@ -1282,6 +1424,10 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
+  textInputContainer: {
+    flex: 1,
+    position: 'relative',
+  },
   attachButton: {
     padding: 4,
     marginRight: 12,
@@ -1292,6 +1438,14 @@ const styles = StyleSheet.create({
     color: "#fff",
     maxHeight: 100,
     paddingVertical: 8,
+    paddingBottom: 20,
+  },
+  characterCounter: {
+    position: 'absolute',
+    right: 4,
+    bottom: 2,
+    fontSize: 11,
+    fontWeight: '500',
   },
   emojiButton: {
     padding: 4,
@@ -1309,5 +1463,23 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: "center",
     justifyContent: "center",
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fee2e2',
+    padding: 12,
+    marginHorizontal: 10,
+    marginBottom: 8,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ef4444',
+    gap: 8,
+  },
+  errorText: {
+    flex: 1,
+    color: '#991b1b',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

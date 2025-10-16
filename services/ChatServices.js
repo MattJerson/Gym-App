@@ -1,5 +1,192 @@
 import { supabase } from "./supabase";
 
+// ============================================
+// SECURITY & VALIDATION
+// ============================================
+
+export const MAX_MESSAGE_LENGTH = 500;
+const RATE_LIMIT_MAX = 10; // messages per window
+const RATE_LIMIT_WINDOW = 1; // minutes
+
+// Client-side profanity check (simple version - server has full list)
+const commonProfanity = ['spam', 'scam', 'hate', 'idiot', 'stupid', 'dumb', 'fuck', 'shit', 'ass', 'bitch'];
+
+export const validateMessage = (content) => {
+  const errors = [];
+  
+  // Check length
+  if (!content || content.trim().length === 0) {
+    errors.push('Message cannot be empty');
+  }
+  
+  if (content.length > MAX_MESSAGE_LENGTH) {
+    errors.push(`Message too long (max ${MAX_MESSAGE_LENGTH} characters)`);
+  }
+  
+  // Check for suspicious patterns
+  const urlPattern = /(https?:\/\/[^\s]+)/g;
+  const urls = content.match(urlPattern);
+  if (urls && urls.length > 2) {
+    errors.push('Too many links in message');
+  }
+  
+  // Check for spam patterns (repeated characters)
+  const repeatedChars = /(.)\1{10,}/;
+  if (repeatedChars.test(content)) {
+    errors.push('Message contains spam patterns');
+  }
+  
+  // Quick profanity check
+  const lowerContent = content.toLowerCase();
+  const foundProfanity = commonProfanity.filter(word => 
+    lowerContent.includes(word)
+  );
+  
+  if (foundProfanity.length > 0) {
+    errors.push('Message contains inappropriate language');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+    characterCount: content.length,
+    hasProfanity: foundProfanity.length > 0,
+    flaggedWords: foundProfanity
+  };
+};
+
+// Check rate limit before sending
+export const checkRateLimit = async (userId) => {
+  try {
+    const { data, error } = await supabase.rpc('check_rate_limit', {
+      p_user_id: userId,
+      p_max_messages: RATE_LIMIT_MAX,
+      p_window_minutes: RATE_LIMIT_WINDOW
+    });
+    
+    if (error) {
+      console.error('[ChatServices] Rate limit check failed:', error);
+      return { allowed: true, waitSeconds: 0 }; // Fail open for UX
+    }
+    
+    return {
+      allowed: data[0]?.allowed || false,
+      currentCount: data[0]?.current_count || 0,
+      waitSeconds: data[0]?.wait_seconds || 0
+    };
+  } catch (err) {
+    console.error('[ChatServices] Rate limit error:', err);
+    return { allowed: true, waitSeconds: 0 };
+  }
+};
+
+// ============================================
+// UNREAD MESSAGE TRACKING
+// ============================================
+
+export const getChannelUnreadCount = async (userId, channelId) => {
+  try {
+    const { data, error } = await supabase.rpc('get_channel_unread_count', {
+      p_user_id: userId,
+      p_channel_id: channelId
+    });
+    
+    if (error) throw error;
+    return data || 0;
+  } catch (err) {
+    console.error('[ChatServices] Failed to get channel unread count:', err);
+    return 0;
+  }
+};
+
+export const markChannelRead = async (userId, channelId, lastMessageId = null) => {
+  try {
+    const { error } = await supabase.rpc('mark_channel_read', {
+      p_user_id: userId,
+      p_channel_id: channelId,
+      p_last_message_id: lastMessageId
+    });
+    
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    console.error('[ChatServices] Failed to mark channel read:', err);
+    return { success: false, error: err };
+  }
+};
+
+export const getDMUnreadCount = async (userId, conversationId) => {
+  try {
+    const { data, error } = await supabase.rpc('get_dm_unread_count', {
+      p_user_id: userId,
+      p_conversation_id: conversationId
+    });
+    
+    if (error) throw error;
+    return data || 0;
+  } catch (err) {
+    console.error('[ChatServices] Failed to get DM unread count:', err);
+    return 0;
+  }
+};
+
+export const markDMRead = async (userId, conversationId, lastMessageId = null) => {
+  try {
+    const { error } = await supabase.rpc('mark_dm_read', {
+      p_user_id: userId,
+      p_conversation_id: conversationId,
+      p_last_message_id: lastMessageId
+    });
+    
+    if (error) throw error;
+    return { success: true };
+  } catch (err) {
+    console.error('[ChatServices] Failed to mark DM read:', err);
+    return { success: false, error: err };
+  }
+};
+
+// Get all unread counts for a user
+export const getAllUnreadCounts = async (userId) => {
+  try {
+    // Get all channels user has access to
+    const { data: channels } = await fetchChannels();
+    
+    const channelUnreads = await Promise.all(
+      (channels || []).map(async (channel) => ({
+        channelId: channel.id,
+        unread: await getChannelUnreadCount(userId, channel.id)
+      }))
+    );
+    
+    // Get DM unreads from conversations
+    const { data: conversations } = await fetchUserConversations(userId);
+    
+    const dmUnreads = await Promise.all(
+      (conversations || []).map(async (conv) => ({
+        conversationId: conv.id,
+        unread: await getDMUnreadCount(userId, conv.id)
+      }))
+    );
+    
+    return {
+      channels: channelUnreads,
+      dms: dmUnreads,
+      totalUnread: [
+        ...channelUnreads,
+        ...dmUnreads
+      ].reduce((sum, item) => sum + item.unread, 0)
+    };
+  } catch (err) {
+    console.error('[ChatServices] Failed to get all unread counts:', err);
+    return { channels: [], dms: [], totalUnread: 0 };
+  }
+};
+
+// ============================================
+// ORIGINAL FUNCTIONS (ENHANCED)
+// ============================================
+
 // Fetch channels
 export const fetchChannels = async () => {
   const { data, error } = await supabase
@@ -12,11 +199,12 @@ export const fetchChannels = async () => {
 
 // Fetch channel messages
 export const fetchChannelMessages = async (channelId, limit = 50) => {
-  // Fetch raw messages
+  // Fetch raw messages (exclude deleted)
   const { data: messages, error: msgErr } = await supabase
     .from("channel_messages")
     .select(`*, message_reactions (emoji, user_id)`)
     .eq("channel_id", channelId)
+    .eq("is_deleted", false)
     .order("created_at", { ascending: true })
     .limit(limit);
 
@@ -51,12 +239,35 @@ export const fetchChannelMessages = async (channelId, limit = 50) => {
   return { data: enriched, error: null };
 };
 
-// Send channel message
+// Send channel message (with validation and rate limiting)
 export const sendChannelMessage = async (channelId, content, userId) => {
   try {
+    // Validate message
+    const validation = validateMessage(content);
+    if (!validation.isValid) {
+      return { 
+        data: null, 
+        error: { message: validation.errors.join(', ') }
+      };
+    }
+    
+    // Check rate limit
+    const rateLimit = await checkRateLimit(userId);
+    if (!rateLimit.allowed) {
+      return {
+        data: null,
+        error: { 
+          message: `Too many messages. Please wait ${rateLimit.waitSeconds} seconds.`,
+          code: 'RATE_LIMIT',
+          waitSeconds: rateLimit.waitSeconds
+        }
+      };
+    }
+    
     console.log(`[ChatServices] sendChannelMessage start`, {
       channelId,
       userId,
+      characterCount: validation.characterCount,
       preview: content?.slice(0, 120),
     });
 
@@ -65,9 +276,11 @@ export const sendChannelMessage = async (channelId, content, userId) => {
       .insert({
         channel_id: channelId,
         user_id: userId,
-        content,
+        content: content.trim(),
+        character_count: validation.characterCount,
+        is_flagged: validation.hasProfanity,
+        flag_reason: validation.hasProfanity ? `Auto-flagged: ${validation.flaggedWords.join(', ')}` : null
       })
-      // Return the inserted row only; join queries can fail depending on DB aliases
       .select("*")
       .single();
 
@@ -79,9 +292,10 @@ export const sendChannelMessage = async (channelId, content, userId) => {
     console.log("[ChatServices] sendChannelMessage success", {
       id: data?.id,
       channelId: data?.channel_id,
+      isFlagged: data?.is_flagged
     });
 
-    // Enrich with public profile if possible
+    // Enrich with public profile
     try {
       const { data: profile } = await supabase
         .from("chats_public_with_id")
@@ -171,6 +385,7 @@ export const fetchDirectMessages = async (conversationId, limit = 50) => {
     .from("direct_messages")
     .select(`*`)
     .eq("conversation_id", conversationId)
+    .eq("is_deleted", false)
     .order("created_at", { ascending: true })
     .limit(limit);
 
@@ -203,12 +418,35 @@ export const fetchDirectMessages = async (conversationId, limit = 50) => {
   return { data: enriched, error: null };
 };
 
-// Send direct message
+// Send direct message (with validation and rate limiting)
 export const sendDirectMessage = async (conversationId, senderId, content) => {
   try {
+    // Validate message
+    const validation = validateMessage(content);
+    if (!validation.isValid) {
+      return { 
+        data: null, 
+        error: { message: validation.errors.join(', ') }
+      };
+    }
+    
+    // Check rate limit
+    const rateLimit = await checkRateLimit(senderId);
+    if (!rateLimit.allowed) {
+      return {
+        data: null,
+        error: { 
+          message: `Too many messages. Please wait ${rateLimit.waitSeconds} seconds.`,
+          code: 'RATE_LIMIT',
+          waitSeconds: rateLimit.waitSeconds
+        }
+      };
+    }
+    
     console.log(`[ChatServices] sendDirectMessage start`, {
       conversationId,
       senderId,
+      characterCount: validation.characterCount,
       preview: content?.slice(0, 120),
     });
 
@@ -217,9 +455,11 @@ export const sendDirectMessage = async (conversationId, senderId, content) => {
       .insert({
         conversation_id: conversationId,
         sender_id: senderId,
-        content,
+        content: content.trim(),
+        character_count: validation.characterCount,
+        is_flagged: validation.hasProfanity,
+        flag_reason: validation.hasProfanity ? `Auto-flagged: ${validation.flaggedWords.join(', ')}` : null
       })
-      // Return the inserted row only; joined selects can break if aliases differ
       .select("*")
       .single();
 
@@ -231,6 +471,7 @@ export const sendDirectMessage = async (conversationId, senderId, content) => {
     console.log("[ChatServices] sendDirectMessage success", {
       id: data?.id,
       conversationId: data?.conversation_id,
+      isFlagged: data?.is_flagged
     });
 
     try {
@@ -332,6 +573,172 @@ export const subscribeToPresence = (callback) => {
         table: "chats",
       },
       callback
+    )
+    .subscribe();
+};
+
+// ============================================
+// ADMIN MODERATION FUNCTIONS
+// ============================================
+
+// Fetch flagged messages for admin review
+export const fetchFlaggedMessages = async () => {
+  const { data, error } = await supabase
+    .from("admin_flagged_messages")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  return { data, error };
+};
+
+// Fetch chat statistics for admin dashboard
+export const fetchChatStatistics = async () => {
+  const { data, error } = await supabase
+    .from("admin_chat_statistics")
+    .select("*")
+    .single();
+
+  return { data, error };
+};
+
+// Delete a message (soft delete - sets is_deleted = true)
+export const deleteMessage = async (messageId, messageType, adminId) => {
+  const table = messageType === 'channel' ? 'channel_messages' : 'direct_messages';
+  
+  const { error } = await supabase
+    .from(table)
+    .update({
+      is_deleted: true,
+      deleted_by: adminId,
+      deleted_at: new Date().toISOString()
+    })
+    .eq("id", messageId);
+
+  // Log the moderation action
+  if (!error) {
+    await supabase
+      .from("message_moderation_log")
+      .insert({
+        message_id: messageId,
+        message_type: messageType,
+        action: 'deleted',
+        moderator_id: adminId,
+        reason: 'Admin deleted message'
+      });
+  }
+
+  return { error };
+};
+
+// Unflag a message (mark as reviewed/safe)
+export const unflagMessage = async (messageId, messageType, adminId) => {
+  const table = messageType === 'channel' ? 'channel_messages' : 'direct_messages';
+  
+  const { error } = await supabase
+    .from(table)
+    .update({
+      is_flagged: false,
+      flag_reason: null
+    })
+    .eq("id", messageId);
+
+  // Log the moderation action
+  if (!error) {
+    await supabase
+      .from("message_moderation_log")
+      .insert({
+        message_id: messageId,
+        message_type: messageType,
+        action: 'unflagged',
+        moderator_id: adminId,
+        reason: 'Admin reviewed and cleared flag'
+      });
+  }
+
+  return { error };
+};
+
+// Flag a message manually (for admin to mark suspicious content)
+export const flagMessage = async (messageId, messageType, adminId, reason) => {
+  const table = messageType === 'channel' ? 'channel_messages' : 'direct_messages';
+  
+  const { error } = await supabase
+    .from(table)
+    .update({
+      is_flagged: true,
+      flag_reason: reason,
+      flagged_by: adminId,
+      flagged_at: new Date().toISOString()
+    })
+    .eq("id", messageId);
+
+  // Log the moderation action
+  if (!error) {
+    await supabase
+      .from("message_moderation_log")
+      .insert({
+        message_id: messageId,
+        message_type: messageType,
+        action: 'flagged',
+        moderator_id: adminId,
+        reason: reason
+      });
+  }
+
+  return { error };
+};
+
+// Fetch all channel messages for admin view
+export const fetchAllChannelMessagesAdmin = async (filters = {}) => {
+  let query = supabase
+    .from("admin_channel_messages")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  // Apply optional filters
+  if (filters.channelId) {
+    query = query.eq("channel_id", filters.channelId);
+  }
+  if (filters.isFlagged !== undefined) {
+    query = query.eq("is_flagged", filters.isFlagged);
+  }
+  if (filters.isDeleted !== undefined) {
+    query = query.eq("is_deleted", filters.isDeleted);
+  }
+  if (filters.startDate) {
+    query = query.gte("created_at", filters.startDate);
+  }
+  if (filters.endDate) {
+    query = query.lte("created_at", filters.endDate);
+  }
+
+  const { data, error } = await query;
+  return { data, error };
+};
+
+// Subscribe to new flagged messages for admin real-time alerts
+export const subscribeToFlaggedMessages = (callback) => {
+  return supabase
+    .channel("flagged_messages")
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "channel_messages",
+        filter: "is_flagged=eq.true",
+      },
+      (payload) => callback({ ...payload, messageType: 'channel' })
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "direct_messages",
+        filter: "is_flagged=eq.true",
+      },
+      (payload) => callback({ ...payload, messageType: 'dm' })
     )
     .subscribe();
 };
