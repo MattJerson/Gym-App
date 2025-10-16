@@ -67,26 +67,41 @@ const Meals = () => {
     try {
       setIsLoading(true);
       
-      // Fetch meal plans with user subscription counts
-      const { data, error } = await supabase
+      // Fetch meal plans
+      const { data: plans, error: plansError } = await supabase
         .from('meal_plan_templates')
-        .select(`
-          *,
-          user_meal_plans(count)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (plansError) throw plansError;
       
-      // Transform data to include subscriber count
-      const plansWithStats = (data || []).map(plan => ({
-        ...plan,
-        subscriber_count: plan.user_meal_plans?.[0]?.count || 0
-      }));
+      // Fetch subscriber counts separately to avoid RLS issues
+      const plansWithStats = [];
+      for (const plan of (plans || [])) {
+        try {
+          const { count, error: countError } = await supabase
+            .from('user_meal_plans')
+            .select('*', { count: 'exact', head: true })
+            .eq('meal_plan_id', plan.id);
+          
+          plansWithStats.push({
+            ...plan,
+            subscriber_count: countError ? 0 : (count || 0)
+          });
+        } catch (err) {
+          // If count fails, just set to 0
+          plansWithStats.push({
+            ...plan,
+            subscriber_count: 0
+          });
+        }
+      }
       
       setMealPlans(plansWithStats);
     } catch (error) {
       console.error('Error fetching meal plans:', error);
+      // Even if there's an error, try to set whatever data we have
+      setMealPlans([]);
     } finally {
       setIsLoading(false);
     }
@@ -95,17 +110,43 @@ const Meals = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      // Calculate default macros if not provided
+      const calories = formData.daily_calories ? parseInt(formData.daily_calories) : 2000;
+      const protein = formData.daily_protein ? parseInt(formData.daily_protein) : Math.round(calories * 0.30 / 4);
+      const carbs = formData.daily_carbs ? parseInt(formData.daily_carbs) : Math.round(calories * 0.40 / 4);
+      const fats = formData.daily_fats ? parseInt(formData.daily_fats) : Math.round(calories * 0.30 / 9);
+      
+      // Prepare data with proper type conversions and defaults
+      const payload = {
+        name: formData.name,
+        description: formData.description,
+        duration_weeks: parseInt(formData.duration_weeks) || 4,
+        daily_calories: calories,
+        daily_protein: protein,
+        daily_carbs: carbs,
+        daily_fats: fats,
+        plan_type: formData.plan_type,
+        difficulty_level: formData.difficulty_level,
+        meals_per_day: parseInt(formData.meals_per_day) || 3,
+        is_active: formData.is_active,
+        is_dynamic: formData.is_dynamic,
+        calorie_adjustment_percent: parseFloat(formData.calorie_adjustment_percent) || 0,
+        protein_percent: parseInt(formData.protein_percent) || 30,
+        carbs_percent: parseInt(formData.carbs_percent) || 40,
+        fat_percent: parseInt(formData.fat_percent) || 30,
+      };
+
       if (editingPlan) {
         const { error } = await supabase
           .from('meal_plan_templates')
-          .update(formData)
+          .update(payload)
           .eq('id', editingPlan.id);
         
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('meal_plan_templates')
-          .insert([formData]);
+          .insert([payload]);
         
         if (error) throw error;
       }
@@ -115,6 +156,7 @@ const Meals = () => {
       resetForm();
       await fetchMealPlans();
     } catch (err) {
+      console.error('Error saving meal plan:', err);
       alert('Error: ' + err.message);
     }
   };
