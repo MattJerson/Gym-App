@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Pressable, ScrollView, Animated } from "react-native";
+import { View, Text, StyleSheet, Pressable, ScrollView, Animated, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { NotificationService } from "../services/NotificationService";
 import { supabase } from "../services/supabase";
 
 const NotificationBar = ({ notifications: initialCount = 0 }) => {
+  const router = useRouter();
   const [showDropdown, setShowDropdown] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(initialCount);
@@ -60,16 +62,46 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
               id: newNotif.id,
               title: newNotif.title,
               status: newNotif.status,
-              type: newNotif.type
+              type: newNotif.type,
+              source: newNotif.source,
+              is_read: newNotif.is_read
             });
           }
           
-          // Reload all notifications to ensure we have the latest state
-          // This handles both new notifications and status updates (draft -> sent)
-          loadNotifications();
+          // Optimistic update - add notification immediately to UI
+          setNotifications(prev => {
+            // Check if notification already exists (avoid duplicates)
+            const exists = prev.some(n => n.id === newNotif.id);
+            if (exists) {
+              if (__DEV__) {
+                console.log('NotificationBar: Notification already exists, skipping duplicate');
+              }
+              return prev;
+            }
+            // Add new notification at the top
+            if (__DEV__) {
+              console.log('NotificationBar: Adding new notification to list');
+            }
+            return [newNotif, ...prev].slice(0, 10); // Keep only latest 10
+          });
+          
+          // Update badge count immediately
+          setUnreadCount(prev => {
+            const newCount = prev + 1;
+            if (__DEV__) {
+              console.log(`NotificationBar: Badge count ${prev} → ${newCount}`);
+            }
+            return newCount;
+          });
           
           // Shake the bell icon to draw attention
           shakeNotificationBell();
+          
+          // Also reload in background to ensure sync with server
+          if (__DEV__) {
+            console.log('NotificationBar: Scheduling background sync in 1 second');
+          }
+          setTimeout(() => loadNotifications(), 1000);
         }
       );
 
@@ -95,16 +127,120 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
     }
   };
 
-  const handleMarkAsRead = async (notificationId) => {
+  const handleMarkAsRead = async (notificationId, notification) => {
     if (!userId) return;
-    await NotificationService.markAsRead(userId, notificationId);
-    setUnreadCount(prev => Math.max(0, prev - 1));
+    
+    // Only mark manual notifications as read (automated don't have read tracking)
+    if (notification?.source === 'manual' && !notification.is_read) {
+      // Optimistic update - update UI immediately
+      setNotifications(prev => 
+        prev.map(n => 
+          n.id === notificationId 
+            ? { ...n, is_read: true, read_at: new Date().toISOString() }
+            : n
+        )
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      
+      // Update server in background
+      await NotificationService.markAsRead(userId, notificationId);
+    }
   };
 
   const handleMarkAllAsRead = async () => {
     if (!userId) return;
-    await NotificationService.markAllAsRead(userId);
-    setUnreadCount(0);
+    
+    try {
+      // Optimistic update - update UI immediately for better UX
+      const updatedNotifications = notifications.map(notif => {
+        // Only update manual notifications (automated don't have read tracking)
+        if (notif.source === 'manual' && !notif.is_read) {
+          return { ...notif, is_read: true, read_at: new Date().toISOString() };
+        }
+        return notif;
+      });
+      
+      // Get manual unread count before update
+      const manualUnreadCount = notifications.filter(n => n.source === 'manual' && !n.is_read).length;
+      
+      // Update UI immediately
+      setNotifications(updatedNotifications);
+      setUnreadCount(prev => Math.max(0, prev - manualUnreadCount));
+      
+      // Then update server in background
+      await NotificationService.markAllAsRead(userId);
+    } catch (error) {
+      console.error('Error marking all as read:', error);
+      // On error, reload from server to get correct state
+      await loadNotifications();
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!userId) return;
+    
+    Alert.alert(
+      'Clear All Notifications',
+      'This will permanently remove all notifications from your list. Continue?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Clear All',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Optimistic update - clear UI immediately
+              const notificationsToDelete = [...notifications];
+              setNotifications([]);
+              setUnreadCount(0);
+              
+              // Delete all notifications for this user in the background
+              // For manual notifications: mark as read and delete read records
+              const manualNotificationIds = notificationsToDelete
+                .filter(n => n.source === 'manual')
+                .map(n => n.id);
+              
+              if (manualNotificationIds.length > 0) {
+                // Delete read status records for manual notifications
+                await supabase
+                  .from('notification_reads')
+                  .delete()
+                  .eq('user_id', userId)
+                  .in('notification_id', manualNotificationIds);
+              }
+              
+              // For automated notifications: delete from notification_logs
+              const automatedNotificationIds = notificationsToDelete
+                .filter(n => n.source === 'automated')
+                .map(n => n.id);
+              
+              if (automatedNotificationIds.length > 0) {
+                await supabase
+                  .from('notification_logs')
+                  .delete()
+                  .eq('user_id', userId)
+                  .in('id', automatedNotificationIds);
+              }
+              
+              if (__DEV__) {
+                console.log('NotificationBar: Cleared all notifications', {
+                  manual: manualNotificationIds.length,
+                  automated: automatedNotificationIds.length
+                });
+              }
+            } catch (error) {
+              console.error('Error clearing notifications:', error);
+              Alert.alert('Error', 'Failed to clear notifications. Please try again.');
+              // On error, reload from server
+              await loadNotifications();
+            }
+          },
+        },
+      ]
+    );
   };
 
   const getNotificationIcon = (type) => {
@@ -179,12 +315,26 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
           {/* Header */}
           <View style={styles.dropdownHeader}>
             <Text style={styles.dropdownTitle}>Notifications</Text>
-            <Pressable 
-              style={styles.markAllButton}
-              onPress={handleMarkAllAsRead}
-            >
-              <Text style={styles.markAllText}>Mark all read</Text>
-            </Pressable>
+            <View style={styles.headerActions}>
+              <Pressable 
+                style={styles.actionButton}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleMarkAllAsRead();
+                }}
+              >
+                <Text style={styles.actionText}>Mark all read</Text>
+              </Pressable>
+              <Pressable 
+                style={styles.actionButton}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleClearAll();
+                }}
+              >
+                <Text style={[styles.actionText, styles.clearText]}>Clear all</Text>
+              </Pressable>
+            </View>
           </View>
 
           {/* Notifications List */}
@@ -204,9 +354,9 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
                   key={notification.id} 
                   style={[
                     styles.notificationItem,
-                    unreadCount > 0 && styles.unreadNotification
+                    !notification.is_read && styles.unreadNotification
                   ]}
-                  onPress={() => handleMarkAsRead(notification.id)}
+                  onPress={() => handleMarkAsRead(notification.id, notification)}
                 >
                   <View style={[
                     styles.notificationIconContainer, 
@@ -233,22 +383,11 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
                     </Text>
                   </View>
 
-                  {unreadCount > 0 && <View style={styles.unreadDot} />}
+                  {!notification.is_read && <View style={styles.unreadDot} />}
                 </Pressable>
               ))
             )}
           </ScrollView>
-
-          {/* Footer */}
-          <View style={styles.dropdownFooter}>
-            <Pressable 
-              style={styles.viewAllButton}
-              onPress={() => setShowDropdown(false)}
-            >
-              <Text style={styles.viewAllText}>View All Notifications</Text>
-              <Ionicons name="arrow-forward" size={16} color="#007AFF" />
-            </Pressable>
-          </View>
         </View>
       )}
 
@@ -313,7 +452,7 @@ const styles = StyleSheet.create({
     top: 40,
     right: -10,
     width: 320,
-    maxHeight: 400,
+    maxHeight: 450, // Reduced from 600
     backgroundColor: "rgba(20, 20, 20, 0.98)",
     borderRadius: 16,
     shadowColor: "#000",
@@ -354,20 +493,28 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#fff",
   },
-  markAllButton: {
+  headerActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  actionButton: {
     paddingVertical: 4,
     paddingHorizontal: 8,
   },
-  markAllText: {
-    fontSize: 14,
+  actionText: {
+    fontSize: 13,
     color: "#007AFF",
     fontWeight: "500",
+  },
+  clearText: {
+    color: "#FF3B30", // Red color for "Clear all"
   },
 
   // Notifications List Styles
   notificationsList: {
-    maxHeight: 280,
+    maxHeight: 360, // Reduced from 530 to make modal smaller
     paddingHorizontal: 4,
+    paddingBottom: 8,
   },
   notificationItem: {
     flexDirection: "row",
@@ -379,7 +526,9 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   unreadNotification: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: "rgba(0, 122, 255, 0.15)", // More visible blue tint for unread
+    borderLeftWidth: 3,
+    borderLeftColor: "#007AFF",
   },
   notificationIconContainer: {
     width: 32,
@@ -435,28 +584,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     marginTop: 12,
-  },
-
-  // Footer Styles
-  dropdownFooter: {
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)",
-    padding: 12,
-  },
-  viewAllButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: "rgba(0, 122, 255, 0.1)",
-    borderRadius: 8,
-  },
-  viewAllText: {
-    fontSize: 14,
-    color: "#007AFF",
-    fontWeight: "500",
-    marginRight: 6,
   },
 
   // Overlay to close dropdown

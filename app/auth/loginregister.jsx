@@ -19,6 +19,7 @@ import SubmitButton from "../../components/SubmitButton";
 import React, { useState, useRef, useEffect } from "react";
 import { supabase, pingSupabase } from "../../services/supabase";
 import { logger } from "../../services/logger";
+import { registerDeviceToken } from "../../services/notifications";
 
 /**
  * Determines the next onboarding step based on what data is missing
@@ -400,7 +401,7 @@ export default function Register() {
               // Sign in the user immediately after successful signup
               try {
                 dlog("signup:post:signin:start");
-                const { error: signInError } = await withTimeout(
+                const { data: signInData, error: signInError } = await withTimeout(
                   supabase.auth.signInWithPassword({ email, password }),
                   8000,
                   "Auto sign-in after signup"
@@ -409,6 +410,18 @@ export default function Register() {
                   dlog("signup:post:signin:error", signInError.message);
                 } else {
                   dlog("signup:post:signin:success");
+                  
+                  // Register device token for push notifications
+                  try {
+                    const token = await registerDeviceToken(supabase, signInData.user.id);
+                    if (__DEV__ && token) {
+                      console.log("[AUTH] Device token registered after signup");
+                    }
+                  } catch (tokenErr) {
+                    if (__DEV__) {
+                      console.log("[AUTH] Device token registration failed (non-fatal):", tokenErr?.message);
+                    }
+                  }
                 }
               } catch (signInErr) {
                 dlog("signup:post:signin:exception", signInErr.message);
@@ -440,6 +453,19 @@ export default function Register() {
         
         if (__DEV__) {
           console.log("[AUTH] User logged in:", data?.user?.id);
+        }
+
+        // Register device token for push notifications
+        try {
+          const token = await registerDeviceToken(supabase, data.user.id);
+          if (__DEV__ && token) {
+            console.log("[AUTH] Device token registered for push notifications");
+          }
+        } catch (tokenErr) {
+          // Non-fatal - push notifications will just not work
+          if (__DEV__) {
+            console.log("[AUTH] Device token registration failed (non-fatal):", tokenErr?.message);
+          }
         }
 
         // After login, if display name is missing, set it from registration_profiles or fallback to email

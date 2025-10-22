@@ -350,28 +350,28 @@ const Dashboard = () => {
             value={dashboardData.totalUsers.toLocaleString()}
             icon={Users}
             color="blue"
-            subtitle={`${dashboardData.newUsersThisMonth} new this month • ${dashboardData.userGrowth > 0 ? '+' : ''}${dashboardData.userGrowth}% growth`}
+            subtitle={`${dashboardData.newUsersThisMonth} new this month`}
           />
           <StatsCard
             title="Active Subscriptions"
             value={dashboardData.activeSubscriptions.toLocaleString()}
             icon={Crown}
             color="purple"
-            subtitle={`${dashboardData.conversionRate}% conversion rate • ${dashboardData.subsGrowth > 0 ? '+' : ''}${dashboardData.subsGrowth}% growth`}
+            subtitle={`${dashboardData.conversionRate}% conversion rate`}
           />
           <StatsCard
             title="Workouts This Month"
             value={dashboardData.totalWorkouts.toLocaleString()}
             icon={Dumbbell}
             color="orange"
-            subtitle={`${dashboardData.engagementRate}% user engagement • ${dashboardData.workoutGrowth > 0 ? '+' : ''}${dashboardData.workoutGrowth}% growth`}
+            subtitle={`${dashboardData.engagementRate}% user engagement`}
           />
           <StatsCard
             title="Meals Logged (7d)"
             value={dashboardData.totalMeals.toLocaleString()}
             icon={Apple}
             color="green"
-            subtitle="Nutrition tracking active • +15% vs last week"
+            subtitle="Nutrition tracking active"
           />
         </div>
 

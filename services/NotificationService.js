@@ -5,7 +5,7 @@ import { supabase } from './supabase';
 
 export const NotificationService = {
   /**
-   * Fetch user notifications (both read and unread)
+   * Fetch user notifications (both manual broadcasts and automated notifications)
    */
   async fetchUserNotifications(userId, limit = 20) {
     try {
@@ -20,47 +20,102 @@ export const NotificationService = {
         console.log('NotificationService: Fetching notifications for user:', userId);
       }
 
-      // Get all sent notifications (broadcast to all users)
-      const { data: notifications, error: notifError } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('status', 'sent')
-        .order('sent_at', { ascending: false })
-        .limit(limit);
+      // Fetch both manual broadcasts AND automated notifications in parallel
+      const [manualResult, automatedResult] = await Promise.all([
+        // Manual broadcasts (sent to all users)
+        supabase
+          .from('notifications')
+          .select('*')
+          .eq('status', 'sent')
+          .order('sent_at', { ascending: false })
+          .limit(limit),
+        
+        // Automated notifications (personalized, user-specific)
+        supabase
+          .from('notification_logs')
+          .select('*')
+          .eq('user_id', userId)
+          .order('sent_at', { ascending: false })
+          .limit(limit)
+      ]);
 
-      if (notifError) {
-        console.error('Error fetching notifications:', notifError.message || 'Unknown error');
-        throw notifError;
+      const manualNotifications = manualResult.data || [];
+      const automatedNotifications = automatedResult.data || [];
+
+      if (manualResult.error) {
+        console.error('Error fetching manual notifications:', manualResult.error.message);
+      }
+      
+      if (automatedResult.error) {
+        console.error('Error fetching automated notifications:', automatedResult.error.message);
       }
 
-      if (!notifications || notifications.length === 0) {
+      // Transform automated logs to match notification format
+      const transformedAutomated = automatedNotifications.map(log => ({
+        id: log.id,
+        title: log.title,
+        message: log.message,
+        type: log.type || 'info',
+        created_at: log.sent_at,
+        sent_at: log.sent_at,
+        status: 'sent',
+        source: 'automated' // Mark as automated
+      }));
+
+      // Transform manual notifications
+      const transformedManual = manualNotifications.map(notif => ({
+        ...notif,
+        source: 'manual' // Mark as manual broadcast
+      }));
+
+      // Combine and sort by date
+      const allNotifications = [...transformedManual, ...transformedAutomated]
+        .sort((a, b) => new Date(b.sent_at || b.created_at) - new Date(a.sent_at || a.created_at))
+        .slice(0, limit);
+
+      if (allNotifications.length === 0) {
         if (__DEV__) {
-          console.log('NotificationService: No sent notifications found');
+          console.log('NotificationService: No notifications found');
         }
         return [];
       }
 
-      // Get read status for this user
-      const notificationIds = notifications.map(n => n.id);
-      const { data: reads, error: readsError } = await supabase
-        .from('notification_reads')
-        .select('notification_id, is_read, read_at')
-        .eq('user_id', userId)
-        .in('notification_id', notificationIds);
+      // Get read status for manual notifications only (automated don't have read tracking yet)
+      const manualIds = allNotifications
+        .filter(n => n.source === 'manual')
+        .map(n => n.id);
 
-      if (readsError) {
-        console.error('Error fetching read status:', readsError.message || 'Unknown error');
-        // Continue without read status rather than failing
+      let readsMap = new Map();
+      if (manualIds.length > 0) {
+        const { data: reads, error: readsError } = await supabase
+          .from('notification_reads')
+          .select('notification_id, is_read, read_at')
+          .eq('user_id', userId)
+          .in('notification_id', manualIds);
+
+        if (readsError) {
+          console.error('Error fetching read status:', readsError.message);
+        } else {
+          readsMap = new Map(reads?.map(r => [r.notification_id, r]) || []);
+        }
       }
 
       if (__DEV__) {
-        console.log('NotificationService: Fetched', notifications.length, 'notifications');
+        console.log('NotificationService: Fetched', allNotifications.length, 'notifications (manual + automated)');
       }
 
-      // Merge notifications with read status
-      const readsMap = new Map(reads?.map(r => [r.notification_id, r]) || []);
-      
-      return notifications.map(notification => {
+      // Merge with read status
+      return allNotifications.map(notification => {
+        if (notification.source === 'automated') {
+          // Automated notifications are shown as unread until user dismisses them
+          // (They don't have database tracking, just UI state)
+          return {
+            ...notification,
+            is_read: false, // Show as unread in UI
+            read_at: null
+          };
+        }
+        
         const readStatus = readsMap.get(notification.id);
         return {
           ...notification,
@@ -76,7 +131,7 @@ export const NotificationService = {
   },
 
   /**
-   * Get unread notification count
+   * Get unread notification count (manual broadcasts only, automated are always "read")
    */
   async getUnreadCount(userId) {
     try {
@@ -87,7 +142,7 @@ export const NotificationService = {
         return 0;
       }
 
-      // Get all sent notifications
+      // Get all sent manual notifications (broadcast to all)
       const { data: notifications, error: notifError } = await supabase
         .from('notifications')
         .select('id')
@@ -118,12 +173,32 @@ export const NotificationService = {
       }
 
       const readCount = reads?.length || 0;
-      const unreadCount = notifications.length - readCount;
+      const manualUnreadCount = notifications.length - readCount;
+
+      // Get count of automated notifications from last 24 hours only
+      // (older ones are "seen" and don't need badge attention)
+      const twentyFourHoursAgo = new Date();
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+      
+      const { count: automatedCount, error: automatedError } = await supabase
+        .from('notification_logs')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .gte('sent_at', twentyFourHoursAgo.toISOString());
+
+      const automatedTotal = automatedError ? 0 : (automatedCount || 0);
+
+      const totalUnread = manualUnreadCount + automatedTotal;
 
       if (__DEV__) {
-        console.log('NotificationService: Unread count:', unreadCount);
+        console.log('NotificationService: Unread count:', {
+          manual: manualUnreadCount,
+          automatedLast24h: automatedTotal,
+          total: totalUnread
+        });
       }
-      return unreadCount;
+      
+      return totalUnread;
 
     } catch (error) {
       console.error('Error in getUnreadCount:', error.message || 'Unknown error');
@@ -160,15 +235,18 @@ export const NotificationService = {
   },
 
   /**
-   * Mark all notifications as read
+   * Mark all notifications as read (only manual notifications, automated don't have read tracking)
    */
   async markAllAsRead(userId) {
     try {
-      // Get all unread notifications
+      // Get all notifications
       const notifications = await this.fetchUserNotifications(userId);
       
-      // Mark each as read
-      const promises = notifications.map(notif => 
+      // Filter only manual notifications (automated can't be marked as read due to FK constraint)
+      const manualNotifications = notifications.filter(notif => notif.source === 'manual');
+      
+      // Mark each manual notification as read
+      const promises = manualNotifications.map(notif => 
         this.markAsRead(userId, notif.id)
       );
       
@@ -181,7 +259,7 @@ export const NotificationService = {
   },
 
   /**
-   * Subscribe to real-time notifications with retry logic
+   * Subscribe to real-time notifications (both manual broadcasts and automated) with retry logic
    */
   subscribeToNotifications(userId, onNewNotification) {
     if (!userId) {
@@ -195,7 +273,7 @@ export const NotificationService = {
       console.log('NotificationService: Setting up real-time subscription for user:', userId);
     }
 
-    // Create unique channel name to avoid conflicts when multiple subscriptions exist
+    // Create unique channel name to avoid conflicts
     const channelName = `notifications-${userId}-${Date.now()}`;
     
     // Track connection attempts and errors
@@ -205,6 +283,7 @@ export const NotificationService = {
     
     const channel = supabase
       .channel(channelName)
+      // Listen for manual broadcast notifications (INSERT)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -212,9 +291,8 @@ export const NotificationService = {
         filter: 'status=eq.sent'
       }, payload => {
         if (__DEV__) {
-          console.log('🔔 NotificationService: New notification INSERT:', payload.new.title);
+          console.log('🔔 NotificationService: New manual notification:', payload.new.title);
         }
-        // Reset error count on successful message
         errorCount = 0;
         if (errorTimeout) {
           clearTimeout(errorTimeout);
@@ -224,25 +302,33 @@ export const NotificationService = {
         if (onNewNotification && payload.new.status === 'sent') {
           onNewNotification({
             ...payload.new,
+            source: 'manual',
             is_read: false,
             read_at: null
           });
         }
       })
+      // Listen for manual notifications status updates (draft -> sent)
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'notifications'
       }, payload => {
-        // Only notify if status changed to 'sent' (draft -> sent)
+        if (__DEV__) {
+          console.log('📡 NotificationService: Received UPDATE event:', {
+            old_status: payload.old?.status,
+            new_status: payload.new?.status,
+            title: payload.new?.title
+          });
+        }
+        
         const wasNotSent = payload.old?.status !== 'sent';
         const isNowSent = payload.new?.status === 'sent';
         
         if (wasNotSent && isNowSent) {
           if (__DEV__) {
-            console.log('🔔 NotificationService: Notification status changed to SENT:', payload.new.title);
+            console.log('🔔 NotificationService: Manual notification sent:', payload.new.title);
           }
-          // Reset error count on successful message
           errorCount = 0;
           if (errorTimeout) {
             clearTimeout(errorTimeout);
@@ -252,10 +338,46 @@ export const NotificationService = {
           if (onNewNotification) {
             onNewNotification({
               ...payload.new,
+              source: 'manual',
               is_read: false,
               read_at: null
             });
           }
+        } else {
+          if (__DEV__) {
+            console.log('⏭️ NotificationService: UPDATE event ignored (not a draft->sent transition)');
+          }
+        }
+      })
+      // Listen for automated notifications (user-specific)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notification_logs',
+        filter: `user_id=eq.${userId}`
+      }, payload => {
+        if (__DEV__) {
+          console.log('🤖 NotificationService: New automated notification:', payload.new.title);
+        }
+        errorCount = 0;
+        if (errorTimeout) {
+          clearTimeout(errorTimeout);
+          errorTimeout = null;
+        }
+        
+        if (onNewNotification) {
+          onNewNotification({
+            id: payload.new.id,
+            title: payload.new.title,
+            message: payload.new.message,
+            type: payload.new.type || 'info',
+            created_at: payload.new.sent_at,
+            sent_at: payload.new.sent_at,
+            status: 'sent',
+            source: 'automated',
+            is_read: false, // Show as unread in UI (same as manual)
+            read_at: null
+          });
         }
       })
       .subscribe((status, err) => {
@@ -267,7 +389,6 @@ export const NotificationService = {
           if (__DEV__) {
             console.log('✅ NotificationService: Successfully subscribed to real-time notifications');
           }
-          // Reset error count on successful subscription
           errorCount = 0;
           if (errorTimeout) {
             clearTimeout(errorTimeout);
@@ -276,18 +397,16 @@ export const NotificationService = {
         } else if (status === 'CHANNEL_ERROR') {
           errorCount++;
           
-          // Only log and throw error after waiting 10 seconds
           if (!errorTimeout) {
             if (__DEV__) {
-              console.log(`⚠️ NotificationService: Connection issue detected (attempt ${errorCount}), waiting ${MAX_RETRY_WAIT/1000}s before reporting error...`);
+              console.log(`⚠️ NotificationService: Connection issue (attempt ${errorCount}), waiting ${MAX_RETRY_WAIT/1000}s...`);
             }
             
             errorTimeout = setTimeout(() => {
               if (errorCount > 0) {
                 if (__DEV__) {
-                  console.error('❌ NotificationService: Real-time subscription failed after retry period', err);
+                  console.error('❌ NotificationService: Subscription failed after retry period', err);
                 }
-                // Error persisted for 10 seconds, this is a real issue
                 errorTimeout = null;
               }
             }, MAX_RETRY_WAIT);
@@ -303,11 +422,11 @@ export const NotificationService = {
             errorTimeout = null;
           }
           if (__DEV__) {
-            console.log('NotificationService: Unsubscribing from notifications channel:', channelName);
+            console.log('NotificationService: Unsubscribing from channel:', channelName);
           }
           supabase.removeChannel(channel);
         } catch (e) {
-          console.error('Error unsubscribing from notifications:', e.message || 'Unknown error');
+          console.error('Error unsubscribing:', e.message || 'Unknown error');
         }
       }
     };
