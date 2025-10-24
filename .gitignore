@@ -311,3 +311,5 @@ NOTIFICATION_FIXES_SUMMARY.md
 PRODUCTION_DEPLOY_QUICK_START.md
 upload-secrets.sh
 .github/workflows/deploy-production.yml
+FIX_CUSTOM_WORKOUTS_VISIBILITY.md
+.gitignore

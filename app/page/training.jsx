@@ -74,11 +74,19 @@ export default function Training() {
       setIsLoading(true);
 
       // Fetch workout categories with template counts from Supabase
+      // ONLY count admin/pre-made templates (is_custom = false OR created_by_user_id IS NULL)
       const { data: categoriesData, error: categoriesError } = await supabase
         .from("workout_categories")
         .select(`
-          *,
-          workout_templates:workout_templates(count)
+          id,
+          name,
+          description,
+          emoji,
+          color,
+          icon,
+          image_url,
+          is_active,
+          display_order
         `)
         .eq("is_active", true)
         .order("display_order", { ascending: true });
@@ -88,13 +96,32 @@ export default function Training() {
         throw categoriesError;
       }
 
-      // Filter out categories with 0 templates and format the data
-      const categoriesWithTemplates = categoriesData
-        ?.map(category => ({
-          ...category,
-          workout_count: category.workout_templates?.[0]?.count || 0
-        }))
-        .filter(category => category.workout_count > 0) || [];
+      // For each category, count only pre-made (non-custom) templates
+      const categoriesWithCounts = await Promise.all(
+        (categoriesData || []).map(async (category) => {
+          const { count, error: countError } = await supabase
+            .from("workout_templates")
+            .select("*", { count: "exact", head: true })
+            .eq("category_id", category.id)
+            .eq("is_active", true)
+            .or("is_custom.is.null,is_custom.eq.false"); // Only pre-made templates
+
+          if (countError) {
+            console.error(`Error counting templates for category ${category.id}:`, countError);
+            return { ...category, workout_count: 0 };
+          }
+
+          return {
+            ...category,
+            workout_count: count || 0,
+          };
+        })
+      );
+
+      // Filter out categories with 0 templates
+      const categoriesWithTemplates = categoriesWithCounts.filter(
+        (category) => category.workout_count > 0
+      );
 
       // Load other training data in parallel
       const [

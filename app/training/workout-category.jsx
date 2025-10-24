@@ -18,12 +18,13 @@ export default function WorkoutCategory() {
     try {
       setIsLoading(true);
 
-      // Fetch workouts from Supabase
+      // Fetch ONLY pre-made workouts (not custom user workouts)
       const { data, error } = await supabase
         .from("workout_templates")
         .select("*")
         .eq("category_id", categoryId)
         .eq("is_active", true)
+        .or("is_custom.is.null,is_custom.eq.false") // Only admin/pre-made templates
         .order("created_at", { ascending: false });
 
       if (error) {
