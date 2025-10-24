@@ -54,16 +54,22 @@ CREATE POLICY "Users can upsert own read status" ON public.notification_reads
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
--- 8. Create helper function to mark ALL manual notifications as read for a user
+-- 8. Drop existing functions if they exist (to allow changing return types)
+DROP FUNCTION IF EXISTS public.mark_all_notifications_read(UUID);
+DROP FUNCTION IF EXISTS public.dismiss_all_notifications(UUID);
+
+-- 9. Create helper function to mark ALL notifications as read/dismissed for a user
 CREATE OR REPLACE FUNCTION public.mark_all_notifications_read(p_user_id UUID)
-RETURNS INTEGER
+RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-  affected_count INTEGER;
+  manual_count INTEGER;
+  automated_count INTEGER;
+  result JSON;
 BEGIN
-  -- Insert read records for all sent notifications that user hasn't read yet
+  -- Mark all manual notifications as read
   WITH sent_notifications AS (
     SELECT id FROM public.notifications WHERE status = 'sent'
   ),
@@ -85,13 +91,33 @@ BEGIN
       read_at = NOW()
     RETURNING 1
   )
-  SELECT COUNT(*) INTO affected_count FROM new_reads;
+  SELECT COUNT(*) INTO manual_count FROM new_reads;
   
-  RETURN affected_count;
+  -- For automated notifications: DELETE them (marking as "read" = removing them)
+  WITH deleted_automated AS (
+    DELETE FROM public.notification_logs
+    WHERE user_id = p_user_id
+    RETURNING id
+  )
+  SELECT COUNT(*) INTO automated_count FROM deleted_automated;
+  
+  -- Clean up any dismissal records for automated (no longer needed)
+  DELETE FROM public.notification_dismissals
+  WHERE user_id = p_user_id
+  AND notification_source = 'automated';
+  
+  -- Return counts as JSON
+  result := json_build_object(
+    'manual_marked_read', manual_count,
+    'automated_deleted', automated_count,
+    'total_processed', manual_count + automated_count
+  );
+  
+  RETURN result;
 END;
 $$;
 
--- 9. Create helper function to dismiss ALL notifications for a user
+-- 10. Create helper function to dismiss ALL notifications for a user
 CREATE OR REPLACE FUNCTION public.dismiss_all_notifications(p_user_id UUID)
 RETURNS JSON
 LANGUAGE plpgsql
@@ -162,15 +188,15 @@ BEGIN
 END;
 $$;
 
--- 10. Grant execute permissions (users can only run these for themselves via RLS in the app)
+-- 11. Grant execute permissions (users can only run these for themselves via RLS in the app)
 GRANT EXECUTE ON FUNCTION public.mark_all_notifications_read(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.dismiss_all_notifications(UUID) TO authenticated;
 
--- 11. Add comments
-COMMENT ON FUNCTION public.mark_all_notifications_read IS 'Marks all manual broadcast notifications as read for a specific user';
-COMMENT ON FUNCTION public.dismiss_all_notifications IS 'Dismisses all notifications (manual + automated) for a specific user, returns counts';
+-- 12. Add comments
+COMMENT ON FUNCTION public.mark_all_notifications_read IS 'Marks all manual notifications as read and deletes all automated notifications for a user';
+COMMENT ON FUNCTION public.dismiss_all_notifications IS 'Dismisses all manual notifications and deletes all automated notifications for a user (same as mark_all_notifications_read but returns different format)';
 
--- 12. Test query to verify setup works
+-- 13. Test query to verify setup works
 -- Run this after executing the script:
 -- SELECT 
 --   nd.notification_id,

@@ -203,22 +203,19 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
     if (!userId) return;
     
     try {
-      // Update UI immediately for better UX
-      const updatedNotifications = notifications.map(notif => ({
-        ...notif,
-        is_read: true,
-        read_at: new Date().toISOString()
-      }));
-      
-      setNotifications(updatedNotifications);
+      // Clear UI immediately for better UX (all notifications disappear)
+      setNotifications([]);
       setUnreadCount(0);
       
-      // Use the new service method that handles ALL notifications in database
-      await NotificationService.markAllAsRead(userId);
+      // Use the service method that marks manual as read and deletes automated
+      const result = await NotificationService.markAllAsRead(userId);
       
-      if (__DEV__) {
-        console.log('NotificationBar: Marked all notifications as read in database');
+      if (result && __DEV__) {
+        console.log('NotificationBar: Marked all notifications as read:', result);
       }
+      
+      // Reload to confirm (should be empty or only show new ones)
+      await loadNotifications();
     } catch (error) {
       console.error('Error marking all as read:', error);
       // On error, reload from server to get correct state

@@ -260,17 +260,30 @@ export default function CommunityChat() {
   const loadChannelMessages = async () => {
     const { data, error } = await fetchChannelMessages(activeChannel);
     if (data) {
-      const formattedMessages = data.map((msg) => ({
-        id: msg.id,
-        user: msg.chats.username,
-        avatar: msg.chats.avatar,
-        text: msg.content,
-        timestamp: formatTimestamp(msg.created_at),
-        isOnline: msg.chats.is_online,
-        isMe: msg.user_id === currentUser?.id, // Check if it's my message
-        userId: msg.user_id, // Add userId for DM functionality
-        reactions: groupReactions(msg.message_reactions || []),
-      }));
+      console.log('[CommunityChat] Raw message data sample:', data[0]); // DEBUG
+      console.log('[CommunityChat] Current user ID:', currentUser?.id); // DEBUG
+      
+      const formattedMessages = data.map((msg) => {
+        const isMe = currentUser?.id && msg.user_id === currentUser.id;
+        console.log('[CommunityChat] Message formatting:', { // DEBUG
+          msgUserId: msg.user_id,
+          currentUserId: currentUser?.id,
+          isMe,
+          username: msg.chats?.username
+        });
+        
+        return {
+          id: msg.id,
+          user: msg.chats?.username || 'unknown',
+          avatar: msg.chats?.avatar || '👤',
+          text: msg.content,
+          timestamp: formatTimestamp(msg.created_at),
+          isOnline: msg.chats?.is_online || false,
+          isMe: isMe,
+          userId: msg.user_id, // Add userId for DM functionality
+          reactions: groupReactions(msg.message_reactions || []),
+        };
+      });
       setChannelMessages(formattedMessages);
     }
   };
@@ -309,12 +322,13 @@ export default function CommunityChat() {
     if (data) {
       const formattedMessages = data.map((msg) => ({
         id: msg.id,
-        user: msg.chats.username,
-        avatar: msg.chats.avatar,
+        user: msg.chats?.username || 'unknown',
+        avatar: msg.chats?.avatar || '👤',
         text: msg.content,
         timestamp: formatTimestamp(msg.created_at),
-        isOnline: msg.chats.is_online,
-        isMe: msg.sender_id === currentUser.id,
+        isOnline: msg.chats?.is_online || false,
+        isMe: currentUser?.id && msg.sender_id === currentUser.id, // Ensure both IDs exist
+        userId: msg.sender_id, // Add userId for consistency
       }));
       setDmMessages(formattedMessages);
     }
@@ -337,7 +351,7 @@ export default function CommunityChat() {
             text: data.content,
             timestamp: formatTimestamp(data.created_at),
             isOnline: data.chats?.is_online || false,
-            isMe: data.user_id === currentUser?.id,
+            isMe: currentUser?.id && data.user_id === currentUser.id, // Fixed comparison
             userId: data.user_id,
             reactions: data.message_reactions || [],
           };
@@ -368,11 +382,12 @@ export default function CommunityChat() {
           const newMessage = {
             id: data.id,
             user: data.chats?.username || "unknown",
-            avatar: data.chats?.avatar || "?",
+            avatar: data.chats?.avatar || "👤",
             text: data.content,
             timestamp: formatTimestamp(data.created_at),
             isOnline: data.chats?.is_online || false,
-            isMe: data.sender_id === currentUser.id,
+            isMe: currentUser?.id && data.sender_id === currentUser.id, // Fixed comparison
+            userId: data.sender_id,
           };
           setDmMessages((prev) => [...prev, newMessage]);
           
@@ -724,6 +739,16 @@ export default function CommunityChat() {
   const renderMessage = ({ item }) => {
     const isDM = viewMode === "dms";
     const isMyMessage = item.isMe; // Works for both channels and DMs now
+
+    // DEBUG: Log every message render
+    console.log('[CommunityChat] Rendering message:', {
+      id: item.id,
+      user: item.user,
+      userId: item.userId,
+      isMe: item.isMe,
+      currentUserId: currentUser?.id,
+      text: item.text?.slice(0, 20)
+    });
 
     return (
       <View

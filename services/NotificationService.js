@@ -325,11 +325,11 @@ export const NotificationService = {
   },
 
   /**
-   * Mark all notifications as read (only manual notifications, automated don't have read tracking)
+   * Mark all notifications as read/dismissed (manual marked read, automated deleted)
    */
   async markAllAsRead(userId) {
     try {
-      // Use the SQL function to mark ALL notifications as read efficiently
+      // Use the SQL function to mark ALL manual as read and delete ALL automated
       const { data, error } = await supabase
         .rpc('mark_all_notifications_read', { p_user_id: userId });
       
@@ -339,13 +339,13 @@ export const NotificationService = {
       }
       
       if (__DEV__) {
-        console.log('NotificationService: Marked all notifications as read. Count:', data);
+        console.log('NotificationService: Marked all as read:', data);
       }
       
-      return true;
+      return data; // Returns { manual_marked_read, automated_deleted, total_processed }
     } catch (error) {
       console.error('Error in markAllAsRead:', error.message || 'Unknown error');
-      return false;
+      return null;
     }
   },
 

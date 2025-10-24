@@ -139,49 +139,17 @@ export default function Calendar() {
     }
   };
 
-  // Updated handler for day presses
+  // Updated handler for day presses - VIEW ONLY MODE
   const handleDayPress = (day) => {
-    const now = Date.now();
-    const DOUBLE_PRESS_DELAY = 300; // ms
     const dateString = day.dateString;
-    const selectedDateObj = new Date(dateString);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    selectedDateObj.setHours(0, 0, 0, 0);
     
-    const isFutureDate = selectedDateObj > today;
+    // Simply select the date
+    setSelectedDate(dateString);
 
-    // Check for double tap
-    if (
-      lastTapTimestamp.current &&
-      now - lastTapTimestamp.current < DOUBLE_PRESS_DELAY &&
-      lastTapDate.current === dateString
-    ) {
-      // It's a double tap: show the log UI IF THE DAY IS EMPTY AND NOT IN FUTURE
-      if (!workoutData[dateString] && !isFutureDate) {
-        setSelectedDate(dateString);
-        showLogWorkoutUI();
-      } else if (isFutureDate) {
-        Alert.alert(
-          "Cannot Log Future Data",
-          "You can only log workouts for past or current days."
-        );
-      }
-      // Reset tap detection
-      lastTapTimestamp.current = null;
-      lastTapDate.current = null;
-    } else {
-      // It's a single tap
-      lastTapTimestamp.current = now;
-      lastTapDate.current = dateString;
-      // Select the date
-      setSelectedDate(dateString);
-
-      // AND if a workout exists on this date, show the details modal
-      if (workoutData[dateString]) {
-        setViewingWorkout({ ...workoutData[dateString], date: dateString });
-        setShowDetailsModal(true);
-      }
+    // If a workout exists on this date, show the details modal
+    if (workoutData[dateString]) {
+      setViewingWorkout({ ...workoutData[dateString], date: dateString });
+      setShowDetailsModal(true);
     }
   };
 

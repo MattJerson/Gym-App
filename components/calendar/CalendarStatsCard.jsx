@@ -8,34 +8,29 @@ export default function CalendarStatsCard({ monthlyStats, currentDate }) {
       <Text style={styles.cardTitle}>
         {currentDate.toLocaleString("default", { month: "long" })} Progress
       </Text>
-      
-      <View style={styles.statRow}>
-        <View style={[styles.statIcon, { backgroundColor: "#1E3A5F" }]}>
-          <FontAwesome5 name="dumbbell" size={16} color="#fff" />
+
+      {/* Simple Stats Row */}
+      <View style={styles.statsRow}>
+        <View style={styles.statItem}>
+          <Ionicons name="flame" size={20} color="#FF6B6B" />
+          <Text style={styles.statNumber}>{monthlyStats.streak}</Text>
+          <Text style={styles.statLabel}>Streak</Text>
         </View>
-        <View style={styles.statTextContainer}>
+
+        <View style={styles.statDivider} />
+
+        <View style={styles.statItem}>
+          <FontAwesome5 name="dumbbell" size={18} color="#4ECDC4" />
+          <Text style={styles.statNumber}>{monthlyStats.workouts}</Text>
           <Text style={styles.statLabel}>Workouts</Text>
-          <Text style={styles.statValue}>{monthlyStats.workouts}</Text>
         </View>
-      </View>
-      
-      <View style={styles.statRow}>
-        <View style={[styles.statIcon, { backgroundColor: "#1E3A5F" }]}>
-          <Ionicons name="flame" size={16} color="#fff" />
-        </View>
-        <View style={styles.statTextContainer}>
-          <Text style={styles.statLabel}>Current Streak</Text>
-          <Text style={styles.statValue}>{monthlyStats.streak} {monthlyStats.streak === 1 ? 'day' : 'days'}</Text>
-        </View>
-      </View>
-      
-      <View style={styles.statRow}>
-        <View style={[styles.statIcon, { backgroundColor: "#1E3A5F" }]}>
-          <MaterialIcons name="track-changes" size={16} color="#fff" />
-        </View>
-        <View style={styles.statTextContainer}>
-          <Text style={styles.statLabel}>Monthly Goal</Text>
-          <Text style={styles.statValue}>{monthlyStats.goalPercentage}%</Text>
+
+        <View style={styles.statDivider} />
+
+        <View style={styles.statItem}>
+          <MaterialIcons name="track-changes" size={22} color="#FFD93D" />
+          <Text style={styles.statNumber}>{monthlyStats.goalPercentage}%</Text>
+          <Text style={styles.statLabel}>Goal</Text>
         </View>
       </View>
     </View>
@@ -44,45 +39,41 @@ export default function CalendarStatsCard({ monthlyStats, currentDate }) {
 
 const styles = StyleSheet.create({
   statsContainer: {
-    padding: 20,
+    padding: 16,
     borderTopWidth: 1,
     borderTopColor: "rgba(255, 255, 255, 0.1)",
   },
   cardTitle: {
-    fontSize: 18,
-    color: "#fff",
-    marginBottom: 15,
-    fontWeight: "bold",
-  },
-  statRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.06)",
-  },
-  statIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    marginRight: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  statTextContainer: {
-    flex: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  statLabel: {
-    fontSize: 15,
-    color: "#ccc",
-    fontWeight: "500",
-  },
-  statValue: {
     fontSize: 16,
     color: "#fff",
-    fontWeight: "700",
+    marginBottom: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    paddingVertical: 8,
+  },
+  statItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: 6,
+  },
+  statNumber: {
+    fontSize: 20,
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  statLabel: {
+    fontSize: 12,
+    color: "#aaa",
+    fontWeight: "500",
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
 });
