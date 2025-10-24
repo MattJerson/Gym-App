@@ -21,7 +21,6 @@ import { ProfilePageSkeleton } from "../../components/skeletons/ProfilePageSkele
 export default function Profile() {
   const router = useRouter();
   const pathname = usePathname();
-  const [selectedTheme, setSelectedTheme] = useState("dark");
   // User data
   const [user, setUser] = useState(null);
   const [userStats, setUserStats] = useState(null);
@@ -195,22 +194,16 @@ export default function Profile() {
     return null;
   }
 
-  // Menu items configuration
+  // Menu items configuration - Profile focused
   const menuItems = [
     {
-      title: "Account",
+      title: "My Profile",
       items: [
         {
           icon: "person-outline",
           color: "#3498db",
           label: "Edit Profile",
           path: "../settings/edit",
-        },
-        {
-          icon: "shield-checkmark-outline",
-          color: "#2ecc71",
-          label: "Privacy & Security",
-          path: "../settings/privacy",
         },
         {
           icon: "star-outline",
@@ -221,8 +214,14 @@ export default function Profile() {
       ],
     },
     {
-      title: "Settings",
+      title: "App Settings",
       items: [
+        {
+          icon: "shield-checkmark-outline",
+          color: "#2ecc71",
+          label: "Privacy & Security",
+          path: "../settings/privacy",
+        },
         {
           icon: "notifications-outline",
           color: "#e74c3c",
@@ -271,91 +270,6 @@ export default function Profile() {
             items={menuItems[0].items}
             onItemPress={handlePress}
           />
-
-          {/* Appearance Section */}
-          <View style={styles.card}>
-            <View style={styles.appearanceHeader}>
-              <Ionicons
-                name="color-palette-outline"
-                size={22}
-                color="#9b59b6"
-              />
-              <Text style={styles.cardTitle}>Appearance</Text>
-            </View>
-
-            <View style={styles.themeContainer}>
-              <Pressable
-                style={[
-                  styles.themeBox,
-                  selectedTheme === "light" && styles.themeBoxSelected,
-                ]}
-                onPress={() => setSelectedTheme("light")}
-              >
-                <Ionicons
-                  name="sunny-outline"
-                  size={28}
-                  color={selectedTheme === "light" ? "#fff" : "#aaa"}
-                />
-                <Text
-                  style={[
-                    styles.themeLabel,
-                    selectedTheme === "light" && styles.themeLabelSelected,
-                  ]}
-                >
-                  Light
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={[
-                  styles.themeBox,
-                  selectedTheme === "dark" && styles.themeBoxSelected,
-                ]}
-                onPress={() => setSelectedTheme("dark")}
-              >
-                <Ionicons
-                  name="moon-outline"
-                  size={28}
-                  color={selectedTheme === "dark" ? "#fff" : "#aaa"}
-                />
-                <Text
-                  style={[
-                    styles.themeLabel,
-                    selectedTheme === "dark" && styles.themeLabelSelected,
-                  ]}
-                >
-                  Dark
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={[
-                  styles.themeBox,
-                  selectedTheme === "system" && styles.themeBoxSelected,
-                ]}
-                onPress={() => setSelectedTheme("system")}
-              >
-                <Ionicons
-                  name="cog-outline"
-                  size={28}
-                  color={selectedTheme === "system" ? "#fff" : "#aaa"}
-                />
-                <Text
-                  style={[
-                    styles.themeLabel,
-                    selectedTheme === "system" && styles.themeLabelSelected,
-                  ]}
-                >
-                  System
-                </Text>
-              </Pressable>
-            </View>
-
-            <Text style={styles.themeHelperText}>
-              Dark theme is recommended for low-light gym sessions and reduces
-              eye strain during late-night meal planning
-            </Text>
-          </View>
 
           {/* Settings Section */}
           <ProfileMenuSection
@@ -767,46 +681,5 @@ const styles = StyleSheet.create({
     color: "#aaa",
     fontWeight: "500",
     fontStyle: "italic",
-  },
-  // Appearance/Theme styles
-  appearanceHeader: {
-    gap: 8,
-    marginBottom: 15,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  themeContainer: {
-    gap: 10,
-    marginBottom: 12,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  themeBox: {
-    gap: 8,
-    flex: 1,
-    padding: 16,
-    borderWidth: 2,
-    borderRadius: 16,
-    alignItems: "center",
-    borderColor: "transparent",
-    backgroundColor: "rgba(0,0,0,0.2)",
-  },
-  themeBoxSelected: {
-    borderColor: "#f7971e",
-    backgroundColor: "rgba(247, 151, 30, 0.2)",
-  },
-  themeLabel: {
-    fontSize: 13,
-    color: "#aaa",
-    fontWeight: "600",
-  },
-  themeLabelSelected: {
-    color: "#fff",
-  },
-  themeHelperText: {
-    fontSize: 12,
-    color: "#666",
-    lineHeight: 17,
-    paddingHorizontal: 5,
   },
 });

@@ -20,6 +20,34 @@ export const NotificationService = {
         console.log('NotificationService: Fetching notifications for user:', userId);
       }
 
+      // First, get dismissed notifications to filter them out
+      const { data: dismissedData, error: dismissedError } = await supabase
+        .from('notification_dismissals')
+        .select('notification_id, notification_source')
+        .eq('user_id', userId);
+
+      if (dismissedError) {
+        console.error('Error fetching dismissed notifications:', dismissedError.message);
+      }
+
+      const dismissedManual = new Set(
+        (dismissedData || [])
+          .filter(d => d.notification_source === 'manual')
+          .map(d => d.notification_id)
+      );
+      const dismissedAutomated = new Set(
+        (dismissedData || [])
+          .filter(d => d.notification_source === 'automated')
+          .map(d => d.notification_id)
+      );
+
+      if (__DEV__) {
+        console.log('NotificationService: Dismissed notifications:', {
+          manual: dismissedManual.size,
+          automated: dismissedAutomated.size
+        });
+      }
+
       // Fetch both manual broadcasts AND automated notifications in parallel
       const [manualResult, automatedResult] = await Promise.all([
         // Manual broadcasts (sent to all users)
@@ -28,7 +56,7 @@ export const NotificationService = {
           .select('*')
           .eq('status', 'sent')
           .order('sent_at', { ascending: false })
-          .limit(limit),
+          .limit(limit * 2), // Fetch more to account for dismissed ones
         
         // Automated notifications (personalized, user-specific)
         supabase
@@ -36,11 +64,11 @@ export const NotificationService = {
           .select('*')
           .eq('user_id', userId)
           .order('sent_at', { ascending: false })
-          .limit(limit)
+          .limit(limit * 2) // Fetch more to account for dismissed ones
       ]);
 
-      const manualNotifications = manualResult.data || [];
-      const automatedNotifications = automatedResult.data || [];
+      let manualNotifications = manualResult.data || [];
+      let automatedNotifications = automatedResult.data || [];
 
       if (manualResult.error) {
         console.error('Error fetching manual notifications:', manualResult.error.message);
@@ -49,6 +77,10 @@ export const NotificationService = {
       if (automatedResult.error) {
         console.error('Error fetching automated notifications:', automatedResult.error.message);
       }
+
+      // Filter out dismissed notifications
+      manualNotifications = manualNotifications.filter(n => !dismissedManual.has(n.id));
+      automatedNotifications = automatedNotifications.filter(n => !dismissedAutomated.has(n.id));
 
       // Transform automated logs to match notification format
       const transformedAutomated = automatedNotifications.map(log => ({
@@ -131,7 +163,7 @@ export const NotificationService = {
   },
 
   /**
-   * Get unread notification count (manual broadcasts only, automated are always "read")
+   * Get unread notification count (manual broadcasts + automated that aren't dismissed)
    */
   async getUnreadCount(userId) {
     try {
@@ -141,6 +173,27 @@ export const NotificationService = {
         }
         return 0;
       }
+
+      // Get dismissed notifications to filter them out
+      const { data: dismissedData, error: dismissedError } = await supabase
+        .from('notification_dismissals')
+        .select('notification_id, notification_source')
+        .eq('user_id', userId);
+
+      if (dismissedError) {
+        console.error('Error fetching dismissed notifications for count:', dismissedError.message);
+      }
+
+      const dismissedManual = new Set(
+        (dismissedData || [])
+          .filter(d => d.notification_source === 'manual')
+          .map(d => d.notification_id)
+      );
+      const dismissedAutomated = new Set(
+        (dismissedData || [])
+          .filter(d => d.notification_source === 'automated')
+          .map(d => d.notification_id)
+      );
 
       // Get all sent manual notifications (broadcast to all)
       const { data: notifications, error: notifError } = await supabase
@@ -153,11 +206,36 @@ export const NotificationService = {
         return 0;
       }
 
-      if (!notifications || notifications.length === 0) {
-        return 0;
+      // Filter out dismissed manual notifications
+      const unDismissedManual = (notifications || []).filter(n => !dismissedManual.has(n.id));
+
+      if (unDismissedManual.length === 0) {
+        // No manual notifications, just check automated
+        const { data: automatedNotifs, error: automatedError } = await supabase
+          .from('notification_logs')
+          .select('id')
+          .eq('user_id', userId);
+
+        if (automatedError) {
+          console.error('Error fetching automated notifications for count:', automatedError.message);
+          return 0;
+        }
+
+        // Filter out dismissed automated
+        const unDismissedAutomated = (automatedNotifs || []).filter(n => !dismissedAutomated.has(n.id));
+        
+        if (__DEV__) {
+          console.log('NotificationService: Unread count:', {
+            manual: 0,
+            automated: unDismissedAutomated.length,
+            total: unDismissedAutomated.length
+          });
+        }
+
+        return unDismissedAutomated.length;
       }
 
-      const notificationIds = notifications.map(n => n.id);
+      const notificationIds = unDismissedManual.map(n => n.id);
 
       // Get read notifications for this user
       const { data: reads, error: readsError } = await supabase
@@ -169,32 +247,44 @@ export const NotificationService = {
 
       if (readsError) {
         console.error('Error fetching read count:', readsError.message || 'Unknown error');
-        return notifications.length; // Assume all unread if we can't check
+        return unDismissedManual.length; // Assume all unread if we can't check
       }
 
       const readCount = reads?.length || 0;
-      const manualUnreadCount = notifications.length - readCount;
+      const manualUnreadCount = unDismissedManual.length - readCount;
 
-      // Get count of automated notifications from last 24 hours only
-      // (older ones are "seen" and don't need badge attention)
-      const twentyFourHoursAgo = new Date();
-      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
-      
-      const { count: automatedCount, error: automatedError } = await supabase
+      // Get count of automated notifications (excluding dismissed ones)
+      const { data: automatedNotifs, error: automatedError } = await supabase
         .from('notification_logs')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .gte('sent_at', twentyFourHoursAgo.toISOString());
+        .select('id')
+        .eq('user_id', userId);
 
-      const automatedTotal = automatedError ? 0 : (automatedCount || 0);
+      if (automatedError) {
+        console.error('Error fetching automated notifications for count:', automatedError.message);
+        
+        if (__DEV__) {
+          console.log('NotificationService: Unread count:', {
+            manual: manualUnreadCount,
+            automated: 0,
+            total: manualUnreadCount
+          });
+        }
+        
+        return manualUnreadCount;
+      }
 
-      const totalUnread = manualUnreadCount + automatedTotal;
+      // Filter out dismissed automated
+      const unDismissedAutomated = (automatedNotifs || []).filter(n => !dismissedAutomated.has(n.id));
+
+      const totalUnread = manualUnreadCount + unDismissedAutomated.length;
 
       if (__DEV__) {
         console.log('NotificationService: Unread count:', {
           manual: manualUnreadCount,
-          automatedLast24h: automatedTotal,
-          total: totalUnread
+          automated: unDismissedAutomated.length,
+          total: totalUnread,
+          dismissedManual: dismissedManual.size,
+          dismissedAutomated: dismissedAutomated.size
         });
       }
       
@@ -239,22 +329,49 @@ export const NotificationService = {
    */
   async markAllAsRead(userId) {
     try {
-      // Get all notifications
-      const notifications = await this.fetchUserNotifications(userId);
+      // Use the SQL function to mark ALL notifications as read efficiently
+      const { data, error } = await supabase
+        .rpc('mark_all_notifications_read', { p_user_id: userId });
       
-      // Filter only manual notifications (automated can't be marked as read due to FK constraint)
-      const manualNotifications = notifications.filter(notif => notif.source === 'manual');
+      if (error) {
+        console.error('Error marking all as read:', error.message);
+        throw error;
+      }
       
-      // Mark each manual notification as read
-      const promises = manualNotifications.map(notif => 
-        this.markAsRead(userId, notif.id)
-      );
+      if (__DEV__) {
+        console.log('NotificationService: Marked all notifications as read. Count:', data);
+      }
       
-      await Promise.all(promises);
       return true;
     } catch (error) {
       console.error('Error in markAllAsRead:', error.message || 'Unknown error');
       return false;
+    }
+  },
+
+  /**
+   * Dismiss all notifications for a user (both manual and automated)
+   * This is used for "Clear All" functionality
+   */
+  async dismissAllNotifications(userId) {
+    try {
+      // Use the SQL function to dismiss ALL notifications efficiently
+      const { data, error } = await supabase
+        .rpc('dismiss_all_notifications', { p_user_id: userId });
+      
+      if (error) {
+        console.error('Error dismissing all notifications:', error.message);
+        throw error;
+      }
+      
+      if (__DEV__) {
+        console.log('NotificationService: Dismissed all notifications:', data);
+      }
+      
+      return data; // Returns { manual_dismissed, automated_dismissed, total_dismissed }
+    } catch (error) {
+      console.error('Error in dismissAllNotifications:', error.message || 'Unknown error');
+      return null;
     }
   },
 

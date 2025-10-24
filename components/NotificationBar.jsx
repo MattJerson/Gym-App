@@ -12,6 +12,9 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
   const [unreadCount, setUnreadCount] = useState(initialCount);
   const [userId, setUserId] = useState(null);
   const [hasNewNotification, setHasNewNotification] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [currentLimit, setCurrentLimit] = useState(20); // Start with 20
 
   // Animation for bell icon when new notification arrives
   const bellShake = useState(new Animated.Value(0))[0];
@@ -117,8 +120,11 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
     }
     
     try {
-      const data = await NotificationService.fetchUserNotifications(userId, 10);
+      const data = await NotificationService.fetchUserNotifications(userId, currentLimit);
       setNotifications(data);
+      
+      // Check if there might be more
+      setHasMore(data.length >= currentLimit);
       
       const count = await NotificationService.getUnreadCount(userId);
       setUnreadCount(count);
@@ -127,23 +133,69 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
     }
   };
 
+  const loadMoreNotifications = async () => {
+    if (!userId || loadingMore || !hasMore) return;
+    
+    setLoadingMore(true);
+    try {
+      // Increase limit by 20
+      const newLimit = currentLimit + 20;
+      setCurrentLimit(newLimit);
+      
+      const data = await NotificationService.fetchUserNotifications(userId, newLimit);
+      setNotifications(data);
+      
+      // Check if there are more
+      setHasMore(data.length >= newLimit);
+      
+      if (__DEV__) {
+        console.log('NotificationBar: Loaded more notifications. Total:', data.length);
+      }
+    } catch (error) {
+      console.error('NotificationBar: Error loading more notifications:', error.message);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
   const handleMarkAsRead = async (notificationId, notification) => {
     if (!userId) return;
     
-    // Only mark manual notifications as read (automated don't have read tracking)
-    if (notification?.source === 'manual' && !notification.is_read) {
-      // Optimistic update - update UI immediately
-      setNotifications(prev => 
-        prev.map(n => 
-          n.id === notificationId 
-            ? { ...n, is_read: true, read_at: new Date().toISOString() }
-            : n
-        )
-      );
+    // Mark notification as read in UI
+    setNotifications(prev => 
+      prev.map(n => 
+        n.id === notificationId 
+          ? { ...n, is_read: true, read_at: new Date().toISOString() }
+          : n
+      )
+    );
+    
+    // Decrement unread count if it was previously unread
+    if (!notification.is_read) {
       setUnreadCount(prev => Math.max(0, prev - 1));
-      
-      // Update server in background
-      await NotificationService.markAsRead(userId, notificationId);
+    }
+    
+    // Update server based on source type
+    try {
+      if (notification?.source === 'manual') {
+        // For manual notifications, mark as read in database
+        await NotificationService.markAsRead(userId, notificationId);
+      } else if (notification?.source === 'automated') {
+        // For automated notifications, DELETE them (they're user-specific)
+        const { error } = await supabase
+          .from('notification_logs')
+          .delete()
+          .eq('user_id', userId)
+          .eq('id', notificationId);
+        
+        if (error) {
+          console.error('NotificationBar: Error deleting automated notification:', error);
+        } else if (__DEV__) {
+          console.log('NotificationBar: Deleted automated notification:', notificationId);
+        }
+      }
+    } catch (error) {
+      console.error('NotificationBar: Error in handleMarkAsRead:', error);
     }
   };
 
@@ -151,24 +203,22 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
     if (!userId) return;
     
     try {
-      // Optimistic update - update UI immediately for better UX
-      const updatedNotifications = notifications.map(notif => {
-        // Only update manual notifications (automated don't have read tracking)
-        if (notif.source === 'manual' && !notif.is_read) {
-          return { ...notif, is_read: true, read_at: new Date().toISOString() };
-        }
-        return notif;
-      });
+      // Update UI immediately for better UX
+      const updatedNotifications = notifications.map(notif => ({
+        ...notif,
+        is_read: true,
+        read_at: new Date().toISOString()
+      }));
       
-      // Get manual unread count before update
-      const manualUnreadCount = notifications.filter(n => n.source === 'manual' && !n.is_read).length;
-      
-      // Update UI immediately
       setNotifications(updatedNotifications);
-      setUnreadCount(prev => Math.max(0, prev - manualUnreadCount));
+      setUnreadCount(0);
       
-      // Then update server in background
+      // Use the new service method that handles ALL notifications in database
       await NotificationService.markAllAsRead(userId);
+      
+      if (__DEV__) {
+        console.log('NotificationBar: Marked all notifications as read in database');
+      }
     } catch (error) {
       console.error('Error marking all as read:', error);
       // On error, reload from server to get correct state
@@ -193,44 +243,18 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
           onPress: async () => {
             try {
               // Optimistic update - clear UI immediately
-              const notificationsToDelete = [...notifications];
               setNotifications([]);
               setUnreadCount(0);
               
-              // Delete all notifications for this user in the background
-              // For manual notifications: mark as read and delete read records
-              const manualNotificationIds = notificationsToDelete
-                .filter(n => n.source === 'manual')
-                .map(n => n.id);
+              // Use the new service method that dismisses ALL notifications in database
+              const result = await NotificationService.dismissAllNotifications(userId);
               
-              if (manualNotificationIds.length > 0) {
-                // Delete read status records for manual notifications
-                await supabase
-                  .from('notification_reads')
-                  .delete()
-                  .eq('user_id', userId)
-                  .in('notification_id', manualNotificationIds);
+              if (result && __DEV__) {
+                console.log('NotificationBar: Cleared all notifications:', result);
               }
               
-              // For automated notifications: delete from notification_logs
-              const automatedNotificationIds = notificationsToDelete
-                .filter(n => n.source === 'automated')
-                .map(n => n.id);
-              
-              if (automatedNotificationIds.length > 0) {
-                await supabase
-                  .from('notification_logs')
-                  .delete()
-                  .eq('user_id', userId)
-                  .in('id', automatedNotificationIds);
-              }
-              
-              if (__DEV__) {
-                console.log('NotificationBar: Cleared all notifications', {
-                  manual: manualNotificationIds.length,
-                  automated: automatedNotificationIds.length
-                });
-              }
+              // Reload to confirm
+              await loadNotifications();
             } catch (error) {
               console.error('Error clearing notifications:', error);
               Alert.alert('Error', 'Failed to clear notifications. Please try again.');
@@ -349,43 +373,63 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
                 <Text style={styles.emptyText}>No notifications yet</Text>
               </View>
             ) : (
-              notifications.map((notification) => (
-                <Pressable 
-                  key={notification.id} 
-                  style={[
-                    styles.notificationItem,
-                    !notification.is_read && styles.unreadNotification
-                  ]}
-                  onPress={() => handleMarkAsRead(notification.id, notification)}
-                >
-                  <View style={[
-                    styles.notificationIconContainer, 
-                    { backgroundColor: getNotificationColor(notification.type) }
-                  ]}>
-                    <Ionicons 
-                      name={getNotificationIcon(notification.type)} 
-                      size={18} 
-                      color="#fff" 
-                    />
-                  </View>
-                  
-                  <View style={styles.notificationContent}>
-                    <View style={styles.notificationHeader}>
-                      <Text style={styles.notificationTitle} numberOfLines={1}>
-                        {notification.title}
-                      </Text>
-                      <Text style={styles.notificationTime}>
-                        {formatTime(notification.created_at)}
+              <>
+                {notifications.map((notification) => (
+                  <Pressable 
+                    key={notification.id} 
+                    style={[
+                      styles.notificationItem,
+                      !notification.is_read && styles.unreadNotification
+                    ]}
+                    onPress={() => handleMarkAsRead(notification.id, notification)}
+                  >
+                    <View style={[
+                      styles.notificationIconContainer, 
+                      { backgroundColor: getNotificationColor(notification.type) }
+                    ]}>
+                      <Ionicons 
+                        name={getNotificationIcon(notification.type)} 
+                        size={18} 
+                        color="#fff" 
+                      />
+                    </View>
+                    
+                    <View style={styles.notificationContent}>
+                      <View style={styles.notificationHeader}>
+                        <Text style={styles.notificationTitle} numberOfLines={1}>
+                          {notification.title}
+                        </Text>
+                        <Text style={styles.notificationTime}>
+                          {formatTime(notification.created_at)}
+                        </Text>
+                      </View>
+                      <Text style={styles.notificationMessage} numberOfLines={2}>
+                        {notification.message}
                       </Text>
                     </View>
-                    <Text style={styles.notificationMessage} numberOfLines={2}>
-                      {notification.message}
-                    </Text>
-                  </View>
 
-                  {!notification.is_read && <View style={styles.unreadDot} />}
-                </Pressable>
-              ))
+                    {!notification.is_read && <View style={styles.unreadDot} />}
+                  </Pressable>
+                ))}
+                
+                {/* Load More Button */}
+                {hasMore && (
+                  <Pressable 
+                    style={styles.loadMoreButton}
+                    onPress={loadMoreNotifications}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? (
+                      <Text style={styles.loadMoreText}>Loading...</Text>
+                    ) : (
+                      <>
+                        <Ionicons name="chevron-down" size={16} color="#007AFF" />
+                        <Text style={styles.loadMoreText}>Load More</Text>
+                      </>
+                    )}
+                  </Pressable>
+                )}
+              </>
             )}
           </ScrollView>
         </View>
@@ -584,6 +628,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     marginTop: 12,
+  },
+
+  // Load More Button
+  loadMoreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+    marginHorizontal: 8,
+    marginVertical: 8,
+    borderRadius: 8,
+    backgroundColor: "rgba(0, 122, 255, 0.1)",
+    gap: 8,
+  },
+  loadMoreText: {
+    fontSize: 14,
+    color: "#007AFF",
+    fontWeight: "600",
   },
 
   // Overlay to close dropdown

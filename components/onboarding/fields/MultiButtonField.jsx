@@ -15,9 +15,6 @@ export default function MultiButtonField({
         <View style={styles.multiButtonGrid}>
         {field.items.map((item) => {
           const isSelected = value?.includes(item.value);
-          const textLength = item.label.length;
-          // static mapping for font sizes depending on rough length
-          const fontSize = textLength <= 15 ? 12 : (textLength <= 20 ? 10 : 8);
           return (
             <Pressable
               key={item.value}
@@ -37,11 +34,8 @@ export default function MultiButtonField({
               <Text 
                 style={[
                   styles.multiButtonText,
-                  { fontSize },
                   isSelected && styles.multiButtonTextSelected
                 ]}
-                numberOfLines={2}
-                adjustsFontSizeToFit
               >
                 {item.label}
               </Text>
@@ -78,33 +72,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   multiButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    minWidth: "30%",
-    flex: 1,
-    flexBasis: "30%",
-    maxWidth: "32%",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 36,
   },
   multiButtonSelected: {
-    backgroundColor: "#1E3A5F",
-    borderColor: "#1E3A5F",
+    borderColor: "#00D4AA",
+    backgroundColor: "rgba(0, 212, 170, 0.2)",
   },
   multiButtonText: {
-  color: "#999",
-  fontWeight: "600",
-  textAlign: "center",
-  lineHeight: 14,
-  includeFontPadding: false,
+    fontSize: 13,
+    color: "#aaa",
+    fontWeight: "600",
+    textAlign: "center",
   },
   multiButtonTextSelected: {
-    color: "#fff",
+    color: "#00D4AA",
   },
   errorContainer: {
     flexDirection: "row",

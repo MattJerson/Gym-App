@@ -4,13 +4,16 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
 } from "react-native";
 import React from "react";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import SettingsHeader from "../../components/SettingsHeader";
 
 export default function HelpSupport() {
+  const router = useRouter();
+
   return (
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <SafeAreaView style={{ flex: 1 }}>
@@ -24,34 +27,41 @@ export default function HelpSupport() {
             </View>
 
             <View style={styles.card}>
-              <Pressable style={styles.linkButton}>
-                <Text style={styles.linkButtonText}>FAQ</Text>
-                <Ionicons name="chevron-forward" size={20} color="#f7971e" />
+              <Pressable 
+                style={styles.linkButton}
+                onPress={() => router.push("/settings/help/faq")}
+              >
+                <View style={styles.linkButtonLeft}>
+                  <Ionicons name="chatbox-ellipses-outline" size={20} color="#1abc9c" />
+                  <Text style={styles.linkButtonText}>FAQ</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
               </Pressable>
 
-              <Pressable style={styles.linkButton}>
-                <Text style={styles.linkButtonText}>Contact Support</Text>
-                <Ionicons name="chevron-forward" size={20} color="#f7971e" />
-              </Pressable>
-            </View>
-          </View>
+              <View style={styles.divider} />
 
-          {/* Resources Section */}
-          <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="book-outline" size={24} color="#3498db" />
-              <Text style={styles.sectionTitle}>Resources</Text>
-            </View>
-
-            <View style={styles.card}>
-              <Pressable style={styles.linkButton}>
-                <Text style={styles.linkButtonText}>Training Guides</Text>
-                <Ionicons name="chevron-forward" size={20} color="#f7971e" />
+              <Pressable 
+                style={styles.linkButton}
+                onPress={() => router.push("/settings/help/contact")}
+              >
+                <View style={styles.linkButtonLeft}>
+                  <Ionicons name="mail-outline" size={20} color="#4A9EFF" />
+                  <Text style={styles.linkButtonText}>Contact Support</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
               </Pressable>
 
-              <Pressable style={styles.linkButton}>
-                <Text style={styles.linkButtonText}>Nutrition Tips</Text>
-                <Ionicons name="chevron-forward" size={20} color="#f7971e" />
+              <View style={styles.divider} />
+
+              <Pressable 
+                style={styles.linkButton}
+                onPress={() => router.push("/settings/help/my-inquiries")}
+              >
+                <View style={styles.linkButtonLeft}>
+                  <Ionicons name="list-outline" size={20} color="#FFB800" />
+                  <Text style={styles.linkButtonText}>My Inquiries</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
               </Pressable>
             </View>
           </View>
@@ -68,15 +78,49 @@ export default function HelpSupport() {
             </View>
 
             <View style={styles.card}>
-              <Pressable style={styles.linkButton}>
-                <Text style={styles.linkButtonText}>Terms of Service</Text>
-                <Ionicons name="chevron-forward" size={20} color="#f7971e" />
+              <Pressable 
+                style={styles.linkButton}
+                onPress={() => router.push("/settings/help/terms")}
+              >
+                <View style={styles.linkButtonLeft}>
+                  <Ionicons name="document-outline" size={20} color="#9b59b6" />
+                  <Text style={styles.linkButtonText}>Terms of Service</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
               </Pressable>
 
-              <Pressable style={styles.linkButton}>
-                <Text style={styles.linkButtonText}>Privacy Policy</Text>
-                <Ionicons name="chevron-forward" size={20} color="#f7971e" />
+              <View style={styles.divider} />
+
+              <Pressable 
+                style={styles.linkButton}
+                onPress={() => router.push("/settings/help/privacy-policy")}
+              >
+                <View style={styles.linkButtonLeft}>
+                  <Ionicons name="shield-checkmark-outline" size={20} color="#2ecc71" />
+                  <Text style={styles.linkButtonText}>Privacy Policy</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#666" />
               </Pressable>
+            </View>
+          </View>
+
+          {/* App Information */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="information-circle-outline" size={24} color="#f7971e" />
+              <Text style={styles.sectionTitle}>App Information</Text>
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Version</Text>
+                <Text style={styles.infoValue}>1.0.0</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Build</Text>
+                <Text style={styles.infoValue}>2024.10.23</Text>
+              </View>
             </View>
           </View>
         </ScrollView>
@@ -112,12 +156,36 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 5,
     justifyContent: "space-between",
+  },
+  linkButtonLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   linkButtonText: {
     fontSize: 16,
-    color: "#f7971e",
+    color: "#fff",
     fontWeight: "500",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+  infoRow: {
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  infoLabel: {
+    fontSize: 16,
+    color: "#999",
+    fontWeight: "500",
+  },
+  infoValue: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "600",
   },
 });

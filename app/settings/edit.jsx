@@ -7,10 +7,10 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   ActivityIndicator,
   Keyboard,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../services/supabase";
@@ -47,6 +47,8 @@ export default function EditProfile() {
     restrictions: [],
     meals_per_day: "",
     calorie_goal: "",
+    current_body_fat: "",
+    goal_body_fat: "",
   });
 
   // Dropdown states
@@ -115,7 +117,24 @@ export default function EditProfile() {
           restrictions: profileData.restrictions || [],
           meals_per_day: profileData.meals_per_day?.toString() || "",
           calorie_goal: profileData.calorie_goal?.toString() || "",
+          current_body_fat: "",
+          goal_body_fat: "",
         });
+      }
+
+      // Fetch body fat data from bodyfat_profiles
+      const { data: bodyFatData, error: bodyFatError } = await supabase
+        .from("bodyfat_profiles")
+        .select("current_body_fat, goal_body_fat")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!bodyFatError && bodyFatData) {
+        setProfileData(prev => ({
+          ...prev,
+          current_body_fat: bodyFatData.current_body_fat?.toString() || "",
+          goal_body_fat: bodyFatData.goal_body_fat?.toString() || "",
+        }));
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -227,6 +246,25 @@ export default function EditProfile() {
         .upsert(payload, { onConflict: "user_id" });
 
       if (profileError) throw profileError;
+
+      // Update body fat data if provided
+      if (profileData.current_body_fat || profileData.goal_body_fat) {
+        const bodyFatPayload = {
+          user_id: userId,
+          current_body_fat: profileData.current_body_fat 
+            ? parseFloat(profileData.current_body_fat) 
+            : null,
+          goal_body_fat: profileData.goal_body_fat 
+            ? parseFloat(profileData.goal_body_fat) 
+            : null,
+        };
+
+        const { error: bodyFatError } = await supabase
+          .from("bodyfat_profiles")
+          .upsert(bodyFatPayload, { onConflict: "user_id" });
+
+        if (bodyFatError) throw bodyFatError;
+      }
 
       Alert.alert("Success", "Profile updated successfully!");
       setIsEditing(false);
@@ -506,6 +544,58 @@ export default function EditProfile() {
                   </View>
                 )}
               </View>
+            </View>
+          </View>
+
+          {/* Body Fat Section */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="body-outline" size={24} color="#FF6B35" />
+              <Text style={styles.sectionTitle}>Body Composition</Text>
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.twoColumnRow}>
+                <View style={styles.halfInput}>
+                  <Text style={styles.label}>Current Body Fat (%)</Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      !isEditing && styles.inputDisabled,
+                    ]}
+                    value={profileData.current_body_fat}
+                    onChangeText={(text) =>
+                      setProfileData({ ...profileData, current_body_fat: text })
+                    }
+                    placeholder="e.g., 20"
+                    placeholderTextColor="#666"
+                    keyboardType="numeric"
+                    editable={isEditing}
+                  />
+                </View>
+
+                <View style={styles.halfInput}>
+                  <Text style={styles.label}>Goal Body Fat (%)</Text>
+                  <TextInput
+                    style={[
+                      styles.input,
+                      !isEditing && styles.inputDisabled,
+                    ]}
+                    value={profileData.goal_body_fat}
+                    onChangeText={(text) =>
+                      setProfileData({ ...profileData, goal_body_fat: text })
+                    }
+                    placeholder="e.g., 15"
+                    placeholderTextColor="#666"
+                    keyboardType="numeric"
+                    editable={isEditing}
+                  />
+                </View>
+              </View>
+
+              <Text style={styles.helperText}>
+                Track your body fat percentage to monitor progress. Use the visual guide to estimate your current and goal body fat.
+              </Text>
             </View>
           </View>
 

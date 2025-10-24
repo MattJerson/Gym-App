@@ -3,11 +3,11 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  SafeAreaView,
   Pressable,
   ActivityIndicator,
   Alert,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useState, useEffect } from "react";
