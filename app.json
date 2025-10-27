@@ -15,7 +15,16 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.gymapp.app"
+      "bundleIdentifier": "com.gymapp.app",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "We need access to your step data to track your daily activity and help you reach your fitness goals.",
+        "NSHealthUpdateUsageDescription": "We need permission to update your health data.",
+        "UIBackgroundModes": ["fetch"]
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.healthkit.access": []
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -34,8 +43,13 @@
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#ffffff",
-          "sounds": ["./assets/notification-sound.wav"]
+          "color": "#ffffff"
+        }
+      ],
+      [
+        "react-native-health",
+        {
+          "healthSharePermission": "Allow $(PRODUCT_NAME) to read your step data"
         }
       ]
     ]

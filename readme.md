@@ -43,6 +43,39 @@ A single repository for the mobile app (Expo/React Native), the admin dashboard 
 - Node.js LTS and a package manager (npm/yarn/pnpm)
 - Expo CLI (`npx expo`)
 - A Supabase project (URL + anon key; service role kept server-side only)
+- **For iOS development:**
+  - Xcode (macOS only)
+  - CocoaPods (`sudo gem install cocoapods`)
+
+### Team Setup (First Time Clone)
+
+If you're a teammate cloning this repo for the first time, follow these steps:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/MattJerson/Gym-App.git
+cd Gym-App
+
+# 2. Install JavaScript dependencies
+npm install
+
+# 3. Install iOS native dependencies (required for iOS development)
+cd ios && pod install && cd ..
+# Alternative: npx pod-install
+
+# 4. Set up environment variables
+cp .env.example .env
+# Edit .env with your Supabase credentials (ask team lead)
+
+# 5. Start the development server
+npm start
+```
+
+**Important Notes:**
+- The `ios/` folder contains essential config files but **NOT** the `Pods/` directory
+- You must run `pod install` to download iOS native dependencies locally
+- `node_modules/` and `ios/Pods/` are regenerated on your machine (not in git)
+- For features like HealthKit, you'll need a development build (not Expo Go)
 
 ### Environment Variables
 Create a `.env` for the mobile app (loaded via `react-native-dotenv`):

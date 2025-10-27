@@ -161,22 +161,6 @@ export default function FeaturedVideo({
           
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.description}>{subtitle}</Text>
-          
-          <View style={styles.actionRow}>
-            <Pressable 
-              style={styles.primaryButton}
-              onPress={handleContentAction}
-            >
-              <Ionicons 
-                name={getActionIcon()} 
-                size={18} 
-                color="#fff" 
-              />
-              <Text style={styles.primaryButtonText}>
-                {getActionLabel()} Now
-              </Text>
-            </Pressable>
-          </View>
         </View>
       </Pressable>
     </View>
@@ -317,26 +301,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "rgba(255,255,255,0.8)",
     lineHeight: 20,
-    marginBottom: 18,
-  },
-  actionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  primaryButton: {
-    flex: 1,
-    backgroundColor: "#007AFF",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 10,
-    gap: 6,
-  },
-  primaryButtonText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "600",
   },
 });

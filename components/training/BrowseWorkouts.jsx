@@ -105,13 +105,18 @@ const CategoryCardItem = ({ item, onPress }) => {
     return WORKOUT_IMAGES.image1; // Default fallback
   };
 
+  // Check if category has no workouts (show under construction)
+  const isEmpty = !item.workout_count || item.workout_count === 0;
+
   return (
     <Pressable 
       style={({ pressed }) => [
         styles.card,
-        pressed && styles.cardPressed
+        pressed && !isEmpty && styles.cardPressed,
+        isEmpty && styles.cardDisabled
       ]} 
-      onPress={onPress}
+      onPress={isEmpty ? null : onPress}
+      disabled={isEmpty}
     >
       <View style={styles.cardInner}>
         {/* Color accent stripe at top */}
@@ -120,7 +125,7 @@ const CategoryCardItem = ({ item, onPress }) => {
         {/* Workout image - background layer */}
         <Image 
           source={getImageSource(item.image_url)}
-          style={styles.workoutImage}
+          style={[styles.workoutImage, isEmpty && styles.workoutImageFaded]}
           resizeMode="cover"
         />
         
@@ -147,13 +152,26 @@ const CategoryCardItem = ({ item, onPress }) => {
             <Text style={styles.categoryName} numberOfLines={1}>
               {item.name.toUpperCase()}
             </Text>
-            <Text style={styles.workoutCount}>{item.workout_count} workouts</Text>
+            {isEmpty ? (
+              <View style={styles.underConstructionBadge}>
+                <Ionicons name="construct-outline" size={12} color="#FFA500" />
+                <Text style={styles.underConstructionText}>Coming Soon</Text>
+              </View>
+            ) : (
+              <Text style={styles.workoutCount}>{item.workout_count} workouts</Text>
+            )}
           </View>
 
-          {/* Arrow button */}
-          <View style={[styles.arrowButton, { backgroundColor: `${item.color}30` }]}>
-            <Ionicons name="arrow-forward" size={18} color="#fff" />
-          </View>
+          {/* Arrow button or lock icon */}
+          {isEmpty ? (
+            <View style={[styles.lockButton, { backgroundColor: `${item.color}30` }]}>
+              <Ionicons name="lock-closed" size={16} color="rgba(255, 255, 255, 0.5)" />
+            </View>
+          ) : (
+            <View style={[styles.arrowButton, { backgroundColor: `${item.color}30` }]}>
+              <Ionicons name="arrow-forward" size={18} color="#fff" />
+            </View>
+          )}
         </View>
       </View>
     </Pressable>
@@ -321,5 +339,40 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  // Empty state styles
+  cardDisabled: {
+    opacity: 0.6,
+  },
+  workoutImageFaded: {
+    opacity: 0.2,
+  },
+  underConstructionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 165, 0, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 165, 0, 0.3)',
+  },
+  underConstructionText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFA500',
+    letterSpacing: 0.3,
+  },
+  lockButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: 'flex-end',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
 });

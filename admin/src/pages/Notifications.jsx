@@ -42,6 +42,8 @@ const Notifications = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNotification, setEditingNotification] = useState(null);
   const [activeTab, setActiveTab] = useState('manual'); // 'manual' or 'automated'
+  const [isTriggerModalOpen, setIsTriggerModalOpen] = useState(false);
+  const [editingTrigger, setEditingTrigger] = useState(null);
 
   // Stats state
   const [stats, setStats] = useState({
@@ -55,6 +57,17 @@ const Notifications = () => {
     message: "",
     type: "info",
     target_audience: "all",
+  });
+
+  const [triggerFormData, setTriggerFormData] = useState({
+    title: "",
+    message: "",
+    type: "info",
+    trigger_type: "",
+    frequency_type: "daily",
+    frequency_value: 1,
+    frequency_unit: "days",
+    is_active: true
   });
 
   useEffect(() => {
@@ -280,6 +293,132 @@ const Notifications = () => {
     });
   };
 
+  const resetTriggerForm = () => {
+    setTriggerFormData({
+      title: "",
+      message: "",
+      type: "info",
+      trigger_type: "",
+      frequency_type: "daily",
+      frequency_value: 1,
+      frequency_unit: "days",
+      is_active: true
+    });
+  };
+
+  const handleEditTrigger = (trigger) => {
+    setEditingTrigger(trigger);
+    setTriggerFormData({
+      title: trigger.title || "",
+      message: trigger.message || "",
+      type: trigger.type || "info",
+      trigger_type: trigger.trigger_type || "",
+      frequency_type: trigger.frequency_type || "daily",
+      frequency_value: trigger.frequency_value || 1,
+      frequency_unit: trigger.frequency_unit || "days",
+      is_active: trigger.is_active ?? true
+    });
+    setIsTriggerModalOpen(true);
+  };
+
+  const handleToggleTriggerActive = async (trigger) => {
+    try {
+      const { error } = await supabase
+        .from('notification_triggers')
+        .update({ is_active: !trigger.is_active })
+        .eq('id', trigger.id);
+      
+      if (error) throw error;
+      await fetchTriggerTemplates();
+      await fetchStats();
+    } catch (err) {
+      alert('Error toggling trigger: ' + err.message);
+    }
+  };
+
+  const handleSubmitTrigger = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingTrigger) {
+        // Update existing trigger
+        const { error } = await supabase
+          .from('notification_triggers')
+          .update({
+            title: triggerFormData.title,
+            message: triggerFormData.message,
+            type: triggerFormData.type,
+            trigger_type: triggerFormData.trigger_type,
+            frequency_type: triggerFormData.frequency_type,
+            frequency_value: triggerFormData.frequency_value,
+            frequency_unit: triggerFormData.frequency_unit,
+            is_active: triggerFormData.is_active
+          })
+          .eq('id', editingTrigger.id);
+        
+        if (error) throw error;
+      } else {
+        // Create new trigger
+        const { error } = await supabase
+          .from('notification_triggers')
+          .insert([{
+            title: triggerFormData.title,
+            message: triggerFormData.message,
+            type: triggerFormData.type,
+            trigger_type: triggerFormData.trigger_type,
+            frequency_type: triggerFormData.frequency_type,
+            frequency_value: triggerFormData.frequency_value,
+            frequency_unit: triggerFormData.frequency_unit,
+            is_active: triggerFormData.is_active
+          }]);
+        
+        if (error) throw error;
+      }
+      
+      setIsTriggerModalOpen(false);
+      setEditingTrigger(null);
+      resetTriggerForm();
+      await fetchTriggerTemplates();
+      await fetchStats();
+    } catch (err) {
+      console.error('Error saving trigger:', err);
+      alert('Error: ' + (err.message || 'Failed to save trigger'));
+    }
+  };
+
+  const handleDeleteTrigger = async (trigger) => {
+    if (!confirm(`Delete automated trigger "${trigger.title}"? This will stop all automated sends for this trigger.`)) return;
+    
+    try {
+      const { error } = await supabase
+        .from('notification_triggers')
+        .delete()
+        .eq('id', trigger.id);
+      
+      if (error) throw error;
+      await fetchTriggerTemplates();
+      await fetchStats();
+    } catch (err) {
+      alert('Error deleting trigger: ' + err.message);
+    }
+  };
+
+  const getFrequencyDisplay = (trigger) => {
+    if (!trigger.frequency_type) return 'Not set';
+    
+    switch (trigger.frequency_type) {
+      case 'once':
+        return '⚡ Once (milestone)';
+      case 'daily':
+        return '📅 Daily (every 24h)';
+      case 'weekly':
+        return '📆 Weekly (every 7 days)';
+      case 'custom':
+        return `🔧 Every ${trigger.frequency_value} ${trigger.frequency_unit}`;
+      default:
+        return trigger.frequency_type;
+    }
+  };
+
   // Simple search/filter
   const getFilteredNotifications = () => {
     let filtered = [...notifications];
@@ -332,12 +471,18 @@ const Notifications = () => {
               variant="primary"
               icon={Plus}
               onClick={() => {
-                setEditingNotification(null);
-                resetForm();
-                setIsModalOpen(true);
+                if (activeTab === 'manual') {
+                  setEditingNotification(null);
+                  resetForm();
+                  setIsModalOpen(true);
+                } else {
+                  setEditingTrigger(null);
+                  resetTriggerForm();
+                  setIsTriggerModalOpen(true);
+                }
               }}
             >
-              Create Notification
+              {activeTab === 'manual' ? 'Create Notification' : 'Create Trigger'}
             </Button>
           }
         />
@@ -546,7 +691,7 @@ const Notifications = () => {
               <Zap className="h-5 w-5 text-purple-600 mt-0.5 flex-shrink-0" />
               <div className="text-sm text-purple-900">
                 <p className="font-semibold mb-1">⚡ Automated Triggers</p>
-                <p>These notifications are sent automatically by the system based on user behavior and conditions. <strong>They cannot be manually sent.</strong></p>
+                <p>These notifications are sent automatically by the system based on user behavior. <strong>Edit frequency settings to control how often users receive them.</strong></p>
                 <p className="mt-2 text-xs text-purple-700">
                   <strong>Examples:</strong> Inactivity reminders ("We Miss You!"), streak milestones, daily hydration reminders, weekly progress reports.
                 </p>
@@ -563,7 +708,7 @@ const Notifications = () => {
               <div className="text-center py-12">
                 <Zap className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                 <p className="text-gray-500">No automated triggers configured</p>
-                <p className="text-gray-400 text-sm mt-2">Triggers are managed by the system</p>
+                <p className="text-gray-400 text-sm mt-2">Create your first automated trigger</p>
               </div>
             ) : (
               triggerTemplates.map((trigger) => (
@@ -573,7 +718,11 @@ const Notifications = () => {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4 flex-1">
-                      <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                      <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${
+                        trigger.is_active 
+                          ? 'from-purple-500 to-purple-600' 
+                          : 'from-gray-400 to-gray-500'
+                      } flex items-center justify-center flex-shrink-0`}>
                         <Zap className="h-6 w-6 text-white" />
                       </div>
                       <div className="flex-1">
@@ -591,14 +740,47 @@ const Notifications = () => {
                             {trigger.type}
                           </Badge>
                         </div>
-                        <p className="text-sm text-gray-600 mb-2">{trigger.message}</p>
-                        <div className="text-xs text-gray-500">
-                          <span className="font-semibold">Trigger Type:</span> <code className="bg-gray-100 px-2 py-0.5 rounded">{trigger.trigger_type}</code>
+                        <p className="text-sm text-gray-600 mb-3">{trigger.message}</p>
+                        
+                        <div className="space-y-1.5 text-xs">
+                          <div className="text-gray-500">
+                            <span className="font-semibold">Trigger Type:</span> <code className="bg-gray-100 px-2 py-0.5 rounded">{trigger.trigger_type}</code>
+                          </div>
+                          <div className="text-purple-600 font-semibold">
+                            <Clock className="h-3 w-3 inline mr-1" />
+                            Frequency: {getFrequencyDisplay(trigger)}
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="bg-purple-50 text-purple-700 px-3 py-1.5 rounded-lg text-xs font-semibold">
-                      View Only
+                    
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 ml-4">
+                      <button
+                        onClick={() => handleToggleTriggerActive(trigger)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                          trigger.is_active
+                            ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                        title={trigger.is_active ? 'Deactivate' : 'Activate'}
+                      >
+                        {trigger.is_active ? 'Active' : 'Inactive'}
+                      </button>
+                      <button
+                        onClick={() => handleEditTrigger(trigger)}
+                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                        title="Edit Frequency"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteTrigger(trigger)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -683,6 +865,181 @@ const Notifications = () => {
               <div className="text-sm text-blue-800">
                 <p className="font-semibold mb-1">Note</p>
                 <p>Manual notifications stay in draft status and can be sent or resent anytime without status changes.</p>
+              </div>
+            </div>
+          </form>
+        </Modal>
+
+        {/* Create/Edit Automated Trigger Modal */}
+        <Modal
+          isOpen={isTriggerModalOpen}
+          onClose={() => {
+            setIsTriggerModalOpen(false);
+            setEditingTrigger(null);
+            resetTriggerForm();
+          }}
+          title={editingTrigger ? 'Edit Automated Trigger' : 'Create Automated Trigger'}
+          size="lg"
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setIsTriggerModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={handleSubmitTrigger}>
+                {editingTrigger ? 'Update Trigger' : 'Create Trigger'}
+              </Button>
+            </>
+          }
+        >
+          <form onSubmit={handleSubmitTrigger} className="space-y-4">
+            <Input
+              label="Notification Title"
+              value={triggerFormData.title}
+              onChange={(e) => setTriggerFormData({ ...triggerFormData, title: e.target.value })}
+              icon={Zap}
+              placeholder="e.g., We Miss You!"
+              required
+            />
+            
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Message
+              </label>
+              <textarea
+                value={triggerFormData.message}
+                onChange={(e) => setTriggerFormData({ ...triggerFormData, message: e.target.value })}
+                rows={4}
+                placeholder="e.g., It's been a while since your last workout. Let's get back on track!"
+                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <Select
+                label="Type"
+                value={triggerFormData.type}
+                onChange={(e) => setTriggerFormData({ ...triggerFormData, type: e.target.value })}
+                options={[
+                  { value: 'info', label: 'Info' },
+                  { value: 'success', label: 'Success' },
+                  { value: 'warning', label: 'Warning' },
+                  { value: 'error', label: 'Error' }
+                ]}
+                required
+              />
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Status
+                </label>
+                <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={triggerFormData.is_active}
+                    onChange={(e) => setTriggerFormData({ ...triggerFormData, is_active: e.target.checked })}
+                    className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">
+                    Active (sends automatically)
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Trigger Type (Code Name)
+              </label>
+              <input
+                type="text"
+                value={triggerFormData.trigger_type}
+                onChange={(e) => setTriggerFormData({ ...triggerFormData, trigger_type: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                placeholder="e.g., no_login_7_days, custom_reminder"
+                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Unique identifier for this trigger (lowercase, use underscores). This determines WHEN the notification fires.
+              </p>
+            </div>
+
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Frequency Control
+              </h4>
+              
+              <Select
+                label="Frequency Type"
+                value={triggerFormData.frequency_type}
+                onChange={(e) => setTriggerFormData({ ...triggerFormData, frequency_type: e.target.value })}
+                options={[
+                  { value: 'once', label: '⚡ Once - Send only once per user (milestones)' },
+                  { value: 'daily', label: '📅 Daily - Every 24 hours' },
+                  { value: 'weekly', label: '📆 Weekly - Every 7 days' },
+                  { value: 'custom', label: '🔧 Custom - Set your own interval' }
+                ]}
+                required
+              />
+
+              {triggerFormData.frequency_type === 'custom' && (
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Every (number)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={triggerFormData.frequency_value}
+                      onChange={(e) => setTriggerFormData({ ...triggerFormData, frequency_value: parseInt(e.target.value) || 1 })}
+                      className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+                  <Select
+                    label="Unit"
+                    value={triggerFormData.frequency_unit}
+                    onChange={(e) => setTriggerFormData({ ...triggerFormData, frequency_unit: e.target.value })}
+                    options={[
+                      { value: 'hours', label: 'Hours' },
+                      { value: 'days', label: 'Days' },
+                      { value: 'weeks', label: 'Weeks' }
+                    ]}
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mt-3 flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
+                <div className="text-xs text-purple-800">
+                  <p className="font-semibold mb-1">How Frequency Works</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li><strong>Once:</strong> User receives it once, never again (good for achievements)</li>
+                    <li><strong>Daily:</strong> User receives it once per day if conditions met</li>
+                    <li><strong>Weekly:</strong> User receives it once per week if conditions met</li>
+                    <li><strong>Custom:</strong> You set the interval (e.g., every 3 days, every 12 hours)</li>
+                  </ul>
+                  <p className="mt-2">
+                    <strong>Example:</strong> "We Miss You" with custom 3 days = user gets it once every 3 days while inactive, not every hour!
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-yellow-800">
+                <p className="font-semibold mb-1">⚠️ Important: Trigger Logic</p>
+                <p>The <strong>trigger_type</strong> must match logic in the auto-notify Edge Function. Creating a trigger here doesn't automatically add the condition checking code.</p>
+                <p className="mt-1">
+                  <strong>Built-in triggers:</strong> no_login_today, no_login_3_days, no_workout_logged, no_meal_logged, streak_milestone_3/7/30, monday_morning, etc.
+                </p>
+                <p className="mt-1">
+                  <strong>Custom triggers:</strong> You'll need to add the condition logic to <code className="bg-yellow-100 px-1 rounded">supabase/functions/auto-notify/index.ts</code>
+                </p>
               </div>
             </div>
           </form>

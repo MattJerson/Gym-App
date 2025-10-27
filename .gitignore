@@ -18,6 +18,19 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# iOS - Keep essential config, ignore generated files
+ios/Pods/
+ios/.xcode.env.local
+ios/build/
+ios/*.xcworkspace/
+ios/**/*.xcuserdata
+ios/**/*.xcuserdatad
+
+# Android - Keep gradle config but ignore generated files
+android/app/build/
+android/build/
+android/.gradle/
+
 # Metro
 .metro-health-check*
 
@@ -313,3 +326,26 @@ upload-secrets.sh
 .github/workflows/deploy-production.yml
 FIX_CUSTOM_WORKOUTS_VISIBILITY.md
 .gitignore
+ADMIN_NOTIFICATION_CONTROL.md
+CUSTOM_TRIGGER_GUIDE.md
+CUSTOM_WORKOUT_UX_IMPROVEMENTS.md
+HEALTH_KIT_SETUP.md
+HEALTHKIT_INTEGRATION_COMPLETE.md
+HEALTHKIT_QUICK_REFERENCE.md
+NOTIFICATION_DEPLOYMENT.md
+NOTIFICATION_FREQUENCY_FIX.md
+NOTIFICATION_FREQUENCY_STRATEGY.md
+supabase/migrations/017_add_custom_workout_appearance.sql
+supabase/migrations/018_add_notification_frequency_control.sql
+supabase/migrations/019_update_strategic_frequencies.sql
+supabase/migrations/020_fix_get_my_workouts_type_mismatch.sql
+supabase/migrations/021_add_healthkit_sync_columns.sql
+AUTH_SESSION_FIX.md
+CHECK_CRON_SCHEDULE.sql
+COMPREHENSIVE_NOTIFICATION_DIAGNOSTIC.sql
+FIND_NOTIFICATION_SPAM_SOURCE.sql
+FIX_CRON_SCHEDULE.sql
+FIX_CRON_WITH_REAL_KEYS.sql
+FIX_DUPLICATE_CRON_JOBS.sql
+FIX_NOTIFICATION_SPAM_GUIDE.md
+FIX_NOTIFICATION_SPAM.sql

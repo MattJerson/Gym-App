@@ -93,3 +93,33 @@ export const ensureValidSession = async () => {
     return null;
   }
 };
+
+/**
+ * Safely get the current authenticated user
+ * Returns null if no session exists (user not logged in)
+ * This prevents "Auth session missing!" errors on app startup
+ */
+export const getCurrentUser = async () => {
+  try {
+    // First check if there's a valid session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session) {
+      // No session means user not logged in - this is normal, not an error
+      return null;
+    }
+    
+    // Only try to get user if session exists
+    const { data: { user }, error } = await supabase.auth.getUser();
+    
+    if (error) {
+      console.error('Error getting user:', error.message);
+      return null;
+    }
+    
+    return user;
+  } catch (error) {
+    console.error('Exception in getCurrentUser:', error.message);
+    return null;
+  }
+};

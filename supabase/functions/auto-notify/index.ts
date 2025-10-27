@@ -63,6 +63,36 @@ async function getUserTokens(supabase: any, userId: string): Promise<string[]> {
   return (data || []).map((r: any) => r.expo_token).filter((t: string) => t);
 }
 
+// Helper: Check if notification should be sent to user (respects cooldown)
+async function shouldSendToUser(supabase: any, userId: string, trigger: any): Promise<boolean> {
+  const { data, error } = await supabase.rpc('should_send_notification', {
+    p_user_id: userId,
+    p_trigger_id: trigger.id,
+    p_frequency_type: trigger.frequency_type || 'daily',
+    p_frequency_value: trigger.frequency_value || 1,
+    p_frequency_unit: trigger.frequency_unit || 'days'
+  });
+
+  if (error) {
+    console.error('Error checking cooldown:', error);
+    return false; // Fail safe - don't send if error
+  }
+
+  return data === true;
+}
+
+// Helper: Record that notification was sent to user
+async function recordSend(supabase: any, userId: string, triggerId: string) {
+  const { error } = await supabase.rpc('record_notification_send', {
+    p_user_id: userId,
+    p_trigger_id: triggerId
+  });
+
+  if (error) {
+    console.error('Error recording send:', error);
+  }
+}
+
 // Helper: Log notification send
 async function logNotification(supabase: any, userId: string, triggerId: string, title: string, message: string, type: string) {
   const { data, error } = await supabase.from('notification_logs').insert({
@@ -129,12 +159,14 @@ serve(async (req) => {
     console.log(`📋 Found ${triggers?.length || 0} active triggers`);
 
     let totalSent = 0;
+    let totalSkipped = 0;
     const results: any[] = [];
     const errors: any[] = []; // Track all errors
 
     // Process each trigger
     for (const trigger of triggers || []) {
       console.log(`\n🔍 Processing trigger: ${trigger.trigger_type}`);
+      console.log(`   Frequency: ${trigger.frequency_type} (every ${trigger.frequency_value} ${trigger.frequency_unit})`);
       
       let targetUsers: any[] = [];
 
@@ -146,12 +178,20 @@ serve(async (req) => {
           const cutoffDate = new Date();
           cutoffDate.setDate(cutoffDate.getDate() - daysAgo);
           
-          const { data: users } = await supabase
+          console.log(`   🔍 Looking for users who haven't logged in since ${cutoffDate.toISOString()}`);
+          
+          const { data: users, error: userError } = await supabase
             .from('registration_profiles')
-            .select('user_id, details')
-            .lt('last_login_at', cutoffDate.toISOString());
+            .select('user_id, details, last_login_at')
+            .lt('last_login_at', cutoffDate.toISOString())
+            .not('last_login_at', 'is', null); // Only users who have logged in before
+          
+          if (userError) {
+            console.error(`   ❌ Error fetching inactive users:`, userError);
+          }
           
           targetUsers = users || [];
+          console.log(`   👥 Found ${targetUsers.length} users inactive for ${daysAgo}+ days`);
           break;
         }
 
@@ -247,9 +287,25 @@ serve(async (req) => {
 
       console.log(`👥 Found ${targetUsers.length} target users for ${trigger.trigger_type}`);
 
-      // Send notification to each target user
+      let sentCount = 0;
+      let skippedCount = 0;
+
+      // Send notification to each target user (with cooldown check)
       for (const user of targetUsers) {
         try {
+          // ⭐ CHECK COOLDOWN BEFORE SENDING
+          const shouldSend = await shouldSendToUser(supabase, user.user_id, trigger);
+
+          if (!shouldSend) {
+            skippedCount++;
+            if (skippedCount <= 3) { // Only log first 3 to avoid spam
+              console.log(`⏭️ Skipping user ${user.user_id.substring(0, 8)}... - cooldown not expired for ${trigger.trigger_type}`);
+            }
+            continue;
+          }
+
+          console.log(`✅ Cooldown expired for user ${user.user_id.substring(0, 8)}... - will send ${trigger.trigger_type}`);
+
           const tokens = await getUserTokens(supabase, user.user_id);
           
           // Always log the notification, even if user has no device tokens
@@ -263,6 +319,11 @@ serve(async (req) => {
               trigger.message,
               trigger.type
             );
+
+            // Record that we sent it (for cooldown tracking)
+            await recordSend(supabase, user.user_id, trigger.id);
+
+            sentCount++;
             totalSent++;
           } catch (logError: any) {
             console.error(`❌ Failed to log notification for user ${user.user_id}:`, logError);
@@ -274,6 +335,7 @@ serve(async (req) => {
               details: logError?.details,
               hint: logError?.hint
             });
+            continue; // Don't send push if logging failed
           }
           
           // Send push notification if user has device tokens
@@ -297,20 +359,27 @@ serve(async (req) => {
         }
       }
 
+      totalSkipped += skippedCount;
+
       results.push({
         trigger: trigger.trigger_type,
         title: trigger.title,
-        targetUsers: targetUsers.length,
-        sent: targetUsers.length
+        frequency: `${trigger.frequency_type} (${trigger.frequency_value} ${trigger.frequency_unit})`,
+        potentialTargets: targetUsers.length,
+        sent: sentCount,
+        skipped: skippedCount
       });
+
+      console.log(`✅ Trigger ${trigger.trigger_type}: Sent ${sentCount}, Skipped ${skippedCount} (cooldown)`);
     }
 
-    console.log(`\n✅ Auto-notify complete. Total sent: ${totalSent}`);
+    console.log(`\n✅ Auto-notify complete. Total sent: ${totalSent}, Total skipped: ${totalSkipped}`);
 
     return new Response(
       JSON.stringify({
         success: true,
         totalSent,
+        totalSkipped,
         triggers: results,
         errors: errors.length > 0 ? errors : undefined, // Include errors in response
         errorCount: errors.length,

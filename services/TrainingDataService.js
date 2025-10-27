@@ -494,7 +494,9 @@ export const TrainingDataService = {
         p_difficulty: workoutData.difficulty.charAt(0).toUpperCase() + workoutData.difficulty.slice(1),
         p_duration_minutes: parseInt(workoutData.duration) || 45,
         p_estimated_calories: workoutData.estimatedCalories || (parseInt(workoutData.duration) * 6),
-        p_exercises: exercises
+        p_exercises: exercises,
+        p_custom_color: workoutData.color || null,
+        p_custom_emoji: workoutData.emoji || null
       });
 
       if (error) {

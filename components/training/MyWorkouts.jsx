@@ -48,8 +48,21 @@ const WorkoutCardItem = ({ item, onPress, onOptions }) => {
   
   // Determine if custom workout
   const isCustom = item.is_custom === true;
+  
+  // Use custom color/emoji if available, otherwise use category defaults
+  const cardColor = isCustom && item.custom_color 
+    ? item.custom_color 
+    : (item.category_color || item.color || '#3B82F6');
+  
+  const cardIcon = isCustom && item.custom_emoji 
+    ? null // We'll render emoji as text
+    : (item.category_icon || item.icon || 'dumbbell');
+    
+  const cardEmoji = isCustom && item.custom_emoji 
+    ? item.custom_emoji 
+    : null;
+  
   const workoutTypeLabel = isCustom ? 'CUSTOM' : (item.workout_type ? item.workout_type.toUpperCase() : 'PRE-MADE');
-  const typeBadgeColor = isCustom ? '#3B82F6' : (item.category_color || item.color);
   
   return (
     <Pressable 
@@ -61,16 +74,16 @@ const WorkoutCardItem = ({ item, onPress, onOptions }) => {
     >
       <View style={styles.cardInner}>
         {/* Color accent stripe at top */}
-        <View style={[styles.colorAccent, { backgroundColor: typeBadgeColor }]} />
+        <View style={[styles.colorAccent, { backgroundColor: cardColor }]} />
         
         {/* Header with workout type badge */}
         <View style={styles.headerRow}>
           <View style={styles.badgeRow}>
             <View style={[styles.typeBadge, { 
-              backgroundColor: `${typeBadgeColor}${isCustom ? '20' : '12'}`,
-              borderColor: `${typeBadgeColor}${isCustom ? '40' : '25'}`,
+              backgroundColor: `${cardColor}${isCustom ? '20' : '12'}`,
+              borderColor: `${cardColor}${isCustom ? '40' : '25'}`,
             }]}>
-              <Text style={[styles.typeText, { color: typeBadgeColor }]}>
+              <Text style={[styles.typeText, { color: cardColor }]}>
                 {workoutTypeLabel}
               </Text>
             </View>
@@ -97,10 +110,14 @@ const WorkoutCardItem = ({ item, onPress, onOptions }) => {
           </Pressable>
         </View>
 
-        {/* Workout name with icon */}
+        {/* Workout name with icon/emoji */}
         <View style={styles.nameRow}>
-          <View style={[styles.iconBadge, { backgroundColor: `${item.category_color || item.color}20` }]}>
-            <MaterialCommunityIcons name={item.icon || "dumbbell"} size={20} color={item.category_color || item.color} />
+          <View style={[styles.iconBadge, { backgroundColor: `${cardColor}20` }]}>
+            {cardEmoji ? (
+              <Text style={styles.emojiIcon}>{cardEmoji}</Text>
+            ) : (
+              <MaterialCommunityIcons name={cardIcon} size={20} color={cardColor} />
+            )}
           </View>
           <Text style={styles.workoutName} numberOfLines={2}>
             {item.workout_name || item.name}
@@ -115,25 +132,25 @@ const WorkoutCardItem = ({ item, onPress, onOptions }) => {
 
         {/* Metrics - TodaysWorkoutCard style */}
         <View style={[styles.metricsContainer, {
-          backgroundColor: `${item.category_color || item.color}08`,
-          borderColor: `${item.category_color || item.color}15`,
+          backgroundColor: `${cardColor}08`,
+          borderColor: `${cardColor}15`,
         }]}>
           <View style={styles.metricItem}>
-            <Text style={[styles.metricNum, { color: item.category_color || item.color }]}>
+            <Text style={[styles.metricNum, { color: cardColor }]}>
               {item.times_completed || 0}
             </Text>
             <Text style={styles.metricLabel}>done</Text>
           </View>
-          <View style={[styles.metricDivider, { backgroundColor: `${item.category_color || item.color}25` }]} />
+          <View style={[styles.metricDivider, { backgroundColor: `${cardColor}25` }]} />
           <View style={styles.metricItem}>
-            <Text style={[styles.metricNum, { color: item.category_color || item.color }]}>
+            <Text style={[styles.metricNum, { color: cardColor }]}>
               {item.duration_minutes || item.duration}
             </Text>
             <Text style={styles.metricLabel}>min</Text>
           </View>
-          <View style={[styles.metricDivider, { backgroundColor: `${item.category_color || item.color}25` }]} />
+          <View style={[styles.metricDivider, { backgroundColor: `${cardColor}25` }]} />
           <View style={styles.metricItem}>
-            <Text style={[styles.metricNum, { color: item.category_color || item.color }]}>
+            <Text style={[styles.metricNum, { color: cardColor }]}>
               {item.estimated_calories || item.calories}
             </Text>
             <Text style={styles.metricLabel}>kcal</Text>
@@ -194,6 +211,8 @@ export default function MyWorkouts({
         workout_type: workout.workout_type,
         category_color: workout.category_color,
         category_icon: workout.category_icon,
+        custom_color: workout.custom_color, // Custom workout color
+        custom_emoji: workout.custom_emoji, // Custom workout emoji
         difficulty: workout.difficulty_level,
         duration_minutes: workout.duration_minutes,
         estimated_calories: workout.estimated_calories,
@@ -415,6 +434,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  emojiIcon: {
+    fontSize: 20,
+    lineHeight: 24,
   },
   optionsButton: {
     width: 24,

@@ -118,10 +118,8 @@ export default function Training() {
         })
       );
 
-      // Filter out categories with 0 templates
-      const categoriesWithTemplates = categoriesWithCounts.filter(
-        (category) => category.workout_count > 0
-      );
+      // Keep ALL categories (don't filter out empty ones - show "Under Construction" instead)
+      const categoriesWithTemplates = categoriesWithCounts;
 
       // Load other training data in parallel
       const [

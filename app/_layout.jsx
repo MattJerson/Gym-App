@@ -3,7 +3,7 @@ import { Stack } from "expo-router";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import * as Notifications from "expo-notifications";
 import { Platform, AppState } from "react-native";
-import { supabase } from "../services/supabase";
+import { supabase, getCurrentUser } from "../services/supabase";
 import { NotificationService } from "../services/NotificationService";
 
 // Configure how notifications are displayed when app is in foreground
@@ -25,17 +25,16 @@ export default function Layout() {
     // Get current user and set up real-time subscription
     async function initializeUser() {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) {
-          console.error('Error getting user:', error.message);
-          return;
-        }
+        const user = await getCurrentUser();
+        
         if (user) {
           console.log('✅ User authenticated:', user.id);
           setUserId(user.id);
+        } else {
+          console.log('No active session - user not logged in');
         }
       } catch (error) {
-        console.error('Exception getting user:', error.message);
+        console.error('Exception initializing user:', error.message);
       }
     }
     

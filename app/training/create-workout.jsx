@@ -30,7 +30,8 @@ export default function CreateWorkout() {
   const [userId, setUserId] = useState(null);
   const [workoutName, setWorkoutName] = useState("");
   const [workoutDescription, setWorkoutDescription] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("strength");
+  const [selectedColor, setSelectedColor] = useState("#3B82F6"); // Default blue
+  const [selectedEmoji, setSelectedEmoji] = useState("💪"); // Default emoji
   const [estimatedDuration, setEstimatedDuration] = useState("45");
   const [difficulty, setDifficulty] = useState("intermediate");
   const [exercises, setExercises] = useState([]);
@@ -43,14 +44,25 @@ export default function CreateWorkout() {
   // Animation
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Workout categories with updated colors
-  const categories = [
-    { id: "strength", name: "Strength", icon: "dumbbell", color: "#3B82F6" },
-    { id: "cardio", name: "Cardio", icon: "flash", color: "#EF4444" },
-    { id: "hiit", name: "HIIT", icon: "zap", color: "#F59E0B" },
-    { id: "yoga", name: "Flexibility", icon: "leaf", color: "#8B5CF6" },
-    { id: "core", name: "Core", icon: "fitness", color: "#10B981" },
-    { id: "functional", name: "Functional", icon: "body", color: "#F59E0B" },
+  // Card colors for custom workouts
+  const cardColors = [
+    { id: "blue", color: "#3B82F6", name: "Ocean Blue" },
+    { id: "red", color: "#EF4444", name: "Sunset Red" },
+    { id: "orange", color: "#F59E0B", name: "Energetic Orange" },
+    { id: "purple", color: "#8B5CF6", name: "Royal Purple" },
+    { id: "green", color: "#10B981", name: "Fresh Green" },
+    { id: "pink", color: "#EC4899", name: "Power Pink" },
+    { id: "teal", color: "#14B8A6", name: "Ocean Teal" },
+    { id: "indigo", color: "#6366F1", name: "Deep Indigo" },
+    { id: "yellow", color: "#FBBF24", name: "Sunny Yellow" },
+    { id: "lime", color: "#84CC16", name: "Lime Green" },
+  ];
+
+  // Emojis for custom workouts
+  const workoutEmojis = [
+    "💪", "🏋️", "🔥", "⚡", "💥", "🎯", 
+    "🚀", "⭐", "🏆", "💯", "🎪", "🌟",
+    "🦾", "⚔️", "🎖️", "🥇", "👊", "🤸",
   ];
 
   // Difficulty levels with updated colors
@@ -163,9 +175,11 @@ export default function CreateWorkout() {
       const workoutData = {
         name: workoutName.trim(),
         description: workoutDescription.trim(),
-        category: selectedCategory,
+        category: "custom", // All custom workouts use 'custom' category
         duration: parseInt(estimatedDuration),
         difficulty: difficulty,
+        color: selectedColor, // Save the custom color
+        emoji: selectedEmoji, // Save the custom emoji
         exercises: exercises.map((ex) => ({
           name: ex.name,
           description: ex.description || "",
@@ -264,28 +278,6 @@ export default function CreateWorkout() {
           </View>
           <Text style={styles.stepLabel}>Exercises</Text>
         </View>
-        <View style={styles.progressLine} />
-        <View style={styles.progressStep}>
-          <View
-            style={[
-              styles.stepDot,
-              workoutName.trim() &&
-                exercises.length > 0 &&
-                styles.stepDotActive,
-            ]}
-          >
-            <Ionicons
-              name="save-outline"
-              size={16}
-              color={
-                workoutName.trim() && exercises.length > 0
-                  ? "#0B0B0B"
-                  : "#71717A"
-              }
-            />
-          </View>
-          <Text style={styles.stepLabel}>Save</Text>
-        </View>
       </View>
 
       <ScrollView
@@ -368,50 +360,75 @@ export default function CreateWorkout() {
           </View>
         </Animated.View>
 
-        {/* Category Selection */}
+        {/* Customization Section - Color & Emoji */}
         <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="grid-outline" size={24} color="#A3E635" />
-            <Text style={styles.sectionTitle}>Category</Text>
+            <Ionicons name="color-palette-outline" size={24} color="#A3E635" />
+            <Text style={styles.sectionTitle}>Customize Appearance</Text>
           </View>
-          <View style={styles.categoryGrid}>
-            {categories.map((category) => (
-              <Pressable
-                key={category.id}
-                style={[
-                  styles.categoryCard,
-                  selectedCategory === category.id && styles.categoryCardActive,
-                ]}
-                onPress={() => setSelectedCategory(category.id)}
-              >
-                <View
-                  style={[
-                    styles.categoryIconContainer,
-                    { backgroundColor: category.color },
-                  ]}
-                >
-                  <FontAwesome5 name={category.icon} size={20} color="#fff" />
-                </View>
-                <Text
-                  style={[
-                    styles.categoryName,
-                    selectedCategory === category.id &&
-                      styles.categoryNameActive,
-                  ]}
-                >
-                  {category.name}
+
+          {/* Preview Card */}
+          <View style={[styles.previewCard, { backgroundColor: `${selectedColor}15` }]}>
+            <View style={[styles.previewColorStripe, { backgroundColor: selectedColor }]} />
+            <View style={styles.previewContent}>
+              <View style={[styles.previewEmojiContainer, { backgroundColor: `${selectedColor}30` }]}>
+                <Text style={styles.previewEmoji}>{selectedEmoji}</Text>
+              </View>
+              <View style={styles.previewInfo}>
+                <Text style={styles.previewName}>
+                  {workoutName || "Your Workout"}
                 </Text>
-                {selectedCategory === category.id && (
-                  <View style={styles.selectedCheck}>
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={20}
-                      color="#A3E635"
-                    />
-                  </View>
-                )}
-              </Pressable>
-            ))}
+                <Text style={styles.previewMeta}>
+                  {exercises.length} exercises • {estimatedDuration} min
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Color Picker */}
+          <View style={styles.customizeGroup}>
+            <Text style={styles.customizeLabel}>Card Color</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.colorScrollContent}
+            >
+              {cardColors.map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={[
+                    styles.colorOption,
+                    { backgroundColor: item.color },
+                    selectedColor === item.color && styles.colorOptionSelected,
+                  ]}
+                  onPress={() => setSelectedColor(item.color)}
+                >
+                  {selectedColor === item.color && (
+                    <Ionicons name="checkmark" size={20} color="#FFF" />
+                  )}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Emoji Picker */}
+          <View style={styles.customizeGroup}>
+            <Text style={styles.customizeLabel}>Icon</Text>
+            <View style={styles.emojiGrid}>
+              {workoutEmojis.map((emoji, index) => (
+                <Pressable
+                  key={index}
+                  style={[
+                    styles.emojiOption,
+                    selectedEmoji === emoji && styles.emojiOptionSelected,
+                    selectedEmoji === emoji && { borderColor: selectedColor },
+                  ]}
+                  onPress={() => setSelectedEmoji(emoji)}
+                >
+                  <Text style={styles.emojiText}>{emoji}</Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
         </Animated.View>
 
@@ -526,53 +543,65 @@ export default function CreateWorkout() {
           )}
         </Animated.View>
 
-        {/* Save Button */}
-        {workoutName.trim() && exercises.length > 0 && (
-          <Animated.View style={{ opacity: fadeAnim }}>
-            <Pressable
-              style={[
-                styles.saveButton,
-                isLoading && styles.saveButtonDisabled,
-              ]}
-              onPress={handleSaveWorkout}
-              disabled={isLoading}
-            >
-              <LinearGradient
-                colors={
-                  isLoading ? ["#52525B", "#52525B"] : ["#A3E635", "#84CC16"]
-                }
-                style={styles.saveButtonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                {isLoading ? (
-                  <>
-                    <MaterialCommunityIcons
-                      name="loading"
-                      size={24}
-                      color="#0B0B0B"
-                    />
-                    <Text style={styles.saveButtonText}>Saving...</Text>
-                  </>
-                ) : (
-                  <>
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={24}
-                      color="#0B0B0B"
-                    />
-                    <Text style={styles.saveButtonText}>
-                      Save Custom Workout
-                    </Text>
-                  </>
-                )}
-              </LinearGradient>
-            </Pressable>
-          </Animated.View>
-        )}
-
+        {/* Bottom padding to account for fixed save button */}
         <View style={styles.bottomPadding} />
       </ScrollView>
+
+      {/* Fixed Save Button at Bottom - Always Visible */}
+      <Animated.View style={[styles.fixedSaveContainer, { opacity: fadeAnim }]}>
+        <Pressable
+          style={[
+            styles.saveButton,
+            (!workoutName.trim() || exercises.length === 0 || isLoading) && 
+              styles.saveButtonDisabled,
+          ]}
+          onPress={handleSaveWorkout}
+          disabled={!workoutName.trim() || exercises.length === 0 || isLoading}
+        >
+          <LinearGradient
+            colors={
+              !workoutName.trim() || exercises.length === 0 || isLoading
+                ? ["#27272A", "#27272A"] 
+                : ["#A3E635", "#84CC16"]
+            }
+            style={styles.saveButtonGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+          >
+            {isLoading ? (
+              <>
+                <MaterialCommunityIcons
+                  name="loading"
+                  size={24}
+                  color={exercises.length > 0 ? "#0B0B0B" : "#71717A"}
+                />
+                <Text style={[
+                  styles.saveButtonText,
+                  exercises.length === 0 && styles.saveButtonTextDisabled
+                ]}>
+                  Saving...
+                </Text>
+              </>
+            ) : (
+              <>
+                <Ionicons
+                  name={exercises.length > 0 ? "checkmark-circle" : "lock-closed"}
+                  size={24}
+                  color={exercises.length > 0 ? "#0B0B0B" : "#71717A"}
+                />
+                <Text style={[
+                  styles.saveButtonText,
+                  exercises.length === 0 && styles.saveButtonTextDisabled
+                ]}>
+                  {exercises.length > 0 
+                    ? "Save Custom Workout" 
+                    : "Add exercises to save"}
+                </Text>
+              </>
+            )}
+          </LinearGradient>
+        </Pressable>
+      </Animated.View>
 
       {/* Exercise Selection Modal */}
       <ExerciseSelectionModal
@@ -1181,7 +1210,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 8,
-    paddingBottom: 40,
+    paddingBottom: 100, // Extra padding for fixed button
     paddingHorizontal: 20,
   },
   section: {
@@ -1273,6 +1302,109 @@ const styles = StyleSheet.create({
     color: "#71717A",
     fontWeight: "600",
   },
+  // Customization styles
+  previewCard: {
+    padding: 16,
+    borderWidth: 1,
+    borderRadius: 16,
+    marginBottom: 20,
+    overflow: 'hidden',
+    borderColor: "#27272A",
+  },
+  previewColorStripe: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+  },
+  previewContent: {
+    gap: 12,
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  previewEmojiContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  previewEmoji: {
+    fontSize: 32,
+  },
+  previewInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  previewName: {
+    fontSize: 18,
+    color: '#FAFAFA',
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  previewMeta: {
+    fontSize: 13,
+    color: '#71717A',
+    fontWeight: '600',
+  },
+  customizeGroup: {
+    marginBottom: 16,
+  },
+  customizeLabel: {
+    fontSize: 14,
+    marginBottom: 12,
+    color: "#A1A1AA",
+    fontWeight: "600",
+  },
+  colorScrollContent: {
+    gap: 12,
+    paddingVertical: 4,
+  },
+  colorOption: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: 'transparent',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  colorOptionSelected: {
+    borderColor: '#FAFAFA',
+    transform: [{ scale: 1.1 }],
+  },
+  emojiGrid: {
+    gap: 8,
+    flexWrap: 'wrap',
+    flexDirection: 'row',
+  },
+  emojiOption: {
+    width: 56,
+    height: 56,
+    borderWidth: 2,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderColor: '#27272A',
+    backgroundColor: '#161616',
+  },
+  emojiOptionSelected: {
+    borderWidth: 3,
+    backgroundColor: '#1C1C1E',
+  },
+  emojiText: {
+    fontSize: 28,
+  },
+  // Remove old category styles
   categoryGrid: {
     gap: 12,
     flexWrap: "wrap",
@@ -1410,13 +1542,30 @@ const styles = StyleSheet.create({
     color: "#A3E635",
     fontWeight: "700",
   },
+  // Fixed save button at bottom
+  fixedSaveContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingTop: 12,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    backgroundColor: '#0B0B0B',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(163, 230, 53, 0.1)',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
   saveButton: {
-    marginTop: 8,
     borderRadius: 16,
     overflow: "hidden",
   },
   saveButtonDisabled: {
-    opacity: 0.6,
+    opacity: 1, // Keep full opacity, color change handled by gradient
   },
   saveButtonGradient: {
     gap: 12,
@@ -1430,7 +1579,10 @@ const styles = StyleSheet.create({
     color: "#0B0B0B",
     fontWeight: "700",
   },
+  saveButtonTextDisabled: {
+    color: "#71717A",
+  },
   bottomPadding: {
-    height: 40,
+    height: 20,
   },
 });

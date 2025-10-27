@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, Animated, Alert } from "
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { NotificationService } from "../services/NotificationService";
-import { supabase } from "../services/supabase";
+import { supabase, getCurrentUser } from "../services/supabase";
 
 const NotificationBar = ({ notifications: initialCount = 0 }) => {
   const router = useRouter();
@@ -36,11 +36,7 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
   useEffect(() => {
     const getUser = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error) {
-          console.error('NotificationBar: Error getting user:', error.message);
-          return;
-        }
+        const user = await getCurrentUser();
         if (user) {
           setUserId(user.id);
         }
