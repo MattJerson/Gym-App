@@ -66,7 +66,7 @@ const Meals = () => {
   const fetchMealPlans = async () => {
     try {
       setIsLoading(true);
-      
+
       // Fetch meal plans
       const { data: plans, error: plansError } = await supabase
         .from('meal_plan_templates')
@@ -74,7 +74,7 @@ const Meals = () => {
         .order('created_at', { ascending: false });
 
       if (plansError) throw plansError;
-      
+
       // Fetch subscriber counts separately to avoid RLS issues
       const plansWithStats = [];
       for (const plan of (plans || [])) {
@@ -83,7 +83,7 @@ const Meals = () => {
             .from('user_meal_plans')
             .select('*', { count: 'exact', head: true })
             .eq('meal_plan_id', plan.id);
-          
+
           plansWithStats.push({
             ...plan,
             subscriber_count: countError ? 0 : (count || 0)
@@ -96,7 +96,7 @@ const Meals = () => {
           });
         }
       }
-      
+
       setMealPlans(plansWithStats);
     } catch (error) {
       console.error('Error fetching meal plans:', error);
@@ -115,7 +115,7 @@ const Meals = () => {
       const protein = formData.daily_protein ? parseInt(formData.daily_protein) : Math.round(calories * 0.30 / 4);
       const carbs = formData.daily_carbs ? parseInt(formData.daily_carbs) : Math.round(calories * 0.40 / 4);
       const fats = formData.daily_fats ? parseInt(formData.daily_fats) : Math.round(calories * 0.30 / 9);
-      
+
       // Prepare data with proper type conversions and defaults
       const payload = {
         name: formData.name,
@@ -141,16 +141,16 @@ const Meals = () => {
           .from('meal_plan_templates')
           .update(payload)
           .eq('id', editingPlan.id);
-        
+
         if (error) throw error;
       } else {
         const { error } = await supabase
           .from('meal_plan_templates')
           .insert([payload]);
-        
+
         if (error) throw error;
       }
-      
+
       setIsModalOpen(false);
       setEditingPlan(null);
       resetForm();
@@ -163,13 +163,13 @@ const Meals = () => {
 
   const handleDelete = async (plan) => {
     if (!confirm(`Delete meal plan "${plan.name}"?`)) return;
-    
+
     try {
       const { error } = await supabase
         .from('meal_plan_templates')
         .delete()
         .eq('id', plan.id);
-      
+
       if (error) throw error;
       await fetchMealPlans();
     } catch (err) {
@@ -314,7 +314,7 @@ const Meals = () => {
     // Apply sorting
     filtered.sort((a, b) => {
       let aVal, bVal;
-      
+
       switch (sortBy) {
         case "name":
           aVal = a.name?.toLowerCase() || "";
@@ -598,7 +598,7 @@ const Meals = () => {
               <UtensilsCrossed className="h-16 w-16 text-gray-300 mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No meal plans found</h3>
               <p className="text-gray-500 text-center">
-                {searchTerm || activeFilterCount > 0 
+                {searchTerm || activeFilterCount > 0
                   ? "Try adjusting your search or filters"
                   : "Get started by creating your first meal plan"
                 }
@@ -651,7 +651,7 @@ const Meals = () => {
                         default: return 'bg-green-500';
                       }
                     };
-                    
+
                     return (
                       <tr key={plan.id} className="hover:bg-gray-50 transition-colors">
                         {/* Meal Plan Name & Description */}
@@ -668,7 +668,7 @@ const Meals = () => {
                         </td>
 
                         {/* Type Badge */}
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <Badge variant={type?.variant || 'default'}>
                             {type?.label || plan.plan_type}
                           </Badge>
@@ -688,7 +688,7 @@ const Meals = () => {
                             <div className="space-y-1">
                               <div className="flex items-center gap-1.5">
                                 <div className={`px-2 py-1 rounded-md text-xs font-bold ${
-                                  plan.calorie_adjustment_percent < 0 
+                                  plan.calorie_adjustment_percent < 0
                                     ? 'bg-red-100 text-red-700'
                                     : plan.calorie_adjustment_percent > 0
                                     ? 'bg-green-100 text-green-700'
@@ -699,7 +699,7 @@ const Meals = () => {
                                 </div>
                               </div>
                               <p className="text-[9px] text-gray-500 leading-tight">
-                                {plan.calorie_adjustment_percent < 0 ? 'Deficit' : 
+                                {plan.calorie_adjustment_percent < 0 ? 'Deficit' :
                                  plan.calorie_adjustment_percent > 0 ? 'Surplus' : 'Maintenance'}
                               </p>
                             </div>
@@ -791,8 +791,8 @@ const Meals = () => {
                         {/* Status */}
                         <td className="px-4 py-3">
                           <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-semibold text-xs ${
-                            plan.is_active 
-                              ? 'bg-green-100 text-green-700 border border-green-200' 
+                            plan.is_active
+                              ? 'bg-green-100 text-green-700 border border-green-200'
                               : 'bg-gray-100 text-gray-600 border border-gray-200'
                           }`}>
                             <div className={`h-1.5 w-1.5 rounded-full ${plan.is_active ? 'bg-green-500' : 'bg-gray-400'}`}></div>
@@ -850,8 +850,8 @@ const Meals = () => {
           size="lg"
           footer={
             <div className="flex items-center justify-end gap-3 px-6 py-4 bg-gray-50 border-t">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setIsModalOpen(false);
                   setEditingPlan(null);
@@ -882,7 +882,7 @@ const Meals = () => {
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
                   />
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Description
@@ -904,7 +904,7 @@ const Meals = () => {
                   <Target className="h-4 w-4 text-purple-600" />
                   Plan Configuration
                 </h3>
-                
+
                 {/* Dynamic vs Static Toggle */}
                 <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <label className="flex items-center gap-3 cursor-pointer group">
@@ -921,7 +921,7 @@ const Meals = () => {
                     <div>
                       <span className="text-sm font-semibold text-gray-900">Dynamic Calculation</span>
                       <p className="text-xs text-gray-600">
-                        {formData.is_dynamic 
+                        {formData.is_dynamic
                           ? 'Personalized based on user activity & body metrics'
                           : 'Static values for all users'
                         }
@@ -947,7 +947,7 @@ const Meals = () => {
                     </select>
                     <p className="text-xs text-gray-500 mt-1">Auto-fills macro percentages</p>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Difficulty Level
@@ -981,7 +981,7 @@ const Meals = () => {
                       />
                     </div>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Meals Per Day
@@ -1168,7 +1168,7 @@ const Meals = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
                       />
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
                         <Beef className="h-3.5 w-3.5 text-red-500" />
@@ -1183,7 +1183,7 @@ const Meals = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent text-sm"
                       />
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
                         <Wheat className="h-3.5 w-3.5 text-amber-500" />
@@ -1198,7 +1198,7 @@ const Meals = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm"
                       />
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
                         <Droplet className="h-3.5 w-3.5 text-yellow-500" />
