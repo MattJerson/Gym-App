@@ -102,7 +102,7 @@ export default function Login() {
             <h1 className="text-4xl font-bold text-gray-900 mb-2 tracking-tight">
               Admin Portal
             </h1>
-            <p className="text-gray-500 font-medium">Gym App Administration</p>
+            <p className="text-gray-500 font-medium">Brick After Brick Administration</p>
           </div>
 
           {/* Form */}
