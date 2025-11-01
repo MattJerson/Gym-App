@@ -7,7 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -19,7 +18,9 @@
       "infoPlist": {
         "NSHealthShareUsageDescription": "We need access to your step data to track your daily activity and help you reach your fitness goals.",
         "NSHealthUpdateUsageDescription": "We need permission to update your health data.",
-        "UIBackgroundModes": ["fetch"]
+        "UIBackgroundModes": [
+          "fetch"
+        ]
       },
       "entitlements": {
         "com.apple.developer.healthkit": true,
@@ -51,7 +52,8 @@
         {
           "healthSharePermission": "Allow $(PRODUCT_NAME) to read your step data"
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }
