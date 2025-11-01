@@ -20,6 +20,7 @@ expo-env.d.ts
 
 # iOS - Keep essential config, ignore generated files
 ios/Pods/
+ios/Podfile.lock
 ios/.xcode.env.local
 ios/build/
 ios/*.xcworkspace/
