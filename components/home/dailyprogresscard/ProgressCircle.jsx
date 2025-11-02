@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Progress from "react-native-progress";
 
-export default function ProgressCircle({ label, data, icon, colors, unit }) {
+export default function ProgressCircle({ label, data, icon, colors, unit, subtitle }) {
   const progress = data.value / data.max;
   const isCompleted = progress >= 1;
   const mainColor = colors[0];
@@ -62,6 +62,11 @@ export default function ProgressCircle({ label, data, icon, colors, unit }) {
       ]}>
         {label}
       </Text>
+      {subtitle && (
+        <Text style={styles.progressSubtitle}>
+          {subtitle}
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -115,6 +120,14 @@ const styles = StyleSheet.create({
   },
   progressLabelCompleted: {
     color: "#00D4AA",
+  },
+  progressSubtitle: {
+    fontSize: 9,
+    fontWeight: "500",
+    color: "#888",
+    textAlign: "center",
+    marginTop: 2,
+    lineHeight: 12,
   },
   completionBadge: {
     position: "absolute",

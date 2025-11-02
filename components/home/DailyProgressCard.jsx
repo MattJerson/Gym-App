@@ -7,6 +7,7 @@ import CalendarStrip from "./dailyprogresscard/CalendarStrip";
 import TotalProgressBar from "./dailyprogresscard/TotalProgressBar";
 import ProgressCirclesGroup from "./dailyprogresscard/ProgressCirclesGroup";
 import { TrainingProgressService } from "../../services/TrainingProgressService";
+import { MealPlanDataService } from "../../services/MealPlanDataService";
 import { supabase } from "../../services/supabase";
 import { DailyProgressCardSkeleton } from "../skeletons/DailyProgressCardSkeleton";
 
@@ -59,16 +60,28 @@ export default function DailyProgressCard() {
       setIsLoading(true);
       const dateToFetch = selectedDate.toDate();
       
-      // Fetch today's progress
+      // Fetch workout/steps progress from training service
       const progressData = await TrainingProgressService.getTodayProgress(userId, dateToFetch);
+      
+      // Fetch calorie data from meal plan service (same as mealplan page)
+      const macroProgress = await MealPlanDataService.fetchMacroProgress(userId, dateToFetch);
       
       setWorkoutData(progressData.workoutData);
       setStepsData(progressData.stepsData);
+      
+      // Use calorie data from meal plan service
       setCalorieData({
-        value: progressData.caloriesData?.value || 0,
-        max: progressData.caloriesData?.max || 500,
+        value: macroProgress.calories?.current || 0,
+        max: macroProgress.calories?.target || 2200,
       });
-      setTotalProgress(progressData.totalProgress);
+      
+      // Calculate total progress based on all three metrics
+      const workoutPercent = (progressData.workoutData.value / progressData.workoutData.max) * 100;
+      const stepsPercent = (progressData.stepsData.value / progressData.stepsData.max) * 100;
+      const caloriePercent = (macroProgress.calories.current / macroProgress.calories.target) * 100;
+      const calculatedProgress = (workoutPercent + stepsPercent + caloriePercent) / 3;
+      
+      setTotalProgress(Math.round(calculatedProgress));
       
       // Fetch streak data from user stats
       await loadStreakData();

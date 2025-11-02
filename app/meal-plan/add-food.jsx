@@ -17,6 +17,7 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import FoodItemCard from "../../components/mealplan/FoodItemCard";
 import { MealPlanDataService } from "../../services/MealPlanDataService";
+import { AddFoodPageSkeleton } from "../../components/skeletons/AddFoodPageSkeleton";
 
 export default function AddFood() {
   const router = useRouter();
@@ -686,6 +687,14 @@ export default function AddFood() {
       );
     }
   };
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <AddFoodPageSkeleton />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

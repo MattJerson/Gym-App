@@ -16,6 +16,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../../services/supabase";
 import SettingsHeader from "../../components/SettingsHeader";
 import DropDownPicker from "react-native-dropdown-picker";
+import { SettingsPageSkeleton } from "../../components/skeletons/SettingsPageSkeleton";
 
 export default function EditProfile() {
   const [isLoading, setIsLoading] = useState(true);
@@ -278,18 +279,13 @@ export default function EditProfile() {
 
   if (isLoading) {
     return (
-      <View
-        style={[
-          styles.container,
-          {
-            backgroundColor: "#0B0B0B",
-            justifyContent: "center",
-            alignItems: "center",
-          },
-        ]}
-      >
-        <ActivityIndicator size="large" color="#f7971e" />
-        <Text style={styles.loadingText}>Loading profile...</Text>
+      <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <SettingsHeader title="Edit Profile" />
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            <SettingsPageSkeleton />
+          </ScrollView>
+        </SafeAreaView>
       </View>
     );
   }

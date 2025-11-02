@@ -12,6 +12,7 @@ import { supabase } from "../../services/supabase";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import SaveWorkoutModal from "../../components/training/SaveWorkoutModal";
 import { BrowseWorkoutsDataService } from "../../services/BrowseWorkoutsDataService";
+import { WorkoutDetailPageSkeleton } from "../../components/skeletons/WorkoutDetailPageSkeleton";
 
 export default function WorkoutDetail() {
   const router = useRouter();
@@ -126,8 +127,10 @@ export default function WorkoutDetail() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <Text style={styles.loadingText}>Loading workout...</Text>
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+          <WorkoutDetailPageSkeleton />
+        </ScrollView>
       </View>
     );
   }

@@ -9,13 +9,15 @@ import {
   KeyboardAvoidingView,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { askGemini } from "../../backend/gemini";
+import { ChatbotPageSkeleton } from "../../components/skeletons/ChatbotPageSkeleton";
 
 export default function Chatbot() {
   const router = useRouter();
   const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -24,6 +26,14 @@ export default function Chatbot() {
       timestamp: "2:30 PM",
     },
   ]);
+
+  // Simulate initial loading for better UX
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []);
 
   const sendMessage = async () => {
     if (message.trim()) {
@@ -70,6 +80,11 @@ export default function Chatbot() {
       );
     }
   };
+
+  if (isLoading) {
+    return <ChatbotPageSkeleton />;
+  }
+
   return (
     <View style={styles.container}>
       <KeyboardAvoidingView

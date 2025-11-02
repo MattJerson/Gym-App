@@ -14,6 +14,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../../services/supabase";
 import { LinearGradient } from "expo-linear-gradient";
 import SettingsHeader from "../../components/SettingsHeader";
+import { SettingsPageSkeleton } from "../../components/skeletons/SettingsPageSkeleton";
 
 export default function MySubscription() {
   const router = useRouter();
@@ -133,10 +134,9 @@ export default function MySubscription() {
       <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
         <SafeAreaView style={{ flex: 1 }}>
           <SettingsHeader title="My Subscription" />
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#A3E635" />
-            <Text style={styles.loadingText}>Loading subscription...</Text>
-          </View>
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            <SettingsPageSkeleton />
+          </ScrollView>
         </SafeAreaView>
       </View>
     );

@@ -9,6 +9,11 @@ const CalendarAnalytics = ({ analytics }) => {
   // Check if we have sufficient data (at least 2 workouts completed)
   const hasSufficientData = analytics.totalWorkouts >= 2;
 
+  // Calculate frequency (workouts per week)
+  const workoutsPerWeek = analytics.totalWorkouts > 0 
+    ? ((analytics.totalWorkouts / 30) * 7).toFixed(1) 
+    : '0';
+
   const analyticsItems = [
     {
       icon: 'fitness-outline',
@@ -99,19 +104,25 @@ const CalendarAnalytics = ({ analytics }) => {
             ))}
           </View>
 
+          {/* Frequency Section */}
+          <View style={styles.frequencyContainer}>
+            <Text style={styles.frequencyLabel}>Frequency</Text>
+            <Text style={styles.frequencyValue}>{workoutsPerWeek}x / week</Text>
+          </View>
+
           {/* Additional Insights */}
           <View style={styles.insightsContainer}>
               <View style={styles.insightItem}>
-                <Text style={styles.insightLabel}>Avg. Duration</Text>
+                <Text style={styles.insightLabel}>Avg Duration</Text>
                 <Text style={styles.insightValue}>{analytics.avgWorkoutDuration} min</Text>
               </View>
               <View style={styles.insightItem}>
-                <Text style={styles.insightLabel}>Calories Burned</Text>
+                <Text style={styles.insightLabel}>Cal Burned</Text>
                 <Text style={styles.insightValue}>{analytics.caloriesBurned.toLocaleString()}</Text>
               </View>
               <View style={styles.insightItem}>
                 <Text style={styles.insightLabel}>Favorite</Text>
-                <Text style={styles.insightValue}>{analytics.favoriteWorkoutType}</Text>
+                <Text style={styles.insightValue}>{analytics.favoriteWorkout || analytics.favoriteWorkoutType}</Text>
               </View>
           </View>
         </>
@@ -123,22 +134,23 @@ const CalendarAnalytics = ({ analytics }) => {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 20,
+    padding: 18,
     marginBottom: 20,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
 
   title: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '800',
     color: '#EFEFEF',
+    marginBottom: 16,
   },
   subtitle: {
     fontSize: 14,
@@ -149,30 +161,54 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginHorizontal: -6, // Counteract item padding
+    marginHorizontal: -5,
   },
   analyticsItem: {
     width: '50%',
-    padding: 6, // Gutter between items
-    marginBottom: 12,
+    padding: 5,
+    marginBottom: 10,
   },
   icon: {
-    marginBottom: 8,
+    marginBottom: 6,
   },
   analyticsValue: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#fff',
     marginBottom: 2,
   },
   analyticsLabel: {
+    fontSize: 12,
+    color: 'rgba(235, 235, 245, 0.6)',
+  },
+  frequencyContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  frequencyLabel: {
     fontSize: 13,
     color: 'rgba(235, 235, 245, 0.6)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  frequencyValue: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '700',
   },
   insightsContainer: {
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
-    paddingTop: 20,
+    paddingTop: 16,
     flexDirection: 'row',
     justifyContent: 'space-around',
   },
@@ -180,16 +216,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   insightLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: 'rgba(235, 235, 245, 0.6)',
     marginBottom: 4,
     textTransform: 'uppercase',
+    fontWeight: '600',
   },
   insightValue: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#fff',
     fontWeight: '700',
-    paddingBottom: 5,
+    paddingBottom: 2,
   },
 });
 

@@ -14,6 +14,7 @@ import { supabase, getCurrentUser } from "../../services/supabase";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Calendar as RNCalendar } from "react-native-calendars";
 import RecentActivity from "../../components/home/RecentActivity";
+import RecentActivitySkeleton from "../../components/skeletons/RecentActivitySkeleton";
 import ProgressGraph from "../../components/calendar/ProgressGraph";
 import StepsBarGraph from "../../components/calendar/StepsBarGraph";
 import WorkoutLogModal from "../../components/calendar/WorkoutLogModal";
@@ -22,6 +23,7 @@ import { CalendarDataService } from "../../services/CalendarDataService";
 import CalendarAnalytics from "../../components/calendar/CalendarAnalytics";
 import CalendarStatsCard from "../../components/calendar/CalendarStatsCard";
 import WorkoutDetailsModal from "../../components/calendar/WorkoutDetailsModal";
+import DayActivityModal from "../../components/calendar/DayActivityModal";
 import { CalendarPageSkeleton } from "../../components/skeletons/CalendarPageSkeleton";
 
 export default function Calendar() {
@@ -40,18 +42,24 @@ export default function Calendar() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [viewingWorkout, setViewingWorkout] = useState(null);
 
+  // State for comprehensive day activity modal
+  const [showDayActivityModal, setShowDayActivityModal] = useState(false);
+  const [selectedDayData, setSelectedDayData] = useState(null);
+
   const [workoutData, setWorkoutData] = useState({});
   const [recentActivitiesData, setRecentActivitiesData] = useState([]);
   const [workoutTypes, setWorkoutTypes] = useState([]);
   const [progressChart, setProgressChart] = useState(null);
   const [stepsData, setStepsData] = useState(null);
   const [analytics, setAnalytics] = useState(null);
+  const [activityIndicators, setActivityIndicators] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState(null);
   const [notifications, setNotifications] = useState(0);
   const [healthPermission, setHealthPermission] = useState(false);
   const [isSyncingSteps, setIsSyncingSteps] = useState(false);
   const [showHealthPermissionPrompt, setShowHealthPermissionPrompt] = useState(false);
+  const [stepsTrackingEnabled, setStepsTrackingEnabled] = useState(false);
 
   // Get authenticated user
   useEffect(() => {
@@ -83,6 +91,7 @@ export default function Calendar() {
     try {
       const hasPermission = await HealthKitService.checkPermission();
       setHealthPermission(hasPermission);
+      setStepsTrackingEnabled(hasPermission);
       
       // If no permission, show prompt after a short delay
       if (!hasPermission) {
@@ -92,6 +101,7 @@ export default function Calendar() {
       console.error('Error checking health permission:', error);
       // Don't show permission prompt if HealthKit isn't available
       setHealthPermission(false);
+      setStepsTrackingEnabled(false);
     }
   };
 
@@ -99,6 +109,7 @@ export default function Calendar() {
     try {
       const granted = await HealthKitService.requestPermission();
       setHealthPermission(granted);
+      setStepsTrackingEnabled(granted);
       setShowHealthPermissionPrompt(false);
       
       if (granted) {
@@ -180,6 +191,19 @@ export default function Calendar() {
   const loadCalendarData = async () => {
     try {
       setIsLoading(true);
+      
+      // Get dynamic date range for calendar (current month ± 2 months)
+      const today = new Date();
+      const startDate = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+      const endDate = new Date(today.getFullYear(), today.getMonth() + 3, 0);
+      
+      const formatDate = (date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+      
       const [
         notificationsData,
         calendarData,
@@ -187,17 +211,23 @@ export default function Calendar() {
         typesData,
         chartData,
         analyticsData,
+        indicatorsData,
       ] = await Promise.all([
         CalendarDataService.fetchUserNotifications(userId),
         CalendarDataService.fetchWorkoutCalendar(
           userId,
-          "2025-08-01",
-          "2025-10-31"
+          formatDate(startDate),
+          formatDate(endDate)
         ),
         CalendarDataService.fetchRecentActivities(userId),
         CalendarDataService.fetchWorkoutTypes(),
         CalendarDataService.fetchProgressChart(userId, "weight"),
         CalendarDataService.fetchCalendarAnalytics(userId),
+        CalendarDataService.fetchActivityIndicators(
+          userId,
+          formatDate(startDate),
+          formatDate(endDate)
+        ),
       ]);
       
       setNotifications(notificationsData.count);
@@ -206,6 +236,7 @@ export default function Calendar() {
       setWorkoutTypes(typesData);
       setProgressChart(chartData);
       setAnalytics(analyticsData);
+      setActivityIndicators(indicatorsData);
 
       // Load steps from HealthKit if permission granted
       try {
@@ -267,17 +298,33 @@ export default function Calendar() {
     }
   };
 
-  // Updated handler for day presses - VIEW ONLY MODE
-  const handleDayPress = (day) => {
+  // Updated handler for day presses - comprehensive day activity view
+  const handleDayPress = async (day) => {
     const dateString = day.dateString;
-    
-    // Simply select the date
+    const selectedDateObj = new Date(dateString + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Only allow viewing past dates and today
+    if (selectedDateObj > today) {
+      return;
+    }
+
     setSelectedDate(dateString);
 
-    // If a workout exists on this date, show the details modal
-    if (workoutData[dateString]) {
-      setViewingWorkout({ ...workoutData[dateString], date: dateString });
-      setShowDetailsModal(true);
+    try {
+      // Fetch comprehensive day activity data
+      const dayData = await CalendarDataService.fetchDayActivityDetails(userId, dateString);
+      
+      if (dayData.hasData) {
+        setSelectedDayData(dayData);
+        setShowDayActivityModal(true);
+      } else {
+        Alert.alert("No Data", "No activities logged for this date.");
+      }
+    } catch (error) {
+      console.error("Error fetching day activity:", error);
+      Alert.alert("Error", "Failed to load activity details.");
     }
   };
 
@@ -320,28 +367,38 @@ export default function Calendar() {
 
     if (todayString) {
       marks[todayString] = {
-        customStyles: {
-          container: {
-            backgroundColor: "rgba(255, 255, 255, 0.15)",
-            borderRadius: 8,
-          },
-          text: {
-            color: "#34C759",
-            fontWeight: "bold",
-          },
-        },
+        selected: true,
+        selectedColor: "rgba(52, 199, 89, 0.2)",
+        dots: []
       };
     }
 
-    Object.entries(workoutData).forEach(([date, workout]) => {
-      const workoutType = workoutTypes.find((w) => w.key === workout.type);
-      // FIX: Always use the workout's main color for the dot to ensure visibility.
-      // The distinction between 'planned' and 'completed' can be seen in the details modal.
-      const color = workoutType?.color || "#1E3A5F";
-      marks[date] = { ...marks[date], marked: true, dotColor: color };
+    // Add activity indicators as colored dots
+    Object.entries(activityIndicators).forEach(([date, activities]) => {
+      const dots = [];
+      
+      if (activities.includes('workout')) {
+        dots.push({ key: 'workout', color: '#0A84FF' }); // Blue for workouts
+      }
+      if (activities.includes('meal')) {
+        dots.push({ key: 'meal', color: '#34C759' }); // Green for meals
+      }
+      if (activities.includes('steps')) {
+        dots.push({ key: 'steps', color: '#FF9500' }); // Orange for steps
+      }
+      if (activities.includes('weight')) {
+        dots.push({ key: 'weight', color: '#AF52DE' }); // Purple for weight
+      }
+
+      if (dots.length > 0) {
+        marks[date] = {
+          ...marks[date],
+          dots: dots,
+        };
+      }
     });
 
-    if (selectedDate) {
+    if (selectedDate && selectedDate !== todayString) {
       marks[selectedDate] = {
         ...marks[selectedDate],
         selected: true,
@@ -349,7 +406,7 @@ export default function Calendar() {
       };
     }
     return marks;
-  }, [workoutData, selectedDate, workoutTypes]);
+  }, [activityIndicators, selectedDate]);
 
   const monthlyStats = useMemo(() => {
     const currentMonth = currentDate.getMonth();
@@ -414,7 +471,7 @@ export default function Calendar() {
                   setCurrentDate(new Date(month.dateString))
                 }
                 markedDates={markedDates}
-                markingType={"custom"}
+                markingType={"multi-dot"}
                 hideExtraDays={false}
                 disableAllTouchEventsForDisabledDays={true}
                 theme={{
@@ -431,6 +488,8 @@ export default function Calendar() {
                   textDayFontSize: 14,
                   textMonthFontSize: 18,
                   textDisabledColor: "#555",
+                  dotColor: "#0A84FF",
+                  selectedDotColor: "#FFFFFF",
                 }}
               />
               <CalendarStatsCard
@@ -439,7 +498,7 @@ export default function Calendar() {
               />
             </View>
 
-            {progressChart && <ProgressGraph chart={progressChart} />}
+            {progressChart && <ProgressGraph chart={progressChart} userId={userId} />}
             {stepsData && (
               <StepsBarGraph 
                 dailyData={stepsData} 
@@ -448,10 +507,28 @@ export default function Calendar() {
                 onSyncPress={healthPermission ? syncHealthData : null}
                 isSyncing={isSyncingSteps}
                 goalSteps={10000}
+                stepsTrackingEnabled={stepsTrackingEnabled}
               />
             )}
+            {!stepsData && !stepsTrackingEnabled && (
+              <View style={styles.lockedFeatureCard}>
+                <View style={styles.lockedIconContainer}>
+                  <Ionicons name="footsteps" size={32} color="#666" />
+                </View>
+                <Text style={styles.lockedTitle}>Steps Tracking Disabled</Text>
+                <Text style={styles.lockedMessage}>
+                  Enable step tracking to automatically sync your daily steps and track your activity
+                </Text>
+                <Pressable 
+                  style={styles.enableButton}
+                  onPress={requestHealthPermission}
+                >
+                  <Text style={styles.enableButtonText}>Enable Step Tracking</Text>
+                </Pressable>
+              </View>
+            )}
             {analytics && <CalendarAnalytics analytics={analytics} />}
-            <RecentActivity activities={recentActivitiesData} />
+            <RecentActivity />
           </>
         )}
       </ScrollView>
@@ -476,6 +553,14 @@ export default function Calendar() {
         workout={viewingWorkout}
         onDelete={() => {}}
         onEdit={() => {}}
+      />
+
+      {/* MODAL: Comprehensive Day Activity View */}
+      <DayActivityModal
+        visible={showDayActivityModal}
+        onClose={() => setShowDayActivityModal(false)}
+        dayData={selectedDayData}
+        date={selectedDate}
       />
 
       {/* Health Permission Prompt */}
@@ -536,13 +621,6 @@ export default function Calendar() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { paddingTop: 10, paddingBottom: 40, paddingHorizontal: 15 },
-  loadingContainer: {
-    flex: 1,
-    paddingVertical: 60,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingText: { color: "#fff", fontSize: 16, opacity: 0.7 },
   calendarCard: {
     borderWidth: 1,
     borderRadius: 22,
@@ -550,6 +628,50 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderColor: "rgba(255,255,255,0.1)",
     backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  lockedFeatureCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  lockedIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  lockedTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#fff',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  lockedMessage: {
+    fontSize: 14,
+    color: 'rgba(235, 235, 245, 0.6)',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  enableButton: {
+    backgroundColor: '#0A84FF',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  enableButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   healthPromptOverlay: {
     position: 'absolute',

@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../services/supabase";
 import { LinearGradient } from "expo-linear-gradient";
 import { MealPlanDataService } from "../../services/MealPlanDataService";
+import { BrowsePlansPageSkeleton } from "../../components/skeletons/BrowsePlansPageSkeleton";
 
 export default function BrowsePlans() {
   const router = useRouter();
@@ -168,10 +169,7 @@ export default function BrowsePlans() {
         showsVerticalScrollIndicator={false}
       >
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#00D4AA" />
-            <Text style={styles.loadingText}>Loading meal plans...</Text>
-          </View>
+          <BrowsePlansPageSkeleton />
         ) : (
           <View style={styles.plansGrid}>
             {filteredPlans.map((plan) => (

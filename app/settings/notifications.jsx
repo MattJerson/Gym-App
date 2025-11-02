@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import SettingsHeader from "../../components/SettingsHeader";
 import { supabase } from "../../services/supabase";
+import { SettingsPageSkeleton } from "../../components/skeletons/SettingsPageSkeleton";
 
 
 export default function Notifications() {
@@ -127,9 +128,13 @@ export default function Notifications() {
 
   if (isLoading) {
     return (
-      <View style={[styles.container, { backgroundColor: "#0B0B0B", justifyContent: "center", alignItems: "center" }]}>
-        <ActivityIndicator size="large" color="#00D4AA" />
-        <Text style={styles.loadingText}>Loading preferences...</Text>
+      <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <SettingsHeader title="Notifications" />
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            <SettingsPageSkeleton />
+          </ScrollView>
+        </SafeAreaView>
       </View>
     );
   }

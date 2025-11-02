@@ -11,9 +11,10 @@ import {
   FontAwesome5,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { WorkoutsPageSkeleton } from "../../components/skeletons/WorkoutsPageSkeleton";
 
 // Mock Data for the page
 const myWorkouts = [
@@ -54,6 +55,27 @@ const templates = [
 
 export default function MyWorkouts() {
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Simulate data loading
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>
+        <SafeAreaView style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            <WorkoutsPageSkeleton />
+          </ScrollView>
+        </SafeAreaView>
+      </LinearGradient>
+    );
+  }
 
   return (
     <LinearGradient colors={["#1a1a1a", "#2d2d2d"]} style={styles.container}>

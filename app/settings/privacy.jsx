@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import SettingsHeader from "../../components/SettingsHeader";
 import { supabase } from "../../services/supabase";
+import { SettingsPageSkeleton } from "../../components/skeletons/SettingsPageSkeleton";
 
 export default function PrivacySecurity() {
   const router = useRouter();
@@ -100,10 +101,9 @@ export default function PrivacySecurity() {
       <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
         <SafeAreaView style={{ flex: 1 }}>
           <SettingsHeader title="Privacy & Security" />
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#00D4AA" />
-            <Text style={styles.loadingText}>Loading privacy settings...</Text>
-          </View>
+          <ScrollView contentContainerStyle={styles.scrollContent}>
+            <SettingsPageSkeleton />
+          </ScrollView>
         </SafeAreaView>
       </View>
     );

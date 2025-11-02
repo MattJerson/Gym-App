@@ -9,7 +9,6 @@ import {
   TextInput,
   Pressable,
   StyleSheet,
-  ActivityIndicator,
   KeyboardAvoidingView,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -17,6 +16,7 @@ import { supabase } from "../../services/supabase";
 import { useState, useRef, useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { CommunityChatSkeleton } from "../../components/skeletons/CommunityChatSkeleton";
 import {
   fetchChannels,
   sendDirectMessage,
@@ -810,11 +810,7 @@ export default function CommunityChat() {
   };
 
   if (loading) {
-    return (
-      <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color="#4ECDC4" />
-      </View>
-    );
+    return <CommunityChatSkeleton />;
   }
 
   return (

@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { ActivityLogDataService } from "../../services/ActivityLogDataService";
 import { supabase } from "../../services/supabase";
+import RecentActivitySkeleton from "../skeletons/RecentActivitySkeleton";
 
 export default function RecentActivity() {
   const router = useRouter();
@@ -76,18 +77,9 @@ export default function RecentActivity() {
     return parts.join(" • ");
   };
 
+  // Show skeleton while loading
   if (loading) {
-    return (
-      <View style={styles.card}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>Recent Activity</Text>
-          <Ionicons name="time-outline" size={18} color="#fff" />
-        </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator color="#74b9ff" size="small" />
-        </View>
-      </View>
-    );
+    return <RecentActivitySkeleton />;
   }
 
   if (activities.length === 0) {

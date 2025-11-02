@@ -355,7 +355,9 @@ export default function Mealplan() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Loading State */}
         {isLoading ? (
-          <MealPlanPageSkeleton />
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading meal plan data...</Text>
+          </View>
         ) : (
           <>
             {/* Macro Progress Summary */}

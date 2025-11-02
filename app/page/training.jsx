@@ -18,7 +18,6 @@ import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
 import { WorkoutSessionService } from "../../services/WorkoutSessionService";
 import WorkoutProgressBar from "../../components/training/WorkoutProgressBar";
 import ContinueWorkoutCard from "../../components/training/ContinueWorkoutCard";
-import { TrainingPageSkeleton } from "../../components/skeletons/TrainingPageSkeleton";
 
 export default function Training() {
   const router = useRouter();
@@ -203,7 +202,9 @@ export default function Training() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Loading State */}
         {isLoading ? (
-          <TrainingPageSkeleton />
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading training data...</Text>
+          </View>
         ) : (
           <>
             {/* Progress Card */}
