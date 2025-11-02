@@ -2,6 +2,7 @@ import {
   View,
   Text,
   Modal,
+  Image,
   Alert,
   FlatList,
   Animated,
@@ -11,6 +12,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
 import {
   Ionicons,
@@ -22,6 +24,7 @@ import { supabase } from "../../services/supabase";
 import { useState, useEffect, useRef } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { TrainingDataService } from "../../services/TrainingDataService";
+import { ExerciseDataService } from "../../services/ExerciseDataService";
 
 export default function CreateWorkout() {
   const router = useRouter();
@@ -40,9 +43,26 @@ export default function CreateWorkout() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [expandedExerciseId, setExpandedExerciseId] = useState(null);
+  
+  // Filter state
+  const [selectedBodyPart, setSelectedBodyPart] = useState("all");
+  const [isLoadingFiltered, setIsLoadingFiltered] = useState(false);
 
   // Animation
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  
+  // Body part filters (based on exercises database)
+  const bodyPartFilters = [
+    { id: "all", label: "All Exercises", icon: "fitness", color: "#A3E635" },
+    { id: "chest", label: "Chest", icon: "body", color: "#EF4444" },
+    { id: "back", label: "Back", icon: "fitness-outline", color: "#3B82F6" },
+    { id: "shoulders", label: "Shoulders", icon: "fitness", color: "#F59E0B" },
+    { id: "upper arms", label: "Arms", icon: "barbell", color: "#8B5CF6" },
+    { id: "upper legs", label: "Legs", icon: "walk", color: "#10B981" },
+    { id: "lower legs", label: "Calves", icon: "walk-outline", color: "#06B6D4" },
+    { id: "cardio", label: "Cardio", icon: "heart", color: "#EC4899" },
+    { id: "waist", label: "Core", icon: "body-outline", color: "#F59E0B" },
+  ];
 
   // Card colors for custom workouts
   const cardColors = [
@@ -79,7 +99,6 @@ export default function CreateWorkout() {
 
   useEffect(() => {
     getUser();
-    loadExerciseLibrary();
 
     // Fade in animation
     Animated.timing(fadeAnim, {
@@ -96,6 +115,8 @@ export default function CreateWorkout() {
       } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
+        // Load exercises after getting user
+        loadExerciseLibrary();
       } else {
         Alert.alert("Error", "Please sign in to create workouts");
         router.back();
@@ -109,19 +130,59 @@ export default function CreateWorkout() {
 
   const loadExerciseLibrary = async () => {
     try {
-      if (!userId) return;
-      const library = await TrainingDataService.fetchExerciseLibrary(userId);
-      setExerciseLibrary(library.featured || []);
+      console.log('Loading exercise library...');
+      console.log('User ID from state:', userId);
+      
+      // Load featured exercises from the new 1500+ exercise database (reduced to 20)
+      const featured = await ExerciseDataService.getFeaturedExercises(20);
+      console.log('Featured result:', featured);
+      console.log('Loaded exercises:', featured?.length);
+      
+      if (featured && featured.length > 0) {
+        setExerciseLibrary(featured);
+        console.log('✅ Exercise library loaded successfully');
+      } else {
+        console.warn('⚠️ No exercises returned from database');
+        // Try a direct query to verify data exists
+        const { supabase } = await import('../../services/supabase');
+        const { data: testData, error: testError } = await supabase
+          .from('exercises')
+          .select('id, name')
+          .limit(5);
+        console.log('Direct query test:', testData, testError);
+      }
     } catch (error) {
       console.error("Error loading exercise library:", error);
     }
   };
-
-  useEffect(() => {
-    if (userId) {
-      loadExerciseLibrary();
+  
+  const loadExercisesByBodyPart = async (bodyPart) => {
+    if (bodyPart === "all") {
+      await loadExerciseLibrary();
+      return;
     }
-  }, [userId]);
+    
+    try {
+      setIsLoadingFiltered(true);
+      console.log('Loading exercises for body part:', bodyPart);
+      
+      const exercises = await ExerciseDataService.getExercisesByBodyPart(bodyPart, 20);
+      console.log('Loaded exercises:', exercises?.length);
+      
+      setExerciseLibrary(exercises || []);
+    } catch (error) {
+      console.error("Error loading exercises by body part:", error);
+      Alert.alert("Error", "Failed to load exercises for this body part");
+    } finally {
+      setIsLoadingFiltered(false);
+    }
+  };
+  
+  const handleBodyPartChange = (bodyPartId) => {
+    setSelectedBodyPart(bodyPartId);
+    setSearchQuery(""); // Clear search when changing body part
+    loadExercisesByBodyPart(bodyPartId);
+  };
 
   const handleAddExercise = (exercise) => {
     const newExercise = {
@@ -132,6 +193,8 @@ export default function CreateWorkout() {
       weight: "",
       restTime: "60",
       notes: "",
+      // Include MET value for calorie calculations
+      met_value: exercise.met_value || 6.0, // Default to 6 if not provided
     };
     setExercises((prev) => [...prev, newExercise]);
     setShowExerciseModal(false);
@@ -181,6 +244,7 @@ export default function CreateWorkout() {
         color: selectedColor, // Save the custom color
         emoji: selectedEmoji, // Save the custom emoji
         exercises: exercises.map((ex) => ({
+          exercise_id: ex.id.split('_')[0], // Extract the original exercise_id (before timestamp)
           name: ex.name,
           description: ex.description || "",
           sets: ex.sets,
@@ -609,6 +673,10 @@ export default function CreateWorkout() {
         onClose={() => setShowExerciseModal(false)}
         exerciseLibrary={exerciseLibrary}
         onSelectExercise={handleAddExercise}
+        bodyPartFilters={bodyPartFilters}
+        selectedBodyPart={selectedBodyPart}
+        onBodyPartChange={handleBodyPartChange}
+        isLoadingFiltered={isLoadingFiltered}
       />
     </View>
   );
@@ -877,15 +945,30 @@ function ExerciseSelectionModal({
   onClose,
   exerciseLibrary,
   onSelectExercise,
+  bodyPartFilters,
+  selectedBodyPart,
+  onBodyPartChange,
+  isLoadingFiltered,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredExercises = exerciseLibrary.filter(
-    (exercise) =>
-      exercise.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (exercise.category &&
-        exercise.category.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredExercises = exerciseLibrary.filter((exercise) => {
+    if (!searchQuery) return true;
+    
+    const searchLower = searchQuery.toLowerCase();
+    const matchesName = exercise.name.toLowerCase().includes(searchLower);
+    const matchesBodyPart = exercise.body_parts?.some(bp => 
+      bp.toLowerCase().includes(searchLower)
+    );
+    const matchesEquipment = exercise.equipments?.some(eq => 
+      eq.toLowerCase().includes(searchLower)
+    );
+    const matchesMuscle = exercise.target_muscles?.some(m => 
+      m.toLowerCase().includes(searchLower)
+    );
+    
+    return matchesName || matchesBodyPart || matchesEquipment || matchesMuscle;
+  });
 
   return (
     <Modal
@@ -900,13 +983,47 @@ function ExerciseSelectionModal({
             <View>
               <Text style={modalStyles.title}>Add Exercise</Text>
               <Text style={modalStyles.subtitle}>
-                {exerciseLibrary.length} exercises available
+                {filteredExercises.length} exercises • {selectedBodyPart === "all" ? "All" : bodyPartFilters.find(f => f.id === selectedBodyPart)?.label}
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={modalStyles.closeButton}>
               <Ionicons name="close" size={24} color="#FAFAFA" />
             </TouchableOpacity>
           </View>
+
+          {/* Body Part Filter Chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={modalStyles.filterScrollContainer}
+            contentContainerStyle={modalStyles.filterScrollContent}
+          >
+            {bodyPartFilters.map((filter) => (
+              <TouchableOpacity
+                key={filter.id}
+                style={[
+                  modalStyles.filterChip,
+                  selectedBodyPart === filter.id && modalStyles.filterChipActive,
+                  { borderColor: selectedBodyPart === filter.id ? filter.color : "rgba(255, 255, 255, 0.1)" }
+                ]}
+                onPress={() => onBodyPartChange(filter.id)}
+              >
+                <Ionicons 
+                  name={filter.icon} 
+                  size={16} 
+                  color={selectedBodyPart === filter.id ? filter.color : "#71717A"} 
+                />
+                <Text
+                  style={[
+                    modalStyles.filterChipText,
+                    selectedBodyPart === filter.id && { color: filter.color }
+                  ]}
+                >
+                  {filter.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
 
           <View style={modalStyles.searchContainer}>
             <Ionicons
@@ -929,31 +1046,56 @@ function ExerciseSelectionModal({
             )}
           </View>
 
-          <FlatList
-            data={filteredExercises}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <Pressable
-                style={modalStyles.exerciseItem}
-                onPress={() => {
-                  onSelectExercise(item);
-                  setSearchQuery("");
-                }}
-              >
+          {isLoadingFiltered ? (
+            <View style={modalStyles.loadingContainer}>
+              <ActivityIndicator size="large" color="#A3E635" />
+              <Text style={modalStyles.loadingText}>Loading exercises...</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredExercises}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <Pressable
+                  style={modalStyles.exerciseItem}
+                  onPress={() => {
+                    onSelectExercise(item);
+                    setSearchQuery("");
+                  }}
+                >
+                  {/* Exercise GIF Thumbnail */}
+                {item.gif_url && (
+                  <Image
+                    source={{ uri: item.gif_url }}
+                    style={modalStyles.exerciseGif}
+                    resizeMode="cover"
+                  />
+                )}
                 <View style={modalStyles.exerciseInfo}>
-                  <View style={modalStyles.exerciseIconContainer}>
-                    <MaterialCommunityIcons
-                      name="dumbbell"
-                      size={24}
-                      color="#A3E635"
-                    />
-                  </View>
                   <View style={modalStyles.exerciseDetails}>
                     <Text style={modalStyles.exerciseName}>{item.name}</Text>
-                    <Text style={modalStyles.exerciseMeta}>
-                      {item.category}{" "}
-                      {item.difficulty && `• ${item.difficulty}`}
-                    </Text>
+                    <View style={modalStyles.exerciseTags}>
+                      {item.body_parts && item.body_parts[0] && (
+                        <View style={[modalStyles.tag, modalStyles.bodyPartTag]}>
+                          <Text style={modalStyles.tagText}>{item.body_parts[0]}</Text>
+                        </View>
+                      )}
+                      {item.equipments && item.equipments[0] && (
+                        <View style={[modalStyles.tag, modalStyles.equipmentTag]}>
+                          <Text style={modalStyles.tagText}>{item.equipments[0]}</Text>
+                        </View>
+                      )}
+                      {item.target_muscles && item.target_muscles[0] && (
+                        <View style={[modalStyles.tag, modalStyles.muscleTag]}>
+                          <Text style={modalStyles.tagText}>{item.target_muscles[0]}</Text>
+                        </View>
+                      )}
+                      {item.met_value && (
+                        <View style={[modalStyles.tag, modalStyles.metTag]}>
+                          <Text style={modalStyles.tagText}>{item.met_value} MET</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
                 </View>
                 <View style={modalStyles.addButton}>
@@ -973,6 +1115,7 @@ function ExerciseSelectionModal({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={modalStyles.listContent}
           />
+          )}
         </View>
       </View>
     </Modal>
@@ -1020,6 +1163,47 @@ const modalStyles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#27272A",
   },
+  filterScrollContainer: {
+    maxHeight: 50,
+    borderBottomWidth: 1,
+    borderBottomColor: "#27272A",
+  },
+  filterScrollContent: {
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  filterChip: {
+    gap: 6,
+    borderWidth: 1.5,
+    borderRadius: 20,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  filterChipActive: {
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  filterChipText: {
+    fontSize: 13,
+    color: "#71717A",
+    fontWeight: "700",
+  },
+  loadingContainer: {
+    flex: 1,
+    gap: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 15,
+    color: "#71717A",
+    fontWeight: "600",
+  },
   searchContainer: {
     marginTop: 16,
     borderWidth: 1,
@@ -1046,7 +1230,7 @@ const modalStyles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   exerciseItem: {
-    padding: 16,
+    padding: 12,
     borderWidth: 1,
     marginBottom: 8,
     borderRadius: 12,
@@ -1056,33 +1240,54 @@ const modalStyles = StyleSheet.create({
     backgroundColor: "#1C1C1E",
     justifyContent: "space-between",
   },
+  exerciseGif: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 12,
+    backgroundColor: "#27272A",
+  },
   exerciseInfo: {
-    gap: 12,
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-  },
-  exerciseIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(163, 230, 53, 0.1)",
   },
   exerciseDetails: {
     flex: 1,
   },
   exerciseName: {
     fontSize: 16,
-    marginBottom: 2,
+    marginBottom: 6,
     color: "#FAFAFA",
     fontWeight: "700",
   },
-  exerciseMeta: {
-    fontSize: 12,
-    color: "#71717A",
+  exerciseTags: {
+    gap: 6,
+    flexDirection: "row",
+    flexWrap: "wrap",
+  },
+  tag: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  bodyPartTag: {
+    backgroundColor: "rgba(163, 230, 53, 0.15)",
+  },
+  equipmentTag: {
+    backgroundColor: "rgba(59, 130, 246, 0.15)",
+  },
+  muscleTag: {
+    backgroundColor: "rgba(245, 158, 11, 0.15)",
+  },
+  metTag: {
+    backgroundColor: "rgba(236, 72, 153, 0.15)",
+  },
+  tagText: {
+    fontSize: 11,
+    color: "#A1A1AA",
     fontWeight: "600",
+    textTransform: "capitalize",
   },
   addButton: {
     width: 40,

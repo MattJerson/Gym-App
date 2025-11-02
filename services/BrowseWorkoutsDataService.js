@@ -5,10 +5,11 @@ export const BrowseWorkoutsDataService = {
   // Main Category Cards (shown on training home page)
   async fetchWorkoutCategories() {
     try {
-      const { data, error } = await supabase
+      const { data, error} = await supabase
         .from('workout_categories')
         .select('*')
         .eq('is_active', true)
+        .neq('id', '4b5d22ae-c484-4249-9123-21a4cfad1544') // Exclude Custom category
         .order('display_order', { ascending: true });
 
       if (error) throw error;
@@ -45,8 +46,8 @@ export const BrowseWorkoutsDataService = {
         description: workout.description,
         difficulty: workout.difficulty,
         duration: workout.duration_minutes,
-        exercises: 0, // Will be populated from workout_exercises count
-        calories: workout.estimated_calories,
+        exercises: 0, // Will be populated from workout_template_exercises count
+        calories: workout.duration_minutes * 6, // Estimate: 6 cal/min (will be calculated dynamically)
         equipment: workout.equipment || [],
         muscleGroups: workout.muscle_groups || [],
         thumbnail: workout.thumbnail_url,
@@ -80,10 +81,19 @@ export const BrowseWorkoutsDataService = {
 
       if (workoutError) throw workoutError;
 
-      // Fetch workout exercises
+      // Fetch workout exercises from new table
       const { data: exercises, error: exercisesError } = await supabase
-        .from('workout_exercises')
-        .select('*')
+        .from('workout_template_exercises')
+        .select(`
+          *,
+          exercise:exercises(
+            id,
+            name,
+            gif_url,
+            instructions,
+            met_value
+          )
+        `)
         .eq('template_id', workoutId)
         .order('order_index', { ascending: true });
 
@@ -97,16 +107,18 @@ export const BrowseWorkoutsDataService = {
       // Transform exercises to match expected format
       const transformedExercises = mainExercises.map(ex => ({
         id: ex.id,
-        name: ex.exercise_name,
-        description: ex.description,
+        name: ex.exercise?.name || 'Unknown Exercise',
+        description: ex.custom_notes || '',
         sets: ex.sets,
         reps: ex.reps,
         restTime: ex.rest_seconds,
-        muscleGroups: ex.muscle_groups || [],
-        equipment: ex.equipment || [],
-        caloriesPerSet: ex.calories_per_set,
-        videoUrl: ex.video_url,
-        tips: ex.tips || []
+        duration: ex.duration_seconds,
+        muscleGroups: [], // Will be populated from exercise relationships
+        equipment: [], // Will be populated from exercise relationships
+        metValue: ex.exercise?.met_value || 4.5,
+        gifUrl: ex.exercise?.gif_url,
+        instructions: ex.exercise?.instructions || [],
+        videoUrl: null // GIFs replace videos in new system
       }));
 
       return {
@@ -115,7 +127,7 @@ export const BrowseWorkoutsDataService = {
         description: workout.description,
         difficulty: workout.difficulty,
         duration: workout.duration_minutes,
-        totalCalories: workout.estimated_calories,
+        totalCalories: workout.duration_minutes * 6, // Estimate (use MET calculation for actual)
         equipment: workout.equipment || [],
         muscleGroups: workout.muscle_groups || [],
         videoUrl: workout.video_url,
@@ -128,7 +140,7 @@ export const BrowseWorkoutsDataService = {
         structure: {
           warmup: {
             duration: warmupExercises.length > 0 ? 5 : 0,
-            activities: warmupExercises.map(ex => ex.exercise_name)
+            activities: warmupExercises.map(ex => ex.exercise?.name || 'Warmup')
           },
           mainWorkout: {
             duration: workout.duration_minutes - (warmupExercises.length > 0 ? 5 : 0) - (cooldownExercises.length > 0 ? 5 : 0),
@@ -136,7 +148,7 @@ export const BrowseWorkoutsDataService = {
           },
           cooldown: {
             duration: cooldownExercises.length > 0 ? 5 : 0,
-            activities: cooldownExercises.map(ex => ex.exercise_name)
+            activities: cooldownExercises.map(ex => ex.exercise?.name || 'Cooldown')
           }
         },
         tags: workout.tags || [],

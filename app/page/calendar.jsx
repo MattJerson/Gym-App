@@ -298,7 +298,7 @@ export default function Calendar() {
     }
   };
 
-  // Updated handler for day presses - comprehensive day activity view
+  // Updated handler for day presses - simplified activity view
   const handleDayPress = async (day) => {
     const dateString = day.dateString;
     const selectedDateObj = new Date(dateString + 'T00:00:00');
@@ -311,21 +311,9 @@ export default function Calendar() {
     }
 
     setSelectedDate(dateString);
-
-    try {
-      // Fetch comprehensive day activity data
-      const dayData = await CalendarDataService.fetchDayActivityDetails(userId, dateString);
-      
-      if (dayData.hasData) {
-        setSelectedDayData(dayData);
-        setShowDayActivityModal(true);
-      } else {
-        Alert.alert("No Data", "No activities logged for this date.");
-      }
-    } catch (error) {
-      console.error("Error fetching day activity:", error);
-      Alert.alert("Error", "Failed to load activity details.");
-    }
+    
+    // Simply open the modal - it will fetch its own data
+    setShowDayActivityModal(true);
   };
 
   const addWorkout = async () => {
@@ -555,11 +543,10 @@ export default function Calendar() {
         onEdit={() => {}}
       />
 
-      {/* MODAL: Comprehensive Day Activity View */}
+      {/* MODAL: Simplified Day Activity View */}
       <DayActivityModal
         visible={showDayActivityModal}
         onClose={() => setShowDayActivityModal(false)}
-        dayData={selectedDayData}
         date={selectedDate}
       />
 
@@ -620,7 +607,7 @@ export default function Calendar() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { paddingTop: 10, paddingBottom: 40, paddingHorizontal: 15 },
+  scrollContent: { paddingTop: 10, paddingBottom: 40, paddingHorizontal: 20 },
   calendarCard: {
     borderWidth: 1,
     borderRadius: 22,

@@ -11,21 +11,42 @@ export const WorkoutSessionServiceV2 = {
    */
   async getWorkoutTemplate(templateId) {
     try {
+      console.log('WorkoutSessionServiceV2.getWorkoutTemplate - templateId:', templateId);
+      
       const { data: template, error: templateError } = await supabase
         .from('workout_templates')
         .select(`
           *,
           category:workout_categories(id, name, color, icon),
-          exercises:workout_exercises(*)
+          exercises:workout_template_exercises(
+            *,
+            exercise:exercises(
+              id,
+              name,
+              gif_url,
+              instructions,
+              met_value,
+              target_muscles:exercise_target_muscle_junction(
+                muscle:exercise_target_muscles(name)
+              )
+            )
+          )
         `)
         .eq('id', templateId)
         .single();
 
+      console.log('Query result - template:', template);
+      console.log('Query result - error:', templateError);
+
       if (templateError) throw templateError;
       
-      // Sort exercises by order
+      // Sort exercises by order_index (not order)
       if (template?.exercises) {
+        console.log('Raw exercises from DB:', template.exercises);
         template.exercises.sort((a, b) => a.order_index - b.order_index);
+        console.log('Sorted exercises:', template.exercises.length);
+      } else {
+        console.log('No exercises found in template');
       }
       
       return template;

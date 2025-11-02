@@ -5,6 +5,7 @@ import * as Notifications from "expo-notifications";
 import { Platform, AppState } from "react-native";
 import { supabase, getCurrentUser } from "../services/supabase";
 import { NotificationService } from "../services/NotificationService";
+import SplashScreenVideo from "../components/SplashScreen";
 
 // Configure how notifications are displayed when app is in foreground
 Notifications.setNotificationHandler({
@@ -20,6 +21,7 @@ export default function Layout() {
   const responseListener = useRef();
   const realtimeSubscription = useRef();
   const [userId, setUserId] = useState(null);
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     // Get current user and set up real-time subscription
@@ -162,12 +164,16 @@ export default function Layout() {
 
   return (
     <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_API_KEY}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          animation: "none",
-        }}
-      />
+      {showSplash ? (
+        <SplashScreenVideo onFinish={() => setShowSplash(false)} />
+      ) : (
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: "none",
+          }}
+        />
+      )}
     </StripeProvider>
   );
 }

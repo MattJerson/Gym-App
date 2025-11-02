@@ -51,6 +51,13 @@ const Workouts = () => {
   const [modalType, setModalType] = useState('category'); // 'category', 'template', 'exercise'
   const [editingItem, setEditingItem] = useState(null);
   
+  // Exercise search modal states (for new 1500+ exercise database)
+  const [showExerciseSearch, setShowExerciseSearch] = useState(false);
+  const [exerciseLibrary, setExerciseLibrary] = useState([]);
+  const [exerciseSearchQuery, setExerciseSearchQuery] = useState("");
+  const [selectedExercise, setSelectedExercise] = useState(null);
+  const [loadingExercises, setLoadingExercises] = useState(false);
+  
   // Form data
   const [categoryForm, setCategoryForm] = useState({
     name: '',
@@ -77,19 +84,15 @@ const Workouts = () => {
 
   const [exerciseForm, setExerciseForm] = useState({
     template_id: '',
-    exercise_name: '',
-    description: '',
+    exercise_id: '', // NEW: Use exercise_id from exercises table
     sets: 3,
     reps: '10-12',
     rest_seconds: 60,
-    calories_per_set: 10,
-    muscle_groups: [],
-    equipment: [],
-    video_url: '',
-    tips: [],
+    custom_notes: '',
     order_index: 1,
     is_warmup: false,
-    is_cooldown: false
+    is_cooldown: false,
+    duration_seconds: null
   });
 
   useEffect(() => {
@@ -123,6 +126,7 @@ const Workouts = () => {
           *,
           workout_categories(name, emoji, color, image_url)
         `)
+        .or('is_custom.is.null,is_custom.eq.false') // ONLY show admin templates, NOT user custom workouts
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -135,18 +139,54 @@ const Workouts = () => {
   const fetchExercises = async () => {
     try {
       const { data, error } = await supabase
-        .from('workout_exercises')
+        .from('workout_template_exercises')
         .select(`
           *,
+          exercise:exercises(id, name, gif_url),
           workout_templates(name, difficulty, workout_categories(name, emoji))
         `)
-        .order('order_index', { ascending: true });
+        .order('order_index', { ascending: true});
       
       if (error) throw error;
       setExercises(data || []);
     } catch (err) {
       console.error('Error fetching exercises:', err);
     }
+  };
+
+  // Load exercise library from 1500+ exercises database
+  const loadExerciseLibrary = async (searchQuery = "") => {
+    try {
+      setLoadingExercises(true);
+      let query = supabase
+        .from('exercises')
+        .select('id, name, gif_url, met_value')
+        .order('name', { ascending: true })
+        .limit(50);
+
+      if (searchQuery) {
+        query = query.ilike('name', `%${searchQuery}%`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      setExerciseLibrary(data || []);
+    } catch (err) {
+      console.error('Error loading exercise library:', err);
+      alert('Failed to load exercises');
+    } finally {
+      setLoadingExercises(false);
+    }
+  };
+
+  // Handle exercise search with debouncing
+  const handleExerciseSearch = (query) => {
+    setExerciseSearchQuery(query);
+    // Simple debounce - wait for user to stop typing
+    setTimeout(() => {
+      loadExerciseLibrary(query);
+    }, 300);
   };
 
   const handleSubmitCategory = async (e) => {
@@ -222,14 +262,14 @@ const Workouts = () => {
     try {
       if (editingItem) {
         const { error } = await supabase
-          .from('workout_exercises')
+          .from('workout_template_exercises')
           .update(exerciseForm)
           .eq('id', editingItem.id);
         
         if (error) throw error;
       } else {
         const { error } = await supabase
-          .from('workout_exercises')
+          .from('workout_template_exercises')
           .insert([exerciseForm]);
         
         if (error) throw error;
@@ -240,35 +280,9 @@ const Workouts = () => {
       resetExerciseForm();
       await fetchExercises();
       
-      // Recalculate calories for the parent template
-      if (exerciseForm.template_id) {
-        await updateTemplateCalories(exerciseForm.template_id);
-      }
+      // Note: Calories are now calculated dynamically using MET values, no need to update template
     } catch (err) {
       alert('Error: ' + err.message);
-    }
-  };
-
-  // Helper function to recalculate template calories
-  const updateTemplateCalories = async (templateId) => {
-    try {
-      const { data: templateExercises } = await supabase
-        .from('workout_exercises')
-        .select('*')
-        .eq('template_id', templateId);
-      
-      const calculatedCalories = templateExercises?.reduce((total, ex) => {
-        return total + ((ex.sets || 0) * (ex.calories_per_set || 0));
-      }, 0) || 200;
-
-      await supabase
-        .from('workout_templates')
-        .update({ estimated_calories: calculatedCalories })
-        .eq('id', templateId);
-      
-      await fetchTemplates(); // Refresh templates list
-    } catch (err) {
-      console.error('Error updating template calories:', err);
     }
   };
 
@@ -309,20 +323,20 @@ const Workouts = () => {
     setEditingItem(exercise);
     setExerciseForm({
       template_id: exercise.template_id,
-      exercise_name: exercise.exercise_name,
-      description: exercise.description || '',
+      exercise_id: exercise.exercise_id,
       sets: exercise.sets || 3,
       reps: exercise.reps || '10-12',
       rest_seconds: exercise.rest_seconds || 60,
-      calories_per_set: exercise.calories_per_set || 10,
-      muscle_groups: exercise.muscle_groups || [],
-      equipment: exercise.equipment || [],
-      video_url: exercise.video_url || '',
-      tips: exercise.tips || [],
+      custom_notes: exercise.custom_notes || '',
       order_index: exercise.order_index || 1,
       is_warmup: exercise.is_warmup || false,
-      is_cooldown: exercise.is_cooldown || false
+      is_cooldown: exercise.is_cooldown || false,
+      duration_seconds: exercise.duration_seconds || null
     });
+    // Set selected exercise for display
+    if (exercise.exercise) {
+      setSelectedExercise(exercise.exercise);
+    }
     setModalType('exercise');
     setIsModalOpen(true);
   };
@@ -374,23 +388,18 @@ const Workouts = () => {
   };
 
   const handleDeleteExercise = async (exercise) => {
-    if (!confirm(`Delete exercise "${exercise.exercise_name}"?`)) return;
+    if (!confirm(`Delete exercise "${exercise.exercise?.name || 'Unknown'}"?`)) return;
     
     try {
-      const templateId = exercise.template_id;
-      
       const { error } = await supabase
-        .from('workout_exercises')
+        .from('workout_template_exercises')
         .delete()
         .eq('id', exercise.id);
       
       if (error) throw error;
       await fetchExercises();
       
-      // Recalculate template calories after deletion
-      if (templateId) {
-        await updateTemplateCalories(templateId);
-      }
+      // Note: Calories calculated dynamically, no need to update template
     } catch (err) {
       alert('Error deleting exercise: ' + err.message);
     }
@@ -426,20 +435,18 @@ const Workouts = () => {
   const resetExerciseForm = () => {
     setExerciseForm({
       template_id: '',
-      exercise_name: '',
-      description: '',
+      exercise_id: '',
       sets: 3,
       reps: '10-12',
       rest_seconds: 60,
-      calories_per_set: 10,
-      muscle_groups: [],
-      equipment: [],
-      video_url: '',
-      tips: [],
+      custom_notes: '',
       order_index: 1,
       is_warmup: false,
-      is_cooldown: false
+      is_cooldown: false,
+      duration_seconds: null
     });
+    setSelectedExercise(null);
+    setExerciseSearchQuery("");
   };
 
   // Helper functions
@@ -562,8 +569,8 @@ const Workouts = () => {
       // Apply search
       if (searchTerm) {
         filtered = filtered.filter(ex =>
-          ex.exercise_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          ex.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          ex.exercise?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          ex.custom_notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
           ex.workout_templates?.name?.toLowerCase().includes(searchTerm.toLowerCase())
         );
       }
@@ -578,8 +585,8 @@ const Workouts = () => {
         let aVal, bVal;
         switch (sortBy) {
           case 'name':
-            aVal = a.exercise_name?.toLowerCase() || '';
-            bVal = b.exercise_name?.toLowerCase() || '';
+            aVal = a.exercise?.name?.toLowerCase() || '';
+            bVal = b.exercise?.name?.toLowerCase() || '';
             break;
           case 'order':
             aVal = a.order_index || 0;
@@ -1225,12 +1232,20 @@ const Workouts = () => {
                     <tr key={exercise.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-start gap-2.5">
-                          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5">
-                            <Activity className="h-4 w-4 text-white" />
-                          </div>
+                          {exercise.exercise?.gif_url ? (
+                            <img 
+                              src={exercise.exercise.gif_url}
+                              alt={exercise.exercise.name}
+                              className="h-12 w-12 rounded-lg object-cover border border-gray-200 flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                              <Activity className="h-5 w-5 text-white" />
+                            </div>
+                          )}
                           <div className="min-w-0 flex-1">
-                            <p className="font-semibold text-sm text-gray-900 truncate">{exercise.exercise_name}</p>
-                            <p className="text-xs text-gray-500 leading-snug">{exercise.description || 'No description'}</p>
+                            <p className="font-semibold text-sm text-gray-900 truncate">{exercise.exercise?.name || 'Unknown Exercise'}</p>
+                            <p className="text-xs text-gray-500 leading-snug">{exercise.custom_notes || 'No notes'}</p>
                           </div>
                         </div>
                       </td>
@@ -1666,22 +1681,62 @@ const Workouts = () => {
                       </select>
                     </div>
 
-                    <Input
-                      label="Exercise Name"
-                      placeholder="e.g., Barbell Bench Press"
-                      value={exerciseForm.exercise_name}
-                      onChange={(e) => setExerciseForm({ ...exerciseForm, exercise_name: e.target.value })}
-                      required
-                    />
+                    {/* Exercise Selector from 1500+ Database */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Exercise *
+                      </label>
+                      {selectedExercise ? (
+                        <div className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                          <div className="flex items-center gap-3">
+                            {selectedExercise.gif_url && (
+                              <img 
+                                src={selectedExercise.gif_url}
+                                alt={selectedExercise.name}
+                                className="h-16 w-16 rounded-lg object-cover border border-gray-200"
+                              />
+                            )}
+                            <div className="flex-1">
+                              <p className="font-semibold text-sm text-gray-900">{selectedExercise.name}</p>
+                              <p className="text-xs text-gray-500">MET Value: {selectedExercise.met_value}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedExercise(null);
+                                setExerciseForm({ ...exerciseForm, exercise_id: '' });
+                                setShowExerciseSearch(true);
+                                loadExerciseLibrary();
+                              }}
+                              className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                            >
+                              Change
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowExerciseSearch(true);
+                            loadExerciseLibrary();
+                          }}
+                          className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors text-sm font-medium text-gray-600 hover:text-blue-600 flex items-center justify-center gap-2"
+                        >
+                          <Search className="h-4 w-4" />
+                          Select Exercise from Library (1500+ exercises)
+                        </button>
+                      )}
+                    </div>
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Description / Instructions
+                        Custom Notes (Optional)
                       </label>
                       <textarea
-                        placeholder="How to perform this exercise..."
-                        value={exerciseForm.description}
-                        onChange={(e) => setExerciseForm({ ...exerciseForm, description: e.target.value })}
+                        placeholder="Add custom notes or modifications for this exercise..."
+                        value={exerciseForm.custom_notes}
+                        onChange={(e) => setExerciseForm({ ...exerciseForm, custom_notes: e.target.value })}
                         rows={3}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
                       />
@@ -1733,49 +1788,19 @@ const Workouts = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
-                          <Flame className="h-3.5 w-3.5 text-gray-500" />
-                          Calories Per Set
-                        </label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={exerciseForm.calories_per_set}
-                          onChange={(e) => setExerciseForm({ ...exerciseForm, calories_per_set: parseInt(e.target.value) || 10 })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
-                          <ListOrdered className="h-3.5 w-3.5 text-gray-500" />
-                          Order Index
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={exerciseForm.order_index}
-                          onChange={(e) => setExerciseForm({ ...exerciseForm, order_index: parseInt(e.target.value) || 1 })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        />
-                      </div>
-                    </div>
-
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
-                        <Video className="h-3.5 w-3.5 text-gray-500" />
-                        Exercise Demo Video URL
+                        <ListOrdered className="h-3.5 w-3.5 text-gray-500" />
+                        Order Index
                       </label>
                       <input
-                        type="url"
-                        placeholder="https://youtube.com/watch?v=..."
-                        value={exerciseForm.video_url}
-                        onChange={(e) => setExerciseForm({ ...exerciseForm, video_url: e.target.value })}
+                        type="number"
+                        min="1"
+                        value={exerciseForm.order_index}
+                        onChange={(e) => setExerciseForm({ ...exerciseForm, order_index: parseInt(e.target.value) || 1 })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                       />
-                      <p className="text-xs text-gray-500 mt-1">YouTube, Vimeo, or any video URL</p>
+                      <p className="text-xs text-gray-500 mt-1">Position of this exercise in the workout</p>
                     </div>
 
                     {/* Warmup / Cooldown Toggles */}
@@ -1805,6 +1830,79 @@ const Workouts = () => {
               </div>
             )}
           </form>
+        </Modal>
+
+        {/* Exercise Search Modal */}
+        <Modal
+          isOpen={showExerciseSearch}
+          onClose={() => {
+            setShowExerciseSearch(false);
+            setExerciseSearchQuery("");
+          }}
+          title="Select Exercise from Library"
+          size="lg"
+        >
+          <div className="px-6 py-4">
+            {/* Search Bar */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search 1500+ exercises..."
+                value={exerciseSearchQuery}
+                onChange={(e) => handleExerciseSearch(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+            </div>
+
+            {/* Exercise Grid */}
+            <div className="max-h-96 overflow-y-auto">
+              {loadingExercises ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : exerciseLibrary.length === 0 ? (
+                <div className="text-center py-12">
+                  <Dumbbell className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500">No exercises found</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-2">
+                  {exerciseLibrary.map((ex) => (
+                    <button
+                      key={ex.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedExercise(ex);
+                        setExerciseForm({ ...exerciseForm, exercise_id: ex.id });
+                        setShowExerciseSearch(false);
+                        setExerciseSearchQuery("");
+                      }}
+                      className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-left"
+                    >
+                      {ex.gif_url && (
+                        <img 
+                          src={ex.gif_url}
+                          alt={ex.name}
+                          className="h-16 w-16 rounded-lg object-cover border border-gray-200"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <p className="font-semibold text-sm text-gray-900">{ex.name}</p>
+                        <p className="text-xs text-gray-500">MET: {ex.met_value}</p>
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-gray-400" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <p className="text-xs text-gray-500 mt-4 text-center">
+              {exerciseLibrary.length} exercises shown. Use search to find more.
+            </p>
+          </div>
         </Modal>
       </div>
     </div>

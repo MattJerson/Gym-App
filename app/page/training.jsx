@@ -13,7 +13,7 @@ import { useState, useEffect, useCallback } from "react";
 import MyWorkouts from "../../components/training/MyWorkouts";
 import BrowseWorkouts from "../../components/training/BrowseWorkouts";
 import RecentWorkouts from "../../components/training/RecentWorkouts";
-import { TrainingDataService } from "../../services/TrainingDataService";
+import { TrainingDataServiceNew } from "../../services/TrainingDataServiceNew";
 import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
 import { WorkoutSessionService } from "../../services/WorkoutSessionService";
 import WorkoutProgressBar from "../../components/training/WorkoutProgressBar";
@@ -128,11 +128,11 @@ export default function Training() {
         todaysData,
         recentData,
       ] = await Promise.all([
-        TrainingDataService.fetchUserNotifications(userId),
-        TrainingDataService.fetchWorkoutProgress(userId),
-        TrainingDataService.fetchContinueWorkout(userId),
-        TrainingDataService.fetchTodaysWorkout(userId),
-        TrainingDataService.fetchRecentWorkouts(userId),
+        TrainingDataServiceNew.fetchUserNotifications(userId),
+        TrainingDataServiceNew.fetchWorkoutProgress(userId),
+        TrainingDataServiceNew.fetchContinueWorkout(userId),
+        TrainingDataServiceNew.fetchTodaysWorkout(userId),
+        TrainingDataServiceNew.fetchRecentWorkouts(userId),
       ]);
 
       // Update state with fetched data
@@ -157,7 +157,7 @@ export default function Training() {
         if (existingSession) {
           router.push(`/workout/${existingSession.workoutId}`);
         } else {
-          const session = await TrainingDataService.updateWorkoutProgress(
+          const session = await TrainingDataServiceNew.updateWorkoutProgress(
             userId,
             continueWorkout.id,
             { progress: continueWorkout.progress }
