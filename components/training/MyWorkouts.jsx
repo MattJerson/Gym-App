@@ -164,6 +164,7 @@ const WorkoutCardItem = ({ item, onPress, onOptions }) => {
 export default function MyWorkouts({
   onSelectWorkout = () => {},
   onWorkoutOptions = () => {},
+  onScheduleChange = () => {},
 }) {
   const router = useRouter();
   const [userId, setUserId] = useState(null);
@@ -250,6 +251,8 @@ export default function MyWorkouts({
   const handleWorkoutUpdate = () => {
     // Reload workouts after update
     loadMyWorkouts();
+    // Notify parent to refresh (for Today's Workout section)
+    onScheduleChange();
   };
 
   const handleEditCustomWorkout = async (workout) => {

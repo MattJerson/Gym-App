@@ -21,16 +21,18 @@ import {
 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { TrainingDataService } from "../../services/TrainingDataService";
 import { ExerciseDataService } from "../../services/ExerciseDataService";
+import { CalorieCalculator } from "../../services/CalorieCalculator";
 
 export default function CreateWorkout() {
   const router = useRouter();
 
   // 🔄 Workout creation state
   const [userId, setUserId] = useState(null);
+  const [userWeight, setUserWeight] = useState(null); // User's weight for calorie calculation
   const [workoutName, setWorkoutName] = useState("");
   const [workoutDescription, setWorkoutDescription] = useState("");
   const [selectedColor, setSelectedColor] = useState("#3B82F6"); // Default blue
@@ -45,15 +47,20 @@ export default function CreateWorkout() {
   const [expandedExerciseId, setExpandedExerciseId] = useState(null);
   
   // Filter state
-  const [selectedBodyPart, setSelectedBodyPart] = useState("all");
+  const [selectedBodyPart, setSelectedBodyPart] = useState("chest");
   const [isLoadingFiltered, setIsLoadingFiltered] = useState(false);
+
+  // 🔥 Calculate estimated calories dynamically based on exercises
+  const estimatedCalories = useMemo(() => {
+    if (!userWeight || exercises.length === 0) return 0;
+    return CalorieCalculator.calculateWorkoutCalories(exercises, userWeight);
+  }, [exercises, userWeight]);
 
   // Animation
   const fadeAnim = useRef(new Animated.Value(0)).current;
   
-  // Body part filters (based on exercises database)
+  // Body part filters (based on exercises database) - REDESIGNED
   const bodyPartFilters = [
-    { id: "all", label: "All Exercises", icon: "fitness", color: "#A3E635" },
     { id: "chest", label: "Chest", icon: "body", color: "#EF4444" },
     { id: "back", label: "Back", icon: "fitness-outline", color: "#3B82F6" },
     { id: "shoulders", label: "Shoulders", icon: "fitness", color: "#F59E0B" },
@@ -115,6 +122,17 @@ export default function CreateWorkout() {
       } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
+        
+        // 🔥 Fetch user weight for calorie calculations
+        const weight = await CalorieCalculator.getUserWeight(user.id);
+        if (weight) {
+          setUserWeight(weight);
+          console.log('💪 User weight loaded:', weight, 'kg');
+        } else {
+          console.warn('⚠️ User weight not found, using default 70kg for calculations');
+          setUserWeight(70); // Default fallback
+        }
+        
         // Load exercises after getting user
         loadExerciseLibrary();
       } else {
@@ -156,17 +174,18 @@ export default function CreateWorkout() {
     }
   };
   
-  const loadExercisesByBodyPart = async (bodyPart) => {
-    if (bodyPart === "all") {
-      await loadExerciseLibrary();
-      return;
-    }
-    
+  const loadExercisesByBodyPart = async (bodyPart, loadMore = false) => {
     try {
-      setIsLoadingFiltered(true);
+      if (!loadMore) {
+        setIsLoadingFiltered(true);
+      }
       console.log('Loading exercises for body part:', bodyPart);
       
-      const exercises = await ExerciseDataService.getExercisesByBodyPart(bodyPart, 20);
+      // Calculate the limit based on current exercises
+      const currentCount = loadMore ? exerciseLibrary.length : 0;
+      const limit = loadMore ? 20 : 20; // Load 20 more when "Load More" is clicked
+      
+      const exercises = await ExerciseDataService.getExercisesByBodyPart(bodyPart, currentCount + limit);
       console.log('Loaded exercises:', exercises?.length);
       
       setExerciseLibrary(exercises || []);
@@ -178,16 +197,22 @@ export default function CreateWorkout() {
     }
   };
   
-  const handleBodyPartChange = (bodyPartId) => {
-    setSelectedBodyPart(bodyPartId);
-    setSearchQuery(""); // Clear search when changing body part
-    loadExercisesByBodyPart(bodyPartId);
+  const handleBodyPartChange = (bodyPartId, loadMore = false) => {
+    if (!loadMore) {
+      setSelectedBodyPart(bodyPartId);
+      setSearchQuery(""); // Clear search when changing body part
+    }
+    loadExercisesByBodyPart(bodyPartId, loadMore);
   };
 
   const handleAddExercise = (exercise) => {
+    // Generate a truly unique ID by combining exercise.id, timestamp, and random string
+    const uniqueId = `${exercise.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
     const newExercise = {
-      id: `${exercise.id}_${Date.now()}`,
       ...exercise,
+      id: uniqueId, // Override the id AFTER spreading
+      original_exercise_id: exercise.id, // Store original for reference
       sets: 3,
       reps: "10-12",
       weight: "",
@@ -196,6 +221,10 @@ export default function CreateWorkout() {
       // Include MET value for calorie calculations
       met_value: exercise.met_value || 6.0, // Default to 6 if not provided
     };
+    
+    console.log('Adding exercise with unique ID:', uniqueId);
+    console.log('Current exercises count:', exercises.length);
+    
     setExercises((prev) => [...prev, newExercise]);
     setShowExerciseModal(false);
   };
@@ -244,7 +273,7 @@ export default function CreateWorkout() {
         color: selectedColor, // Save the custom color
         emoji: selectedEmoji, // Save the custom emoji
         exercises: exercises.map((ex) => ({
-          exercise_id: ex.id.split('_')[0], // Extract the original exercise_id (before timestamp)
+          exercise_id: ex.original_exercise_id || ex.id.split('_')[0], // Use original_exercise_id or fallback to split
           name: ex.name,
           description: ex.description || "",
           sets: ex.sets,
@@ -445,6 +474,14 @@ export default function CreateWorkout() {
                 <Text style={styles.previewMeta}>
                   {exercises.length} exercises • {estimatedDuration} min
                 </Text>
+                {estimatedCalories > 0 && (
+                  <View style={styles.previewCaloriesContainer}>
+                    <Ionicons name="flame" size={14} color="#EF4444" />
+                    <Text style={styles.previewCalories}>
+                      ~{estimatedCalories} calories
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
           </View>
@@ -939,7 +976,7 @@ const exerciseCardStyles = StyleSheet.create({
   },
 });
 
-// Exercise Selection Modal Component
+// Exercise Selection Modal Component - REDESIGNED
 function ExerciseSelectionModal({
   visible,
   onClose,
@@ -951,8 +988,11 @@ function ExerciseSelectionModal({
   isLoadingFiltered,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [addedExerciseId, setAddedExerciseId] = useState(null);
+  const [expandedExerciseId, setExpandedExerciseId] = useState(null);
 
   const filteredExercises = exerciseLibrary.filter((exercise) => {
+    // If no search query, return all exercises
     if (!searchQuery) return true;
     
     const searchLower = searchQuery.toLowerCase();
@@ -970,6 +1010,52 @@ function ExerciseSelectionModal({
     return matchesName || matchesBodyPart || matchesEquipment || matchesMuscle;
   });
 
+  // Function to capitalize each word
+  const capitalizeWords = (str) => {
+    if (!str) return '';
+    return str
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  // Skeleton Loader Component
+  const SkeletonExerciseItem = () => (
+    <View style={modalStyles.exerciseItem}>
+      <View style={[modalStyles.exerciseGif, { backgroundColor: "#27272A" }]} />
+      <View style={modalStyles.exerciseInfo}>
+        <View style={modalStyles.exerciseDetails}>
+          <View style={[modalStyles.skeletonText, { width: "70%", height: 16, marginBottom: 8 }]} />
+          <View style={modalStyles.exerciseTags}>
+            <View style={[modalStyles.skeletonText, { width: 60, height: 20, borderRadius: 10 }]} />
+            <View style={[modalStyles.skeletonText, { width: 50, height: 20, borderRadius: 10, marginLeft: 6 }]} />
+          </View>
+        </View>
+      </View>
+      <View style={modalStyles.addButton}>
+        <View style={[modalStyles.skeletonText, { width: 24, height: 24, borderRadius: 12 }]} />
+      </View>
+    </View>
+  );
+
+  const handleExerciseAdd = (item) => {
+    setAddedExerciseId(item.id);
+    onSelectExercise(item);
+    setSearchQuery("");
+    
+    // Collapse the expanded item
+    setExpandedExerciseId(null);
+    
+    // Reset feedback after animation
+    setTimeout(() => {
+      setAddedExerciseId(null);
+    }, 600);
+  };
+
+  const toggleExpand = (exerciseId) => {
+    setExpandedExerciseId(prev => prev === exerciseId ? null : exerciseId);
+  };
+
   return (
     <Modal
       visible={visible}
@@ -983,7 +1069,7 @@ function ExerciseSelectionModal({
             <View>
               <Text style={modalStyles.title}>Add Exercise</Text>
               <Text style={modalStyles.subtitle}>
-                {filteredExercises.length} exercises • {selectedBodyPart === "all" ? "All" : bodyPartFilters.find(f => f.id === selectedBodyPart)?.label}
+                {filteredExercises.length} exercises available
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={modalStyles.closeButton}>
@@ -991,40 +1077,7 @@ function ExerciseSelectionModal({
             </TouchableOpacity>
           </View>
 
-          {/* Body Part Filter Chips */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={modalStyles.filterScrollContainer}
-            contentContainerStyle={modalStyles.filterScrollContent}
-          >
-            {bodyPartFilters.map((filter) => (
-              <TouchableOpacity
-                key={filter.id}
-                style={[
-                  modalStyles.filterChip,
-                  selectedBodyPart === filter.id && modalStyles.filterChipActive,
-                  { borderColor: selectedBodyPart === filter.id ? filter.color : "rgba(255, 255, 255, 0.1)" }
-                ]}
-                onPress={() => onBodyPartChange(filter.id)}
-              >
-                <Ionicons 
-                  name={filter.icon} 
-                  size={16} 
-                  color={selectedBodyPart === filter.id ? filter.color : "#71717A"} 
-                />
-                <Text
-                  style={[
-                    modalStyles.filterChipText,
-                    selectedBodyPart === filter.id && { color: filter.color }
-                  ]}
-                >
-                  {filter.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-
+          {/* Search Bar */}
           <View style={modalStyles.searchContainer}>
             <Ionicons
               name="search"
@@ -1046,75 +1099,208 @@ function ExerciseSelectionModal({
             )}
           </View>
 
+          {/* Body Part Filter Grid - REDESIGNED */}
+          <View style={modalStyles.filterSection}>
+            <Text style={modalStyles.filterTitle}>Filter by Body Part</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={modalStyles.filterScrollContent}
+            >
+              {bodyPartFilters.map((filter) => (
+                <TouchableOpacity
+                  key={filter.id}
+                  style={[
+                    modalStyles.filterButton,
+                    selectedBodyPart === filter.id && [
+                      modalStyles.filterButtonActive,
+                      { borderColor: filter.color, backgroundColor: `${filter.color}15` }
+                    ]
+                  ]}
+                  onPress={() => onBodyPartChange(filter.id)}
+                >
+                  <Ionicons 
+                    name={filter.icon} 
+                    size={20} 
+                    color={selectedBodyPart === filter.id ? filter.color : "#71717A"} 
+                  />
+                  <Text
+                    style={[
+                      modalStyles.filterButtonText,
+                      selectedBodyPart === filter.id && { color: filter.color, fontWeight: "700" }
+                    ]}
+                  >
+                    {filter.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
           {isLoadingFiltered ? (
-            <View style={modalStyles.loadingContainer}>
-              <ActivityIndicator size="large" color="#A3E635" />
-              <Text style={modalStyles.loadingText}>Loading exercises...</Text>
-            </View>
+            <FlatList
+              data={[1, 2, 3, 4, 5, 6, 7, 8]}
+              keyExtractor={(item) => `skeleton-${item}`}
+              renderItem={() => <SkeletonExerciseItem />}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={modalStyles.listContent}
+            />
           ) : (
             <FlatList
               data={filteredExercises}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <Pressable
-                  style={modalStyles.exerciseItem}
-                  onPress={() => {
-                    onSelectExercise(item);
-                    setSearchQuery("");
-                  }}
-                >
-                  {/* Exercise GIF Thumbnail */}
-                {item.gif_url && (
-                  <Image
-                    source={{ uri: item.gif_url }}
-                    style={modalStyles.exerciseGif}
-                    resizeMode="cover"
-                  />
-                )}
-                <View style={modalStyles.exerciseInfo}>
-                  <View style={modalStyles.exerciseDetails}>
-                    <Text style={modalStyles.exerciseName}>{item.name}</Text>
-                    <View style={modalStyles.exerciseTags}>
-                      {item.body_parts && item.body_parts[0] && (
-                        <View style={[modalStyles.tag, modalStyles.bodyPartTag]}>
-                          <Text style={modalStyles.tagText}>{item.body_parts[0]}</Text>
-                        </View>
+              renderItem={({ item }) => {
+                const isAdded = addedExerciseId === item.id;
+                const isExpanded = expandedExerciseId === item.id;
+                return (
+                  <View style={modalStyles.exerciseItemWrapper}>
+                    <Pressable
+                      style={modalStyles.exerciseItem}
+                      onPress={() => toggleExpand(item.id)}
+                    >
+                      {/* Exercise GIF Thumbnail */}
+                      {item.gif_url && (
+                        <Image
+                          source={{ uri: item.gif_url }}
+                          style={modalStyles.exerciseGif}
+                          resizeMode="cover"
+                        />
                       )}
-                      {item.equipments && item.equipments[0] && (
-                        <View style={[modalStyles.tag, modalStyles.equipmentTag]}>
-                          <Text style={modalStyles.tagText}>{item.equipments[0]}</Text>
+                      <View style={modalStyles.exerciseInfo}>
+                        <View style={modalStyles.exerciseDetails}>
+                          <Text style={modalStyles.exerciseName}>{capitalizeWords(item.name)}</Text>
+                          <View style={modalStyles.exerciseTags}>
+                            {item.body_parts && item.body_parts[0] && (
+                              <View style={[modalStyles.tag, modalStyles.bodyPartTag]}>
+                                <Text style={modalStyles.tagText}>{item.body_parts[0]}</Text>
+                              </View>
+                            )}
+                            {item.equipments && item.equipments[0] && (
+                              <View style={[modalStyles.tag, modalStyles.equipmentTag]}>
+                                <Text style={modalStyles.tagText}>{item.equipments[0]}</Text>
+                              </View>
+                            )}
+                            {item.target_muscles && item.target_muscles[0] && (
+                              <View style={[modalStyles.tag, modalStyles.muscleTag]}>
+                                <Text style={modalStyles.tagText}>{item.target_muscles[0]}</Text>
+                              </View>
+                            )}
+                            {item.met_value && (
+                              <View style={[modalStyles.tag, modalStyles.metTag]}>
+                                <Text style={modalStyles.tagText}>{item.met_value} MET</Text>
+                              </View>
+                            )}
+                          </View>
                         </View>
-                      )}
-                      {item.target_muscles && item.target_muscles[0] && (
-                        <View style={[modalStyles.tag, modalStyles.muscleTag]}>
-                          <Text style={modalStyles.tagText}>{item.target_muscles[0]}</Text>
+                      </View>
+                      <Pressable 
+                        style={[
+                          modalStyles.addButton,
+                          isAdded && modalStyles.addButtonSuccess
+                        ]}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleExerciseAdd(item);
+                        }}
+                      >
+                        <Ionicons 
+                          name={isAdded ? "checkmark" : "add"} 
+                          size={24} 
+                          color={isAdded ? "#FFF" : "#A3E635"} 
+                        />
+                      </Pressable>
+                    </Pressable>
+
+                    {/* Expanded Content */}
+                    {isExpanded && (
+                      <View style={modalStyles.expandedContent}>
+                        {/* Large GIF */}
+                        {item.gif_url && (
+                          <View style={modalStyles.expandedGifContainer}>
+                            <Image
+                              source={{ uri: item.gif_url }}
+                              style={modalStyles.expandedGif}
+                              resizeMode="contain"
+                            />
+                          </View>
+                        )}
+
+                        {/* Description */}
+                        {item.description && (
+                          <View style={modalStyles.expandedSection}>
+                            <Text style={modalStyles.expandedSectionTitle}>Description</Text>
+                            <Text style={modalStyles.expandedSectionText}>{item.description}</Text>
+                          </View>
+                        )}
+
+                        {/* Instructions */}
+                        {item.instructions && item.instructions.length > 0 && (
+                          <View style={modalStyles.expandedSection}>
+                            <Text style={modalStyles.expandedSectionTitle}>Instructions</Text>
+                            {item.instructions.map((instruction, index) => (
+                              <View key={index} style={modalStyles.instructionRow}>
+                                <Text style={modalStyles.instructionNumber}>{index + 1}</Text>
+                                <Text style={modalStyles.instructionText}>{instruction}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+
+                        {/* Additional Info */}
+                        <View style={modalStyles.expandedInfoGrid}>
+                          {item.body_parts && item.body_parts.length > 0 && (
+                            <View style={modalStyles.infoItem}>
+                              <Text style={modalStyles.infoLabel}>Body Parts</Text>
+                              <Text style={modalStyles.infoValue}>{item.body_parts.join(', ')}</Text>
+                            </View>
+                          )}
+                          {item.target_muscles && item.target_muscles.length > 0 && (
+                            <View style={modalStyles.infoItem}>
+                              <Text style={modalStyles.infoLabel}>Target Muscles</Text>
+                              <Text style={modalStyles.infoValue}>{item.target_muscles.join(', ')}</Text>
+                            </View>
+                          )}
+                          {item.equipments && item.equipments.length > 0 && (
+                            <View style={modalStyles.infoItem}>
+                              <Text style={modalStyles.infoLabel}>Equipment</Text>
+                              <Text style={modalStyles.infoValue}>{item.equipments.join(', ')}</Text>
+                            </View>
+                          )}
+                          {item.met_value && (
+                            <View style={modalStyles.infoItem}>
+                              <Text style={modalStyles.infoLabel}>Intensity</Text>
+                              <Text style={modalStyles.infoValue}>{item.met_value} MET</Text>
+                            </View>
+                          )}
                         </View>
-                      )}
-                      {item.met_value && (
-                        <View style={[modalStyles.tag, modalStyles.metTag]}>
-                          <Text style={modalStyles.tagText}>{item.met_value} MET</Text>
-                        </View>
-                      )}
-                    </View>
+                      </View>
+                    )}
                   </View>
+                );
+              }}
+              ListEmptyComponent={
+                <View style={modalStyles.emptyList}>
+                  <Ionicons name="search" size={48} color="#52525B" />
+                  <Text style={modalStyles.emptyText}>No exercises found</Text>
+                  <Text style={modalStyles.emptySubtext}>
+                    Try a different search term or filter
+                  </Text>
                 </View>
-                <View style={modalStyles.addButton}>
-                  <Ionicons name="add" size={24} color="#A3E635" />
-                </View>
-              </Pressable>
-            )}
-            ListEmptyComponent={
-              <View style={modalStyles.emptyList}>
-                <Ionicons name="search" size={48} color="#52525B" />
-                <Text style={modalStyles.emptyText}>No exercises found</Text>
-                <Text style={modalStyles.emptySubtext}>
-                  Try a different search term
-                </Text>
-              </View>
-            }
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={modalStyles.listContent}
-          />
+              }
+              ListFooterComponent={
+                !searchQuery && filteredExercises.length > 0 && filteredExercises.length % 20 === 0 ? (
+                  <TouchableOpacity 
+                    style={modalStyles.loadMoreButton}
+                    onPress={() => onBodyPartChange(selectedBodyPart, true)}
+                  >
+                    <Ionicons name="add-circle-outline" size={20} color="#A3E635" />
+                    <Text style={modalStyles.loadMoreText}>Load More Exercises</Text>
+                  </TouchableOpacity>
+                ) : null
+              }
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={modalStyles.listContent}
+            />
           )}
         </View>
       </View>
@@ -1130,7 +1316,7 @@ const modalStyles = StyleSheet.create({
   },
   container: {
     borderWidth: 1,
-    maxHeight: "85%",
+    maxHeight: "90%",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     backgroundColor: "#161616",
@@ -1152,8 +1338,8 @@ const modalStyles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     marginTop: 4,
-    color: "#71717A",
-    fontWeight: "600",
+    color: "#A1A1AA",
+    fontWeight: "500",
   },
   closeButton: {
     width: 40,
@@ -1163,49 +1349,8 @@ const modalStyles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#27272A",
   },
-  filterScrollContainer: {
-    maxHeight: 50,
-    borderBottomWidth: 1,
-    borderBottomColor: "#27272A",
-  },
-  filterScrollContent: {
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-  filterChip: {
-    gap: 6,
-    borderWidth: 1.5,
-    borderRadius: 20,
-    paddingVertical: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-  },
-  filterChipActive: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  filterChipText: {
-    fontSize: 13,
-    color: "#71717A",
-    fontWeight: "700",
-  },
-  loadingContainer: {
-    flex: 1,
-    gap: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 60,
-  },
-  loadingText: {
-    fontSize: 15,
-    color: "#71717A",
-    fontWeight: "600",
-  },
   searchContainer: {
-    marginTop: 16,
+    marginTop: 12,
     borderWidth: 1,
     marginBottom: 16,
     borderRadius: 12,
@@ -1225,19 +1370,74 @@ const modalStyles = StyleSheet.create({
     color: "#FAFAFA",
     paddingVertical: 12,
   },
+  // REDESIGNED FILTER SECTION
+  filterSection: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#27272A",
+  },
+  filterTitle: {
+    fontSize: 12,
+    marginBottom: 12,
+    color: "#A1A1AA",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  filterScrollContent: {
+    flexDirection: "row",
+    gap: 8,
+    paddingRight: 20,
+  },
+  filterButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#27272A",
+    backgroundColor: "#0B0B0B",
+  },
+  filterButtonActive: {
+    borderWidth: 2,
+  },
+  filterButtonText: {
+    fontSize: 13,
+    color: "#A1A1AA",
+    fontWeight: "600",
+  },
+  loadingContainer: {
+    flex: 1,
+    gap: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 15,
+    color: "#71717A",
+    fontWeight: "600",
+  },
   listContent: {
+    paddingTop: 16,
     paddingBottom: 40,
     paddingHorizontal: 20,
   },
+  exerciseItemWrapper: {
+    marginBottom: 12,
+    borderRadius: 12,
+    backgroundColor: "#1C1C1E",
+    borderWidth: 1,
+    borderColor: "#27272A",
+    overflow: "hidden",
+  },
   exerciseItem: {
     padding: 12,
-    borderWidth: 1,
-    marginBottom: 8,
-    borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
-    borderColor: "#27272A",
-    backgroundColor: "#1C1C1E",
     justifyContent: "space-between",
   },
   exerciseGif: {
@@ -1299,6 +1499,15 @@ const modalStyles = StyleSheet.create({
     borderColor: "rgba(163, 230, 53, 0.3)",
     backgroundColor: "rgba(163, 230, 53, 0.1)",
   },
+  addButtonSuccess: {
+    borderColor: "#A3E635",
+    backgroundColor: "#A3E635",
+  },
+  skeletonText: {
+    backgroundColor: "#27272A",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
   emptyList: {
     paddingVertical: 60,
     alignItems: "center",
@@ -1314,6 +1523,118 @@ const modalStyles = StyleSheet.create({
     fontSize: 14,
     color: "#52525B",
     fontWeight: "500",
+  },
+  loadMoreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    marginVertical: 16,
+    marginHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#A3E635",
+    backgroundColor: "rgba(163, 230, 53, 0.1)",
+  },
+  loadMoreText: {
+    fontSize: 15,
+    color: "#A3E635",
+    fontWeight: "600",
+  },
+  // Expanded Content Styles
+  expandedContent: {
+    padding: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#27272A",
+    backgroundColor: "#161616",
+  },
+  expandedGifContainer: {
+    width: "100%",
+    height: 200,
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: "hidden",
+    backgroundColor: "#27272A",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  expandedGif: {
+    width: "100%",
+    height: "100%",
+  },
+  expandedSection: {
+    marginBottom: 16,
+  },
+  expandedSectionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#A3E635",
+    marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  expandedSectionText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#D4D4D8",
+    fontWeight: "500",
+  },
+  instructionRow: {
+    flexDirection: "row",
+    marginBottom: 10,
+    paddingRight: 8,
+  },
+  instructionNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#A3E635",
+    color: "#0B0B0B",
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center",
+    lineHeight: 24,
+    marginRight: 12,
+    flexShrink: 0,
+  },
+  instructionText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#D4D4D8",
+    fontWeight: "500",
+  },
+  expandedInfoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 8,
+  },
+  infoItem: {
+    flex: 1,
+    minWidth: "45%",
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "#1C1C1E",
+    borderWidth: 1,
+    borderColor: "#27272A",
+  },
+  infoLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#71717A",
+    marginBottom: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  infoValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#FAFAFA",
+    textTransform: "capitalize",
   },
 });
 
@@ -1415,7 +1736,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingTop: 8,
-    paddingBottom: 100, // Extra padding for fixed button
+    paddingBottom: 100,
     paddingHorizontal: 20,
   },
   section: {
@@ -1507,7 +1828,6 @@ const styles = StyleSheet.create({
     color: "#71717A",
     fontWeight: "600",
   },
-  // Customization styles
   previewCard: {
     padding: 16,
     borderWidth: 1,
@@ -1555,6 +1875,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#71717A',
     fontWeight: '600',
+  },
+  previewCaloriesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+  },
+  previewCalories: {
+    fontSize: 12,
+    color: '#EF4444',
+    fontWeight: '700',
   },
   customizeGroup: {
     marginBottom: 16,
@@ -1608,48 +1944,6 @@ const styles = StyleSheet.create({
   },
   emojiText: {
     fontSize: 28,
-  },
-  // Remove old category styles
-  categoryGrid: {
-    gap: 12,
-    flexWrap: "wrap",
-    flexDirection: "row",
-  },
-  categoryCard: {
-    gap: 12,
-    flex: 1,
-    padding: 16,
-    borderWidth: 2,
-    minWidth: "30%",
-    borderRadius: 16,
-    alignItems: "center",
-    borderColor: "#27272A",
-    backgroundColor: "#161616",
-  },
-  categoryCardActive: {
-    borderColor: "#A3E635",
-    backgroundColor: "rgba(163, 230, 53, 0.05)",
-  },
-  categoryIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  categoryName: {
-    fontSize: 13,
-    color: "#A1A1AA",
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  categoryNameActive: {
-    color: "#FAFAFA",
-  },
-  selectedCheck: {
-    top: 8,
-    right: 8,
-    position: "absolute",
   },
   difficultyContainer: {
     gap: 12,
@@ -1747,7 +2041,6 @@ const styles = StyleSheet.create({
     color: "#A3E635",
     fontWeight: "700",
   },
-  // Fixed save button at bottom
   fixedSaveContainer: {
     position: 'absolute',
     bottom: 0,
@@ -1770,7 +2063,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   saveButtonDisabled: {
-    opacity: 1, // Keep full opacity, color change handled by gradient
+    opacity: 1,
   },
   saveButtonGradient: {
     gap: 12,

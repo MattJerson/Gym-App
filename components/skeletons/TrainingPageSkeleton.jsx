@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import SkeletonLoader, { SkeletonCircle, SkeletonText } from '../SkeletonLoader';
 
-export const TrainingPageSkeleton = () => {
+export const TrainingPageSkeleton = ({ hasTodaysWorkout = true }) => {
   return (
     <View style={styles.container}>
       {/* Workout Progress Bar - matches WorkoutProgressBar exact size */}
@@ -79,33 +79,35 @@ export const TrainingPageSkeleton = () => {
         </View>
       </View>
 
-      {/* Today's Workout Card - matches TodaysWorkoutCard size */}
-      <View style={styles.todaySection}>
-        <View style={styles.todayHeader}>
-          <SkeletonText width="40%" lines={1} />
-          <SkeletonLoader width={90} height={20} borderRadius={10} />
-        </View>
-        <View style={styles.todayCard}>
-          <View style={styles.todayContent}>
-            <SkeletonLoader width={64} height={64} borderRadius={32} style={{ marginRight: 16 }} />
-            <View style={{ flex: 1 }}>
-              <View style={styles.todayTopRow}>
-                <SkeletonText width={60} lines={1} />
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <SkeletonLoader width={70} height={20} borderRadius={6} />
-                  <SkeletonLoader width={90} height={20} borderRadius={6} />
+      {/* Today's Workout Card - only show if user has scheduled workout */}
+      {hasTodaysWorkout && (
+        <View style={styles.todaySection}>
+          <View style={styles.todayHeader}>
+            <SkeletonText width="40%" lines={1} />
+            <SkeletonLoader width={90} height={20} borderRadius={10} />
+          </View>
+          <View style={styles.todayCard}>
+            <View style={styles.todayContent}>
+              <SkeletonLoader width={64} height={64} borderRadius={32} style={{ marginRight: 16 }} />
+              <View style={{ flex: 1 }}>
+                <View style={styles.todayTopRow}>
+                  <SkeletonText width={60} lines={1} />
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <SkeletonLoader width={70} height={20} borderRadius={6} />
+                    <SkeletonLoader width={90} height={20} borderRadius={6} />
+                  </View>
                 </View>
-              </View>
-              <SkeletonText width="90%" lines={1} style={{ marginBottom: 8, marginTop: 8, height: 22 }} />
-              <View style={styles.todayMetrics}>
-                <SkeletonText width={40} lines={1} />
-                <SkeletonText width={40} lines={1} />
-                <SkeletonText width={50} lines={1} />
+                <SkeletonText width="90%" lines={1} style={{ marginBottom: 8, marginTop: 8, height: 22 }} />
+                <View style={styles.todayMetrics}>
+                  <SkeletonText width={40} lines={1} />
+                  <SkeletonText width={40} lines={1} />
+                  <SkeletonText width={50} lines={1} />
+                </View>
               </View>
             </View>
           </View>
         </View>
-      </View>
+      )}
 
       {/* Browse Workouts - matches BrowseWorkouts grid */}
       <View style={styles.browseSection}>

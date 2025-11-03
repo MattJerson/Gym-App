@@ -5,6 +5,7 @@ import * as Notifications from "expo-notifications";
 import { Platform, AppState } from "react-native";
 import { supabase, getCurrentUser } from "../services/supabase";
 import { NotificationService } from "../services/NotificationService";
+import StepsSyncService from "../services/StepsSyncService";
 import SplashScreenVideo from "../components/SplashScreen";
 
 // Configure how notifications are displayed when app is in foreground
@@ -32,6 +33,14 @@ export default function Layout() {
         if (user) {
           console.log('✅ User authenticated:', user.id);
           setUserId(user.id);
+          
+          // Trigger background steps sync (non-blocking)
+          // This will sync steps from HealthKit/Google Fit if permission is granted
+          // and last sync was more than 1 hour ago
+          StepsSyncService.syncStepsInBackground(user.id).catch(err => {
+            // Silent fail - don't block app initialization
+            console.log('📊 Steps sync skipped:', err.message);
+          });
         } else {
           console.log('No active session - user not logged in');
         }
@@ -104,10 +113,10 @@ export default function Layout() {
 
     return () => {
       if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+        notificationListener.current.remove();
       }
       if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+        responseListener.current.remove();
       }
     };
   }, []);

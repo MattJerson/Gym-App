@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { WorkoutProgressBarSkeleton } from "../skeletons/WorkoutProgressBarSkeleton";
 import { TrainingProgressService } from "../../services/TrainingProgressService";
+import StepsSyncService from "../../services/StepsSyncService";
 import { supabase } from "../../services/supabase";
 
 export default function WorkoutProgressBar() {
@@ -30,6 +31,35 @@ export default function WorkoutProgressBar() {
   useEffect(() => {
     if (userId) {
       loadProgressData();
+      
+      // Optionally trigger a background sync (non-blocking, won't delay UI)
+      // This ensures steps are up-to-date when viewing the training page
+      StepsSyncService.syncStepsInBackground(userId).catch(() => {
+        // Silent fail - data will still load from cache/database
+      });
+
+      // Set up real-time subscription to auto-refresh when steps are updated
+      const today = new Date().toISOString().split('T')[0];
+      const subscription = supabase
+        .channel('workout_progress_updates')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'daily_activity_tracking',
+            filter: `user_id=eq.${userId},tracking_date=eq.${today}`,
+          },
+          (payload) => {
+            console.log('📊 Activity tracking updated, refreshing progress...');
+            loadProgressData();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        subscription.unsubscribe();
+      };
     }
   }, [userId]);
 

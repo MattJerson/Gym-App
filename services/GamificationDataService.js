@@ -532,29 +532,61 @@ const GamificationDataService = {
       // 1) Ensure user_stats row exists (getUserStats handles creation)
       let stats = await this.getUserStats(userId);
 
-      // 2) Aggregate completed workouts and calories
-      const { data: workouts = [], error: wErr } = await supabase
+      // 2) Aggregate completed workouts from NEW workout_sessions table
+      const { data: sessions = [], error: sessErr } = await supabase
+        .from('workout_sessions')
+        .select('estimated_calories_burned, completed_at, status, total_exercises, completed_exercises')
+        .eq('user_id', userId)
+        .eq('status', 'completed');
+      if (sessErr) throw sessErr;
+
+      // FALLBACK: Also check old workout_logs for backward compatibility
+      const { data: oldLogs = [], error: wErr } = await supabase
         .from('workout_logs')
         .select('calories_burned, completed_at, status')
         .eq('user_id', userId)
         .eq('status', 'completed');
-      if (wErr) throw wErr;
+      if (wErr) console.warn('workout_logs query failed:', wErr);
 
-      const total_workouts = (workouts || []).length;
-      const total_calories_burned = (workouts || []).reduce((s, r) => s + (Number(r.calories_burned) || 0), 0);
-      const last_workout_date = (workouts || []).reduce((max, r) => {
+      // Combine both sources
+      const allWorkouts = [
+        ...sessions.map(s => ({
+          calories_burned: s.estimated_calories_burned || 0,
+          completed_at: s.completed_at,
+          exercises_completed: s.completed_exercises || 0
+        })),
+        ...(oldLogs || []).map(l => ({
+          calories_burned: l.calories_burned || 0,
+          completed_at: l.completed_at,
+          exercises_completed: 0
+        }))
+      ];
+
+      const total_workouts = allWorkouts.length;
+      const total_calories_burned = allWorkouts.reduce((s, r) => s + (Number(r.calories_burned) || 0), 0);
+      const last_workout_date = allWorkouts.reduce((max, r) => {
         const d = r.completed_at ? new Date(r.completed_at) : null;
         if (!d) return max;
         return (!max || d > max) ? d : max;
       }, null);
 
-      // 3) Aggregate exercise completions
+      // 3) Aggregate exercise completions from NEW workout_session_exercises
+      const { data: sessionExercises = [], error: seErr } = await supabase
+        .from('workout_session_exercises')
+        .select('completed_sets, total_reps, user_id')
+        .eq('user_id', userId);
+      if (seErr) console.warn('workout_session_exercises query failed:', seErr);
+
+      // FALLBACK: Also check old exercise_sets
       const { data: sets = [], error: sErr } = await supabase
         .from('exercise_sets')
         .select('actual_reps')
         .eq('user_id', userId);
-      if (sErr) throw sErr;
-      const total_exercises_completed = (sets || []).reduce((s, r) => s + (Number(r.actual_reps) || 0), 0);
+      if (sErr) console.warn('exercise_sets query failed:', sErr);
+
+      const exercises_from_sessions = (sessionExercises || []).reduce((s, r) => s + (Number(r.total_reps) || 0), 0);
+      const exercises_from_sets = (sets || []).reduce((s, r) => s + (Number(r.actual_reps) || 0), 0);
+      const total_exercises_completed = exercises_from_sessions + exercises_from_sets;
 
       // 4) Sum badge points and count badges earned
       const { data: userBadges = [], error: ubErr } = await supabase
@@ -573,13 +605,13 @@ const GamificationDataService = {
       if (stepErr) throw stepErr;
       const total_steps = (steps || []).reduce((s, r) => s + (Number(r.step_count) || 0), 0);
 
-      // 6) Compute conservative points heuristic (server-authoritative logic can vary)
+      // 6) Compute points: workouts + calories + badges + steps
       const computed_points = (total_workouts * 10) + Math.floor((total_calories_burned || 0) / 100) + (badge_points_sum || 0) + Math.floor(total_steps / 1000);
 
       // 7) Compute current streak from unique workout dates
       let current_streak = stats.current_streak || 0;
-      if (workouts && workouts.length) {
-        const uniqueDates = Array.from(new Set(workouts.map(w => w.completed_at ? new Date(w.completed_at).toISOString().split('T')[0] : null).filter(Boolean))).sort().reverse();
+      if (allWorkouts && allWorkouts.length) {
+        const uniqueDates = Array.from(new Set(allWorkouts.map(w => w.completed_at ? new Date(w.completed_at).toISOString().split('T')[0] : null).filter(Boolean))).sort().reverse();
         let streak = 0;
         let ref = new Date();
         for (let i = 0; i < uniqueDates.length; i++) {

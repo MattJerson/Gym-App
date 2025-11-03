@@ -19,6 +19,7 @@ import ProgressGraph from "../../components/calendar/ProgressGraph";
 import StepsBarGraph from "../../components/calendar/StepsBarGraph";
 import WorkoutLogModal from "../../components/calendar/WorkoutLogModal";
 import HealthKitService from "../../services/HealthKitService";
+import StepsSyncService from "../../services/StepsSyncService";
 import { CalendarDataService } from "../../services/CalendarDataService";
 import CalendarAnalytics from "../../components/calendar/CalendarAnalytics";
 import CalendarStatsCard from "../../components/calendar/CalendarStatsCard";
@@ -137,15 +138,15 @@ export default function Calendar() {
     try {
       setIsSyncingSteps(true);
       
-      // Fetch steps from HealthKit (last 31 days to match calendar view)
-      const healthData = await HealthKitService.getStepsDataForCalendar(31);
+      // Use the centralized sync service for consistency
+      const success = await StepsSyncService.forceSyncNow(userId);
       
-      // Update state with HealthKit data
-      setStepsData(healthData);
-      
-      // Optionally sync to backend for persistent tracking
-      if (healthData.dailySteps && healthData.dailySteps.length > 0) {
-        await syncStepsToBackend(healthData.dailySteps);
+      if (success) {
+        // Fetch fresh data from HealthKit for display
+        const healthData = await HealthKitService.getStepsDataForCalendar(31);
+        setStepsData(healthData);
+      } else {
+        throw new Error('Sync failed');
       }
       
     } catch (error) {
@@ -153,38 +154,6 @@ export default function Calendar() {
       Alert.alert("Sync Error", "Failed to sync step data from health app");
     } finally {
       setIsSyncingSteps(false);
-    }
-  };
-
-  const syncStepsToBackend = async (dailyStepsArray) => {
-    try {
-      // Sync each day's steps to the backend for persistent tracking
-      // Uses daily_activity_tracking table for progress analytics
-      const syncPromises = dailyStepsArray.map(async (dayData) => {
-        const { data, error } = await supabase
-          .from('daily_activity_tracking')
-          .upsert({
-            user_id: userId,
-            tracking_date: dayData.date,
-            steps_count: dayData.steps,
-            data_source: Platform.OS === 'ios' ? 'Apple Health' : 'Google Fit',
-            synced_at: new Date().toISOString()
-          }, {
-            onConflict: 'user_id,tracking_date',
-            ignoreDuplicates: false
-          });
-        
-        if (error) {
-          console.warn(`Failed to sync ${dayData.date}:`, error);
-        }
-        return data;
-      });
-
-      await Promise.all(syncPromises);
-      console.log(`✅ ${dailyStepsArray.length} days of steps synced to backend for analytics`);
-    } catch (error) {
-      console.error('Error syncing steps to backend:', error);
-      // Don't show alert for backend sync errors - steps are still available from HealthKit
     }
   };
 

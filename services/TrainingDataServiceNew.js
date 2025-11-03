@@ -383,18 +383,86 @@ export const TrainingDataServiceNew = {
       const today = new Date();
       const dayOfWeek = today.getDay();
       
+      console.log('=== FETCHING TODAY\'S WORKOUT ===');
+      console.log('User ID:', userId);
+      console.log('Day of week:', dayOfWeek);
+      
+      // Clean up orphaned entries in multiple ways:
+      
+      // 1. Remove entries with null template_id
+      const { data: orphanedWorkouts } = await supabase
+        .from('user_saved_workouts')
+        .select('id, template_id')
+        .eq('user_id', userId)
+        .is('template_id', null);
+      
+      if (orphanedWorkouts && orphanedWorkouts.length > 0) {
+        console.log('Cleaning up null template_id entries:', orphanedWorkouts.length);
+        await supabase
+          .from('user_saved_workouts')
+          .delete()
+          .eq('user_id', userId)
+          .is('template_id', null);
+      }
+      
+      // 2. Remove entries where the template is inactive
+      const { data: inactiveTemplateWorkouts } = await supabase
+        .from('user_saved_workouts')
+        .select('id, template_id, workout_templates!inner(id, is_active)')
+        .eq('user_id', userId)
+        .eq('workout_templates.is_active', false);
+      
+      if (inactiveTemplateWorkouts && inactiveTemplateWorkouts.length > 0) {
+        console.log('Cleaning up inactive template entries:', inactiveTemplateWorkouts.length);
+        const idsToDelete = inactiveTemplateWorkouts.map(w => w.id);
+        await supabase
+          .from('user_saved_workouts')
+          .delete()
+          .in('id', idsToDelete)
+          .eq('user_id', userId);
+      }
+      
+      // 3. Remove entries where the template doesn't exist at all (LEFT JOIN returns null)
+      const { data: missingTemplateWorkouts } = await supabase
+        .from('user_saved_workouts')
+        .select('id, template_id, workout_templates(id)')
+        .eq('user_id', userId)
+        .not('template_id', 'is', null);
+      
+      const orphanedByMissingTemplate = missingTemplateWorkouts?.filter(w => !w.workout_templates) || [];
+      if (orphanedByMissingTemplate.length > 0) {
+        console.log('Cleaning up missing template entries:', orphanedByMissingTemplate.length);
+        const idsToDelete = orphanedByMissingTemplate.map(w => w.id);
+        await supabase
+          .from('user_saved_workouts')
+          .delete()
+          .in('id', idsToDelete)
+          .eq('user_id', userId);
+      }
+      
+      // Get all scheduled workouts for debugging
+      const { data: allScheduled } = await supabase
+        .from('user_saved_workouts')
+        .select('id, template_id, scheduled_day_of_week, is_scheduled, workout_templates(name, is_active)')
+        .eq('user_id', userId)
+        .eq('scheduled_day_of_week', dayOfWeek)
+        .eq('is_scheduled', true);
+      
+      console.log('All scheduled workouts for today (after cleanup):', JSON.stringify(allScheduled, null, 2));
+      
       const { data: workouts, error: workoutsError } = await supabase
         .from('user_saved_workouts')
         .select(`
           id,
           template_id,
           scheduled_day_of_week,
-          workout_templates (
+          workout_templates!inner (
             id,
             name,
             difficulty,
             duration_minutes,
             category_id,
+            is_active,
             workout_categories (
               color,
               icon,
@@ -405,7 +473,10 @@ export const TrainingDataServiceNew = {
         .eq('user_id', userId)
         .eq('scheduled_day_of_week', dayOfWeek)
         .eq('is_scheduled', true)
+        .eq('workout_templates.is_active', true)
         .not('template_id', 'is', null);
+
+      console.log('Filtered workouts:', JSON.stringify(workouts, null, 2));
 
       if (workoutsError) {
         console.error('Error fetching scheduled workouts:', workoutsError);
@@ -413,26 +484,48 @@ export const TrainingDataServiceNew = {
       }
       
       if (!workouts || workouts.length === 0) {
+        console.log('No valid workouts found for today');
         return null;
       }
 
-      const workout = workouts[0];
-      const template = workout.workout_templates;
+      // Filter out any workouts where the template is null or doesn't exist
+      const validWorkouts = workouts.filter(w => w.workout_templates && w.workout_templates.is_active);
       
-      if (!template) {
+      console.log('Valid workouts after filtering:', validWorkouts.length);
+      
+      if (validWorkouts.length === 0) {
         return null;
       }
+
+      const workout = validWorkouts[0];
+      const template = workout.workout_templates;
+      
+      console.log('Returning workout:', template.name);
+
+      // Get exercise count for this template
+      const { count: exerciseCount } = await supabase
+        .from('workout_template_exercises')
+        .select('*', { count: 'exact', head: true })
+        .eq('template_id', template.id);
+
+      // Get day name
+      const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const scheduledDay = daysOfWeek[workout.scheduled_day_of_week];
+
+      // Estimate calories (rough estimate: duration * 7.5 cal/min for strength training)
+      const estimatedCalories = Math.round(template.duration_minutes * 7.5);
 
       return {
         id: template.id,
-        name: template.name,
+        workoutName: template.name,
+        workoutType: template.workout_categories?.name || 'Workout',
         difficulty: template.difficulty,
-        duration: template.duration_minutes,
-        category: {
-          color: template.workout_categories?.color || '#FF6B6B',
-          icon: template.workout_categories?.icon || 'fitness',
-          name: template.workout_categories?.name || 'Workout'
-        }
+        estimatedDuration: template.duration_minutes,
+        totalExercises: exerciseCount || 0,
+        caloriesEstimate: estimatedCalories,
+        categoryColor: template.workout_categories?.color || '#A3E635',
+        categoryIcon: template.workout_categories?.icon || 'dumbbell',
+        scheduledDay: scheduledDay
       };
     } catch (error) {
       console.error('Error fetching today\'s workout:', error);

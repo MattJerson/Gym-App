@@ -379,6 +379,13 @@ export const WorkoutSessionServiceV2 = {
    */
   async completeSession(sessionId, difficultyRating = null, notes = null) {
     try {
+      console.log('Completing workout session:', sessionId);
+      
+      // Get session details first to get user_id
+      const session = await this.getSession(sessionId);
+      const userId = session?.user_id;
+      
+      // Try using the RPC function first
       const { error } = await supabase
         .rpc('complete_workout_session', {
           p_session_id: sessionId,
@@ -386,9 +393,41 @@ export const WorkoutSessionServiceV2 = {
           p_notes: notes
         });
 
-      if (error) throw error;
+      if (error) {
+        console.warn('RPC complete_workout_session failed, using fallback:', error);
+        // Fallback: manually update the session
+        const { error: updateError } = await supabase
+          .from('workout_sessions')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            difficulty_rating: difficultyRating,
+            notes: notes,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', sessionId);
+        
+        if (updateError) throw updateError;
+        console.log('Session marked as completed using fallback');
+      } else {
+        console.log('Session marked as completed using RPC');
+      }
 
-      return await this.getSession(sessionId);
+      // 🎮 SYNC GAMIFICATION STATS after completing workout
+      if (userId) {
+        try {
+          const GamificationDataService = require('./GamificationDataService').default;
+          await GamificationDataService.syncUserStatsFromActivity(userId);
+          console.log('✅ Gamification stats synced for user:', userId);
+        } catch (gamErr) {
+          console.warn('⚠️ Failed to sync gamification stats:', gamErr);
+          // Non-fatal: workout is still completed
+        }
+      }
+
+      const completedSession = await this.getSession(sessionId);
+      console.log('Final session status:', completedSession?.status);
+      return completedSession;
     } catch (error) {
       console.error('Error completing session:', error);
       throw error;

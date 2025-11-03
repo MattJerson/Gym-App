@@ -80,6 +80,45 @@ export default function WorkoutOptionsModal({
     }
   };
 
+  const handleRemoveSchedule = async () => {
+    try {
+      setIsUpdating(true);
+
+      // Get user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      // Remove schedule from the user_saved_workouts table
+      const { error: updateError } = await supabase
+        .from('user_saved_workouts')
+        .update({
+          scheduled_day_of_week: null,
+          is_scheduled: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', workout.schedule_id)
+        .eq('user_id', user.id);
+
+      if (updateError) throw updateError;
+
+      setSelectedDay(null);
+
+      Alert.alert(
+        "Success",
+        "Workout schedule removed. You can do this workout anytime!",
+        [{ text: "OK", onPress: () => {
+          onUpdate();
+          onClose();
+        }}]
+      );
+    } catch (error) {
+      console.error("Error removing workout schedule:", error);
+      Alert.alert("Error", "Failed to remove workout schedule");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handleDeleteWorkout = () => {
     Alert.alert(
       "Delete Workout",
@@ -208,7 +247,7 @@ export default function WorkoutOptionsModal({
                 Schedule Workout
               </Text>
               <Text style={styles.sectionDescription}>
-                Choose which day you want to perform this workout
+                Choose which day you want to perform this workout, or do it anytime
               </Text>
 
               <View style={styles.daysGrid}>
@@ -233,27 +272,47 @@ export default function WorkoutOptionsModal({
                 ))}
               </View>
 
-              <Pressable
-                style={styles.saveButton}
-                onPress={handleUpdateDay}
-                disabled={isUpdating}
-              >
-                <LinearGradient
-                  colors={["#A3E635", "#84CC16"]}
-                  style={styles.saveButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+              {selectedDay !== null ? (
+                <Pressable
+                  style={styles.saveButton}
+                  onPress={handleUpdateDay}
+                  disabled={isUpdating}
                 >
-                  {isUpdating ? (
-                    <Text style={styles.saveButtonText}>Updating...</Text>
-                  ) : (
-                    <>
-                      <Ionicons name="checkmark-circle" size={20} color="#0B0B0B" />
-                      <Text style={styles.saveButtonText}>Save Schedule</Text>
-                    </>
-                  )}
-                </LinearGradient>
-              </Pressable>
+                  <LinearGradient
+                    colors={["#A3E635", "#84CC16"]}
+                    style={styles.saveButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    {isUpdating ? (
+                      <Text style={styles.saveButtonText}>Updating...</Text>
+                    ) : (
+                      <>
+                        <Ionicons name="checkmark-circle" size={20} color="#0B0B0B" />
+                        <Text style={styles.saveButtonText}>Save Schedule</Text>
+                      </>
+                    )}
+                  </LinearGradient>
+                </Pressable>
+              ) : workout?.is_scheduled ? (
+                <Pressable
+                  style={styles.removeScheduleButton}
+                  onPress={handleRemoveSchedule}
+                  disabled={isUpdating}
+                >
+                  <Ionicons name="close-circle-outline" size={20} color="#EF4444" />
+                  <Text style={styles.removeScheduleButtonText}>
+                    {isUpdating ? "Removing..." : "Remove Schedule"}
+                  </Text>
+                </Pressable>
+              ) : (
+                <View style={styles.noScheduleInfo}>
+                  <Ionicons name="information-circle-outline" size={20} color="#64748B" />
+                  <Text style={styles.noScheduleText}>
+                    No schedule set. Select a day above to schedule this workout.
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Divider */}
@@ -443,6 +502,41 @@ const styles = StyleSheet.create({
     color: "#0B0B0B",
     fontSize: 16,
     fontWeight: "700",
+  },
+  removeScheduleButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.3)",
+    marginTop: 12,
+  },
+  removeScheduleButtonText: {
+    color: "#EF4444",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  noScheduleInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: "rgba(100, 116, 139, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(100, 116, 139, 0.2)",
+    marginTop: 12,
+  },
+  noScheduleText: {
+    flex: 1,
+    color: "#94A3B8",
+    fontSize: 14,
+    lineHeight: 20,
   },
   divider: {
     height: 1,

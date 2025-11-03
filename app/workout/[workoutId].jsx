@@ -130,64 +130,40 @@ export default function WorkoutSession() {
       console.log('User ID:', userId);
       console.log('Workout ID:', workoutId);
 
-      // Check if there's an existing active session
-      const existingSession = await WorkoutSessionServiceV2.getActiveSession(
-        userId
-      );
+      // Check if there's an existing active session for THIS workout
+      const existingSession = await WorkoutSessionServiceV2.getActiveSession(userId);
       console.log('Existing session:', existingSession);
 
       if (existingSession) {
-        // Resume existing session
-        console.log('Resuming existing session...');
-        const templateData = await WorkoutSessionServiceV2.getWorkoutTemplate(
-          workoutId
-        );
-        console.log('Template data:', JSON.stringify(templateData, null, 2));
-        console.log('Template exercises count:', templateData?.exercises?.length || 0);
+        // Check if the existing session is for THIS workout
+        const sessionTemplateId = existingSession.workout_template_id || existingSession.template_id;
         
-        setTemplate(templateData);
-        setSession(existingSession);
-        setCurrentExerciseIndex(existingSession.current_exercise_index || 0);
-        setIsPaused(existingSession.status === "paused");
+        if (sessionTemplateId === workoutId) {
+          // Resume existing session for this workout
+          console.log('Resuming existing session for this workout...');
+          const templateData = await WorkoutSessionServiceV2.getWorkoutTemplate(workoutId);
+          console.log('Template data:', JSON.stringify(templateData, null, 2));
+          console.log('Template exercises count:', templateData?.exercises?.length || 0);
+          
+          setTemplate(templateData);
+          setSession(existingSession);
+          setCurrentExerciseIndex(existingSession.current_exercise_index || 0);
+          setIsPaused(existingSession.status === "paused");
 
-        // Calculate elapsed time
-        const started = new Date(existingSession.started_at);
-        const now = new Date();
-        const diff =
-          Math.floor((now - started) / 1000) -
-          (existingSession.total_pause_duration || 0);
-        setElapsedTime(diff > 0 ? diff : 0);
+          // Calculate elapsed time
+          const started = new Date(existingSession.started_at);
+          const now = new Date();
+          const diff = Math.floor((now - started) / 1000) - (existingSession.total_pause_duration || 0);
+          setElapsedTime(diff > 0 ? diff : 0);
+        } else {
+          // This shouldn't happen if the check is done properly in training page
+          // But handle it anyway
+          console.log('Session mismatch - creating new session');
+          await createNewSession();
+        }
       } else {
-        // Create new session
-        console.log('Creating new session...');
-        const templateData = await WorkoutSessionServiceV2.getWorkoutTemplate(
-          workoutId
-        );
-        console.log('Template data:', JSON.stringify(templateData, null, 2));
-        console.log('Template exercises count:', templateData?.exercises?.length || 0);
-        
-        if (!templateData) {
-          console.error('Template data is null/undefined');
-          Alert.alert("Error", "Workout not found");
-          router.back();
-          return;
-        }
-
-        if (!templateData.exercises || templateData.exercises.length === 0) {
-          console.error('Template has no exercises');
-          Alert.alert("Error", "This workout has no exercises");
-          router.back();
-          return;
-        }
-
-        setTemplate(templateData);
-        const newSession = await WorkoutSessionServiceV2.createSession(
-          userId,
-          workoutId
-        );
-        console.log('New session created:', newSession);
-        setSession(newSession);
-        setElapsedTime(0);
+        // No existing active session - create new one
+        await createNewSession();
       }
     } catch (error) {
       console.error("Error initializing workout:", error);
@@ -195,6 +171,45 @@ export default function WorkoutSession() {
       router.back();
     } finally {
       setLoading(false);
+    }
+  };
+
+  const createNewSession = async () => {
+    try {
+      console.log('Creating new session...');
+      const templateData = await WorkoutSessionServiceV2.getWorkoutTemplate(
+        workoutId
+      );
+      console.log('Template data:', JSON.stringify(templateData, null, 2));
+      console.log('Template exercises count:', templateData?.exercises?.length || 0);
+      
+      if (!templateData) {
+        console.error('Template data is null/undefined');
+        Alert.alert("Error", "Workout not found");
+        router.back();
+        return;
+      }
+
+      if (!templateData.exercises || templateData.exercises.length === 0) {
+        console.error('Template has no exercises');
+        Alert.alert("Error", "This workout has no exercises");
+        router.back();
+        return;
+      }
+
+      setTemplate(templateData);
+      const newSession = await WorkoutSessionServiceV2.createSession(
+        userId,
+        workoutId
+      );
+      console.log('New session created:', newSession);
+      setSession(newSession);
+      setElapsedTime(0);
+      setLoading(false); // Turn off loading when done
+    } catch (error) {
+      console.error('Error in createNewSession:', error);
+      setLoading(false);
+      throw error; // Re-throw so the caller can handle it
     }
   };
 
@@ -282,12 +297,14 @@ export default function WorkoutSession() {
 
   const handleCompleteWorkout = async () => {
     try {
+      console.log('Starting workout completion...');
       // Complete the session
-      await WorkoutSessionServiceV2.completeSession(
+      const completedSession = await WorkoutSessionServiceV2.completeSession(
         session.id,
         difficultyRating,
         completionNotes
       );
+      console.log('Workout completed successfully, session status:', completedSession?.status);
 
       // Close modal and navigate to training page
       setShowCompleteModal(false);
@@ -298,7 +315,8 @@ export default function WorkoutSession() {
       }, 300);
     } catch (error) {
       console.error("Error completing workout:", error);
-      Alert.alert("Error", "Failed to complete workout");
+      Alert.alert("Error", "Failed to complete workout. Please try again.");
+      // Don't close modal on error so user can retry
     }
   };
 
@@ -341,7 +359,7 @@ export default function WorkoutSession() {
       <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
         <StatusBar barStyle="light-content" />
         <View style={styles.loadingContainer}>
-          <MaterialCommunityIcons name="dumbbell" size={48} color="#A3E635" />
+          <MaterialCommunityIcons name="dumbbell" size={48} color="#74B9FF" />
           <Text style={styles.loadingText}>Loading workout...</Text>
         </View>
       </View>
@@ -379,14 +397,14 @@ export default function WorkoutSession() {
           </Text>
           <View style={styles.statsRow}>
             <View style={styles.statBadge}>
-              <Ionicons name="time-outline" size={14} color="#A3E635" />
+              <Ionicons name="time-outline" size={14} color="#74B9FF" />
               <Text style={styles.statText}>{formatTime(elapsedTime)}</Text>
             </View>
             <View style={styles.statBadge}>
               <Ionicons
                 name="checkmark-circle-outline"
                 size={14}
-                color="#A3E635"
+                color="#74B9FF"
               />
               <Text style={styles.statText}>
                 {completedExercisesCount}/{template.exercises.length}
@@ -463,12 +481,12 @@ export default function WorkoutSession() {
             onPress={() => setShowCompleteModal(true)}
           >
             <LinearGradient
-              colors={["#A3E635", "#84CC16"]}
+              colors={["#74B9FF", "#1E3A5F"]}
               style={styles.completeButtonGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
-              <Ionicons name="checkmark-circle" size={24} color="#0B0B0B" />
+              <Ionicons name="checkmark-circle" size={24} color="#FAFAFA" />
               <Text style={styles.completeButtonText}>Complete Workout</Text>
             </LinearGradient>
           </Pressable>
@@ -494,7 +512,7 @@ export default function WorkoutSession() {
         <View style={styles.modalOverlay}>
           <View style={styles.completeModal}>
             <View style={styles.completeModalHeader}>
-              <MaterialCommunityIcons name="trophy" size={48} color="#A3E635" />
+              <MaterialCommunityIcons name="trophy" size={48} color="#74B9FF" />
               <Text style={styles.completeModalTitle}>Workout Complete!</Text>
               <Text style={styles.completeModalSubtitle}>
                 Great job on completing {template.name}
@@ -503,21 +521,21 @@ export default function WorkoutSession() {
 
             <View style={styles.completeModalStats}>
               <View style={styles.statCard}>
-                <Ionicons name="time" size={24} color="#A3E635" />
+                <Ionicons name="time" size={24} color="#74B9FF" />
                 <Text style={styles.statCardValue}>
                   {formatTime(elapsedTime)}
                 </Text>
                 <Text style={styles.statCardLabel}>Duration</Text>
               </View>
               <View style={styles.statCard}>
-                <Ionicons name="barbell" size={24} color="#A3E635" />
+                <Ionicons name="barbell" size={24} color="#74B9FF" />
                 <Text style={styles.statCardValue}>
                   {session.total_sets_completed}
                 </Text>
                 <Text style={styles.statCardLabel}>Total Sets</Text>
               </View>
               <View style={styles.statCard}>
-                <Ionicons name="flame" size={24} color="#A3E635" />
+                <Ionicons name="flame" size={24} color="#74B9FF" />
                 <Text style={styles.statCardValue}>
                   {session.estimated_calories_burned || 0}
                 </Text>
@@ -575,7 +593,7 @@ export default function WorkoutSession() {
                 onPress={handleCompleteWorkout}
               >
                 <LinearGradient
-                  colors={["#A3E635", "#84CC16"]}
+                  colors={["#74B9FF", "#1E3A5F"]}
                   style={styles.modalButtonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -640,7 +658,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     backgroundColor: "#0B0B0B",
     justifyContent: "space-between",
-    borderBottomColor: "rgba(163, 230, 53, 0.1)",
+    borderBottomColor: "rgba(116, 185, 255, 0.2)",
   },
   headerButton: {
     width: 40,
@@ -650,7 +668,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#161616",
-    borderColor: "rgba(163, 230, 53, 0.2)",
+    borderColor: "rgba(116, 185, 255, 0.3)",
   },
   headerCenter: {
     flex: 1,
@@ -675,11 +693,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 10,
-    backgroundColor: "rgba(163, 230, 53, 0.1)",
+    backgroundColor: "rgba(116, 185, 255, 0.15)",
   },
   statText: {
     fontSize: 12,
-    color: "#A3E635",
+    color: "#74B9FF",
     fontWeight: "700",
   },
   progressContainer: {
@@ -697,7 +715,7 @@ const styles = StyleSheet.create({
   progressFill: {
     height: "100%",
     borderRadius: 4,
-    backgroundColor: "#A3E635",
+    backgroundColor: "#74B9FF",
   },
   progressText: {
     fontSize: 12,
@@ -726,7 +744,7 @@ const styles = StyleSheet.create({
   },
   completeButtonText: {
     fontSize: 18,
-    color: "#0B0B0B",
+    color: "#FAFAFA",
     fontWeight: "700",
   },
   bottomPadding: {
@@ -747,7 +765,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 24,
     backgroundColor: "#161616",
-    borderColor: "rgba(163, 230, 53, 0.2)",
+    borderColor: "rgba(116, 185, 255, 0.3)",
   },
   completeModalHeader: {
     marginBottom: 24,
@@ -778,7 +796,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center",
     backgroundColor: "#0B0B0B",
-    borderColor: "rgba(163, 230, 53, 0.1)",
+    borderColor: "rgba(116, 185, 255, 0.2)",
   },
   statCardValue: {
     fontSize: 20,
@@ -868,7 +886,7 @@ const styles = StyleSheet.create({
   },
   modalButtonTextPrimary: {
     fontSize: 16,
-    color: "#0B0B0B",
+    color: "#FAFAFA",
     fontWeight: "700",
   },
 });
@@ -888,26 +906,49 @@ function ExerciseCard({
   onExercisePress,
   onStartExercise,
 }) {
+  const router = useRouter();
   const [expandedSets, setExpandedSets] = useState(false);
   const [currentSetData, setCurrentSetData] = useState({});
   const [previousSetData, setPreviousSetData] = useState(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
+  // Function to capitalize each word
+  const capitalizeWords = (str) => {
+    if (!str) return '';
+    return str
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
   // Extract exercise data from new structure
-  const exerciseName = exercise.exercise?.name || exercise.exercise_name || 'Unknown Exercise';
+  const exerciseName = capitalizeWords(exercise.exercise?.name || exercise.exercise_name || 'Unknown Exercise');
   const exerciseGif = exercise.exercise?.gif_url;
+  const exerciseDescription = exercise.exercise?.description || '';
   const exerciseInstructions = exercise.exercise?.instructions || [];
   const exerciseMetValue = exercise.exercise?.met_value || 5;
-  const targetMuscles = exercise.exercise?.target_muscles
-    ?.map(tm => tm.muscle.name)
-    .join(', ') || '';
+  
+  // Handle target_muscles - it might be an array of objects with nested muscle.name structure
+  let targetMuscles = '';
+  if (exercise.exercise?.target_muscles) {
+    if (Array.isArray(exercise.exercise.target_muscles)) {
+      targetMuscles = exercise.exercise.target_muscles
+        .map(tm => {
+          // Handle both direct name and nested muscle.name structures
+          if (typeof tm === 'string') return tm;
+          if (tm.muscle?.name) return tm.muscle.name;
+          if (tm.name) return tm.name;
+          return '';
+        })
+        .filter(Boolean)
+        .join(', ');
+    }
+  }
 
   const targetSets = exerciseSession?.target_sets || exercise.sets || 3;
   const completedSets = sets.filter((s) => s.is_completed).length;
   const targetReps = exercise.reps || '10-12';
   const restSeconds = exercise.rest_seconds || 60;
-
-  const [showExerciseModal, setShowExerciseModal] = useState(false);
 
   // Load previous workout data when exercise is expanded
   useEffect(() => {
@@ -1027,6 +1068,16 @@ function ExerciseCard({
     }
   };
 
+  // Parse reps to get max value
+  const maxReps = targetReps.toString().includes('-') 
+    ? targetReps.toString().split('-')[1] 
+    : targetReps.toString();
+
+  const progressPercent = Math.round((completedSets / targetSets) * 100);
+  
+  // For paused GIF effect - we'll use a static image URL if available, otherwise add #.gif to pause it
+  const pausedGifUrl = exerciseGif ? `${exerciseGif.split('?')[0]}?t=0.001` : null;
+
   return (
     <View
       style={[
@@ -1035,162 +1086,127 @@ function ExerciseCard({
         isCompleted && exerciseCardStyles.cardCompleted,
       ]}
     >
-      {/* Exercise Header - Click to view details */}
-      <Pressable onPress={() => setShowExerciseModal(true)}>
-        <View style={exerciseCardStyles.header}>
-          <View style={exerciseCardStyles.headerLeft}>
-            <View
-              style={[
-                exerciseCardStyles.indexBadge,
-                isCompleted && exerciseCardStyles.indexBadgeCompleted,
-              ]}
-            >
-              {isCompleted ? (
-                <Ionicons name="checkmark" size={16} color="#0B0B0B" />
-              ) : (
-                <Text style={exerciseCardStyles.indexText}>
-                  {exerciseIndex + 1}
-                </Text>
-              )}
+      {/* Exercise Image/Icon */}
+      <Pressable onPress={() => {
+        // Navigate to exercise detail page
+        const exerciseData = {
+          name: exerciseName,
+          gif_url: exerciseGif,
+          description: exerciseDescription,
+          instructions: exerciseInstructions,
+          met_value: exerciseMetValue,
+          target_muscles: targetMuscles,
+          body_parts: exercise.exercise?.body_parts || [],
+          equipments: exercise.exercise?.equipments || [],
+        };
+        router.push({
+          pathname: '/workout/exercise-detail',
+          params: {
+            exerciseData: JSON.stringify(exerciseData),
+          },
+        });
+      }}>
+        <View style={exerciseCardStyles.imageContainer}>
+          {pausedGifUrl ? (
+            <Image
+              source={{ uri: pausedGifUrl }}
+              style={exerciseCardStyles.exerciseImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={exerciseCardStyles.placeholderImage}>
+              <Ionicons name="barbell" size={40} color="#74B9FF" />
             </View>
-            <View style={exerciseCardStyles.headerInfo}>
-              <Text style={exerciseCardStyles.exerciseName}>
-                {exerciseName}
-              </Text>
-              <Text style={exerciseCardStyles.exerciseTarget}>
-                {targetSets} × {targetReps} reps
-                {restSeconds && ` • ${restSeconds}s rest`}
-              </Text>
-              {targetMuscles && (
-                <Text style={exerciseCardStyles.targetMusclesText}>
-                  🎯 {targetMuscles}
-                </Text>
-              )}
+          )}
+          {isCompleted && (
+            <View style={exerciseCardStyles.completedOverlay}>
+              <Ionicons name="checkmark-circle" size={32} color="#74B9FF" />
             </View>
-          </View>
-          <Ionicons
-            name="information-circle-outline"
-            size={20}
-            color="#A3E635"
-          />
+          )}
+        </View>
+
+        {/* Title */}
+        <Text style={exerciseCardStyles.exerciseName}>
+          {exerciseName}
+        </Text>
+
+        {/* Description */}
+        <View style={exerciseCardStyles.descriptionContainer}>
+          {targetMuscles && (
+            <Text style={exerciseCardStyles.descriptionText}>
+              🎯 {targetMuscles}
+            </Text>
+          )}
+          <Text style={exerciseCardStyles.descriptionText}>
+            {targetSets} sets × {maxReps} reps • {restSeconds}s rest
+          </Text>
+        </View>
+
+        {/* Info Icon */}
+        <View style={exerciseCardStyles.infoIconContainer}>
+          <Ionicons name="information-circle" size={20} color="#74B9FF" />
         </View>
       </Pressable>
 
-      {/* Progress Bar - Click to expand sets */}
+      {/* Progress Bar - Bigger with % */}
       {!isCompleted && (
-        <Pressable
-          style={exerciseCardStyles.expandButton}
-          onPress={() => {
-            if (!expandedSets && !isActive) {
-              onStartExercise();
-            }
-            setExpandedSets(!expandedSets);
-          }}
-        >
-          <View style={exerciseCardStyles.progressBar}>
+        <View style={exerciseCardStyles.progressSection}>
+          <View style={exerciseCardStyles.progressBarLarge}>
             <View
               style={[
-                exerciseCardStyles.progressFill,
-                { width: `${(completedSets / targetSets) * 100}%` },
+                exerciseCardStyles.progressFillLarge,
+                { width: `${progressPercent}%` },
               ]}
             />
+            <Text style={exerciseCardStyles.progressPercentText}>
+              {progressPercent}%
+            </Text>
           </View>
-          <Text style={exerciseCardStyles.progressText}>
-            {completedSets}/{targetSets} sets
-          </Text>
-          <Ionicons
-            name={expandedSets ? "chevron-up" : "chevron-down"}
-            size={20}
-            color="#A3E635"
-          />
-        </Pressable>
+          <Pressable
+            style={exerciseCardStyles.expandButton}
+            onPress={() => {
+              if (!expandedSets && !isActive) {
+                onStartExercise();
+              }
+              setExpandedSets(!expandedSets);
+            }}
+          >
+            <Text style={exerciseCardStyles.expandButtonText}>
+              {expandedSets ? "Hide Sets" : "Start Exercise"}
+            </Text>
+            <Ionicons
+              name={expandedSets ? "chevron-up" : "chevron-down"}
+              size={18}
+              color="#74B9FF"
+            />
+          </Pressable>
+        </View>
       )}
 
-      {/* Exercise Detail Modal */}
-      <Modal
-        visible={showExerciseModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowExerciseModal(false)}
-      >
-        <View style={exerciseCardStyles.modalOverlay}>
-          <View style={exerciseCardStyles.modalContainer}>
-            {/* Modal Header */}
-            <View style={exerciseCardStyles.modalHeader}>
-              <Text style={exerciseCardStyles.modalTitle}>{exerciseName}</Text>
-              <TouchableOpacity
-                onPress={() => setShowExerciseModal(false)}
-                style={exerciseCardStyles.modalCloseButton}
-              >
-                <Ionicons name="close" size={24} color="#FAFAFA" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView 
-              style={exerciseCardStyles.modalContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {/* Exercise GIF */}
-              {exerciseGif && (
-                <View style={exerciseCardStyles.modalGifContainer}>
-                  <Image
-                    source={{ uri: exerciseGif }}
-                    style={exerciseCardStyles.modalGif}
-                    resizeMode="cover"
-                  />
-                </View>
-              )}
-
-              {/* Target Muscles */}
-              {targetMuscles && (
-                <View style={exerciseCardStyles.modalSection}>
-                  <Text style={exerciseCardStyles.modalSectionTitle}>
-                    Target Muscles
-                  </Text>
-                  <Text style={exerciseCardStyles.modalSectionText}>
-                    {targetMuscles}
-                  </Text>
-                </View>
-              )}
-
-              {/* Instructions */}
-              {exerciseInstructions.length > 0 && (
-                <View style={exerciseCardStyles.modalSection}>
-                  <Text style={exerciseCardStyles.modalSectionTitle}>
-                    Instructions
-                  </Text>
-                  {exerciseInstructions.map((instruction, idx) => (
-                    <Text 
-                      key={idx} 
-                      style={exerciseCardStyles.modalInstructionText}
-                    >
-                      {idx + 1}. {instruction}
-                    </Text>
-                  ))}
-                </View>
-              )}
-            </ScrollView>
+      {isCompleted && (
+        <View style={exerciseCardStyles.progressSection}>
+          <View style={exerciseCardStyles.progressBarLarge}>
+            <View
+              style={[
+                exerciseCardStyles.progressFillLarge,
+                { width: "100%" },
+              ]}
+            />
+            <Text style={exerciseCardStyles.progressPercentText}>
+              100%
+            </Text>
           </View>
         </View>
-      </Modal>
+      )}
 
       {expandedSets && !isCompleted && (
         <View style={exerciseCardStyles.setsContainer}>
           {/* Previous Workout Indicator */}
           {previousSetData && (
             <View style={exerciseCardStyles.previousDataBanner}>
-              <Ionicons name="trending-up" size={14} color="#3B82F6" />
+              <Ionicons name="trending-up" size={14} color="#74B9FF" />
               <Text style={exerciseCardStyles.previousDataText}>
-                Last workout: {previousSetData.reps} reps ×{" "}
-                {previousSetData.weight}kg
-              </Text>
-            </View>
-          )}
-
-          {isLoadingHistory && (
-            <View style={exerciseCardStyles.loadingHistory}>
-              <Text style={exerciseCardStyles.loadingHistoryText}>
-                Loading previous data...
+                Last: {previousSetData.reps} reps × {previousSetData.weight}kg
               </Text>
             </View>
           )}
@@ -1202,7 +1218,9 @@ function ExerciseCard({
 
             return (
               <View key={setIndex} style={exerciseCardStyles.setRow}>
-                <Text style={exerciseCardStyles.setLabel}>Set {setNumber}</Text>
+                <View style={exerciseCardStyles.setNumberBadge}>
+                  <Text style={exerciseCardStyles.setNumberText}>{setNumber}</Text>
+                </View>
 
                 {isSetCompleted ? (
                   <View style={exerciseCardStyles.setCompleted}>
@@ -1212,7 +1230,6 @@ function ExerciseCard({
                     <TouchableOpacity
                       style={exerciseCardStyles.editSetButton}
                       onPress={() => {
-                        // Allow editing - populate the inputs with existing data
                         setCurrentSetData((prev) => ({
                           ...prev,
                           [`${setNumber}_reps`]:
@@ -1220,75 +1237,81 @@ function ExerciseCard({
                           [`${setNumber}_weight`]:
                             existingSet.weight_kg?.toString() || "",
                         }));
-                        // Mark as not completed to show inputs
                         handleUndoSet(setNumber);
                       }}
                     >
-                      <Ionicons name="pencil" size={16} color="#A3E635" />
+                      <Ionicons name="pencil" size={14} color="#74B9FF" />
                     </TouchableOpacity>
                   </View>
                 ) : (
                   <>
-                    <View style={exerciseCardStyles.setInputs}>
-                      {/* Reps Control: [- button] [text display] [+ button] */}
-                      <View style={exerciseCardStyles.repsControl}>
-                        <TouchableOpacity
-                          style={exerciseCardStyles.repsButton}
-                          onPress={() => {
-                            const currentValue =
-                              parseInt(currentSetData[`${setNumber}_reps`]) ||
-                              parseInt(targetReps.split('-')[0]) || 0;
-                            handleSetInput(
-                              setNumber,
-                              "reps",
-                              Math.max(0, currentValue - 1).toString()
-                            );
-                          }}
-                        >
-                          <Ionicons name="remove" size={18} color="#A3E635" />
-                        </TouchableOpacity>
-                        
-                        <Text style={exerciseCardStyles.repsDisplay}>
-                          {currentSetData[`${setNumber}_reps`] || targetReps}
-                        </Text>
-                        
-                        <TouchableOpacity
-                          style={exerciseCardStyles.repsButton}
-                          onPress={() => {
-                            const currentValue =
-                              parseInt(currentSetData[`${setNumber}_reps`]) ||
-                              parseInt(targetReps.split('-')[0]) || 0;
-                            handleSetInput(
-                              setNumber,
-                              "reps",
-                              (currentValue + 1).toString()
-                            );
-                          }}
-                        >
-                          <Ionicons name="add" size={18} color="#A3E635" />
-                        </TouchableOpacity>
+                    <View style={exerciseCardStyles.setInputsCompact}>
+                      {/* Reps */}
+                      <View style={exerciseCardStyles.inputGroup}>
+                        <Text style={exerciseCardStyles.inputLabel}>Reps</Text>
+                        <View style={exerciseCardStyles.repsControl}>
+                          <TouchableOpacity
+                            style={exerciseCardStyles.repsButton}
+                            onPress={() => {
+                              const currentValue =
+                                parseInt(currentSetData[`${setNumber}_reps`]) ||
+                                parseInt(targetReps.toString().split('-')[0]) || 0;
+                              handleSetInput(
+                                setNumber,
+                                "reps",
+                                Math.max(0, currentValue - 1).toString()
+                              );
+                            }}
+                          >
+                            <Ionicons name="remove" size={14} color="#74B9FF" />
+                          </TouchableOpacity>
+                          
+                          <Text style={exerciseCardStyles.repsDisplay}>
+                            {currentSetData[`${setNumber}_reps`] || maxReps}
+                          </Text>
+                          
+                          <TouchableOpacity
+                            style={exerciseCardStyles.repsButton}
+                            onPress={() => {
+                              const currentValue =
+                                parseInt(currentSetData[`${setNumber}_reps`]) ||
+                                parseInt(targetReps.toString().split('-')[0]) || 0;
+                              handleSetInput(
+                                setNumber,
+                                "reps",
+                                (currentValue + 1).toString()
+                              );
+                            }}
+                          >
+                            <Ionicons name="add" size={14} color="#74B9FF" />
+                          </TouchableOpacity>
+                        </View>
                       </View>
 
-                      {/* Weight Input: smaller font */}
-                      <View style={exerciseCardStyles.weightControl}>
-                        <TextInput
-                          style={exerciseCardStyles.weightInput}
-                          placeholder="0"
-                          placeholderTextColor="#52525B"
-                          keyboardType="decimal-pad"
-                          value={currentSetData[`${setNumber}_weight`] || ""}
-                          onChangeText={(value) =>
-                            handleSetInput(setNumber, "weight", value)
-                          }
-                        />
-                        <Text style={exerciseCardStyles.weightUnit}>kg</Text>
+                      {/* Weight */}
+                      <View style={exerciseCardStyles.inputGroup}>
+                        <Text style={exerciseCardStyles.inputLabel}>Weight</Text>
+                        <View style={exerciseCardStyles.weightControl}>
+                          <TextInput
+                            style={exerciseCardStyles.weightInput}
+                            placeholder="0"
+                            placeholderTextColor="#52525B"
+                            keyboardType="decimal-pad"
+                            value={currentSetData[`${setNumber}_weight`] || ""}
+                            onChangeText={(value) =>
+                              handleSetInput(setNumber, "weight", value)
+                            }
+                          />
+                          <Text style={exerciseCardStyles.weightUnit}>kg</Text>
+                        </View>
                       </View>
                     </View>
+                    
                     <TouchableOpacity
                       style={exerciseCardStyles.completeSetButton}
                       onPress={() => handleCompleteSet(setNumber)}
                     >
-                      <Ionicons name="checkmark" size={20} color="#0B0B0B" />
+                      <Ionicons name="checkmark" size={18} color="#0B0B0B" />
                     </TouchableOpacity>
                   </>
                 )}
@@ -1297,284 +1320,269 @@ function ExerciseCard({
           })}
         </View>
       )}
-
-      {isCompleted && (
-        <View style={exerciseCardStyles.completedBanner}>
-          <Ionicons name="checkmark-circle" size={20} color="#A3E635" />
-          <Text style={exerciseCardStyles.completedText}>
-            Exercise completed • {completedSets} sets
-          </Text>
-        </View>
-      )}
     </View>
   );
 }
 
 const exerciseCardStyles = StyleSheet.create({
   card: {
-    padding: 16,
+    padding: 20,
     borderWidth: 1,
-    borderRadius: 16,
-    marginBottom: 12,
+    borderRadius: 20,
+    marginBottom: 16,
     borderColor: "#27272A",
     backgroundColor: "#161616",
   },
   cardActive: {
     borderLeftWidth: 4,
-    borderColor: "#A3E635",
+    borderColor: "#74B9FF",
   },
   cardCompleted: {
-    opacity: 0.7,
-    borderColor: "rgba(163, 230, 53, 0.3)",
+    opacity: 0.8,
+    borderColor: "#27272A",
   },
-  header: {
-    marginBottom: 12,
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  headerLeft: {
-    gap: 12,
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  indexBadge: {
-    width: 32,
-    height: 32,
+  
+  // Image/Icon at top
+  imageContainer: {
+    width: "100%",
+    height: 180,
     borderRadius: 16,
+    marginBottom: 16,
+    overflow: "hidden",
+    backgroundColor: "#0B0B0B",
+    position: "relative",
+  },
+  exerciseImage: {
+    width: "100%",
+    height: "100%",
+  },
+  placeholderImage: {
+    width: "100%",
+    height: "100%",
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#1E3A5F",
+  },
+  completedOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+  },
+  
+  // Title
+  exerciseName: {
+    fontSize: 20,
+    marginBottom: 12,
+    color: "#FAFAFA",
+    fontWeight: "700",
+  },
+  
+  // Description
+  descriptionContainer: {
+    marginBottom: 16,
+  },
+  descriptionText: {
+    fontSize: 13,
+    color: "#A1A1AA",
+    fontWeight: "500",
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  
+  // Info Icon
+  infoIconContainer: {
+    position: "absolute",
+    top: 20,
+    right: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+  },
+  
+  // Progress Section
+  progressSection: {
+    marginTop: 8,
+  },
+  progressBarLarge: {
+    height: 32,
+    borderRadius: 16,
+    overflow: "hidden",
+    marginBottom: 12,
     backgroundColor: "#27272A",
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  indexBadgeCompleted: {
-    backgroundColor: "#A3E635",
+  progressFillLarge: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: 16,
+    backgroundColor: "#1E3A5F",
   },
-  indexText: {
+  progressPercentText: {
     fontSize: 14,
     color: "#FAFAFA",
     fontWeight: "700",
+    zIndex: 1,
   },
-  headerInfo: {
-    flex: 1,
-  },
-  exerciseName: {
-    fontSize: 16,
-    marginBottom: 2,
-    color: "#FAFAFA",
-    fontWeight: "700",
-  },
-  exerciseTarget: {
-    fontSize: 12,
-    color: "#71717A",
-    fontWeight: "600",
-  },
-  targetMusclesText: {
-    fontSize: 11,
-    color: "#A3E635",
-    fontWeight: "600",
-    marginTop: 2,
-  },
+  
+  // Expand Button
   expandButton: {
-    gap: 12,
-    paddingVertical: 8,
     flexDirection: "row",
     alignItems: "center",
-  },
-  progressBar: {
-    flex: 1,
-    height: 6,
-    borderRadius: 3,
-    overflow: "hidden",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
     backgroundColor: "#27272A",
   },
-  progressFill: {
-    height: "100%",
-    borderRadius: 3,
-    backgroundColor: "#A3E635",
-  },
-  progressText: {
-    fontSize: 12,
-    color: "#A1A1AA",
+  expandButtonText: {
+    fontSize: 14,
+    color: "#74B9FF",
     fontWeight: "600",
   },
+  
+  // Sets Container - Compact
   setsContainer: {
     gap: 8,
-    marginTop: 12,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#27272A",
   },
   previousDataBanner: {
-    gap: 6,
-    marginBottom: 4,
-    borderRadius: 8,
-    paddingVertical: 8,
+    gap: 8,
+    marginBottom: 8,
+    borderRadius: 10,
+    paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    backgroundColor: "#1E3A8A",
+    backgroundColor: "rgba(30, 58, 95, 0.3)",
   },
   previousDataText: {
     fontSize: 12,
-    color: "#93C5FD",
-    fontWeight: "500",
+    color: "#74B9FF",
+    fontWeight: "600",
   },
-  loadingHistory: {
-    marginBottom: 4,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  loadingHistoryText: {
-    fontSize: 12,
-    color: "#A1A1AA",
-    fontStyle: "italic",
-  },
+  
+  // Set Row - Compact
   setRow: {
-    gap: 12,
+    gap: 10,
     padding: 12,
     borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#0B0B0B",
   },
-  setLabel: {
-    width: 50,
-    fontSize: 14,
-    color: "#A1A1AA",
+  setNumberBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1E3A5F",
+  },
+  setNumberText: {
+    fontSize: 13,
+    color: "#FAFAFA",
     fontWeight: "700",
   },
-  setInputs: {
-    gap: 8,
+  
+  // Compact Input Layout
+  setInputsCompact: {
     flex: 1,
+    gap: 8,
     flexDirection: "row",
     alignItems: "center",
   },
-  // New reps control styles: [- button] [text] [+ button]
+  inputGroup: {
+    flex: 1,
+  },
+  inputLabel: {
+    fontSize: 10,
+    color: "#71717A",
+    fontWeight: "600",
+    marginBottom: 6,
+    textTransform: "uppercase",
+  },
+  
+  // Reps Control - Compact
   repsControl: {
-    gap: 8,
+    gap: 6,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#27272A",
     backgroundColor: "#161616",
   },
   repsButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 26,
+    height: 26,
+    borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#27272A",
+    backgroundColor: "#1E3A5F",
   },
   repsDisplay: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#FAFAFA",
-    fontWeight: "600",
-    minWidth: 40,
+    fontWeight: "700",
+    minWidth: 30,
     textAlign: "center",
   },
-  // New weight control styles: smaller font (30% less)
+  
+  // Weight Control - Compact
   weightControl: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-  },
-  weightInput: {
-    width: 60,
-    fontSize: 11, // 30% smaller than 16px
-    borderWidth: 1,
-    borderRadius: 8,
-    color: "#FAFAFA",
-    fontWeight: "600",
-    paddingVertical: 6,
-    textAlign: "center",
     paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
     borderColor: "#27272A",
     backgroundColor: "#161616",
   },
+  weightInput: {
+    flex: 1,
+    fontSize: 14,
+    color: "#FAFAFA",
+    fontWeight: "700",
+    textAlign: "center",
+    paddingVertical: 2,
+  },
   weightUnit: {
-    fontSize: 11, // 30% smaller
+    fontSize: 12,
     color: "#71717A",
     fontWeight: "600",
   },
-  // GIF and instructions styles
-  gifContainer: {
-    marginTop: 12,
-    borderRadius: 12,
-    overflow: "hidden",
-  },
-  exerciseGif: {
-    width: "100%",
-    height: 200,
-    borderRadius: 12,
-  },
-  instructionsContainer: {
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: "#0B0B0B",
-  },
-  instructionsTitle: {
-    fontSize: 14,
-    color: "#A3E635",
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  instructionText: {
-    fontSize: 12,
-    color: "#A1A1AA",
-    lineHeight: 18,
-    marginBottom: 4,
-  },
-  inputWrapper: {
-    flex: 1,
-    position: "relative",
-  },
-  inputWithButtons: {
-    gap: 4,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  incrementButton: {
-    width: 28,
-    height: 28,
-    borderWidth: 1,
-    borderRadius: 6,
-    alignItems: "center",
-    borderColor: "#27272A",
-    justifyContent: "center",
-    backgroundColor: "#1C1C1E",
-  },
-  setInput: {
-    flex: 1,
-    fontSize: 14,
-    borderWidth: 1,
-    borderRadius: 8,
-    color: "#FAFAFA",
-    fontWeight: "600",
-    paddingVertical: 8,
-    textAlign: "center",
-    paddingHorizontal: 12,
-    borderColor: "#27272A",
-    backgroundColor: "#161616",
-  },
-  inputLabel: {
-    top: 10,
-    right: 12,
-    fontSize: 11,
-    color: "#52525B",
-    fontWeight: "600",
-    position: "absolute",
-  },
+  
+  // Complete Set Button
   completeSetButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#A3E635",
+    backgroundColor: "#74B9FF",
   },
+  
+  // Set Completed State
   setCompleted: {
     flex: 1,
     flexDirection: "row",
@@ -1584,104 +1592,16 @@ const exerciseCardStyles = StyleSheet.create({
   setCompletedText: {
     flex: 1,
     fontSize: 14,
-    color: "#71717A",
+    color: "#A1A1AA",
     fontWeight: "600",
   },
   editSetButton: {
-    width: 32,
-    height: 32,
-    borderWidth: 1,
-    borderRadius: 16,
-    alignItems: "center",
-    borderColor: "#27272A",
-    justifyContent: "center",
-    backgroundColor: "#1C1C1E",
-  },
-  completedBanner: {
-    gap: 8,
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    borderTopColor: "#27272A",
-  },
-  completedText: {
-    fontSize: 14,
-    color: "#A3E635",
-    fontWeight: "600",
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
-    justifyContent: "flex-end",
-  },
-  modalContainer: {
-    backgroundColor: "#161616",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: "80%",
-    paddingBottom: 20,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#27272A",
-  },
-  modalTitle: {
-    fontSize: 20,
-    color: "#FAFAFA",
-    fontWeight: "700",
-    flex: 1,
-    paddingRight: 16,
-  },
-  modalCloseButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#27272A",
-  },
-  modalContent: {
-    flex: 1,
-  },
-  modalGifContainer: {
-    margin: 20,
-    marginBottom: 16,
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "#0B0B0B",
-  },
-  modalGif: {
-    width: "100%",
-    height: 250,
-  },
-  modalSection: {
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  modalSectionTitle: {
-    fontSize: 16,
-    color: "#A3E635",
-    fontWeight: "700",
-    marginBottom: 12,
-  },
-  modalSectionText: {
-    fontSize: 14,
-    color: "#FAFAFA",
-    lineHeight: 22,
-    textTransform: "capitalize",
-  },
-  modalInstructionText: {
-    fontSize: 14,
-    color: "#A1A1AA",
-    lineHeight: 22,
-    marginBottom: 8,
   },
 });
 
@@ -1830,12 +1750,12 @@ const modalStyles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderColor: "rgba(163, 230, 53, 0.3)",
-    backgroundColor: "rgba(163, 230, 53, 0.1)",
+    borderColor: "rgba(116, 185, 255, 0.3)",
+    backgroundColor: "rgba(30, 58, 95, 0.3)",
   },
   muscleText: {
     fontSize: 12,
-    color: "#A3E635",
+    color: "#74B9FF",
     fontWeight: "700",
   },
 });

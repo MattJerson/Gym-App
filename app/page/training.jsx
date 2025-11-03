@@ -16,8 +16,10 @@ import RecentWorkouts from "../../components/training/RecentWorkouts";
 import { TrainingDataServiceNew } from "../../services/TrainingDataServiceNew";
 import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
 import { WorkoutSessionService } from "../../services/WorkoutSessionService";
+import { WorkoutSessionServiceV2 } from "../../services/WorkoutSessionServiceV2";
 import WorkoutProgressBar from "../../components/training/WorkoutProgressBar";
 import ContinueWorkoutCard from "../../components/training/ContinueWorkoutCard";
+import { TrainingPageSkeleton } from "../../components/skeletons/TrainingPageSkeleton";
 
 export default function Training() {
   const router = useRouter();
@@ -29,6 +31,7 @@ export default function Training() {
   const [workoutCategories, setWorkoutCategories] = useState([]);
   const [recentWorkouts, setRecentWorkouts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasTodaysWorkout, setHasTodaysWorkout] = useState(true); // Default true for skeleton
   const [userId, setUserId] = useState(null);
   const [notifications, setNotifications] = useState(0);
 
@@ -140,6 +143,7 @@ export default function Training() {
       setWorkoutProgress(progressData);
       setContinueWorkout(continueData);
       setTodaysWorkout(todaysData);
+      setHasTodaysWorkout(todaysData !== null); // Track if user has today's workout
       setWorkoutCategories(categoriesWithTemplates);
       setRecentWorkouts(recentData);
     } catch (error) {
@@ -174,10 +178,93 @@ export default function Training() {
   const handleStartTodaysWorkout = async () => {
     try {
       if (todaysWorkout) {
-        router.push(`/workout/${todaysWorkout.id}`);
+        await handleStartWorkout(todaysWorkout.id);
       }
     } catch (error) {
       Alert.alert("Error", "Failed to start workout. Please try again.");
+    }
+  };
+
+  const handleStartWorkout = async (workoutId) => {
+    try {
+      // Check if there's an existing active session
+      const existingSession = await WorkoutSessionServiceV2.getActiveSession(userId);
+      
+      if (existingSession) {
+        // Check if the existing session is for THIS workout
+        const sessionTemplateId = existingSession.workout_template_id || existingSession.template_id;
+        
+        if (sessionTemplateId === workoutId) {
+          // Found existing session for THIS workout - ask user what to do
+          Alert.alert(
+            "Resume Workout?",
+            "You have an unfinished session for this workout. Would you like to continue where you left off or start fresh?",
+            [
+              {
+                text: "Resume",
+                onPress: () => {
+                  router.push(`/workout/${workoutId}`);
+                },
+              },
+              {
+                text: "Start Fresh",
+                style: "destructive",
+                onPress: async () => {
+                  try {
+                    await WorkoutSessionServiceV2.abandonSession(existingSession.id);
+                    router.push(`/workout/${workoutId}`);
+                  } catch (error) {
+                    console.error("Error starting fresh:", error);
+                    Alert.alert("Error", "Failed to start new workout");
+                  }
+                },
+              },
+              {
+                text: "Cancel",
+                style: "cancel",
+              },
+            ]
+          );
+        } else {
+          // There's an active session for a DIFFERENT workout
+          Alert.alert(
+            "Active Workout Found",
+            "You have an active workout in progress. Would you like to continue that workout or abandon it to start this one?",
+            [
+              {
+                text: "Continue Previous",
+                onPress: () => {
+                  router.push(`/workout/${sessionTemplateId}`);
+                },
+              },
+              {
+                text: "Abandon & Start New",
+                style: "destructive",
+                onPress: async () => {
+                  try {
+                    await WorkoutSessionServiceV2.abandonSession(existingSession.id);
+                    router.push(`/workout/${workoutId}`);
+                  } catch (error) {
+                    console.error("Error abandoning session:", error);
+                    Alert.alert("Error", "Failed to abandon previous workout");
+                  }
+                },
+              },
+              {
+                text: "Cancel",
+                style: "cancel",
+              },
+            ]
+          );
+        }
+      } else {
+        // No existing session - start new workout
+        router.push(`/workout/${workoutId}`);
+      }
+    } catch (error) {
+      console.error("Error checking for active session:", error);
+      // If error checking, just navigate anyway
+      router.push(`/workout/${workoutId}`);
     }
   };
 
@@ -200,11 +287,9 @@ export default function Training() {
   return (
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Loading State */}
+        {/* Loading State with Skeleton */}
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading training data...</Text>
-          </View>
+          <TrainingPageSkeleton hasTodaysWorkout={hasTodaysWorkout} />
         ) : (
           <>
             {/* Progress Card */}
@@ -278,7 +363,7 @@ export default function Training() {
             <MyWorkouts
               onSelectWorkout={(workoutId) => {
                 console.log("Selected workout:", workoutId);
-                router.push(`/workout/${workoutId}`);
+                handleStartWorkout(workoutId);
               }}
               onWorkoutOptions={(workoutId) => {
                 console.log("Workout options:", workoutId);
@@ -286,6 +371,10 @@ export default function Training() {
                   "Workout Options",
                   "Edit, Delete, or Share this workout"
                 );
+              }}
+              onScheduleChange={() => {
+                // Refresh today's workout when schedule changes
+                loadTrainingData();
               }}
             />
 

@@ -1,5 +1,6 @@
 // 🔄 Training Data Service - Database-driven workout tracking
 import { supabase } from './supabase';
+import { CalorieCalculator } from './CalorieCalculator';
 
 export const TrainingDataService = {
   // User & Notifications
@@ -578,8 +579,17 @@ export const TrainingDataService = {
         rest_seconds: parseInt(ex.restTime) || 60,
         notes: ex.notes || '',
         muscle_groups: ex.muscle_groups || [],
-        equipment: ex.equipment || []
+        equipment: ex.equipment || [],
+        met_value: ex.met_value || 6.0 // Include MET value for calorie calculation
       }));
+
+      // 🔥 Calculate estimated calories based on exercises and user weight
+      console.log('💪 Calculating calories for user:', userId);
+      const estimatedCalories = await CalorieCalculator.calculateWorkoutCaloriesForUser(
+        workoutData.exercises,
+        userId
+      );
+      console.log('🔥 Calculated calories:', estimatedCalories);
 
       const { data, error } = await supabase.rpc('create_custom_workout', {
         p_user_id: userId,
@@ -588,7 +598,7 @@ export const TrainingDataService = {
         p_category_id: categories.id,
         p_difficulty: workoutData.difficulty.charAt(0).toUpperCase() + workoutData.difficulty.slice(1),
         p_duration_minutes: parseInt(workoutData.duration) || 45,
-        p_estimated_calories: workoutData.estimatedCalories || (parseInt(workoutData.duration) * 6),
+        p_estimated_calories: estimatedCalories, // Use calculated calories
         p_exercises: exercises,
         p_custom_color: workoutData.color || null,
         p_custom_emoji: workoutData.emoji || null
@@ -602,6 +612,7 @@ export const TrainingDataService = {
       return {
         id: data,
         ...workoutData,
+        estimatedCalories, // Include in return value
         isCustom: true,
         createdAt: new Date().toISOString()
       };
