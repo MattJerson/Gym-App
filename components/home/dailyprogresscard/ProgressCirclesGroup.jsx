@@ -1,24 +1,45 @@
 import { View, StyleSheet } from "react-native";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import ProgressCircle from "./ProgressCircle";
+import { useState, useEffect } from "react";
+import HealthKitService from "../../../services/HealthKitService";
 
 export default function ProgressCirclesGroup({
   workoutData,
   stepsData,
   calorieData,
 }) {
-  // Combine workout and steps into a single "Activity" metric
-  // Calculate combined progress: if workout is done (1/1) that's 50%, steps contribute other 50%
+  const [stepsTrackingEnabled, setStepsTrackingEnabled] = useState(true);
+
+  useEffect(() => {
+    checkStepsTracking();
+  }, []);
+
+  const checkStepsTracking = async () => {
+    try {
+      const hasPermission = await HealthKitService.checkPermission();
+      setStepsTrackingEnabled(hasPermission);
+    } catch (error) {
+      console.error('Error checking steps tracking:', error);
+      setStepsTrackingEnabled(false);
+    }
+  };
+
+  // Calculate progress based on steps tracking status
   const workoutProgress = workoutData.value / workoutData.max; // 0 to 1
   const stepsProgress = stepsData.value / stepsData.max; // 0 to 1
   
-  // Combined: 50% from workout completion, 50% from steps
-  const combinedValue = (workoutProgress * 0.5 + stepsProgress * 0.5) * 100;
-  const combinedMax = 100;
+  // Combined: if steps enabled, 50% from workout + 50% from steps, otherwise 100% from workout
+  let combinedValue;
+  if (stepsTrackingEnabled) {
+    combinedValue = (workoutProgress * 0.5 + stepsProgress * 0.5) * 100;
+  } else {
+    combinedValue = workoutProgress * 100;
+  }
   
   const activityData = {
     value: Math.round(combinedValue),
-    max: combinedMax,
+    max: 100,
   };
 
   const progressItems = [
@@ -28,7 +49,9 @@ export default function ProgressCirclesGroup({
       data: activityData,
       icon: (color) => <Ionicons name="fitness" size={28} color={color} />,
       unit: "%",
-      subtitle: `${workoutData.value}/${workoutData.max} workout • ${Math.round(stepsData.value).toLocaleString()} steps`,
+      subtitle: stepsTrackingEnabled 
+        ? `${workoutData.value}/${workoutData.max} workout • ${Math.round(stepsData.value).toLocaleString()} steps`
+        : `${workoutData.value}/${workoutData.max} workout`,
     },
     {
       label: "Calories",

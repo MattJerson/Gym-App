@@ -10,11 +10,13 @@ import { TrainingProgressService } from "../../services/TrainingProgressService"
 import { MealPlanDataService } from "../../services/MealPlanDataService";
 import { supabase } from "../../services/supabase";
 import { DailyProgressCardSkeleton } from "../skeletons/DailyProgressCardSkeleton";
+import HealthKitService from "../../services/HealthKitService";
 
 export default function DailyProgressCard() {
   // User state
   const [userId, setUserId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [stepsTrackingEnabled, setStepsTrackingEnabled] = useState(true);
   
   // Calendar state
   const [selectedDate, setSelectedDate] = useState(moment());
@@ -48,6 +50,21 @@ export default function DailyProgressCard() {
     getUser();
   }, []);
 
+  // Check steps tracking status
+  useEffect(() => {
+    checkStepsTracking();
+  }, []);
+
+  const checkStepsTracking = async () => {
+    try {
+      const hasPermission = await HealthKitService.checkPermission();
+      setStepsTrackingEnabled(hasPermission);
+    } catch (error) {
+      console.error('Error checking steps tracking:', error);
+      setStepsTrackingEnabled(false);
+    }
+  };
+
   // Load progress data when user changes or date changes
   useEffect(() => {
     if (userId) {
@@ -75,11 +92,19 @@ export default function DailyProgressCard() {
         max: macroProgress.calories?.target || 2200,
       });
       
-      // Calculate total progress based on all three metrics
+      // Calculate total progress based on steps tracking status
       const workoutPercent = (progressData.workoutData.value / progressData.workoutData.max) * 100;
       const stepsPercent = (progressData.stepsData.value / progressData.stepsData.max) * 100;
       const caloriePercent = (macroProgress.calories.current / macroProgress.calories.target) * 100;
-      const calculatedProgress = (workoutPercent + stepsPercent + caloriePercent) / 3;
+      
+      let calculatedProgress;
+      if (stepsTrackingEnabled) {
+        // Average of all three: workouts, steps, and calories
+        calculatedProgress = (workoutPercent + stepsPercent + caloriePercent) / 3;
+      } else {
+        // Average of workouts and calories only (steps excluded)
+        calculatedProgress = (workoutPercent + caloriePercent) / 2;
+      }
       
       setTotalProgress(Math.round(calculatedProgress));
       

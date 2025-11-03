@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 import { WorkoutProgressBarSkeleton } from "../skeletons/WorkoutProgressBarSkeleton";
 import { TrainingProgressService } from "../../services/TrainingProgressService";
 import StepsSyncService from "../../services/StepsSyncService";
+import HealthKitService from "../../services/HealthKitService";
 import { supabase } from "../../services/supabase";
 
 export default function WorkoutProgressBar() {
@@ -10,6 +11,7 @@ export default function WorkoutProgressBar() {
   const [workoutData, setWorkoutData] = useState({ value: 0, max: 1 });
   const [stepsData, setStepsData] = useState({ value: 0, max: 10000 });
   const [isLoading, setIsLoading] = useState(true);
+  const [stepsTrackingEnabled, setStepsTrackingEnabled] = useState(false);
 
   // Get authenticated user
   useEffect(() => {
@@ -31,6 +33,7 @@ export default function WorkoutProgressBar() {
   useEffect(() => {
     if (userId) {
       loadProgressData();
+      checkStepsTracking();
       
       // Optionally trigger a background sync (non-blocking, won't delay UI)
       // This ensures steps are up-to-date when viewing the training page
@@ -63,6 +66,16 @@ export default function WorkoutProgressBar() {
     }
   }, [userId]);
 
+  const checkStepsTracking = async () => {
+    try {
+      const hasPermission = await HealthKitService.checkPermission();
+      setStepsTrackingEnabled(hasPermission);
+    } catch (error) {
+      console.error('Error checking steps tracking:', error);
+      setStepsTrackingEnabled(false);
+    }
+  };
+
   const loadProgressData = async () => {
     try {
       setIsLoading(true);
@@ -76,9 +89,18 @@ export default function WorkoutProgressBar() {
     }
   };
 
-  const workoutProgress = Math.min(workoutData.value / workoutData.max, 1);
+  const workoutProgress = workoutData.value / workoutData.max; // Can go above 1 (100%)
   const stepsProgress = Math.min(stepsData.value / stepsData.max, 1);
-  const totalProgress = Math.round(((workoutProgress + stepsProgress) / 2) * 100);
+  
+  // Dynamic progress calculation based on steps tracking
+  let totalProgress;
+  if (stepsTrackingEnabled) {
+    // Both workouts and steps contribute (average of both)
+    totalProgress = Math.round(((workoutProgress + stepsProgress) / 2) * 100);
+  } else {
+    // Only workouts contribute (can exceed 100%)
+    totalProgress = Math.round(workoutProgress * 100);
+  }
 
   const currentDate = new Date();
   const day = String(currentDate.getDate()).padStart(2, '0');
@@ -111,7 +133,7 @@ export default function WorkoutProgressBar() {
         
         <View style={styles.progressBarContainer}>
           <View style={styles.progressBar}>
-            <View style={[styles.progressFill, { width: `${totalProgress}%` }]}>
+            <View style={[styles.progressFill, { width: `${Math.min(totalProgress, 100)}%` }]}>
               <View style={styles.progressGlow} />
             </View>
           </View>
@@ -122,7 +144,16 @@ export default function WorkoutProgressBar() {
       {/* Stats Row */}
       <View style={styles.statsRow}>
         <View style={[styles.statCard, styles.stepsCard]}>
-          <View style={styles.statHeader}>
+          {!stepsTrackingEnabled && (
+            <View style={styles.disabledOverlay}>
+              <View style={styles.disabledContent}>
+                <Text style={styles.disabledIcon}>🔒</Text>
+                <Text style={styles.disabledTitle}>Enable Step Tracking</Text>
+                <Text style={styles.disabledMessage}>Go to Calendar to enable this feature</Text>
+              </View>
+            </View>
+          )}
+          <View style={[styles.statHeader, !stepsTrackingEnabled && styles.blurred]}>
             <Text style={styles.statIcon}>🏃</Text>
             <View style={[styles.badge, stepsProgress >= 1 && styles.badgeComplete]}>
               <Text style={styles.badgeText}>
@@ -130,12 +161,12 @@ export default function WorkoutProgressBar() {
               </Text>
             </View>
           </View>
-          <Text style={styles.statValue}>{stepsData.value.toLocaleString()}</Text>
-          <Text style={styles.statLabel}>steps</Text>
+          <Text style={[styles.statValue, !stepsTrackingEnabled && styles.blurred]}>{stepsData.value.toLocaleString()}</Text>
+          <Text style={[styles.statLabel, !stepsTrackingEnabled && styles.blurred]}>steps</Text>
           <View style={styles.miniProgressBar}>
             <View style={[styles.miniProgressFill, { width: `${Math.min(stepsProgress * 100, 100)}%` }]} />
           </View>
-          <Text style={styles.statGoal}>Goal: {stepsData.max.toLocaleString()}</Text>
+          <Text style={[styles.statGoal, !stepsTrackingEnabled && styles.blurred]}>Goal: {stepsData.max.toLocaleString()}</Text>
         </View>
 
         <View style={[styles.statCard, styles.workoutCard]}>
@@ -163,8 +194,8 @@ const styles = StyleSheet.create({
   mainCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 24,
-    padding: 14,        // reduced from 18
-    marginBottom: 12,   // reduced from 16
+    padding: 14,
+    marginBottom: 12,
     overflow: 'hidden',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
@@ -282,14 +313,51 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.06)',
     borderRadius: 16,
     padding: 14,
+    position: 'relative',
   },
   stepsCard: {
-    borderLeftWidth: 0,    // removed 3D/stroke effect
+    borderLeftWidth: 0,
     borderLeftColor: 'transparent',
   },
   workoutCard: {
-    borderLeftWidth: 0,    // removed 3D/stroke effect
+    borderLeftWidth: 0,
     borderLeftColor: 'transparent',
+  },
+  disabledOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    padding: 12,
+  },
+  disabledContent: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  disabledIcon: {
+    fontSize: 28,
+    marginBottom: 4,
+  },
+  disabledTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#fff',
+    textAlign: 'center',
+  },
+  disabledMessage: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.6)',
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  blurred: {
+    opacity: 0.3,
   },
   statHeader: {
     flexDirection: 'row',
