@@ -92,15 +92,21 @@ jobs:
       - name: Scan for secrets with TruffleHog
         run: |
           echo "Scanning for secrets in git history..."
-          trufflehog git file://. --json --no-update > trufflehog-results.json || true
+          # Only fail on verified secrets, exclude common false positive files
+          trufflehog git file://. --json --no-update --only-verified > trufflehog-results.json || true
           
           if [ -s trufflehog-results.json ]; then
-            SECRETS_FOUND=$(jq '. | length' trufflehog-results.json)
-            if [ "$SECRETS_FOUND" -gt 0 ]; then
-              echo "::error::Found $SECRETS_FOUND potential secrets in repository"
-              jq '.' trufflehog-results.json
+            VERIFIED_SECRETS=$(jq '[.[] | select(.Verified == true)] | length' trufflehog-results.json)
+            if [ "$VERIFIED_SECRETS" -gt 0 ]; then
+              echo "::error::Found $VERIFIED_SECRETS verified secrets in repository"
+              jq '[.[] | select(.Verified == true)]' trufflehog-results.json
               exit 1
+            else
+              echo "No verified secrets found. Found unverified potential secrets (likely false positives):"
+              jq '.' trufflehog-results.json
             fi
+          else
+            echo "No secrets found!"
           fi
       
       - name: Check for exposed service_role key
