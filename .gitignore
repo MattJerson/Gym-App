@@ -1953,3 +1953,9 @@ MIGRATION_GUIDE.md
 ARCHITECTURE_DIAGRAM.md
 WORKOUT_EXECUTION_FIX_COMPLETE.md
 WORKOUT_SYSTEM_REDESIGN_SUMMARY.md
+scanning/0_Security Vulnerability Scan.txt
+scanning/1_Code Quality Scan.txt
+scanning/2_License Compliance Check.txt
+scanning/Code Quality Scan/system.txt
+scanning/License Compliance Check/system.txt
+scanning/Security Vulnerability Scan/system.txt
