@@ -10,6 +10,7 @@ import {
   Pressable,
   StyleSheet,
   KeyboardAvoidingView,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { supabase } from "../../services/supabase";
@@ -56,6 +57,7 @@ export default function CommunityChat() {
   const [unreadCounts, setUnreadCounts] = useState({ channels: [], dms: [], totalUnread: 0 });
   const [characterCount, setCharacterCount] = useState(0);
   const [rateLimitError, setRateLimitError] = useState(null);
+  const [profanityError, setProfanityError] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(-280)).current;
@@ -101,7 +103,7 @@ export default function CommunityChat() {
 
   // Load messages when channel/DM changes
   useEffect(() => {
-    if (activeChannel && viewMode === "channels") {
+    if (activeChannel && viewMode === "channels" && currentUser) {
       loadChannelMessages();
       setupChannelSubscription();
     }
@@ -110,10 +112,10 @@ export default function CommunityChat() {
         messageSubscription.current.unsubscribe();
       }
     };
-  }, [activeChannel]);
+  }, [activeChannel, currentUser]);
 
   useEffect(() => {
-    if (activeConversationId && viewMode === "dms") {
+    if (activeConversationId && viewMode === "dms" && currentUser) {
       loadDMMessages();
       setupDMSubscription();
     }
@@ -122,7 +124,7 @@ export default function CommunityChat() {
         messageSubscription.current.unsubscribe();
       }
     };
-  }, [activeConversationId]);
+  }, [activeConversationId, currentUser]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -412,6 +414,7 @@ export default function CommunityChat() {
 
     setSending(true);
     setRateLimitError(null);
+    setProfanityError(false);
 
     const payloadPreview = message.trim().slice(0, 140);
     if (!currentUser || !currentUser.id) {
@@ -455,16 +458,20 @@ export default function CommunityChat() {
         );
 
         if (error) {
-          console.error(
-            "[CommunityChat] sendChannelMessage returned error",
-            error
-          );
-          
+          // Handle profanity error (expected behavior - not a system error)
+          if (error.message?.includes('inappropriate language') || error.message?.includes('profanity')) {
+            console.log("[CommunityChat] Profanity detected, showing inline error");
+            setProfanityError(true);
+            setTimeout(() => setProfanityError(false), 5000);
+          }
           // Handle rate limit error
-          if (error.code === 'RATE_LIMIT') {
+          else if (error.code === 'RATE_LIMIT') {
+            console.log("[CommunityChat] Rate limit hit");
             setRateLimitError(`Too many messages. Please wait ${error.waitSeconds} seconds.`);
             setTimeout(() => setRateLimitError(null), error.waitSeconds * 1000);
           } else {
+            // Actual unexpected errors
+            console.error("[CommunityChat] Unexpected error sending message:", error);
             Alert.alert("Error", error.message || "Failed to send message");
           }
         } else {
@@ -480,16 +487,20 @@ export default function CommunityChat() {
         );
 
         if (error) {
-          console.error(
-            "[CommunityChat] sendDirectMessage returned error",
-            error
-          );
-          
+          // Handle profanity error (expected behavior - not a system error)
+          if (error.message?.includes('inappropriate language') || error.message?.includes('profanity')) {
+            console.log("[CommunityChat] Profanity detected in DM, showing inline error");
+            setProfanityError(true);
+            setTimeout(() => setProfanityError(false), 5000);
+          }
           // Handle rate limit error
-          if (error.code === 'RATE_LIMIT') {
+          else if (error.code === 'RATE_LIMIT') {
+            console.log("[CommunityChat] Rate limit hit on DM");
             setRateLimitError(`Too many messages. Please wait ${error.waitSeconds} seconds.`);
             setTimeout(() => setRateLimitError(null), error.waitSeconds * 1000);
           } else {
+            // Actual unexpected errors
+            console.error("[CommunityChat] Unexpected error sending DM:", error);
             Alert.alert("Error", error.message || "Failed to send message");
           }
         } else {
@@ -740,16 +751,6 @@ export default function CommunityChat() {
     const isDM = viewMode === "dms";
     const isMyMessage = item.isMe; // Works for both channels and DMs now
 
-    // DEBUG: Log every message render
-    console.log('[CommunityChat] Rendering message:', {
-      id: item.id,
-      user: item.user,
-      userId: item.userId,
-      isMe: item.isMe,
-      currentUserId: currentUser?.id,
-      text: item.text?.slice(0, 20)
-    });
-
     return (
       <View
         style={[
@@ -895,7 +896,10 @@ export default function CommunityChat() {
                 </Pressable>
                 <View style={styles.textInputContainer}>
                   <TextInput
-                    style={styles.textInput}
+                    style={[
+                      styles.textInput,
+                      profanityError && styles.textInputError
+                    ]}
                     placeholder={
                       activeDM
                         ? `Message ${
@@ -909,11 +913,18 @@ export default function CommunityChat() {
                       if (text.length <= MAX_MESSAGE_LENGTH) {
                         setMessage(text);
                         setCharacterCount(text.length);
+                        setProfanityError(false); // Clear error when user types
                       }
                     }}
                     multiline
                     maxLength={MAX_MESSAGE_LENGTH}
                   />
+                  {profanityError && (
+                    <View style={styles.profanityErrorContainer}>
+                      <MaterialCommunityIcons name="alert-circle" size={14} color="#dc2626" />
+                      <Text style={styles.profanityErrorText}>Inappropriate language detected</Text>
+                    </View>
+                  )}
                   <Text style={[
                     styles.characterCounter,
                     { color: characterCount >= MAX_MESSAGE_LENGTH ? '#ef4444' : '#9ca3af' }
@@ -1460,6 +1471,25 @@ const styles = StyleSheet.create({
     maxHeight: 100,
     paddingVertical: 8,
     paddingBottom: 20,
+  },
+  textInputError: {
+    borderWidth: 1,
+    borderColor: '#dc2626',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+  },
+  profanityErrorContainer: {
+    position: 'absolute',
+    left: 0,
+    bottom: 22,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  profanityErrorText: {
+    fontSize: 11,
+    color: '#dc2626',
+    fontWeight: '600',
   },
   characterCounter: {
     position: 'absolute',

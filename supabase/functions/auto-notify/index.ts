@@ -63,8 +63,46 @@ async function getUserTokens(supabase: any, userId: string): Promise<string[]> {
   return (data || []).map((r: any) => r.expo_token).filter((t: string) => t);
 }
 
-// Helper: Check if notification should be sent to user (respects cooldown)
+// Helper: Check if notification should be sent to user (respects cooldown AND scheduling)
 async function shouldSendToUser(supabase: any, userId: string, trigger: any): Promise<boolean> {
+  // Check user registration date - don't send to brand new users (within 24 hours)
+  const { data: profile } = await supabase
+    .from('registration_profiles')
+    .select('created_at')
+    .eq('user_id', userId)
+    .single();
+  
+  if (profile?.created_at) {
+    const userAge = Date.now() - new Date(profile.created_at).getTime();
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+    
+    if (userAge < twentyFourHours) {
+      console.log(`⏭️ User ${userId.substring(0, 8)}... registered <24h ago, skipping`);
+      return false;
+    }
+  }
+
+  // Check if it's the right day of week for this trigger
+  if (trigger.day_of_week !== null && trigger.day_of_week !== undefined) {
+    const currentDay = new Date().getDay(); // 0 = Sunday, 6 = Saturday
+    if (currentDay !== trigger.day_of_week) {
+      console.log(`⏭️ Today is not the scheduled day for ${trigger.trigger_type} (need day ${trigger.day_of_week}, today is ${currentDay})`);
+      return false;
+    }
+  }
+
+  // Check if it's the right hour for this trigger (with 1-hour tolerance)
+  if (trigger.hour_of_day !== null && trigger.hour_of_day !== undefined) {
+    const currentHour = new Date().getHours();
+    const hourDiff = Math.abs(currentHour - trigger.hour_of_day);
+    
+    if (hourDiff > 1) {
+      console.log(`⏭️ Not the right hour for ${trigger.trigger_type} (need hour ${trigger.hour_of_day}, current is ${currentHour})`);
+      return false;
+    }
+  }
+
+  // Check cooldown
   const { data, error } = await supabase.rpc('should_send_notification', {
     p_user_id: userId,
     p_trigger_id: trigger.id,
@@ -142,8 +180,15 @@ serve(async (req) => {
 
     console.log('🤖 Auto-notify started at', new Date().toISOString());
 
+    // Get current day and hour for filtering triggers
+    const now = new Date();
+    const currentDay = now.getDay(); // 0 = Sunday, 6 = Saturday
+    const currentHour = now.getHours();
+    
+    console.log(`📅 Current time: Day ${currentDay} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][currentDay]}), Hour ${currentHour}`);
+
     // Get all active triggers
-    const { data: triggers, error: triggerError } = await supabase
+    const { data: allTriggers, error: triggerError } = await supabase
       .from('notification_triggers')
       .select('*')
       .eq('is_active', true);
@@ -156,7 +201,29 @@ serve(async (req) => {
       });
     }
 
-    console.log(`📋 Found ${triggers?.length || 0} active triggers`);
+    // Filter triggers based on scheduling constraints
+    const triggers = (allTriggers || []).filter(trigger => {
+      // If trigger has day constraint, check if today matches
+      if (trigger.day_of_week !== null && trigger.day_of_week !== undefined) {
+        if (trigger.day_of_week !== currentDay) {
+          console.log(`⏭️ Skipping ${trigger.trigger_type} - scheduled for day ${trigger.day_of_week}, today is ${currentDay}`);
+          return false;
+        }
+      }
+
+      // If trigger has hour constraint, check if current hour is within tolerance (±1 hour)
+      if (trigger.hour_of_day !== null && trigger.hour_of_day !== undefined) {
+        const hourDiff = Math.abs(currentHour - trigger.hour_of_day);
+        if (hourDiff > 1) {
+          console.log(`⏭️ Skipping ${trigger.trigger_type} - scheduled for hour ${trigger.hour_of_day}, current is ${currentHour}`);
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    console.log(`📋 Found ${allTriggers?.length || 0} active triggers, ${triggers.length} applicable for current time`);
 
     let totalSent = 0;
     let totalSkipped = 0;
@@ -172,64 +239,143 @@ serve(async (req) => {
 
       // Determine which users should receive this notification
       switch (trigger.trigger_type) {
-        case 'no_login_today':
-        case 'no_login_3_days': {
-          const daysAgo = trigger.trigger_type === 'no_login_today' ? 1 : 3;
-          const cutoffDate = new Date();
-          cutoffDate.setDate(cutoffDate.getDate() - daysAgo);
+        case 'no_login_today': {
+          // Only send to users who were active before but haven't logged in today
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
           
-          console.log(`   🔍 Looking for users who haven't logged in since ${cutoffDate.toISOString()}`);
-          
-          const { data: users, error: userError } = await supabase
+          const { data: users } = await supabase
             .from('registration_profiles')
-            .select('user_id, details, last_login_at')
-            .lt('last_login_at', cutoffDate.toISOString())
-            .not('last_login_at', 'is', null); // Only users who have logged in before
-          
-          if (userError) {
-            console.error(`   ❌ Error fetching inactive users:`, userError);
-          }
+            .select('user_id, last_login_at, created_at')
+            .not('last_login_at', 'is', null) // Must have logged in before
+            .lt('last_login_at', today.toISOString()) // Last login was before today
+            .lt('created_at', new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()); // Registered >3 days ago (give grace period)
           
           targetUsers = users || [];
-          console.log(`   👥 Found ${targetUsers.length} users inactive for ${daysAgo}+ days`);
+          console.log(`   � Found ${targetUsers.length} users who haven't logged in today`);
+          break;
+        }
+        
+        case 'no_login_3_days': {
+          // Only send to users who haven't logged in for 3+ days
+          const threeDaysAgo = new Date();
+          threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+          
+          const { data: users } = await supabase
+            .from('registration_profiles')
+            .select('user_id, last_login_at, created_at')
+            .not('last_login_at', 'is', null) // Must have logged in before
+            .lt('last_login_at', threeDaysAgo.toISOString()) // Last login was 3+ days ago
+            .lt('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()); // Registered >7 days ago
+          
+          targetUsers = users || [];
+          console.log(`   👥 Found ${targetUsers.length} users inactive for 3+ days`);
           break;
         }
 
         case 'no_workout_logged': {
-          // Users who haven't logged a workout today
+          // Only send to users who:
+          // 1. Haven't logged a workout TODAY
+          // 2. Have logged at least one workout before (so they know how)
+          // 3. Are registered >48 hours (grace period for new users)
           const today = new Date().toISOString().split('T')[0];
+          const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
           
-          const { data: allUsers } = await supabase
+          // Get users registered >48h ago
+          const { data: eligibleUsers } = await supabase
             .from('registration_profiles')
-            .select('user_id');
+            .select('user_id')
+            .lt('created_at', twoDaysAgo);
           
+          if (!eligibleUsers || eligibleUsers.length === 0) {
+            targetUsers = [];
+            break;
+          }
+          
+          const eligibleUserIds = eligibleUsers.map((u: any) => u.user_id);
+          
+          // Get users who have logged at least one workout ever
+          const { data: usersWithHistory } = await supabase
+            .from('completed_workouts')
+            .select('user_id')
+            .in('user_id', eligibleUserIds);
+          
+          if (!usersWithHistory || usersWithHistory.length === 0) {
+            targetUsers = [];
+            break;
+          }
+          
+          const usersWithWorkoutHistory = new Set(usersWithHistory.map((w: any) => w.user_id));
+          
+          // Get users who logged a workout today
           const { data: workoutsToday } = await supabase
             .from('completed_workouts')
             .select('user_id')
             .gte('created_at', `${today}T00:00:00`)
-            .lt('created_at', `${today}T23:59:59`);
+            .lt('created_at', `${today}T23:59:59`)
+            .in('user_id', Array.from(usersWithWorkoutHistory));
           
-          const usersWithWorkouts = new Set((workoutsToday || []).map((w: any) => w.user_id));
-          targetUsers = (allUsers || []).filter((u: any) => !usersWithWorkouts.has(u.user_id));
+          const usersWithWorkoutToday = new Set((workoutsToday || []).map((w: any) => w.user_id));
+          
+          // Target: users with workout history who haven't logged today
+          targetUsers = Array.from(usersWithWorkoutHistory)
+            .filter(userId => !usersWithWorkoutToday.has(userId))
+            .map(user_id => ({ user_id }));
+          
+          console.log(`   👥 Found ${targetUsers.length} users who should log a workout today`);
           break;
         }
 
         case 'no_meal_logged': {
-          // Users who haven't logged a meal today
+          // Only send to users who:
+          // 1. Haven't logged a meal TODAY
+          // 2. Have logged at least one meal before (so they know how)
+          // 3. Are registered >48 hours (grace period for new users)
           const today = new Date().toISOString().split('T')[0];
+          const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
           
-          const { data: allUsers } = await supabase
+          // Get users registered >48h ago
+          const { data: eligibleUsers } = await supabase
             .from('registration_profiles')
-            .select('user_id');
+            .select('user_id')
+            .lt('created_at', twoDaysAgo);
           
+          if (!eligibleUsers || eligibleUsers.length === 0) {
+            targetUsers = [];
+            break;
+          }
+          
+          const eligibleUserIds = eligibleUsers.map((u: any) => u.user_id);
+          
+          // Get users who have logged at least one meal ever
+          const { data: usersWithHistory } = await supabase
+            .from('daily_intake')
+            .select('user_id')
+            .in('user_id', eligibleUserIds);
+          
+          if (!usersWithHistory || usersWithHistory.length === 0) {
+            targetUsers = [];
+            break;
+          }
+          
+          const usersWithMealHistory = new Set(usersWithHistory.map((m: any) => m.user_id));
+          
+          // Get users who logged a meal today
           const { data: mealsToday } = await supabase
             .from('daily_intake')
             .select('user_id')
             .gte('created_at', `${today}T00:00:00`)
-            .lt('created_at', `${today}T23:59:59`);
+            .lt('created_at', `${today}T23:59:59`)
+            .in('user_id', Array.from(usersWithMealHistory));
           
-          const usersWithMeals = new Set((mealsToday || []).map((m: any) => m.user_id));
-          targetUsers = (allUsers || []).filter((u: any) => !usersWithMeals.has(u.user_id));
+          const usersWithMealToday = new Set((mealsToday || []).map((m: any) => m.user_id));
+          
+          // Target: users with meal history who haven't logged today
+          targetUsers = Array.from(usersWithMealHistory)
+            .filter(userId => !usersWithMealToday.has(userId))
+            .map(user_id => ({ user_id }));
+          
+          console.log(`   👥 Found ${targetUsers.length} users who should log a meal today`);
           break;
         }
 
@@ -251,32 +397,79 @@ serve(async (req) => {
         case 'friday_challenge':
         case 'sunday_planning':
         case 'wednesday_wellness': {
-          // Day-specific notifications - send to all active users
+          // Day-specific notifications - send to active users only
+          // Active = logged in within last 14 days AND registered >24h ago
+          const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+          
           const { data: users } = await supabase
             .from('registration_profiles')
-            .select('user_id');
+            .select('user_id, last_login_at, created_at')
+            .lt('created_at', oneDayAgo) // Registered >24h ago
+            .gte('last_login_at', fourteenDaysAgo); // Active within last 14 days
           
           targetUsers = users || [];
+          console.log(`   👥 Found ${targetUsers.length} active users for ${trigger.trigger_type}`);
           break;
         }
 
         case 'daily_hydration': {
-          // Send to all users
+          // Send to active users (logged in within last 7 days) who are registered >24h ago
+          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+          
           const { data: users } = await supabase
             .from('registration_profiles')
-            .select('user_id');
+            .select('user_id, last_login_at, created_at')
+            .lt('created_at', oneDayAgo) // Registered >24h ago
+            .gte('last_login_at', sevenDaysAgo); // Active within last 7 days
           
           targetUsers = users || [];
+          console.log(`   👥 Found ${targetUsers.length} active users for hydration reminder`);
           break;
         }
 
         case 'weekly_progress_report': {
-          // Sunday evening - send to all users
-          const { data: users } = await supabase
-            .from('registration_profiles')
-            .select('user_id');
+          // Sunday evening - send to users who:
+          // 1. Registered >7 days ago (need full week of data)
+          // 2. Have logged at least one activity this week
+          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
           
-          targetUsers = users || [];
+          // Get users registered >7 days ago
+          const { data: eligibleUsers } = await supabase
+            .from('registration_profiles')
+            .select('user_id, created_at')
+            .lt('created_at', sevenDaysAgo);
+          
+          if (!eligibleUsers || eligibleUsers.length === 0) {
+            targetUsers = [];
+            break;
+          }
+          
+          const eligibleUserIds = eligibleUsers.map((u: any) => u.user_id);
+          
+          // Get users who logged workouts this week
+          const { data: workoutsThisWeek } = await supabase
+            .from('completed_workouts')
+            .select('user_id')
+            .gte('created_at', sevenDaysAgo)
+            .in('user_id', eligibleUserIds);
+          
+          // Get users who logged meals this week
+          const { data: mealsThisWeek } = await supabase
+            .from('daily_intake')
+            .select('user_id')
+            .gte('created_at', sevenDaysAgo)
+            .in('user_id', eligibleUserIds);
+          
+          // Combine users with any activity this week
+          const activeUserIds = new Set([
+            ...(workoutsThisWeek || []).map((w: any) => w.user_id),
+            ...(mealsThisWeek || []).map((m: any) => m.user_id)
+          ]);
+          
+          targetUsers = Array.from(activeUserIds).map(user_id => ({ user_id }));
+          console.log(`   👥 Found ${targetUsers.length} users with activity this week for progress report`);
           break;
         }
 

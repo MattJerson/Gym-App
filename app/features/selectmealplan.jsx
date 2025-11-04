@@ -20,6 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DropDownPicker from "react-native-dropdown-picker";
+import { OnboardingService } from "../../services/OnboardingService";
 
 export default function SelectMealPlan() {
   const router = useRouter();
@@ -34,6 +35,8 @@ export default function SelectMealPlan() {
   const [sortBy, setSortBy] = useState("recommended");
   const [userPreferences, setUserPreferences] = useState(null);
   const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
+  const [onboardingStatus, setOnboardingStatus] = useState(null);
+  const [progressInfo, setProgressInfo] = useState({ currentStep: 2, totalSteps: 2, percentage: 100 });
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -43,7 +46,23 @@ export default function SelectMealPlan() {
     }).start();
 
     loadMealPlans();
+    checkOnboardingProgress();
   }, []);
+
+  const checkOnboardingProgress = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const status = await OnboardingService.checkOnboardingStatus(user.id);
+        setOnboardingStatus(status);
+        
+        const progress = OnboardingService.calculateProgress('mealplan', status);
+        setProgressInfo(progress);
+      }
+    } catch (error) {
+      console.error('Error checking onboarding progress:', error);
+    }
+  };
 
   const loadMealPlans = async () => {
     try {
@@ -420,16 +439,7 @@ export default function SelectMealPlan() {
       await AsyncStorage.removeItem("onboarding:selectedWorkouts");
 
       // Mark onboarding as complete in database
-      const { error: completeError } = await supabase
-        .from("registration_profiles")
-        .update({ onboarding_completed: true })
-        .eq("user_id", user.id);
-
-      if (completeError) {
-        console.error("Failed to mark onboarding complete:", completeError);
-      } else {
-        console.log("✅ Onboarding marked as complete");
-      }
+      await OnboardingService.markOnboardingComplete(user.id);
 
       // Navigate to home
       router.replace("/page/home");
@@ -441,33 +451,34 @@ export default function SelectMealPlan() {
     }
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
     // Complete without meal plan selection
-    (async () => {
-      setIsCompleting(true);
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user) {
-          // Mark onboarding as complete even if skipped
-          await supabase
-            .from("registration_profiles")
-            .update({ onboarding_completed: true })
-            .eq("user_id", user.id);
-
-          // Save minimal data and navigate to home
-          await AsyncStorage.removeItem("onboarding:registration");
-          await AsyncStorage.removeItem("onboarding:bodyfat");
-          await AsyncStorage.removeItem("onboarding:selectedWorkouts");
-          router.replace("/page/home");
-        }
-      } catch (error) {
-        console.error("Error skipping:", error);
-      } finally {
+    setIsCompleting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert("Error", "You must be signed in.");
         setIsCompleting(false);
+        return;
       }
-    })();
+
+      // Check if workouts step is complete
+      const status = await OnboardingService.checkOnboardingStatus(user.id);
+      
+      if (status.hasWorkouts) {
+        // Workouts already selected - mark onboarding complete and go to home
+        await OnboardingService.markOnboardingComplete(user.id);
+        router.replace("/page/home");
+      } else {
+        // Navigate back to workout selection
+        router.push("/features/selectworkouts");
+      }
+    } catch (error) {
+      console.error("Error in skip:", error);
+      Alert.alert("Error", "An unexpected error occurred");
+    } finally {
+      setIsCompleting(false);
+    }
   };
 
   return (
@@ -489,9 +500,11 @@ export default function SelectMealPlan() {
           {/* Progress Bar */}
           <View style={styles.progressBarContainer}>
             <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: "100%" }]} />
+              <View style={[styles.progressFill, { width: `${progressInfo.percentage}%` }]} />
             </View>
-            <Text style={styles.progressText}>Step 2 of 2</Text>
+            <Text style={styles.progressText}>
+              Step {progressInfo.currentStep} of {progressInfo.totalSteps}
+            </Text>
           </View>
 
           {/* Title Section */}

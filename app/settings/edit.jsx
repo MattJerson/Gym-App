@@ -17,6 +17,7 @@ import { supabase } from "../../services/supabase";
 import SettingsHeader from "../../components/SettingsHeader";
 import DropDownPicker from "react-native-dropdown-picker";
 import { SettingsPageSkeleton } from "../../components/skeletons/SettingsPageSkeleton";
+import { validateMessage } from "../../services/ChatServices";
 
 export default function EditProfile() {
   const [isLoading, setIsLoading] = useState(true);
@@ -199,6 +200,27 @@ export default function EditProfile() {
       if (!userId) {
         Alert.alert("Error", "User not authenticated");
         return;
+      }
+
+      // Validate name/nickname for profanity
+      if (name && name.trim()) {
+        if (name.trim().length < 3) {
+          Alert.alert("Invalid Name", "Name must be at least 3 characters.");
+          setIsSaving(false);
+          return;
+        }
+        if (name.trim().length > 20) {
+          Alert.alert("Invalid Name", "Name must be 20 characters or less.");
+          setIsSaving(false);
+          return;
+        }
+        
+        const validation = validateMessage(name);
+        if (validation.hasProfanity) {
+          Alert.alert("Inappropriate Name", "Your name contains inappropriate language. Please choose a different name.");
+          setIsSaving(false);
+          return;
+        }
       }
 
       // Update auth user metadata

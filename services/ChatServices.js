@@ -8,8 +8,48 @@ export const MAX_MESSAGE_LENGTH = 500;
 const RATE_LIMIT_MAX = 10; // messages per window
 const RATE_LIMIT_WINDOW = 1; // minutes
 
-// Client-side profanity check (simple version - server has full list)
-const commonProfanity = ['spam', 'scam', 'hate', 'idiot', 'stupid', 'dumb', 'fuck', 'shit', 'ass', 'bitch'];
+// Client-side profanity check with robust pattern matching
+const profanityPatterns = [
+  // Base words with common variations
+  { pattern: /s[p@]a*m+/i, word: 'spam' },
+  { pattern: /sc[a@]m+/i, word: 'scam' },
+  { pattern: /h[a@]t[e3]/i, word: 'hate' },
+  { pattern: /[i1!][d]?[i1!][o0][t+]/i, word: 'idiot' },
+  { pattern: /st[u\*][p]+[i1!]d/i, word: 'stupid' },
+  { pattern: /d[u\*]m+b*/i, word: 'dumb' },
+  { pattern: /f[@\*u]c*k+/i, word: 'fuck' },
+  { pattern: /sh[i1!@\*]t+/i, word: 'shit' },
+  { pattern: /[a@]s+[s\*]+/i, word: 'ass' },
+  { pattern: /b[i1!]t+c*h+/i, word: 'bitch' },
+  { pattern: /n[i1!]g+[e3]r/i, word: 'racial slur' },
+  { pattern: /f[a@]g+[o0]*t*/i, word: 'slur' },
+  { pattern: /r[e3]t[a@]rd/i, word: 'retard' },
+  { pattern: /wh[o0]r[e3]/i, word: 'whore' },
+  { pattern: /sl[u\*]t+/i, word: 'slut' },
+  { pattern: /c[u\*]nt+/i, word: 'cunt' },
+  { pattern: /d[i1!]ck+/i, word: 'dick' },
+  { pattern: /p[u\*]ss[y\*]/i, word: 'pussy' },
+  { pattern: /k[i1!]ll\s+(your)?self/i, word: 'self harm' },
+  { pattern: /k[y\*]s/i, word: 'kys' },
+];
+
+// Normalize text to catch leetspeak and special character substitutions
+const normalizeText = (text) => {
+  return text
+    .toLowerCase()
+    .replace(/\s+/g, '') // Remove spaces (f u c k -> fuck)
+    .replace(/[^a-z0-9]/g, (char) => {
+      // Common substitutions
+      const subs = {
+        '@': 'a', '4': 'a', '∆': 'a',
+        '8': 'b', '€': 'e', '3': 'e',
+        '1': 'i', '!': 'i', '|': 'i',
+        '0': 'o', '$': 's', '5': 's',
+        '7': 't', '+': 't', '*': '', '.': ''
+      };
+      return subs[char] || char;
+    });
+};
 
 export const validateMessage = (content) => {
   const errors = [];
@@ -36,11 +76,16 @@ export const validateMessage = (content) => {
     errors.push('Message contains spam patterns');
   }
   
-  // Quick profanity check
-  const lowerContent = content.toLowerCase();
-  const foundProfanity = commonProfanity.filter(word => 
-    lowerContent.includes(word)
-  );
+  // Robust profanity check
+  const normalized = normalizeText(content);
+  const foundProfanity = [];
+  
+  // Check against pattern list
+  for (const { pattern, word } of profanityPatterns) {
+    if (pattern.test(content) || pattern.test(normalized)) {
+      foundProfanity.push(word);
+    }
+  }
   
   if (foundProfanity.length > 0) {
     errors.push('Message contains inappropriate language');

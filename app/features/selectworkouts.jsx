@@ -19,6 +19,7 @@ import { useState, useEffect, useRef } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { OnboardingService } from "../../services/OnboardingService";
 
 const { width } = Dimensions.get("window");
 
@@ -42,6 +43,8 @@ export default function SelectWorkouts() {
   const [selectedWorkouts, setSelectedWorkouts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [onboardingStatus, setOnboardingStatus] = useState(null);
+  const [progressInfo, setProgressInfo] = useState({ currentStep: 1, totalSteps: 2, percentage: 50 });
 
   useEffect(() => {
     Animated.timing(fadeAnim, {
@@ -51,7 +54,23 @@ export default function SelectWorkouts() {
     }).start();
 
     loadWorkouts();
+    checkOnboardingProgress();
   }, []);
+
+  const checkOnboardingProgress = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const status = await OnboardingService.checkOnboardingStatus(user.id);
+        setOnboardingStatus(status);
+        
+        const progress = OnboardingService.calculateProgress('workouts', status);
+        setProgressInfo(progress);
+      }
+    } catch (error) {
+      console.error('Error checking onboarding progress:', error);
+    }
+  };
 
   const loadWorkouts = async () => {
     try {
@@ -64,7 +83,7 @@ export default function SelectWorkouts() {
 
       if (catError) throw catError;
 
-      // Load workout templates
+      // Load workout templates (admin-created only, not user-created)
       const { data: workoutsData, error: workError } = await supabase
         .from("workout_templates")
         .select(
@@ -74,6 +93,7 @@ export default function SelectWorkouts() {
         `
         )
         .eq("is_active", true)
+        .is("created_by_user_id", null) // Only show admin templates (not user-created)
         .order("name");
 
       if (workError) throw workError;
@@ -177,8 +197,17 @@ export default function SelectWorkouts() {
 
       console.log("✅ Successfully saved", selectedWorkouts.length, "workouts");
 
-      // Navigate to meal plan selection
-      router.push("/features/selectmealplan");
+      // Check if meal plan step is already complete
+      const updatedStatus = await OnboardingService.checkOnboardingStatus(user.id);
+      
+      if (updatedStatus.hasMealPlan) {
+        // Meal plan already selected - mark onboarding complete and go to home
+        await OnboardingService.markOnboardingComplete(user.id);
+        router.replace("/page/home");
+      } else {
+        // Navigate to meal plan selection
+        router.push("/features/selectmealplan");
+      }
     } catch (error) {
       console.error("Error saving selections:", error);
       Alert.alert("Error", "An unexpected error occurred");
@@ -187,8 +216,28 @@ export default function SelectWorkouts() {
     }
   };
 
-  const handleSkip = () => {
-    router.push("/features/selectmealplan");
+  const handleSkip = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Check if meal plan is already complete
+        const status = await OnboardingService.checkOnboardingStatus(user.id);
+        
+        if (status.hasMealPlan) {
+          // Meal plan already selected - mark onboarding complete and go to home
+          await OnboardingService.markOnboardingComplete(user.id);
+          router.replace("/page/home");
+        } else {
+          // Navigate to meal plan selection
+          router.push("/features/selectmealplan");
+        }
+      } else {
+        router.push("/features/selectmealplan");
+      }
+    } catch (error) {
+      console.error('Error in skip:', error);
+      router.push("/features/selectmealplan");
+    }
   };
 
   return (
@@ -210,9 +259,11 @@ export default function SelectWorkouts() {
           {/* Progress Bar */}
           <View style={styles.progressBarContainer}>
             <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: "50%" }]} />
+              <View style={[styles.progressFill, { width: `${progressInfo.percentage}%` }]} />
             </View>
-            <Text style={styles.progressText}>Step 1 of 2</Text>
+            <Text style={styles.progressText}>
+              Step {progressInfo.currentStep} of {progressInfo.totalSteps}
+            </Text>
           </View>
 
           {/* Title Section */}

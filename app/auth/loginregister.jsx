@@ -20,6 +20,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { supabase, pingSupabase } from "../../services/supabase";
 import { logger } from "../../services/logger";
 import { registerDeviceToken } from "../../services/notifications";
+import { validateMessage } from "../../services/ChatServices";
 
 /**
  * Determines the next onboarding step based on what data is missing
@@ -285,7 +286,20 @@ export default function Register() {
 
     // Registration-specific validation
     if (isRegistering) {
-      if (!nickname.trim()) newErrors.nickname = "Nickname is required.";
+      if (!nickname.trim()) {
+        newErrors.nickname = "Nickname is required.";
+      } else if (nickname.trim().length < 3) {
+        newErrors.nickname = "Nickname must be at least 3 characters.";
+      } else if (nickname.trim().length > 20) {
+        newErrors.nickname = "Nickname must be 20 characters or less.";
+      } else {
+        // Check for profanity in nickname
+        const validation = validateMessage(nickname);
+        if (validation.hasProfanity) {
+          newErrors.nickname = "Nickname contains inappropriate language.";
+        }
+      }
+      
       if (password !== confirmPassword)
         newErrors.confirmPassword = "Passwords do not match.";
     }
