@@ -52,6 +52,7 @@ export default function CommunityChat() {
   const [dmList, setDmList] = useState([]);
   const [dmMessages, setDmMessages] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false); // Add admin state
   
   // Unread tracking
   const [unreadCounts, setUnreadCounts] = useState({ channels: [], dms: [], totalUnread: 0 });
@@ -154,6 +155,18 @@ export default function CommunityChat() {
     } = await supabase.auth.getUser();
     console.log("[CommunityChat] getCurrentUser auth user:", user);
     if (user) {
+      // Check if user is admin
+      const { data: adminCheck } = await supabase
+        .from("registration_profiles")
+        .select("is_admin")
+        .eq("user_id", user.id)
+        .single();
+      
+      if (adminCheck?.is_admin) {
+        console.log("[CommunityChat] User is admin");
+        setIsAdmin(true);
+      }
+
       // Fetch user profile
       const { data: profile } = await supabase
         .from("chats")
@@ -229,8 +242,11 @@ export default function CommunityChat() {
     setLoading(true);
     const { data, error } = await fetchChannels();
     if (data) {
+      // Filter to only show general and announcements channels
+      const allowedChannels = data.filter(ch => ch.id === 'general' || ch.id === 'announcements');
+      
       // Group channels by category
-      const grouped = data.reduce((acc, channel) => {
+      const grouped = allowedChannels.reduce((acc, channel) => {
         const category = acc.find((c) => c.name === channel.category);
         if (category) {
           category.channels.push({
@@ -431,6 +447,17 @@ export default function CommunityChat() {
       setSending(false);
       return;
     }
+
+    // Check if trying to post to announcements without admin privileges
+    if (viewMode === "channels" && activeChannel === 'announcements' && !isAdmin) {
+      Alert.alert(
+        "Announcements Only",
+        "Only admins can post announcements. You can view announcements but not create them."
+      );
+      setSending(false);
+      return;
+    }
+
     console.log("[CommunityChat] handleSendMessage start", {
       viewMode,
       activeChannel,
@@ -684,31 +711,44 @@ export default function CommunityChat() {
       <Text style={styles.categoryTitle}>{item.name}</Text>
       {item.channels.map((channel) => {
         const unreadCount = getChannelUnreadCount(channel.id);
+        const isAnnouncementChannel = channel.id === 'announcements';
         return (
           <Pressable
             key={channel.id}
             style={[
               styles.channelItem,
               activeChannel === channel.id && styles.activeChannelItem,
+              isAnnouncementChannel && styles.announcementChannelItem,
+              activeChannel === channel.id && isAnnouncementChannel && styles.activeAnnouncementChannelItem,
             ]}
             onPress={() => openChannel(channel.id)}
           >
             <MaterialCommunityIcons
               name={channel.icon}
-              size={18}
-              color={activeChannel === channel.id ? "#fff" : "#aaa"}
+              size={20}
+              color={
+                activeChannel === channel.id 
+                  ? "#fff" 
+                  : isAnnouncementChannel 
+                    ? "#f97316" 
+                    : "#aaa"
+              }
               style={styles.channelIcon}
             />
             <Text
               style={[
                 styles.channelName,
                 activeChannel === channel.id && styles.activeChannelName,
+                isAnnouncementChannel && styles.announcementChannelName,
               ]}
             >
               {channel.name}
             </Text>
             {unreadCount > 0 && (
-              <View style={styles.unreadBadge}>
+              <View style={[
+                styles.unreadBadge,
+                isAnnouncementChannel && styles.announcementUnreadBadge
+              ]}>
                 <Text style={styles.unreadCount}>{unreadCount}</Text>
               </View>
             )}
@@ -1219,8 +1259,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 12,
   },
+  announcementChannelItem: {
+    backgroundColor: "rgba(249, 115, 22, 0.1)", // Orange tint
+    borderWidth: 1,
+    borderColor: "rgba(249, 115, 22, 0.3)",
+  },
   activeChannelItem: {
     backgroundColor: "rgba(255, 255, 255, 0.15)",
+  },
+  activeAnnouncementChannelItem: {
+    backgroundColor: "rgba(249, 115, 22, 0.2)",
+    borderColor: "#f97316",
   },
   channelIcon: {
     marginRight: 10,
@@ -1231,6 +1280,11 @@ const styles = StyleSheet.create({
     color: "#aaa",
     fontWeight: "500",
   },
+  announcementChannelName: {
+    color: "#fb923c", // Lighter orange
+    fontWeight: "700",
+    fontSize: 14,
+  },
   activeChannelName: {
     color: "#fff",
     fontWeight: "600",
@@ -1238,11 +1292,14 @@ const styles = StyleSheet.create({
   unreadBadge: {
     height: 20,
     minWidth: 20,
+    backgroundColor: "#e74c3c",
     borderRadius: 10,
     alignItems: "center",
-    paddingHorizontal: 6,
     justifyContent: "center",
-    backgroundColor: "#e74c3c",
+    paddingHorizontal: 6,
+  },
+  announcementUnreadBadge: {
+    backgroundColor: "#f97316",
   },
   unreadCount: {
     fontSize: 11,
@@ -1477,6 +1534,12 @@ const styles = StyleSheet.create({
     borderColor: '#dc2626',
     borderRadius: 8,
     paddingHorizontal: 8,
+  },
+  textInputDisabled: {
+    backgroundColor: '#f3f4f6',
+    color: '#9ca3af',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
   },
   profanityErrorContainer: {
     position: 'absolute',

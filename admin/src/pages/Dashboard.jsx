@@ -11,7 +11,7 @@ import {
   Zap
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseAdmin } from '../lib/supabase';
 import StatsCard from '../components/common/StatsCard';
 import RecentActivityCard from '../components/dashboard/RecentActivityCard';
 import QuickStatsGrid from '../components/dashboard/QuickStatsGrid';
@@ -71,103 +71,227 @@ const Dashboard = () => {
 
       const newUsersThisMonth = usersCount - lastMonthUsers;
 
-      // Fetch active subscriptions with packages
-      const { data: activeSubscriptions } = await supabase
-        .from('user_subscriptions')
-        .select(`
-          *,
-          subscription_packages(price_monthly, price_yearly, billing_cycle)
-        `)
-        .eq('status', 'active');
-
-      const subsCount = activeSubscriptions?.length || 0;
-      
-      // Calculate MRR (Monthly Recurring Revenue)
+      // Fetch active subscriptions with packages (with error handling)
+      let activeSubscriptions = [];
+      let subsCount = 0;
       let mrr = 0;
-      activeSubscriptions?.forEach(sub => {
-        const pkg = sub.subscription_packages;
-        if (pkg) {
-          if (pkg.billing_cycle === 'monthly') {
-            mrr += pkg.price_monthly || 0;
-          } else if (pkg.billing_cycle === 'yearly') {
-            mrr += (pkg.price_yearly || 0) / 12; // Convert yearly to monthly
-          }
+      let subsGrowth = 0;
+      
+      try {
+        const { data, error } = await supabase
+          .from('user_subscriptions')
+          .select(`
+            *,
+            subscription_packages(price_monthly, price_yearly, billing_cycle)
+          `)
+          .eq('status', 'active');
+        
+        if (!error && data) {
+          activeSubscriptions = data;
+          subsCount = data.length;
+          
+          // Calculate MRR (Monthly Recurring Revenue)
+          data.forEach(sub => {
+            const pkg = sub.subscription_packages;
+            if (pkg) {
+              if (pkg.billing_cycle === 'monthly') {
+                mrr += pkg.price_monthly || 0;
+              } else if (pkg.billing_cycle === 'yearly') {
+                mrr += (pkg.price_yearly || 0) / 12;
+              }
+            }
+          });
+
+          // Get subscription growth
+          const { count: lastMonthSubs } = await supabase
+            .from('user_subscriptions')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'active')
+            .lt('created_at', currentMonthStart.toISOString());
+
+          subsGrowth = lastMonthSubs > 0
+            ? (((subsCount - lastMonthSubs) / lastMonthSubs) * 100).toFixed(1)
+            : 0;
         }
-      });
-
-      // Get subscription growth
-      const { count: lastMonthSubs } = await supabase
-        .from('user_subscriptions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active')
-        .lt('created_at', currentMonthStart.toISOString());
-
-      const subsGrowth = lastMonthSubs > 0
-        ? (((subsCount - lastMonthSubs) / lastMonthSubs) * 100).toFixed(1)
-        : 0;
+      } catch (err) {
+        console.log('Could not fetch subscription data:', err.message);
+      }
 
       // Calculate conversion rate
       const conversionRate = usersCount > 0 
         ? ((subsCount / usersCount) * 100).toFixed(1)
         : 0;
 
-      // Fetch workout data
-      const { count: workoutsThisMonth } = await supabase
-        .from('workout_logs')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', currentMonthStart.toISOString());
-
-      const { count: workoutsLastMonth } = await supabase
-        .from('workout_logs')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', lastMonthStart.toISOString())
-        .lt('created_at', currentMonthStart.toISOString());
-
-      const workoutGrowth = workoutsLastMonth > 0
-        ? (((workoutsThisMonth - workoutsLastMonth) / workoutsLastMonth) * 100).toFixed(1)
-        : 0;
-
-      // User engagement metrics
-      const { data: activeWorkouts } = await supabase
-        .from('workout_logs')
-        .select('user_id')
-        .gte('created_at', sevenDaysAgo.toISOString());
-
-      const activeUsersThisWeek = new Set(activeWorkouts?.map(w => w.user_id)).size;
+      // Fetch workout data (with error handling)
+      let workoutsThisMonth = 0;
+      let workoutsLastMonth = 0;
+      let workoutGrowth = 0;
+      let activeUsersThisWeek = 0;
+      let engagementRate = 0;
+      let totalWorkoutMinutes = 0;
+      let avgWorkoutDuration = 0;
       
-      const engagementRate = usersCount > 0
-        ? ((activeUsersThisWeek / usersCount) * 100).toFixed(1)
-        : 0;
+      try {
+        const { count: thisMonth } = await supabase
+          .from('workout_logs')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', currentMonthStart.toISOString());
 
-      // Fetch meal data
-      const { count: mealsCount } = await supabase
-        .from('user_meals')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', sevenDaysAgo.toISOString());
+        const { count: lastMonth } = await supabase
+          .from('workout_logs')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', lastMonthStart.toISOString())
+          .lt('created_at', currentMonthStart.toISOString());
 
-      // Calculate churn risk (users with no activity in 14 days)
-      const { data: recentActivityData } = await supabase
-        .from('workout_logs')
-        .select('user_id')
-        .gte('created_at', fourteenDaysAgo.toISOString());
+        workoutsThisMonth = thisMonth || 0;
+        workoutsLastMonth = lastMonth || 0;
+        
+        workoutGrowth = lastMonth > 0
+          ? (((thisMonth - lastMonth) / lastMonth) * 100).toFixed(1)
+          : 0;
 
-      const activeUserIds = new Set(recentActivityData?.map(w => w.user_id));
-      const inactiveUsers = usersCount - activeUserIds.size;
-      const churnRisk = usersCount > 0
-        ? ((inactiveUsers / usersCount) * 100).toFixed(1)
-        : 0;
+        // User engagement metrics
+        const { data: activeWorkouts } = await supabase
+          .from('workout_logs')
+          .select('user_id')
+          .gte('created_at', sevenDaysAgo.toISOString());
 
-      // Fetch top users by points
-      const { data: topUsers } = await supabase
-        .from('user_stats')
-        .select(`
-          *,
-          profiles(full_name)
-        `)
-        .order('total_points', { ascending: false })
-        .limit(5);
+        activeUsersThisWeek = new Set(activeWorkouts?.map(w => w.user_id)).size;
+        
+        engagementRate = usersCount > 0
+          ? ((activeUsersThisWeek / usersCount) * 100).toFixed(1)
+          : 0;
 
-      // Fetch recent activity with details
+        // Calculate workout stats
+        const { data: workoutStats } = await supabase
+          .from('workout_logs')
+          .select('duration_minutes')
+          .gte('created_at', thirtyDaysAgo.toISOString());
+
+        totalWorkoutMinutes = workoutStats?.reduce((sum, w) => sum + (w.duration_minutes || 0), 0) || 0;
+        avgWorkoutDuration = workoutStats?.length > 0 
+          ? Math.round(totalWorkoutMinutes / workoutStats?.length) 
+          : 0;
+      } catch (err) {
+        console.log('Could not fetch workout data:', err.message);
+      }
+
+      // Fetch meal data (with error handling)
+      let mealsCount = 0;
+      try {
+        const { count } = await supabase
+          .from('user_meals')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', sevenDaysAgo.toISOString());
+        mealsCount = count || 0;
+      } catch (err) {
+        console.log('Could not fetch meal data:', err.message);
+      }
+
+      // Calculate churn risk (with error handling)
+      let churnRisk = 0;
+      let inactiveUsers = 0;
+      try {
+        const { data: recentActivityData } = await supabase
+          .from('workout_logs')
+          .select('user_id')
+          .gte('created_at', fourteenDaysAgo.toISOString());
+
+        const activeUserIds = new Set(recentActivityData?.map(w => w.user_id));
+        inactiveUsers = usersCount - activeUserIds.size;
+        churnRisk = usersCount > 0
+          ? ((inactiveUsers / usersCount) * 100).toFixed(1)
+          : 0;
+      } catch (err) {
+        console.log('Could not calculate churn risk:', err.message);
+      }
+
+      // Fetch top users by points (with error handling)
+      let topUsers = [];
+      try {
+        const { data } = await supabase
+          .from('user_stats')
+          .select(`
+            *,
+            profiles(full_name)
+          `)
+          .order('total_points', { ascending: false })
+          .limit(5);
+        topUsers = data || [];
+      } catch (err) {
+        console.log('Could not fetch top users:', err.message);
+      }
+
+      // Fetch most popular workouts (with error handling)
+      let topWorkouts = [];
+      try {
+        const { data: popularWorkouts } = await supabase
+          .from('workout_logs')
+          .select('workout_name')
+          .gte('created_at', thirtyDaysAgo.toISOString());
+
+        const workoutCounts = {};
+        popularWorkouts?.forEach(w => {
+          workoutCounts[w.workout_name] = (workoutCounts[w.workout_name] || 0) + 1;
+        });
+        topWorkouts = Object.entries(workoutCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([name, count]) => ({ name, count }));
+      } catch (err) {
+        console.log('Could not fetch popular workouts:', err.message);
+      }
+
+      // Fetch admin activity logs (may not exist if migration not run yet)
+      let adminActivities = [];
+      try {
+        const { data, error } = await supabase
+          .from('admin_activity_log')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(50); // Fetch more to have enough after combining
+        
+        if (!error) {
+          adminActivities = data || [];
+        }
+      } catch (err) {
+        console.log('Admin activity log table not available yet:', err.message);
+      }
+
+      // Fetch recent users ONLY if admin_activity_log is empty (backward compatibility)
+      let recentUsers = [];
+      if (adminActivities.length === 0 || !adminActivities.some(a => a.activity_type === 'user_registered')) {
+        const { data } = await supabase
+          .from('registration_profiles')
+          .select(`
+            user_id,
+            details,
+            created_at
+          `)
+          .order('created_at', { ascending: false })
+          .limit(6);
+        
+        recentUsers = data || [];
+      }
+
+      // Fetch emails from auth.users for recent users (using admin client)
+      let emailMap = {};
+      try {
+        if (supabaseAdmin) {
+          const { data: authUsers, error } = await supabaseAdmin.auth.admin.listUsers();
+          if (!error && authUsers?.users) {
+            authUsers.users.forEach(u => {
+              emailMap[u.id] = u.email;
+            });
+          }
+        } else {
+          console.log('Service role key not configured - emails will not be displayed');
+        }
+      } catch (err) {
+        console.log('Could not fetch auth users:', err.message);
+      }
+
+      // Fetch recent workouts
       const { data: recentWorkouts } = await supabase
         .from('workout_logs')
         .select(`
@@ -182,70 +306,81 @@ const Dashboard = () => {
         .order('created_at', { ascending: false })
         .limit(6);
 
-      // Fetch recent users
-      const { data: recentUsers } = await supabase
-        .from('profiles')
-        .select(`
-          id, 
-          full_name, 
-          created_at
-        `)
-        .order('created_at', { ascending: false })
-        .limit(6);
-
-      // Get emails from auth.users for recent users
-      const { data: authUsers } = await supabase.auth.admin.listUsers();
-      const emailMap = {};
-      authUsers?.users?.forEach(u => {
-        emailMap[u.id] = u.email;
-      });
-
       // Fetch most popular workouts
       const { data: popularWorkouts } = await supabase
         .from('workout_logs')
         .select('workout_name')
         .gte('created_at', thirtyDaysAgo.toISOString());
 
-      const workoutCounts = {};
-      popularWorkouts?.forEach(w => {
-        workoutCounts[w.workout_name] = (workoutCounts[w.workout_name] || 0) + 1;
-      });
-      const topWorkouts = Object.entries(workoutCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([name, count]) => ({ name, count }));
-
-      // Calculate workout stats
-      const { data: workoutStats } = await supabase
-        .from('workout_logs')
-        .select('duration_minutes')
-        .gte('created_at', thirtyDaysAgo.toISOString());
-
-      const totalWorkoutMinutes = workoutStats?.reduce((sum, w) => sum + (w.duration_minutes || 0), 0) || 0;
-      const avgWorkoutDuration = workoutStats?.length > 0 
-        ? Math.round(totalWorkoutMinutes / workoutStats?.length) 
-        : 0;
-
-      // Format recent activity with detailed info
+      // Format recent activity with detailed info - combining all sources
       const activities = [
-        ...(recentUsers?.slice(0, 4).map(u => ({
-          id: u.id,
-          type: 'user',
-          name: u.full_name || 'New User',
-          action: 'Joined the platform',
-          email: emailMap[u.id] || 'No email',
-          metadata: `ID: ${u.id.substring(0, 8)}...`,
-          time: formatTimeAgo(u.created_at)
-        })) || []),
-        ...(recentWorkouts?.slice(0, 4).map(w => ({
+        // Admin activity logs (shuffles, notifications, moderation, user registrations, etc.)
+        ...(adminActivities?.map(a => {
+          // For user registrations, enrich with email
+          if (a.activity_type === 'user_registered') {
+            const userEmail = emailMap[a.target_id] || emailMap[a.metadata?.user_id] || 'No email';
+            const displayName = a.metadata?.nickname || 'Unknown User';
+            const shortUID = (a.target_id || a.metadata?.user_id || '').substring(0, 8) + '...';
+            
+            return {
+              id: a.id,
+              type: 'user',
+              activityType: 'user_registered',
+              name: 'New User Registered',
+              action: `Name: ${displayName}`,
+              email: userEmail,
+              metadata: `UID: ${shortUID}`,
+              time: formatTimeAgo(a.created_at),
+              timestamp: a.created_at
+            };
+          }
+          
+          // For other admin activities
+          return {
+            id: a.id,
+            type: a.activity_category,
+            activityType: a.activity_type,
+            name: a.title,
+            action: a.description || a.title,
+            metadata: a.metadata?.nickname || a.metadata?.content_preview || 
+                     (a.metadata?.notification_title ? `"${a.metadata.notification_title}"` : '') ||
+                     (a.metadata?.channel_id ? `in ${a.metadata.channel_id}` : ''),
+            time: formatTimeAgo(a.created_at),
+            timestamp: a.created_at
+          };
+        }) || []),
+        // User registrations - ONLY if admin_activity_log doesn't have them (backward compatibility)
+        ...(recentUsers?.map(u => {
+          const displayName = u.details?.display_name || 'Unknown User';
+          const shortUID = u.user_id.substring(0, 8) + '...';
+          const userEmail = emailMap[u.user_id] || 'No email';
+          
+          return {
+            id: u.user_id,
+            type: 'user',
+            activityType: 'user_registered',
+            name: 'New User Registered',
+            action: `Name: ${displayName}`,
+            email: userEmail,
+            metadata: `UID: ${shortUID}`,
+            time: formatTimeAgo(u.created_at),
+            timestamp: u.created_at
+          };
+        }) || []),
+        // Workout completions
+        ...(recentWorkouts?.map(w => ({
           id: w.id,
           type: 'workout',
+          activityType: 'workout_completed',
           name: w.profiles?.full_name || 'User',
           action: `Completed ${w.workout_name}`,
           metadata: `${w.duration_minutes}min • ${w.calories_burned} cal`,
-          time: formatTimeAgo(w.created_at)
+          time: formatTimeAgo(w.created_at),
+          timestamp: w.created_at
         })) || [])
-      ].sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 8);
+      ]
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, 10); // Show top 10 most recent activities
 
       // Executive-level quick stats
       const quickStats = [

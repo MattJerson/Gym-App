@@ -41,6 +41,7 @@ const Sidebar = () => {
     { label: "Workout Plans", icon: Dumbbell, path: "/workouts" },
     { label: "Featured Content", icon: Star, path: "/featured" },
     { label: "Notifications", icon: Bell, path: "/notifications" },
+    { label: "Community Chat", icon: MessageCircle, path: "/chat" },
     { label: "Subscriptions", icon: CreditCard, path: "/subscriptions" },
     { label: "User Management", icon: Users, path: "/users" },
     { label: "Reports & Analytics", icon: BarChart3, path: "/analytics" },

@@ -325,6 +325,18 @@ const FeaturedContent = () => {
 
       if (error) throw error;
 
+      // Log the shuffle activity
+      await supabase.rpc('log_admin_activity', {
+        p_activity_type: 'content_shuffled',
+        p_activity_category: 'content',
+        p_title: 'Featured Content Shuffled',
+        p_description: 'Admin manually shuffled featured content display order',
+        p_metadata: {
+          shuffle_count: data?.length || 0,
+          timestamp: new Date().toISOString()
+        }
+      });
+
       alert("Content shuffled successfully!");
       await fetchFeaturedContent();
       await fetchShuffleSettings();

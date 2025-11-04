@@ -9,6 +9,7 @@ import Sidebar from "./components/Sidebar";
 import Subscriptions from "./pages/Subscriptions";
 import Notifications from "./pages/Notifications";
 import FeaturedContent from "./pages/FeaturedContent";
+import ChatMonitoring from "./pages/ChatMonitoring";
 import Login from "./pages/Auth/Login";
 import TestLogin from "./pages/TestLogin";
 import { withAdminAuth } from "./middleware/adminAuth";
@@ -25,6 +26,7 @@ const ProtectedBadges = withAdminAuth(Badges);
 const ProtectedWorkouts = withAdminAuth(Workouts);
 const ProtectedMeals = withAdminAuth(Meals);
 const ProtectedFeaturedContent = withAdminAuth(FeaturedContent);
+const ProtectedChatMonitoring = withAdminAuth(ChatMonitoring);
 
 function App() {
   return (
@@ -51,6 +53,7 @@ function App() {
                   <Route path="subscriptions" element={<ProtectedSubscriptions />} />
                   <Route path="analytics" element={<ProtectedAnalytics />} />
                   <Route path="notifications" element={<ProtectedNotifications />} />
+                  <Route path="chat" element={<ProtectedChatMonitoring />} />
                   <Route path="badges" element={<ProtectedBadges />} />
                   <Route path="workouts" element={<ProtectedWorkouts />} />
                   <Route path="meals" element={<ProtectedMeals />} />

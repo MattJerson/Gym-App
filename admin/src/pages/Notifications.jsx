@@ -278,6 +278,24 @@ const Notifications = () => {
 
       await fetchNotifications();
       await fetchStats();
+      
+      // Log the notification activity
+      await supabase.rpc('log_admin_activity', {
+        p_activity_type: 'notification_launched',
+        p_activity_category: 'admin',
+        p_title: `Notification ${action === 'resend' ? 'Resent' : 'Sent'}`,
+        p_description: `${action === 'resend' ? 'Resent' : 'Sent'} notification: "${notification.title}"`,
+        p_metadata: {
+          notification_id: notificationId,
+          notification_title: notification.title,
+          target_audience: notification.target_audience,
+          notification_type: notification.type,
+          action: action
+        },
+        p_target_id: notificationId,
+        p_target_type: 'notification'
+      });
+      
       alert(`Notification ${action === 'resend' ? 'resent' : 'sent'} successfully!`);
     } catch (err) {
       alert('Error sending notification: ' + err.message);
