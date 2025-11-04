@@ -119,6 +119,8 @@ export const WorkoutSessionServiceV2 = {
    */
   async getActiveSession(userId) {
     try {
+      console.log('🔍 WorkoutSessionServiceV2.getActiveSession - checking for user:', userId);
+      
       const { data, error } = await supabase
         .from('workout_sessions')
         .select(`
@@ -132,7 +134,18 @@ export const WorkoutSessionServiceV2 = {
         .limit(1)
         .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error fetching active session:', error);
+        throw error;
+      }
+
+      console.log('📊 Active session query result:', data ? {
+        id: data.id,
+        status: data.status,
+        template_id: data.template_id || data.workout_template_id,
+        started_at: data.started_at,
+        completed_at: data.completed_at
+      } : 'No active sessions found');
 
       if (data) {
         // Sort exercises and sets
@@ -385,6 +398,12 @@ export const WorkoutSessionServiceV2 = {
       const session = await this.getSession(sessionId);
       const userId = session?.user_id;
       
+      console.log('Session before completion:', {
+        id: session.id,
+        status: session.status,
+        user_id: userId
+      });
+      
       // Try using the RPC function first
       const { error } = await supabase
         .rpc('complete_workout_session', {
@@ -425,8 +444,20 @@ export const WorkoutSessionServiceV2 = {
         }
       }
 
+      // Verify the completion by checking database directly
+      const { data: verifySession, error: verifyError } = await supabase
+        .from('workout_sessions')
+        .select('id, status, completed_at')
+        .eq('id', sessionId)
+        .single();
+      
+      console.log('✅ Verification query result:', verifySession);
+      if (verifyError) console.error('Verification error:', verifyError);
+
       const completedSession = await this.getSession(sessionId);
       console.log('Final session status:', completedSession?.status);
+      console.log('Session completion timestamp:', completedSession?.completed_at);
+      
       return completedSession;
     } catch (error) {
       console.error('Error completing session:', error);

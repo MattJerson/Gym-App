@@ -12,7 +12,9 @@ export default function StepsBarGraph({
   lastSynced, 
   onSyncPress, 
   isSyncing = false,
-  goalSteps = 10000 
+  goalSteps = 10000,
+  stepsTrackingEnabled = true,
+  onEnableTracking = null,
 }) {
   const [range, setRange] = useState("1W");
 
@@ -307,6 +309,24 @@ const aestheticChartConfig = {
         </View>
       )}
 
+      {/* Enable Tracking Button - shown when user dismissed prompt but hasn't enabled yet */}
+      {!stepsTrackingEnabled && onEnableTracking && (
+        <View style={styles.enableTrackingBar}>
+          <View style={styles.enableTrackingInfo}>
+            <Ionicons name="footsteps-outline" size={16} color="#0A84FF" />
+            <Text style={styles.enableTrackingText}>
+              Steps tracking is disabled
+            </Text>
+          </View>
+          <Pressable 
+            onPress={onEnableTracking}
+            style={styles.enableTrackingButton}
+          >
+            <Text style={styles.enableTrackingButtonText}>Enable</Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* Chart or Empty State */}
       {!hasSufficientData ? (
         <EmptyDataState
@@ -487,6 +507,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#0A84FF",
+  },
+  enableTrackingBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: "rgba(10, 132, 255, 0.1)",
+    borderRadius: 12,
+    marginHorizontal: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "rgba(10, 132, 255, 0.2)",
+  },
+  enableTrackingInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  enableTrackingText: {
+    fontSize: 13,
+    color: "#0A84FF",
+    fontWeight: "600",
+  },
+  enableTrackingButton: {
+    backgroundColor: "#0A84FF",
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  enableTrackingButtonText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   chartStyle: {
     borderRadius: 16,

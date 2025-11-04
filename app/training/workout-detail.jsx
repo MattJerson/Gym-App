@@ -2,6 +2,8 @@ import {
   View,
   Text,
   Alert,
+  Image,
+  Modal,
   Pressable,
   StyleSheet,
   ScrollView,
@@ -22,6 +24,8 @@ export default function WorkoutDetail() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [showExerciseDetail, setShowExerciseDetail] = useState(false);
+  const [selectedExercise, setSelectedExercise] = useState(null);
 
   useEffect(() => {
     getUser();
@@ -123,6 +127,19 @@ export default function WorkoutDetail() {
 
   const getDifficultyColor = (difficulty) => {
     return BrowseWorkoutsDataService.getDifficultyColor(difficulty);
+  };
+
+  const capitalizeWords = (str) => {
+    if (!str) return "";
+    return str
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  };
+
+  const handleExercisePress = (exercise) => {
+    setSelectedExercise(exercise);
+    setShowExerciseDetail(true);
   };
 
   if (isLoading) {
@@ -245,81 +262,114 @@ export default function WorkoutDetail() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Exercises</Text>
           <View style={styles.exercisesList}>
-            {workout.exercises.map((exercise, index) => (
-              <View key={exercise.id} style={styles.exerciseCard}>
-                {/* Exercise Number */}
-                <View style={styles.exerciseNumber}>
-                  <Text style={styles.exerciseNumberText}>{index + 1}</Text>
-                </View>
+            {workout.exercises.map((exercise, index) => {
+              const exerciseName = capitalizeWords(exercise.name);
+              const exerciseGif = exercise.gifUrl;
+              const pausedGifUrl = exerciseGif
+                ? `${exerciseGif.split("?")[0]}?t=0.001`
+                : null;
+              const metValue = exercise.metValue || 5;
+              
+              // Calculate MET calories per set (approximate)
+              const avgSetDuration = 1.5; // minutes per set (including rest)
+              const avgWeight = 70; // kg (average user weight)
+              const caloriesPerSet = Math.round(
+                (metValue * avgWeight * avgSetDuration) / 60
+              );
 
-                {/* Exercise Content */}
-                <View style={styles.exerciseContent}>
-                  {/* Exercise Name */}
-                  <Text style={styles.exerciseName}>{exercise.name}</Text>
-
-                  {/* Exercise Description */}
-                  <Text style={styles.exerciseDescription}>
-                    {exercise.description}
-                  </Text>
-
-                  {/* Sets & Reps */}
-                  <View style={styles.exerciseStats}>
-                    <View style={styles.exerciseStat}>
-                      <Text style={styles.exerciseStatValue}>
-                        {exercise.sets} sets
-                      </Text>
-                    </View>
-                    <View style={styles.exerciseStatDivider} />
-                    <View style={styles.exerciseStat}>
-                      <Text style={styles.exerciseStatValue}>
-                        {exercise.reps} reps
-                      </Text>
-                    </View>
-                    <View style={styles.exerciseStatDivider} />
-                    <View style={styles.exerciseStat}>
-                      <Text style={styles.exerciseStatValue}>
-                        {exercise.restTime}s rest
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Calories per set */}
-                  <View style={styles.caloriesPerSet}>
-                    <Ionicons name="flame-outline" size={12} color="#EF4444" />
-                    <Text style={styles.caloriesPerSetText}>
-                      ~{exercise.caloriesPerSet} kcal per set
-                    </Text>
-                  </View>
-
-                  {/* Tips */}
-                  {exercise.tips && exercise.tips.length > 0 && (
-                    <View style={styles.tipsContainer}>
-                      <Text style={styles.tipsTitle}>Tips:</Text>
-                      {exercise.tips.map((tip, tipIndex) => (
-                        <View key={tipIndex} style={styles.tipItem}>
-                          <Text style={styles.tipBullet}>•</Text>
-                          <Text style={styles.tipText}>{tip}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-
-                  {/* Video Available Indicator */}
-                  {exercise.videoUrl && (
-                    <View style={styles.videoIndicator}>
-                      <Ionicons
-                        name="play-circle-outline"
-                        size={16}
-                        color="#A3E635"
+              return (
+                <Pressable
+                  key={exercise.id}
+                  style={styles.exerciseCard}
+                  onPress={() => handleExercisePress(exercise)}
+                >
+                  {/* Exercise Image */}
+                  <View style={styles.exerciseImageContainer}>
+                    {pausedGifUrl ? (
+                      <Image
+                        source={{ uri: pausedGifUrl }}
+                        style={styles.exerciseImage}
+                        resizeMode="cover"
                       />
-                      <Text style={styles.videoText}>
-                        Video guide available
+                    ) : (
+                      <View style={styles.exercisePlaceholder}>
+                        <Ionicons name="barbell" size={40} color="#2e5a95ff" />
+                      </View>
+                    )}
+                    {/* Exercise Number Badge */}
+                    <View style={styles.exerciseNumberBadge}>
+                      <Text style={styles.exerciseNumberText}>{index + 1}</Text>
+                    </View>
+                    {/* Info Icon */}
+                    <View style={styles.infoIconBadge}>
+                      <Ionicons
+                        name="information-circle"
+                        size={20}
+                        color="#3568aaff"
+                      />
+                    </View>
+                  </View>
+
+                  {/* Exercise Content */}
+                  <View style={styles.exerciseContent}>
+                    {/* Exercise Name */}
+                    <Text style={styles.exerciseName}>{exerciseName}</Text>
+
+                    {/* Sets & Reps & Rest */}
+                    <View style={styles.exerciseStats}>
+                      <View style={styles.exerciseStat}>
+                        <Ionicons
+                          name="repeat-outline"
+                          size={16}
+                          color="#2e5992ff"
+                        />
+                        <Text style={styles.exerciseStatValue}>
+                          {exercise.sets} sets
+                        </Text>
+                      </View>
+                      <View style={styles.exerciseStatDivider} />
+                      <View style={styles.exerciseStat}>
+                        <Ionicons
+                          name="fitness-outline"
+                          size={16}
+                          color="#315e98ff"
+                        />
+                        <Text style={styles.exerciseStatValue}>
+                          {exercise.reps} reps
+                        </Text>
+                      </View>
+                      <View style={styles.exerciseStatDivider} />
+                      <View style={styles.exerciseStat}>
+                        <Ionicons name="time-outline" size={16} color="#2b5892ff" />
+                        <Text style={styles.exerciseStatValue}>
+                          {exercise.restTime}s
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* MET Calories */}
+                    <View style={styles.metContainer}>
+                      <Ionicons name="flame" size={16} color="#EF4444" />
+                      <Text style={styles.metText}>
+                        ~{caloriesPerSet} kcal/set (MET: {metValue})
                       </Text>
                     </View>
-                  )}
-                </View>
-              </View>
-            ))}
+
+                    {/* Tap to view hint */}
+                    <View style={styles.tapHint}>
+                      <Ionicons
+                        name="hand-left-outline"
+                        size={12}
+                        color="#A1A1AA"
+                      />
+                      <Text style={styles.tapHintText}>
+                        Tap to view full instructions
+                      </Text>
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 
@@ -397,6 +447,13 @@ export default function WorkoutDetail() {
         workoutName={workout?.name || ""}
         isLoading={isSaving}
       />
+
+      {/* Exercise Detail Modal */}
+      <ExerciseDetailModal
+        visible={showExerciseDetail}
+        exercise={selectedExercise}
+        onClose={() => setShowExerciseDetail(false)}
+      />
     </View>
   );
 }
@@ -421,55 +478,68 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
+    backgroundColor: "#0B0B0B",
+    borderBottomWidth: 2,
+    borderBottomColor: "rgba(30, 58, 95, 0.3)",
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(30, 58, 95, 0.3)",
+    borderWidth: 2,
+    borderColor: "rgba(30, 58, 95, 0.4)",
   },
   headerContent: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 26,
+    lineHeight: 32,
     color: "#FAFAFA",
     fontWeight: "800",
+    letterSpacing: 0.3,
   },
   scrollContent: {
     paddingBottom: 20,
     paddingHorizontal: 20,
   },
   overviewCard: {
-    padding: 16,
+    padding: 20,
     borderWidth: 2,
-    borderRadius: 16,
-    marginBottom: 20,
+    borderRadius: 20,
+    marginBottom: 24,
     backgroundColor: "#161616",
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(30, 58, 95, 0.4)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   overviewHeader: {
-    marginBottom: 12,
+    marginBottom: 16,
   },
   difficultyBadge: {
-    borderRadius: 8,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
     alignSelf: "flex-start",
+    borderWidth: 1,
   },
   difficultyText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
   description: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 16,
-    color: "#E5E5E5",
+    fontSize: 15,
+    lineHeight: 24,
+    marginBottom: 20,
+    color: "#D4D4D8",
+    fontWeight: "500",
   },
   statsGrid: {
     gap: 12,
@@ -477,241 +547,556 @@ const styles = StyleSheet.create({
   },
   statBox: {
     flex: 1,
-    padding: 12,
-    borderWidth: 1,
-    borderRadius: 12,
+    padding: 16,
+    borderWidth: 2,
+    borderRadius: 16,
     alignItems: "center",
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderColor: "rgba(30, 58, 95, 0.4)",
+    backgroundColor: "rgba(30, 58, 95, 0.2)",
   },
   statValue: {
-    fontSize: 20,
-    marginTop: 6,
+    fontSize: 24,
+    marginTop: 8,
     color: "#FAFAFA",
     fontWeight: "800",
   },
   statLabel: {
     fontSize: 11,
-    marginTop: 2,
-    color: "#71717A",
-    fontWeight: "500",
+    marginTop: 4,
+    color: "#A1A1AA",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 28,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     color: "#FAFAFA",
-    marginBottom: 12,
-    fontWeight: "700",
+    marginBottom: 16,
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
   tagContainer: {
-    gap: 8,
+    gap: 10,
     flexWrap: "wrap",
     flexDirection: "row",
   },
   tag: {
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 8,
+    gap: 8,
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    paddingHorizontal: 16,
+    borderColor: "rgba(30, 58, 95, 0.4)",
+    backgroundColor: "rgba(30, 58, 95, 0.2)",
   },
   muscleTag: {
-    borderColor: "rgba(163, 230, 53, 0.2)",
-    backgroundColor: "rgba(163, 230, 53, 0.08)",
+    borderColor: "rgba(30, 58, 95, 0.5)",
+    backgroundColor: "rgba(30, 58, 95, 0.25)",
   },
   tagText: {
-    fontSize: 12,
-    color: "#E5E5E5",
-    fontWeight: "500",
+    fontSize: 13,
+    color: "#FAFAFA",
+    fontWeight: "600",
   },
   exercisesList: {
     gap: 16,
   },
   exerciseCard: {
-    gap: 12,
-    padding: 16,
     borderWidth: 2,
-    borderRadius: 16,
-    borderLeftWidth: 4,
-    flexDirection: "row",
+    borderRadius: 20,
+    overflow: "hidden",
+    marginBottom: 4,
     backgroundColor: "#161616",
-    borderLeftColor: "#A3E635",
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(30, 58, 95, 0.4)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  exerciseNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  exerciseImageContainer: {
+    width: "100%",
+    height: 180,
+    position: "relative",
+    backgroundColor: "#0B0B0B",
+  },
+  exerciseImage: {
+    width: "100%",
+    height: "100%",
+  },
+  exercisePlaceholder: {
+    width: "100%",
+    height: "100%",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(163, 230, 53, 0.15)",
+    backgroundColor: "rgba(30, 58, 95, 0.2)",
+  },
+  exerciseNumberBadge: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#2d5890ff",
+    borderWidth: 3,
+    borderColor: "#FAFAFA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 5,
   },
   exerciseNumberText: {
-    fontSize: 14,
-    color: "#A3E635",
+    fontSize: 16,
+    color: "#FAFAFA",
     fontWeight: "800",
   },
+  infoIconBadge: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(250, 250, 250, 0.98)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
   exerciseContent: {
-    flex: 1,
+    padding: 18,
   },
   exerciseName: {
-    fontSize: 16,
-    marginBottom: 6,
+    fontSize: 19,
+    marginBottom: 14,
     color: "#FAFAFA",
-    fontWeight: "700",
-  },
-  exerciseDescription: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: "#A1A1AA",
-    marginBottom: 10,
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
   exerciseStats: {
-    gap: 8,
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 8,
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 12,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(163, 230, 53, 0.08)",
+    backgroundColor: "rgba(30, 58, 95, 0.2)",
+    borderWidth: 1,
+    borderColor: "rgba(30, 58, 95, 0.3)",
   },
   exerciseStat: {
     flex: 1,
+    gap: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
   },
   exerciseStatValue: {
-    fontSize: 12,
-    color: "#E5E5E5",
-    fontWeight: "600",
-    textAlign: "center",
+    fontSize: 14,
+    color: "#FAFAFA",
+    fontWeight: "700",
   },
   exerciseStatDivider: {
     width: 1,
-    height: 14,
-    backgroundColor: "rgba(163, 230, 53, 0.25)",
+    height: 18,
+    backgroundColor: "rgba(30, 58, 95, 0.5)",
   },
-  caloriesPerSet: {
-    gap: 4,
-    marginBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  caloriesPerSetText: {
-    fontSize: 11,
-    color: "#A1A1AA",
-    fontWeight: "500",
-  },
-  tipsContainer: {
+  metContainer: {
+    gap: 8,
+    marginBottom: 14,
     padding: 10,
-    borderRadius: 8,
-    marginBottom: 8,
-    backgroundColor: "rgba(59, 130, 246, 0.08)",
-  },
-  tipsTitle: {
-    fontSize: 12,
-    marginBottom: 6,
-    color: "#3B82F6",
-    fontWeight: "700",
-  },
-  tipItem: {
-    gap: 6,
-    marginBottom: 4,
+    borderRadius: 10,
     flexDirection: "row",
-  },
-  tipBullet: {
-    fontSize: 12,
-    color: "#3B82F6",
-    fontWeight: "700",
-  },
-  tipText: {
-    flex: 1,
-    fontSize: 11,
-    lineHeight: 16,
-    color: "#A1A1AA",
-  },
-  videoIndicator: {
-    gap: 6,
     alignItems: "center",
-    flexDirection: "row",
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.2)",
   },
-  videoText: {
-    fontSize: 11,
-    color: "#A3E635",
+  metText: {
+    fontSize: 13,
+    color: "#FAFAFA",
     fontWeight: "600",
   },
+  tapHint: {
+    gap: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+  },
+  tapHintText: {
+    fontSize: 12,
+    color: "#A1A1AA",
+    fontWeight: "600",
+    fontStyle: "italic",
+  },
   structureCard: {
-    gap: 16,
-    padding: 16,
+    gap: 20,
+    padding: 20,
     borderWidth: 2,
-    borderRadius: 16,
+    borderRadius: 20,
     backgroundColor: "#161616",
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(30, 58, 95, 0.4)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   structureItem: {
-    gap: 12,
+    gap: 14,
     flexDirection: "row",
   },
   structureIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    backgroundColor: "rgba(30, 58, 95, 0.3)",
+    borderWidth: 2,
+    borderColor: "rgba(30, 58, 95, 0.4)",
   },
   structureContent: {
     flex: 1,
   },
   structureTitle: {
-    fontSize: 14,
-    marginBottom: 2,
+    fontSize: 16,
+    marginBottom: 4,
     color: "#FAFAFA",
-    fontWeight: "700",
+    fontWeight: "800",
   },
   structureTime: {
-    fontSize: 12,
-    marginBottom: 4,
-    color: "#A3E635",
-    fontWeight: "600",
+    fontSize: 13,
+    marginBottom: 6,
+    color: "#2b568eff",
+    fontWeight: "700",
   },
   structureDescription: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: "#71717A",
+    fontSize: 13,
+    lineHeight: 20,
+    color: "#D4D4D8",
+    fontWeight: "500",
   },
   buttonContainer: {
     left: 0,
     right: 0,
     bottom: 0,
     padding: 20,
-    borderTopWidth: 1,
+    paddingTop: 16,
+    borderTopWidth: 2,
     position: "absolute",
     backgroundColor: "#0B0B0B",
-    borderTopColor: "rgba(255, 255, 255, 0.1)",
+    borderTopColor: "rgba(30, 58, 95, 0.3)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
   },
   startButton: {
-    gap: 8,
+    gap: 10,
     elevation: 8,
     shadowRadius: 8,
-    borderRadius: 16,
-    shadowOpacity: 0.3,
-    paddingVertical: 16,
+    borderRadius: 18,
+    shadowOpacity: 0.4,
+    paddingVertical: 18,
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#A3E635",
+    shadowColor: "#2e5b95ff",
     justifyContent: "center",
-    backgroundColor: "#A3E635",
+    backgroundColor: "#305d97ff",
     shadowOffset: { width: 0, height: 4 },
+    borderWidth: 2,
+    borderColor: "rgba(38, 72, 117, 0.6)",
   },
   startButtonText: {
-    fontSize: 16,
-    color: "#0B0B0B",
+    fontSize: 17,
+    color: "#FAFAFA",
     fontWeight: "800",
     letterSpacing: 0.5,
+  },
+});
+
+// Exercise Detail Modal Component
+function ExerciseDetailModal({ visible, exercise, onClose }) {
+  if (!exercise) return null;
+
+  const exerciseName = exercise.name || "Unknown Exercise";
+  const exerciseGif = exercise.gifUrl;
+  const exerciseDescription = exercise.description || "";
+  const exerciseInstructions = exercise.instructions || [];
+
+  const capitalizeWords = (str) => {
+    if (!str) return "";
+    return str
+      .split(" ")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={modalStyles.overlay}>
+        <View style={modalStyles.container}>
+          {/* Header */}
+          <View style={modalStyles.header}>
+            <Text style={modalStyles.title} numberOfLines={2}>
+              {capitalizeWords(exerciseName)}
+            </Text>
+            <Pressable style={modalStyles.closeButton} onPress={onClose}>
+              <Ionicons name="close" size={24} color="#FAFAFA" />
+            </Pressable>
+          </View>
+
+          <ScrollView style={modalStyles.content} showsVerticalScrollIndicator={false}>
+            {/* Exercise GIF */}
+            {exerciseGif && (
+              <View style={modalStyles.gifContainer}>
+                <Image
+                  source={{ uri: exerciseGif }}
+                  style={modalStyles.gif}
+                  resizeMode="contain"
+                />
+              </View>
+            )}
+
+            {/* Description */}
+            {exerciseDescription && (
+              <View style={modalStyles.section}>
+                <Text style={modalStyles.sectionTitle}>Description</Text>
+                <Text style={modalStyles.sectionText}>{exerciseDescription}</Text>
+              </View>
+            )}
+
+            {/* Instructions */}
+            {exerciseInstructions.length > 0 && (
+              <View style={modalStyles.section}>
+                <Text style={modalStyles.sectionTitle}>How to Perform</Text>
+                {exerciseInstructions.map((instruction, index) => (
+                  <View key={index} style={modalStyles.instructionRow}>
+                    <View style={modalStyles.instructionNumber}>
+                      <Text style={modalStyles.instructionNumberText}>
+                        {index + 1}
+                      </Text>
+                    </View>
+                    <Text style={modalStyles.instructionText}>{instruction}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Workout Info */}
+            <View style={modalStyles.section}>
+              <Text style={modalStyles.sectionTitle}>Workout Details</Text>
+              <View style={modalStyles.detailsGrid}>
+                <View style={modalStyles.detailCard}>
+                  <Ionicons name="repeat-outline" size={28} color="#1E3A5F" />
+                  <Text style={modalStyles.detailValue}>{exercise.sets}</Text>
+                  <Text style={modalStyles.detailLabel}>Sets</Text>
+                </View>
+                <View style={modalStyles.detailCard}>
+                  <Ionicons name="fitness-outline" size={28} color="#1E3A5F" />
+                  <Text style={modalStyles.detailValue}>{exercise.reps}</Text>
+                  <Text style={modalStyles.detailLabel}>Reps</Text>
+                </View>
+                <View style={modalStyles.detailCard}>
+                  <Ionicons name="time-outline" size={28} color="#1E3A5F" />
+                  <Text style={modalStyles.detailValue}>{exercise.restTime}s</Text>
+                  <Text style={modalStyles.detailLabel}>Rest</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* MET Value Info */}
+            <View style={modalStyles.metInfoCard}>
+              <Ionicons name="flame" size={20} color="#EF4444" />
+              <View style={modalStyles.metInfoText}>
+                <Text style={modalStyles.metInfoTitle}>
+                  MET Value: {exercise.metValue || 5.0}
+                </Text>
+                <Text style={modalStyles.metInfoDescription}>
+                  Metabolic Equivalent of Task - measures exercise intensity
+                </Text>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const modalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.9)",
+  },
+  container: {
+    borderWidth: 2,
+    maxHeight: "90%",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: "#0B0B0B",
+    borderColor: "rgba(30, 58, 95, 0.6)",
+  },
+  header: {
+    padding: 20,
+    paddingTop: 24,
+    alignItems: "center",
+    flexDirection: "row",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(30, 58, 95, 0.3)",
+    justifyContent: "space-between",
+  },
+  title: {
+    flex: 1,
+    fontSize: 22,
+    color: "#FAFAFA",
+    fontWeight: "800",
+    marginRight: 12,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1E3A5F",
+  },
+  content: {
+    padding: 20,
+  },
+  gifContainer: {
+    width: "100%",
+    height: 280,
+    borderRadius: 20,
+    marginBottom: 24,
+    overflow: "hidden",
+    backgroundColor: "#161616",
+    borderWidth: 2,
+    borderColor: "rgba(30, 58, 95, 0.3)",
+  },
+  gif: {
+    width: "100%",
+    height: "100%",
+  },
+  section: {
+    marginBottom: 28,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    color: "#FAFAFA",
+    marginBottom: 14,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  sectionText: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: "#D4D4D8",
+    fontWeight: "500",
+  },
+  instructionRow: {
+    gap: 14,
+    marginBottom: 14,
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  instructionNumber: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#1E3A5F",
+    shadowColor: "#1E3A5F",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  instructionNumberText: {
+    fontSize: 13,
+    color: "#FAFAFA",
+    fontWeight: "800",
+  },
+  instructionText: {
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 24,
+    color: "#D4D4D8",
+    fontWeight: "500",
+  },
+  detailsGrid: {
+    gap: 12,
+    flexDirection: "row",
+  },
+  detailCard: {
+    flex: 1,
+    padding: 18,
+    borderWidth: 2,
+    borderRadius: 18,
+    alignItems: "center",
+    backgroundColor: "#161616",
+    borderColor: "rgba(30, 58, 95, 0.4)",
+  },
+  detailValue: {
+    fontSize: 24,
+    marginTop: 10,
+    marginBottom: 4,
+    color: "#FAFAFA",
+    fontWeight: "800",
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: "#A1A1AA",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  metInfoCard: {
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.3)",
+  },
+  metInfoText: {
+    flex: 1,
+  },
+  metInfoTitle: {
+    fontSize: 15,
+    color: "#FAFAFA",
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  metInfoDescription: {
+    fontSize: 13,
+    color: "#D4D4D8",
+    fontWeight: "500",
+    lineHeight: 18,
   },
 });

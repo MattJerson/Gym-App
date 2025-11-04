@@ -461,6 +461,7 @@ export const TrainingDataServiceNew = {
             name,
             difficulty,
             duration_minutes,
+            estimated_calories,
             category_id,
             is_active,
             workout_categories (
@@ -512,8 +513,8 @@ export const TrainingDataServiceNew = {
       const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const scheduledDay = daysOfWeek[workout.scheduled_day_of_week];
 
-      // Estimate calories (rough estimate: duration * 7.5 cal/min for strength training)
-      const estimatedCalories = Math.round(template.duration_minutes * 7.5);
+      // Use template's estimated calories (from database, not hardcoded calculation)
+      const estimatedCalories = template.estimated_calories || Math.round(template.duration_minutes * 7.5);
 
       return {
         id: template.id,

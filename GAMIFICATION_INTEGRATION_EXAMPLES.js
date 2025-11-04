@@ -3,6 +3,16 @@
  * 
  * This file shows where and how to add gamification tracking
  * to your workout completion flow.
+ * 
+ * 🎯 FAIR POINTS SYSTEM:
+ * Points are based on CONSISTENCY, not performance:
+ * - 20 points per workout (same for everyone!)
+ * - 50 points per streak day (huge reward for showing up!)
+ * - Badge points (achievements)
+ * - 1 point per 1000 steps
+ * 
+ * This ensures beginners can compete with advanced lifters.
+ * It's about habit-building, not how much you can lift!
  */
 
 import GamificationDataService from '../services/GamificationDataService';

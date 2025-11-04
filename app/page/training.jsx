@@ -187,8 +187,29 @@ export default function Training() {
 
   const handleStartWorkout = async (workoutId) => {
     try {
+      // 🧹 First, cleanup any orphaned sessions (older than 24 hours)
+      try {
+        const { data: cleanupCount } = await supabase.rpc('cleanup_orphaned_workout_sessions');
+        if (cleanupCount > 0) {
+          console.log(`🧹 Cleaned up ${cleanupCount} orphaned session(s)`);
+        }
+      } catch (cleanupError) {
+        console.warn('Failed to cleanup orphaned sessions:', cleanupError);
+        // Non-fatal, continue
+      }
+
       // Check if there's an existing active session
       const existingSession = await WorkoutSessionServiceV2.getActiveSession(userId);
+      
+      console.log('🔍 Checking for active session before starting workout...');
+      console.log('User ID:', userId);
+      console.log('Workout to start:', workoutId);
+      console.log('Existing session found:', existingSession ? {
+        id: existingSession.id,
+        status: existingSession.status,
+        template_id: existingSession.workout_template_id || existingSession.template_id,
+        started_at: existingSession.started_at
+      } : 'None');
       
       if (existingSession) {
         // Check if the existing session is for THIS workout

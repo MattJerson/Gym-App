@@ -61,6 +61,8 @@ export default function Calendar() {
   const [isSyncingSteps, setIsSyncingSteps] = useState(false);
   const [showHealthPermissionPrompt, setShowHealthPermissionPrompt] = useState(false);
   const [stepsTrackingEnabled, setStepsTrackingEnabled] = useState(false);
+  const [hasSeenStepsPrompt, setHasSeenStepsPrompt] = useState(false);
+  const [streakData, setStreakData] = useState({ current: 0, longest: 0 });
 
   // Get authenticated user
   useEffect(() => {
@@ -84,6 +86,7 @@ export default function Calendar() {
   useEffect(() => {
     if (userId) {
       loadCalendarData();
+      loadStreakData();
       checkHealthPermission();
     }
   }, [userId]);
@@ -94,15 +97,49 @@ export default function Calendar() {
       setHealthPermission(hasPermission);
       setStepsTrackingEnabled(hasPermission);
       
-      // If no permission, show prompt after a short delay
-      if (!hasPermission) {
-        setTimeout(() => setShowHealthPermissionPrompt(true), 2000);
+      // Check if user has seen the prompt before (stored in user_stats)
+      if (!hasPermission && userId) {
+        const { data: userStats } = await supabase
+          .from('user_stats')
+          .select('steps_prompt_dismissed')
+          .eq('user_id', userId)
+          .single();
+        
+        const hasSeenPrompt = userStats?.steps_prompt_dismissed || false;
+        setHasSeenStepsPrompt(hasSeenPrompt);
+        
+        // Only show prompt if they haven't seen it before
+        if (!hasSeenPrompt) {
+          setTimeout(() => setShowHealthPermissionPrompt(true), 2000);
+        }
       }
     } catch (error) {
       console.error('Error checking health permission:', error);
       // Don't show permission prompt if HealthKit isn't available
       setHealthPermission(false);
       setStepsTrackingEnabled(false);
+    }
+  };
+
+  const loadStreakData = async () => {
+    try {
+      // Fetch user stats for streak information
+      const { data, error } = await supabase
+        .from('user_stats')
+        .select('current_streak, longest_streak')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setStreakData({
+          current: data.current_streak || 0,
+          longest: data.longest_streak || 0,
+        });
+      }
+    } catch (error) {
+      console.error("Error loading streak data:", error);
     }
   };
 
@@ -129,6 +166,23 @@ export default function Calendar() {
     } catch (error) {
       console.error('Error requesting health permission:', error);
       Alert.alert("Error", "Failed to connect to health data");
+    }
+  };
+
+  const dismissStepsPrompt = async () => {
+    setShowHealthPermissionPrompt(false);
+    setHasSeenStepsPrompt(true);
+    
+    // Store dismissal in user_stats so we don't show it again
+    try {
+      const { error } = await supabase
+        .from('user_stats')
+        .update({ steps_prompt_dismissed: true })
+        .eq('user_id', userId);
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving steps prompt dismissal:', error);
     }
   };
 
@@ -382,36 +436,13 @@ export default function Calendar() {
       }
     });
 
-    // Calculate current active streak (from today backwards)
-    let currentStreakCount = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Check each day going backwards from today
-    for (let i = 0; i < 365; i++) {
-      // Max 365 days check
-      const checkDate = new Date(today);
-      checkDate.setDate(today.getDate() - i);
-      const dateKey = formatDateKey(checkDate);
-
-      const workout = workoutData[dateKey];
-
-      if (workout && workout.completed) {
-        currentStreakCount++;
-      } else {
-        // If it's today or yesterday and no workout, continue checking
-        // This allows for "grace period" - streak doesn't break until you miss 2 days
-        if (i === 0) {
-          continue; // Today - keep checking backwards
-        }
-        break; // Streak broken
-      }
-    }
+    // Use streak from user_stats (already loaded from database)
+    const currentStreakCount = streakData.current;
 
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     const goalPercentage = Math.round((workouts / daysInMonth) * 100);
     return { workouts, streak: currentStreakCount, goalPercentage };
-  }, [currentDate, workoutData]);
+  }, [currentDate, workoutData, streakData]);
 
   return (
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
@@ -465,9 +496,10 @@ export default function Calendar() {
                 isSyncing={isSyncingSteps}
                 goalSteps={10000}
                 stepsTrackingEnabled={stepsTrackingEnabled}
+                onEnableTracking={hasSeenStepsPrompt ? requestHealthPermission : null}
               />
             )}
-            {!stepsData && !stepsTrackingEnabled && (
+            {!stepsData && !stepsTrackingEnabled && hasSeenStepsPrompt && (
               <View style={styles.lockedFeatureCard}>
                 <View style={styles.lockedIconContainer}>
                   <Ionicons name="footsteps" size={32} color="#666" />
@@ -563,7 +595,7 @@ export default function Calendar() {
             </Pressable>
             <Pressable 
               style={styles.healthSkipButton}
-              onPress={() => setShowHealthPermissionPrompt(false)}
+              onPress={dismissStepsPrompt}
             >
               <Text style={styles.healthSkipButtonText}>Maybe Later</Text>
             </Pressable>

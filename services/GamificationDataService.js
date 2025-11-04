@@ -605,10 +605,7 @@ const GamificationDataService = {
       if (stepErr) throw stepErr;
       const total_steps = (steps || []).reduce((s, r) => s + (Number(r.step_count) || 0), 0);
 
-      // 6) Compute points: workouts + calories + badges + steps
-      const computed_points = (total_workouts * 10) + Math.floor((total_calories_burned || 0) / 100) + (badge_points_sum || 0) + Math.floor(total_steps / 1000);
-
-      // 7) Compute current streak from unique workout dates
+      // 6) Compute current streak from unique workout dates FIRST (needed for points calculation)
       let current_streak = stats.current_streak || 0;
       if (allWorkouts && allWorkouts.length) {
         const uniqueDates = Array.from(new Set(allWorkouts.map(w => w.completed_at ? new Date(w.completed_at).toISOString().split('T')[0] : null).filter(Boolean))).sort().reverse();
@@ -626,6 +623,11 @@ const GamificationDataService = {
         }
         if (streak > 0) current_streak = streak;
       }
+
+      // 7) Compute points: CONSISTENCY-BASED (fair for all fitness levels)
+      // Focus on frequency & streaks, not performance metrics
+      // This ensures beginners can compete with experienced lifters
+      const computed_points = (total_workouts * 20) + (current_streak * 50) + (badge_points_sum || 0) + Math.floor(total_steps / 1000);
 
       // 8) Persist updates
       const updates = {

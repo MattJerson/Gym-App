@@ -156,9 +156,20 @@ export default function WorkoutSession() {
           const diff = Math.floor((now - started) / 1000) - (existingSession.total_pause_duration || 0);
           setElapsedTime(diff > 0 ? diff : 0);
         } else {
-          // This shouldn't happen if the check is done properly in training page
-          // But handle it anyway
-          console.log('Session mismatch - creating new session');
+          // Found a session for a DIFFERENT workout (or orphaned session with null template_id)
+          // This is an orphaned session that should be abandoned
+          console.log('⚠️ Found orphaned session for different workout - abandoning it');
+          console.log('Orphaned session ID:', existingSession.id);
+          console.log('Orphaned session template_id:', sessionTemplateId);
+          
+          try {
+            await WorkoutSessionServiceV2.abandonSession(existingSession.id);
+            console.log('✅ Orphaned session abandoned, creating new session');
+          } catch (abandonError) {
+            console.error('Failed to abandon orphaned session:', abandonError);
+          }
+          
+          // Now create new session for THIS workout
           await createNewSession();
         }
       } else {
@@ -543,34 +554,6 @@ export default function WorkoutSession() {
               </View>
             </View>
 
-            <View style={styles.ratingSection}>
-              <Text style={styles.ratingLabel}>
-                How difficult was this workout?
-              </Text>
-              <View style={styles.ratingButtons}>
-                {[1, 2, 3, 4, 5].map((rating) => (
-                  <TouchableOpacity
-                    key={rating}
-                    style={[
-                      styles.ratingButton,
-                      difficultyRating === rating && styles.ratingButtonActive,
-                    ]}
-                    onPress={() => setDifficultyRating(rating)}
-                  >
-                    <Text
-                      style={[
-                        styles.ratingButtonText,
-                        difficultyRating === rating &&
-                          styles.ratingButtonTextActive,
-                      ]}
-                    >
-                      {rating}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
             <TextInput
               style={styles.notesInput}
               placeholder="Add notes about this workout (optional)"
@@ -592,14 +575,7 @@ export default function WorkoutSession() {
                 style={[styles.modalButton, styles.modalButtonPrimary]}
                 onPress={handleCompleteWorkout}
               >
-                <LinearGradient
-                  colors={["#74B9FF", "#1E3A5F"]}
-                  style={styles.modalButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                >
-                  <Text style={styles.modalButtonTextPrimary}>Finish</Text>
-                </LinearGradient>
+                <Text style={styles.modalButtonTextPrimary}>Finish</Text>
               </Pressable>
             </View>
           </View>
@@ -810,40 +786,6 @@ const styles = StyleSheet.create({
     color: "#71717A",
     fontWeight: "600",
   },
-  ratingSection: {
-    marginBottom: 20,
-  },
-  ratingLabel: {
-    fontSize: 14,
-    marginBottom: 12,
-    color: "#FAFAFA",
-    fontWeight: "600",
-  },
-  ratingButtons: {
-    gap: 8,
-    flexDirection: "row",
-  },
-  ratingButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 12,
-    alignItems: "center",
-    borderColor: "#27272A",
-    backgroundColor: "#0B0B0B",
-  },
-  ratingButtonActive: {
-    borderColor: "#A3E635",
-    backgroundColor: "#A3E635",
-  },
-  ratingButtonText: {
-    fontSize: 16,
-    color: "#71717A",
-    fontWeight: "700",
-  },
-  ratingButtonTextActive: {
-    color: "#0B0B0B",
-  },
   notesInput: {
     padding: 16,
     fontSize: 14,
@@ -872,12 +814,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#27272A",
   },
   modalButtonPrimary: {
-    overflow: "hidden",
-  },
-  modalButtonGradient: {
     paddingVertical: 16,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#5994d7ff",
   },
   modalButtonTextSecondary: {
     fontSize: 16,

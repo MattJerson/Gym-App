@@ -16,24 +16,39 @@ Integrated the NEW workout system with the existing gamification infrastructure.
 
 ## 🎮 How Points Are Now Calculated
 
-### Point Formula:
+### Point Formula (Consistency-Based):
 ```javascript
 total_points = 
-  (completed_workouts × 10) +        // 10 points per workout
-  (calories_burned ÷ 100) +          // 1 point per 100 calories
+  (completed_workouts × 20) +        // 20 points per workout (FAIR - same for everyone!)
+  (current_streak × 50) +            // 50 points per streak day (HUGE reward for consistency!)
   (badge_points) +                   // Points from earned badges
   (total_steps ÷ 1000)               // 1 point per 1000 steps
 ```
 
+**Why This Formula is Fair:**
+- ✅ **Beginners can compete**: Every workout = 20 points, regardless of weight lifted
+- ✅ **Consistency wins**: Streaks reward showing up, not performance
+- ✅ **No skill ceiling**: Advanced lifters don't dominate just because they lift more
+- ✅ **Motivation focused**: Encourages daily habits over one-time heroics
+
 ### Example:
 ```
-User completes workout:
-- Workout: +10 points
-- Burned 450 calories: +4 points
-- Walked 5000 steps: +5 points
-- Earned "First Workout" badge: +50 points
-= Total: 69 points
+Beginner (bodyweight exercises):
+- 5 workouts: 5 × 20 = 100 points
+- 5-day streak: 5 × 50 = 250 points
+- "First Workout" badge: +50 points
+- 5000 steps: +5 points
+= Total: 405 points
+
+Advanced lifter (heavy weights):
+- 5 workouts: 5 × 20 = 100 points
+- 5-day streak: 5 × 50 = 250 points
+- "First Workout" badge: +50 points
+- 5000 steps: +5 points
+= Total: 405 points (SAME!)
 ```
+
+**Result**: Fair competition based on consistency, not fitness level! 🎯
 
 ---
 
