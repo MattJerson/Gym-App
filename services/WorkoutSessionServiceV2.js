@@ -404,32 +404,85 @@ export const WorkoutSessionServiceV2 = {
         user_id: userId
       });
       
-      // Try using the RPC function first
-      const { error } = await supabase
-        .rpc('complete_workout_session', {
-          p_session_id: sessionId,
-          p_difficulty_rating: difficultyRating,
-          p_notes: notes
-        });
+      // Calculate workout statistics from completed sets
+      const { data: setsData, error: setsError } = await supabase
+        .from('exercise_sets')
+        .select('actual_reps, weight_kg, is_completed, exercise_index')
+        .eq('session_id', sessionId)
+        .eq('is_completed', true);
 
-      if (error) {
-        console.warn('RPC complete_workout_session failed, using fallback:', error);
-        // Fallback: manually update the session
-        const { error: updateError } = await supabase
-          .from('workout_sessions')
-          .update({
-            status: 'completed',
-            completed_at: new Date().toISOString(),
-            difficulty_rating: difficultyRating,
-            notes: notes,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', sessionId);
-        
-        if (updateError) throw updateError;
-        console.log('Session marked as completed using fallback');
-      } else {
-        console.log('Session marked as completed using RPC');
+      if (setsError) {
+        console.warn('Error fetching sets data:', setsError);
+      }
+
+      // Calculate totals
+      const totalSetsCompleted = setsData?.length || 0;
+      const totalRepsCompleted = setsData?.reduce((sum, set) => sum + (set.actual_reps || 0), 0) || 0;
+      const totalVolumeKg = setsData?.reduce((sum, set) => sum + ((set.actual_reps || 0) * (set.weight_kg || 0)), 0) || 0;
+      const completedExercises = new Set(setsData?.map(set => set.exercise_index) || []).size;
+
+      // Calculate duration
+      const startedAt = new Date(session.started_at);
+      const now = new Date();
+      const totalDurationSeconds = Math.floor((now - startedAt) / 1000) - (session.total_pause_duration || 0);
+
+      // Estimate calories (simple formula: 5 calories per minute of workout)
+      const estimatedCalories = Math.round((totalDurationSeconds / 60) * 5);
+
+      console.log('Calculated stats:', {
+        totalSetsCompleted,
+        totalRepsCompleted,
+        totalVolumeKg,
+        completedExercises,
+        totalDurationSeconds,
+        estimatedCalories
+      });
+
+      // Update workout session directly - NO RPC
+      const { error: updateError } = await supabase
+        .from('workout_sessions')
+        .update({
+          status: 'completed',
+          completed_at: now.toISOString(),
+          total_duration_seconds: totalDurationSeconds,
+          total_sets_completed: totalSetsCompleted,
+          total_reps_completed: totalRepsCompleted,
+          total_volume_kg: totalVolumeKg,
+          completed_exercises: completedExercises,
+          estimated_calories_burned: estimatedCalories,
+          difficulty_rating: difficultyRating,
+          notes: notes,
+          updated_at: now.toISOString()
+        })
+        .eq('id', sessionId);
+      
+      if (updateError) {
+        console.error('Error updating session:', updateError);
+        throw updateError;
+      }
+
+      console.log('✅ Session marked as completed successfully');
+
+      // Update workout_session_exercises completion status
+      if (setsData && setsData.length > 0) {
+        for (const exerciseIndex of new Set(setsData.map(s => s.exercise_index))) {
+          const exerciseSets = setsData.filter(s => s.exercise_index === exerciseIndex);
+          const exerciseCompleted = exerciseSets.length;
+          const exerciseReps = exerciseSets.reduce((sum, s) => sum + (s.actual_reps || 0), 0);
+          const exerciseVolume = exerciseSets.reduce((sum, s) => sum + ((s.actual_reps || 0) * (s.weight_kg || 0)), 0);
+
+          await supabase
+            .from('workout_session_exercises')
+            .update({
+              completed_sets: exerciseCompleted,
+              total_reps: exerciseReps,
+              total_volume_kg: exerciseVolume,
+              is_completed: exerciseCompleted > 0,
+              updated_at: now.toISOString()
+            })
+            .eq('session_id', sessionId)
+            .eq('exercise_index', exerciseIndex);
+        }
       }
 
       // 🎮 SYNC GAMIFICATION STATS after completing workout
@@ -444,17 +497,9 @@ export const WorkoutSessionServiceV2 = {
         }
       }
 
-      // Verify the completion by checking database directly
-      const { data: verifySession, error: verifyError } = await supabase
-        .from('workout_sessions')
-        .select('id, status, completed_at')
-        .eq('id', sessionId)
-        .single();
-      
-      console.log('✅ Verification query result:', verifySession);
-      if (verifyError) console.error('Verification error:', verifyError);
-
+      // Return the completed session
       const completedSession = await this.getSession(sessionId);
+      console.log('✅ Workout completed successfully!');
       console.log('Final session status:', completedSession?.status);
       console.log('Session completion timestamp:', completedSession?.completed_at);
       
