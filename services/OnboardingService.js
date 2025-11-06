@@ -67,8 +67,6 @@ export class OnboardingService {
         .eq('user_id', userId);
 
       if (error) throw error;
-      
-      console.log('✅ Onboarding marked as complete');
       return true;
     } catch (error) {
       console.error('Error marking onboarding complete:', error);

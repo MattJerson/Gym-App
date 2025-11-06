@@ -114,8 +114,6 @@ export const TrainingProgressService = {
         .single();
 
       if (error) throw error;
-
-      console.log('✅ Workout logged successfully:', data);
       return data;
     } catch (error) {
       console.error('❌ Error logging workout:', error);
@@ -138,8 +136,6 @@ export const TrainingProgressService = {
         });
 
       if (error) throw error;
-
-      console.log('✅ Steps updated successfully:', steps);
       return true;
     } catch (error) {
       console.error('❌ Error updating steps:', error);
@@ -251,8 +247,6 @@ export const TrainingProgressService = {
         .single();
 
       if (error) throw error;
-
-      console.log('✅ Daily goals updated successfully:', data);
       return data;
     } catch (error) {
       console.error('❌ Error updating daily goals:', error);

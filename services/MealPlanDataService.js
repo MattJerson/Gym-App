@@ -43,20 +43,16 @@ export const MealPlanDataService = {
 
         if (planError) {
           console.error('❌ Error fetching meal plan:', planError.message, planError.details);
-          console.log('⚠️ No active meal plan, using default goals');
         } else if (planData) {
           // Use personalized values from the dynamic calculation
           goals.calories = planData.daily_calories || goals.calories;
           goals.protein = planData.daily_protein || goals.protein;
           goals.carbs = planData.daily_carbs || goals.carbs;
           goals.fats = planData.daily_fats || goals.fats;
-          console.log(`✅ Using personalized meal plan: "${planData.plan_name}" (${goals.calories} cal, ${goals.protein}g protein, ${goals.carbs}g carbs, ${goals.fats}g fats)`);
         } else {
-          console.log('⚠️ No active meal plan found for user, using default goals');
         }
       } catch (err) {
         console.error('❌ Exception fetching personalized goals:', err);
-        console.log('⚠️ Using default goals due to error');
       }
 
       return {
@@ -522,8 +518,6 @@ export const MealPlanDataService = {
         .single();
 
       if (logError) throw logError;
-
-      console.log("✅ Food logged successfully:", mealLog);
       return mealLog;
     } catch (error) {
       console.error("❌ Error logging food to meal:", error);
@@ -569,8 +563,6 @@ export const MealPlanDataService = {
         .eq('user_id', userId);
 
       if (error) throw error;
-
-      console.log("✅ Meal log deleted successfully");
       return true;
     } catch (error) {
       console.error("❌ Error deleting meal log:", error);
@@ -612,8 +604,6 @@ export const MealPlanDataService = {
         .eq('id', logId);
 
       if (updateError) throw updateError;
-
-      console.log("✅ Meal log updated successfully");
       return true;
     } catch (error) {
       console.error("❌ Error updating meal log:", error);
@@ -1082,9 +1072,7 @@ export const MealPlanDataService = {
       }
 
       if (data) {
-        console.log(`✅ Loaded personalized meal plan: ${data.plan_name} (${data.daily_calories} cal, Protein: ${data.daily_protein}g, Carbs: ${data.daily_carbs}g, Fats: ${data.daily_fats}g)`);
       } else {
-        console.log('ℹ️ No active meal plan found for user', userId);
       }
 
       return data;
@@ -1129,8 +1117,6 @@ export const MealPlanDataService = {
         .single();
 
       if (error) throw error;
-
-      console.log("✅ User enrolled in meal plan successfully:", data);
       return data;
     } catch (error) {
       console.error("❌ Error enrolling in meal plan:", error);
@@ -1151,8 +1137,6 @@ export const MealPlanDataService = {
         .single();
 
       if (error) throw error;
-
-      console.log("✅ Meal plan updated successfully:", data);
       return data;
     } catch (error) {
       console.error("❌ Error updating meal plan:", error);
@@ -1172,8 +1156,6 @@ export const MealPlanDataService = {
         .eq('user_id', userId);
 
       if (error) throw error;
-
-      console.log("✅ Meal plan removed successfully");
       return true;
     } catch (error) {
       console.error("❌ Error removing meal plan:", error);

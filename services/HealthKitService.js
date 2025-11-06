@@ -17,7 +17,6 @@ try {
     AppleHealthKit = AppleHealthKit.default;
   }
 } catch (error) {
-  console.log('Apple HealthKit not available (Expo Go or not installed)');
 }
 
 try {
@@ -26,7 +25,6 @@ try {
     GoogleFit = GoogleFit.default;
   }
 } catch (error) {
-  console.log('Google Fit not available (Expo Go or not installed)');
 }
 
 const HEALTH_KIT_PERMISSION_KEY = '@healthkit_permission_granted';
@@ -45,13 +43,11 @@ class HealthKitService {
     try {
       if (Platform.OS === 'ios') {
         if (!AppleHealthKit) {
-          console.log('Apple HealthKit not available on this device (requires development build)');
           return false;
         }
         return await this.initializeAppleHealth();
       } else if (Platform.OS === 'android') {
         if (!GoogleFit) {
-          console.log('Google Fit not available on this device (requires development build)');
           return false;
         }
         return await this.initializeGoogleFit();
@@ -68,7 +64,6 @@ class HealthKitService {
    */
   async initializeAppleHealth() {
     if (!AppleHealthKit || typeof AppleHealthKit.initHealthKit !== 'function') {
-      console.log('Apple HealthKit module not available (requires development build, not Expo Go)');
       return false;
     }
 
@@ -92,7 +87,6 @@ class HealthKitService {
           this.hasPermission = false;
           resolve(false);
         } else {
-          console.log('Apple Health initialized successfully');
           this.isInitialized = true;
           this.hasPermission = true;
           AsyncStorage.setItem(HEALTH_KIT_PERMISSION_KEY, 'true');
@@ -107,7 +101,6 @@ class HealthKitService {
    */
   async initializeGoogleFit() {
     if (!GoogleFit) {
-      console.log('Google Fit module not available');
       return false;
     }
 
@@ -122,7 +115,6 @@ class HealthKitService {
       const authResult = await GoogleFit.authorize(options);
       
       if (authResult.success) {
-        console.log('Google Fit authorized successfully');
         this.isInitialized = true;
         this.hasPermission = true;
         await AsyncStorage.setItem(HEALTH_KIT_PERMISSION_KEY, 'true');
@@ -181,7 +173,6 @@ class HealthKitService {
    */
   async getAppleHealthSteps(date) {
     if (!AppleHealthKit || typeof AppleHealthKit.getStepCount !== 'function') {
-      console.log('Apple HealthKit not available');
       return 0;
     }
 
@@ -204,7 +195,6 @@ class HealthKitService {
           resolve(0);
         } else {
           const steps = results?.value || 0;
-          console.log(`Apple Health steps for ${date.toDateString()}: ${steps}`);
           resolve(steps);
         }
       });
@@ -240,8 +230,6 @@ class HealthKitService {
           }
         }
       }
-
-      console.log(`Google Fit steps for ${date.toDateString()}: ${steps}`);
       return steps;
     } catch (error) {
       console.error('Error fetching Google Fit steps:', error);
@@ -322,14 +310,12 @@ class HealthKitService {
       if (Platform.OS === 'ios') {
         // Check if AppleHealthKit is available at all
         if (!AppleHealthKit || typeof AppleHealthKit.isAvailable !== 'function') {
-          console.log('Apple HealthKit not available on this device');
           return false;
         }
 
         return new Promise((resolve) => {
           AppleHealthKit.isAvailable((error, available) => {
             if (error) {
-              console.log('HealthKit availability check error:', error);
               resolve(false);
             } else {
               resolve(available);
@@ -342,13 +328,11 @@ class HealthKitService {
       if (Platform.OS === 'android') {
         try {
           if (!GoogleFit || typeof GoogleFit.checkIsAuthorized !== 'function') {
-            console.log('Google Fit not available on this device');
             return false;
           }
           const isAuthorized = await GoogleFit.checkIsAuthorized();
           return isAuthorized;
         } catch (error) {
-          console.log('Google Fit authorization check error:', error);
           return false;
         }
       }

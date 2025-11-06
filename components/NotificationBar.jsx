@@ -57,14 +57,6 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
         userId,
         (newNotif) => {
           if (__DEV__) {
-            console.log('NotificationBar: Received notification via real-time:', {
-              id: newNotif.id,
-              title: newNotif.title,
-              status: newNotif.status,
-              type: newNotif.type,
-              source: newNotif.source,
-              is_read: newNotif.is_read
-            });
           }
           
           // Optimistic update - add notification immediately to UI
@@ -73,13 +65,11 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
             const exists = prev.some(n => n.id === newNotif.id);
             if (exists) {
               if (__DEV__) {
-                console.log('NotificationBar: Notification already exists, skipping duplicate');
               }
               return prev;
             }
             // Add new notification at the top
             if (__DEV__) {
-              console.log('NotificationBar: Adding new notification to list');
             }
             return [newNotif, ...prev].slice(0, 10); // Keep only latest 10
           });
@@ -88,7 +78,6 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
           setUnreadCount(prev => {
             const newCount = prev + 1;
             if (__DEV__) {
-              console.log(`NotificationBar: Badge count ${prev} → ${newCount}`);
             }
             return newCount;
           });
@@ -98,7 +87,6 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
           
           // Also reload in background to ensure sync with server
           if (__DEV__) {
-            console.log('NotificationBar: Scheduling background sync in 1 second');
           }
           setTimeout(() => loadNotifications(), 1000);
         }
@@ -145,7 +133,6 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
       setHasMore(data.length >= newLimit);
       
       if (__DEV__) {
-        console.log('NotificationBar: Loaded more notifications. Total:', data.length);
       }
     } catch (error) {
       console.error('NotificationBar: Error loading more notifications:', error.message);
@@ -187,7 +174,6 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
         if (error) {
           console.error('NotificationBar: Error deleting automated notification:', error);
         } else if (__DEV__) {
-          console.log('NotificationBar: Deleted automated notification:', notificationId);
         }
       }
     } catch (error) {
@@ -207,7 +193,6 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
       const result = await NotificationService.markAllAsRead(userId);
       
       if (result && __DEV__) {
-        console.log('NotificationBar: Marked all notifications as read:', result);
       }
       
       // Reload to confirm (should be empty or only show new ones)
@@ -243,7 +228,6 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
               const result = await NotificationService.dismissAllNotifications(userId);
               
               if (result && __DEV__) {
-                console.log('NotificationBar: Cleared all notifications:', result);
               }
               
               // Reload to confirm

@@ -25,18 +25,12 @@ export const WeightProgressService = {
    */
   async checkUnlockStatus(userId) {
     try {
-      console.log('🔍 Checking unlock status for user:', userId);
-      
       const { data, error } = await supabase.rpc('check_weight_progress_unlock', {
         p_user_id: userId
       });
-
-      console.log('📊 RPC Response:', { data, error });
-
       if (error) throw error;
 
       if (!data || data.length === 0) {
-        console.log('⚠️ No data returned from RPC function');
         return {
           isUnlocked: false,
           totalActivities: 0,
@@ -49,8 +43,6 @@ export const WeightProgressService = {
       }
 
       const status = data[0];
-      console.log('✅ Unlock Status:', status);
-
       return {
         isUnlocked: status.is_unlocked,
         totalActivities: status.total_activities,
@@ -73,26 +65,10 @@ export const WeightProgressService = {
    */
   async getWeightProgressChart(userId, daysBack = 7) {
     try {
-      console.log('═══════════════════════════════════════════════════════');
-      console.log('📊 WeightProgressService.getWeightProgressChart CALLED');
-      console.log('📊 Parameters:', { userId, daysBack });
-      console.log('═══════════════════════════════════════════════════════');
-
-      console.log('📊 Calling RPC function: get_weight_progress_chart');
-      console.log('📊 With params:', { p_user_id: userId, p_days_back: daysBack });
-
       const { data, error } = await supabase.rpc('get_weight_progress_chart', {
         p_user_id: userId,
         p_days_back: daysBack
       });
-
-      console.log('📊 RPC Response received:');
-      console.log('  - error:', error);
-      console.log('  - data type:', typeof data);
-      console.log('  - data is array:', Array.isArray(data));
-      console.log('  - data length:', data?.length || 0);
-      console.log('  - data content:', data);
-
       if (error) {
         console.error('❌ RPC error in get_weight_progress_chart:', error);
         console.error('❌ Error details:', JSON.stringify(error, null, 2));
@@ -119,11 +95,6 @@ export const WeightProgressService = {
           totalCaloriesBurned: 0
         };
       }
-
-      console.log('✅ Weight progress data found:', data.length, 'days');
-      console.log('📊 First data point:', data[0]);
-      console.log('📊 Last data point:', data[data.length - 1]);
-
       // Transform data for chart
       const labels = data.map(d => {
         const date = new Date(d.measurement_date);
@@ -131,11 +102,6 @@ export const WeightProgressService = {
       });
 
       const values = data.map(d => parseFloat(d.weight_kg));
-      
-      console.log('📊 Transformed data:');
-      console.log('  - labels:', labels);
-      console.log('  - values:', values);
-      
       const actualMeasurements = data.filter(d => d.is_actual).map(d => ({
         date: d.measurement_date,
         weight: parseFloat(d.weight_kg),
@@ -151,10 +117,6 @@ export const WeightProgressService = {
         caloriesConsumed: parseFloat(d.calories_consumed || 0),
         caloriesBurned: parseFloat(d.calories_burned || 0)
       }));
-
-      console.log('📊 Actual measurements count:', actualMeasurements.length);
-      console.log('📊 Projections count:', projections.length);
-
       // Calorie data for each day
       const calorieData = data.map(d => ({
         date: d.measurement_date,
@@ -174,10 +136,6 @@ export const WeightProgressService = {
       const avgCalorieBalance = calorieData.reduce((sum, d) => sum + d.net, 0) / calorieData.length;
       const totalCaloriesConsumed = calorieData.reduce((sum, d) => sum + d.consumed, 0);
       const totalCaloriesBurned = calorieData.reduce((sum, d) => sum + d.burned, 0);
-
-      console.log(`📊 Weight: ${startWeight.toFixed(1)}kg → ${endWeight.toFixed(1)}kg (${weightChange > 0 ? '+' : ''}${weightChange.toFixed(2)}kg)`);
-      console.log(`🔥 Avg daily balance: ${avgCalorieBalance.toFixed(0)} cal | Total consumed: ${totalCaloriesConsumed.toFixed(0)} | Total burned: ${totalCaloriesBurned.toFixed(0)}`);
-
       const result = {
         labels,
         values,
@@ -192,10 +150,6 @@ export const WeightProgressService = {
         startWeight: parseFloat(startWeight.toFixed(2)),
         currentWeight: parseFloat(endWeight.toFixed(2))
       };
-
-      console.log('📊 Returning result:', result);
-      console.log('═══════════════════════════════════════════════════════');
-      
       return result;
     } catch (error) {
       console.error('❌ Error fetching weight progress chart:', error);
@@ -271,8 +225,6 @@ export const WeightProgressService = {
   async getDailyCalorieBalance(userId, date = null) {
     try {
       const targetDate = date || new Date().toISOString().split('T')[0];
-      console.log('📊 Fetching daily calorie balance for:', targetDate);
-
       const { data, error } = await supabase.rpc('calculate_daily_calorie_balance', {
         p_user_id: userId,
         p_date: targetDate
@@ -284,7 +236,6 @@ export const WeightProgressService = {
       }
 
       if (!data || data.length === 0) {
-        console.log('⚠️ No calorie data found for date:', targetDate);
         return {
           date: targetDate,
           caloriesConsumed: 0,
@@ -307,9 +258,6 @@ export const WeightProgressService = {
 
       const balance = data[0];
       const deficit = balance.calorie_goal - balance.net_calories;
-
-      console.log(`✅ Calorie balance: ${balance.calories_consumed} consumed - ${balance.calories_burned} burned = ${balance.net_calories} net (Goal: ${balance.calorie_goal})`);
-
       return {
         date: balance.date,
         caloriesConsumed: balance.calories_consumed,

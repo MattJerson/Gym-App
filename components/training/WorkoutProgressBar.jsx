@@ -54,7 +54,6 @@ export default function WorkoutProgressBar() {
             filter: `user_id=eq.${userId},tracking_date=eq.${today}`,
           },
           (payload) => {
-            console.log('📊 Activity tracking updated, refreshing progress...');
             loadProgressData();
           }
         )

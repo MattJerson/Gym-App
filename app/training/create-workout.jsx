@@ -127,7 +127,6 @@ export default function CreateWorkout() {
         const weight = await CalorieCalculator.getUserWeight(user.id);
         if (weight) {
           setUserWeight(weight);
-          console.log('💪 User weight loaded:', weight, 'kg');
         } else {
           console.warn('⚠️ User weight not found, using default 70kg for calculations');
           setUserWeight(70); // Default fallback
@@ -148,17 +147,10 @@ export default function CreateWorkout() {
 
   const loadExerciseLibrary = async () => {
     try {
-      console.log('Loading exercise library...');
-      console.log('User ID from state:', userId);
-      
       // Load featured exercises from the new 1500+ exercise database (reduced to 20)
       const featured = await ExerciseDataService.getFeaturedExercises(20);
-      console.log('Featured result:', featured);
-      console.log('Loaded exercises:', featured?.length);
-      
       if (featured && featured.length > 0) {
         setExerciseLibrary(featured);
-        console.log('✅ Exercise library loaded successfully');
       } else {
         console.warn('⚠️ No exercises returned from database');
         // Try a direct query to verify data exists
@@ -167,7 +159,6 @@ export default function CreateWorkout() {
           .from('exercises')
           .select('id, name')
           .limit(5);
-        console.log('Direct query test:', testData, testError);
       }
     } catch (error) {
       console.error("Error loading exercise library:", error);
@@ -179,15 +170,11 @@ export default function CreateWorkout() {
       if (!loadMore) {
         setIsLoadingFiltered(true);
       }
-      console.log('Loading exercises for body part:', bodyPart);
-      
       // Calculate the limit based on current exercises
       const currentCount = loadMore ? exerciseLibrary.length : 0;
       const limit = loadMore ? 20 : 20; // Load 20 more when "Load More" is clicked
       
       const exercises = await ExerciseDataService.getExercisesByBodyPart(bodyPart, currentCount + limit);
-      console.log('Loaded exercises:', exercises?.length);
-      
       setExerciseLibrary(exercises || []);
     } catch (error) {
       console.error("Error loading exercises by body part:", error);
@@ -221,10 +208,6 @@ export default function CreateWorkout() {
       // Include MET value for calorie calculations
       met_value: exercise.met_value || 6.0, // Default to 6 if not provided
     };
-    
-    console.log('Adding exercise with unique ID:', uniqueId);
-    console.log('Current exercises count:', exercises.length);
-    
     setExercises((prev) => [...prev, newExercise]);
     setShowExerciseModal(false);
   };
@@ -290,8 +273,6 @@ export default function CreateWorkout() {
         userId,
         workoutData
       );
-      console.log("Custom workout saved:", savedWorkout);
-
       Alert.alert(
         "Workout Created! 🎉",
         `${workoutName} has been saved to My Workouts`,

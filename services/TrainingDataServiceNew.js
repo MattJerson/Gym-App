@@ -410,11 +410,6 @@ export const TrainingDataServiceNew = {
     try {
       const today = new Date();
       const dayOfWeek = today.getDay();
-      
-      console.log('=== FETCHING TODAY\'S WORKOUT ===');
-      console.log('User ID:', userId);
-      console.log('Day of week:', dayOfWeek);
-      
       // Clean up orphaned entries in multiple ways:
       
       // 1. Remove entries with null template_id
@@ -425,7 +420,6 @@ export const TrainingDataServiceNew = {
         .is('template_id', null);
       
       if (orphanedWorkouts && orphanedWorkouts.length > 0) {
-        console.log('Cleaning up null template_id entries:', orphanedWorkouts.length);
         await supabase
           .from('user_saved_workouts')
           .delete()
@@ -441,7 +435,6 @@ export const TrainingDataServiceNew = {
         .eq('workout_templates.is_active', false);
       
       if (inactiveTemplateWorkouts && inactiveTemplateWorkouts.length > 0) {
-        console.log('Cleaning up inactive template entries:', inactiveTemplateWorkouts.length);
         const idsToDelete = inactiveTemplateWorkouts.map(w => w.id);
         await supabase
           .from('user_saved_workouts')
@@ -459,7 +452,6 @@ export const TrainingDataServiceNew = {
       
       const orphanedByMissingTemplate = missingTemplateWorkouts?.filter(w => !w.workout_templates) || [];
       if (orphanedByMissingTemplate.length > 0) {
-        console.log('Cleaning up missing template entries:', orphanedByMissingTemplate.length);
         const idsToDelete = orphanedByMissingTemplate.map(w => w.id);
         await supabase
           .from('user_saved_workouts')
@@ -475,9 +467,6 @@ export const TrainingDataServiceNew = {
         .eq('user_id', userId)
         .eq('scheduled_day_of_week', dayOfWeek)
         .eq('is_scheduled', true);
-      
-      console.log('All scheduled workouts for today (after cleanup):', JSON.stringify(allScheduled, null, 2));
-      
       const { data: workouts, error: workoutsError } = await supabase
         .from('user_saved_workouts')
         .select(`
@@ -504,33 +493,23 @@ export const TrainingDataServiceNew = {
         .eq('is_scheduled', true)
         .eq('workout_templates.is_active', true)
         .not('template_id', 'is', null);
-
-      console.log('Filtered workouts:', JSON.stringify(workouts, null, 2));
-
       if (workoutsError) {
         console.error('Error fetching scheduled workouts:', workoutsError);
         return null;
       }
       
       if (!workouts || workouts.length === 0) {
-        console.log('No valid workouts found for today');
         return null;
       }
 
       // Filter out any workouts where the template is null or doesn't exist
       const validWorkouts = workouts.filter(w => w.workout_templates && w.workout_templates.is_active);
-      
-      console.log('Valid workouts after filtering:', validWorkouts.length);
-      
       if (validWorkouts.length === 0) {
         return null;
       }
 
       const workout = validWorkouts[0];
       const template = workout.workout_templates;
-      
-      console.log('Returning workout:', template.name);
-
       // Get exercise count
       const { count: exerciseCount } = await supabase
         .from('workout_template_exercises')

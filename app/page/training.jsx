@@ -166,7 +166,6 @@ export default function Training() {
             continueWorkout.id,
             { progress: continueWorkout.progress }
           );
-          console.log("Continue workout:", session);
           router.push(`/workout/${continueWorkout.id}`);
         }
       }
@@ -189,17 +188,6 @@ export default function Training() {
     try {
       // Check if there's an existing active session
       const existingSession = await WorkoutSessionServiceV2.getActiveSession(userId);
-      
-      console.log('🔍 Checking for active session before starting workout...');
-      console.log('User ID:', userId);
-      console.log('Workout to start:', workoutId);
-      console.log('Existing session found:', existingSession ? {
-        id: existingSession.id,
-        status: existingSession.status,
-        template_id: existingSession.workout_template_id || existingSession.template_id,
-        started_at: existingSession.started_at
-      } : 'None');
-      
       if (existingSession) {
         // Check if the existing session is for THIS workout
         const sessionTemplateId = existingSession.workout_template_id || existingSession.template_id;
@@ -349,7 +337,6 @@ export default function Training() {
             <Pressable
               style={styles.createWorkoutButton}
               onPress={() => {
-                console.log("Navigate to create custom workout");
                 router.push("/training/create-workout");
               }}
             >
@@ -372,11 +359,9 @@ export default function Training() {
             {/* My Workouts Section */}
             <MyWorkouts
               onSelectWorkout={(workoutId) => {
-                console.log("Selected workout:", workoutId);
                 handleStartWorkout(workoutId);
               }}
               onWorkoutOptions={(workoutId) => {
-                console.log("Workout options:", workoutId);
                 Alert.alert(
                   "Workout Options",
                   "Edit, Delete, or Share this workout"

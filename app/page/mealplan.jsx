@@ -167,7 +167,6 @@ export default function Mealplan() {
 
   const handleAddFood = async (mealType) => {
     try {
-      console.log(`Add food to ${mealType}`);
       // Navigate to food selection screen
       router.push(`/meal-plan/add-food?mealType=${mealType}`);
     } catch (error) {
@@ -241,7 +240,6 @@ export default function Mealplan() {
   };
 
   const handleQuickAction = (action) => {
-    console.log(`Quick action: ${action.title}`);
     // Navigate to appropriate screen based on action.route
     // router.push(action.route);
   };

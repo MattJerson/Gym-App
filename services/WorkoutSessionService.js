@@ -1046,14 +1046,11 @@ export const WorkoutSessionService = {
     workouts['pull-day'] = workouts['workout_124'];
     
     const workout = workouts[workoutId];
-    console.log('Found workout:', workout ? 'Yes' : 'No', 'for ID:', workoutId);
-    
     // If exact ID not found, try common variations
     if (!workout) {
       const fallbackIds = ['workout_124', 'pull-day', 'pullday'];
       for (const id of fallbackIds) {
         if (workouts[id]) {
-          console.log('Using fallback workout ID:', id);
           return workouts[id];
         }
       }
@@ -1150,7 +1147,6 @@ export const WorkoutSessionService = {
     try {
       // In the simplified version, we don't need to track individual rest times
       // This method is kept for compatibility but doesn't do anything
-      console.log(`Rest timer started for exercise ${exerciseIndex}, set ${setIndex}`);
       return await this.getCurrentSession();
     } catch (error) {
       console.error('Error starting rest timer:', error);

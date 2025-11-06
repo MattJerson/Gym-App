@@ -31,7 +31,6 @@ export default function Layout() {
         const user = await getCurrentUser();
         
         if (user) {
-          console.log('✅ User authenticated:', user.id);
           setUserId(user.id);
           
           // Trigger background steps sync (non-blocking)
@@ -39,10 +38,8 @@ export default function Layout() {
           // and last sync was more than 1 hour ago
           StepsSyncService.syncStepsInBackground(user.id).catch(err => {
             // Silent fail - don't block app initialization
-            console.log('📊 Steps sync skipped:', err.message);
           });
         } else {
-          console.log('No active session - user not logged in');
         }
       } catch (error) {
         console.error('Exception initializing user:', error.message);
@@ -62,12 +59,8 @@ export default function Layout() {
       }
       
       if (finalStatus !== 'granted') {
-        console.log('❌ Notification permissions not granted');
         return;
       }
-      
-      console.log('✅ Notification permissions granted');
-      
       // Set up Android notification channel
       if (Platform.OS === 'android') {
         await Notifications.setNotificationChannelAsync('default', {
@@ -79,7 +72,6 @@ export default function Layout() {
           enableVibrate: true,
           showBadge: true,
         });
-        console.log('✅ Android notification channel configured');
       }
     }
     
@@ -87,25 +79,14 @@ export default function Layout() {
 
     // Listener for when notification is received while app is open
     notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      console.log('📩 Notification received:', {
-        title: notification.request.content.title,
-        body: notification.request.content.body,
-        data: notification.request.content.data
-      });
       // Notification will display automatically based on handler above
     });
 
     // Listener for when user taps on notification
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('👆 Notification tapped:', {
-        title: response.notification.request.content.title,
-        data: response.notification.request.content.data
-      });
-      
       // Handle notification tap - you can navigate to specific screens here if needed
       const data = response.notification.request.content.data;
       if (data?.type) {
-        console.log(`Notification type: ${data.type}`);
         // TODO: Add navigation logic here if needed
         // e.g., if (data.type === 'workout') router.push('/workouts');
       }
@@ -124,19 +105,10 @@ export default function Layout() {
   // Set up real-time Supabase subscription when user is available
   useEffect(() => {
     if (!userId) return;
-
-    console.log('🔄 Setting up real-time subscription for user:', userId);
-
     // Subscribe to real-time notifications
     realtimeSubscription.current = NotificationService.subscribeToNotifications(
       userId,
       (newNotif) => {
-        console.log('🔔 Real-time notification received:', {
-          id: newNotif.id,
-          title: newNotif.title,
-          source: newNotif.source
-        });
-
         // Send a local notification to show it outside the app
         Notifications.scheduleNotificationAsync({
           content: {
@@ -153,7 +125,6 @@ export default function Layout() {
 
     return () => {
       if (realtimeSubscription.current) {
-        console.log('🔌 Unsubscribing from real-time notifications');
         realtimeSubscription.current.unsubscribe();
       }
     };
@@ -162,7 +133,6 @@ export default function Layout() {
   // Keep subscription alive even when app goes to background
   useEffect(() => {
     const subscription = AppState.addEventListener('change', nextAppState => {
-      console.log('📱 App state changed to:', nextAppState);
       // Subscription stays active in background
     });
 

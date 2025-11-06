@@ -126,25 +126,15 @@ export default function WorkoutSession() {
   const initializeWorkout = async () => {
     try {
       setLoading(true);
-      console.log('=== INITIALIZING WORKOUT ===');
-      console.log('User ID:', userId);
-      console.log('Workout ID:', workoutId);
-
       // Check if there's an existing active session for THIS workout
       const existingSession = await WorkoutSessionServiceV2.getActiveSession(userId);
-      console.log('Existing session:', existingSession);
-
       if (existingSession) {
         // Check if the existing session is for THIS workout
         const sessionTemplateId = existingSession.workout_template_id || existingSession.template_id;
         
         if (sessionTemplateId === workoutId) {
           // Resume existing session for this workout
-          console.log('Resuming existing session for this workout...');
           const templateData = await WorkoutSessionServiceV2.getWorkoutTemplate(workoutId);
-          console.log('Template data:', JSON.stringify(templateData, null, 2));
-          console.log('Template exercises count:', templateData?.exercises?.length || 0);
-          
           setTemplate(templateData);
           setSession(existingSession);
           setCurrentExerciseIndex(existingSession.current_exercise_index || 0);
@@ -158,13 +148,8 @@ export default function WorkoutSession() {
         } else {
           // Found a session for a DIFFERENT workout (or orphaned session with null template_id)
           // This is an orphaned session that should be abandoned
-          console.log('⚠️ Found orphaned session for different workout - abandoning it');
-          console.log('Orphaned session ID:', existingSession.id);
-          console.log('Orphaned session template_id:', sessionTemplateId);
-          
           try {
             await WorkoutSessionServiceV2.abandonSession(existingSession.id);
-            console.log('✅ Orphaned session abandoned, creating new session');
           } catch (abandonError) {
             console.error('Failed to abandon orphaned session:', abandonError);
           }
@@ -187,13 +172,9 @@ export default function WorkoutSession() {
 
   const createNewSession = async () => {
     try {
-      console.log('Creating new session...');
       const templateData = await WorkoutSessionServiceV2.getWorkoutTemplate(
         workoutId
       );
-      console.log('Template data:', JSON.stringify(templateData, null, 2));
-      console.log('Template exercises count:', templateData?.exercises?.length || 0);
-      
       if (!templateData) {
         console.error('Template data is null/undefined');
         Alert.alert("Error", "Workout not found");
@@ -213,7 +194,6 @@ export default function WorkoutSession() {
         userId,
         workoutId
       );
-      console.log('New session created:', newSession);
       setSession(newSession);
       setElapsedTime(0);
       setLoading(false); // Turn off loading when done
@@ -308,16 +288,12 @@ export default function WorkoutSession() {
 
   const handleCompleteWorkout = async () => {
     try {
-      console.log('Starting workout completion...');
-      
       // ✅ Complete session in backend FIRST (with accurate user weight)
       const completedSession = await WorkoutSessionServiceV2.completeSession(
         session.id,
         difficultyRating,
         completionNotes
       );
-      console.log('✅ Workout completed successfully, backend status:', completedSession?.status);
-      
       // ✅ Calculate points from backend-calculated values
       const setsCompleted = completedSession?.total_sets_completed || 0;
       const volumeKg = completedSession?.total_volume_kg || 0;
@@ -329,14 +305,6 @@ export default function WorkoutSession() {
                           Math.floor(volumeKg / 100) + // Volume points
                           Math.floor(caloriesBurned / 50) + // Calorie points
                           difficultyPoints; // Difficulty bonus
-      
-      console.log('📊 Final Stats:', {
-        totalSetsCompleted: setsCompleted,
-        totalVolumeKg: Math.round(volumeKg),
-        estimatedCalories: caloriesBurned,
-        pointsEarned
-      });
-      
       // ✅ Update session state with backend values so modal shows accurate stats
       const updatedSession = {
         ...completedSession,

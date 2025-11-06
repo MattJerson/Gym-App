@@ -223,11 +223,6 @@ export default function Calendar() {
 
   const loadCalendarData = async () => {
     try {
-      console.log('═══════════════════════════════════════════════════════');
-      console.log('📅 CALENDAR: loadCalendarData STARTED');
-      console.log('📅 Current userId:', userId);
-      console.log('═══════════════════════════════════════════════════════');
-      
       setIsLoading(true);
       
       // Get dynamic date range for calendar (current month ± 2 months)
@@ -241,10 +236,6 @@ export default function Calendar() {
         const day = String(date.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
       };
-      
-      console.log('📅 Fetching all calendar data in parallel...');
-      console.log('📅 Date range:', formatDate(startDate), 'to', formatDate(endDate));
-      
       const [
         notificationsData,
         calendarData,
@@ -270,27 +261,11 @@ export default function Calendar() {
           formatDate(endDate)
         ),
       ]);
-      
-      console.log('📅 All data fetched! Setting state...');
-      console.log('📅 chartData received:', {
-        hasData: !!chartData,
-        title: chartData?.title,
-        labelsCount: chartData?.labels?.length || 0,
-        valuesCount: chartData?.values?.length || 0,
-        labels: chartData?.labels,
-        values: chartData?.values,
-        fullChartData: chartData
-      });
-      
       setNotifications(notificationsData.count);
       setWorkoutData(calendarData);
       setRecentActivitiesData(activitiesData);
       setWorkoutTypes(typesData);
-      
-      console.log('📅 Setting progressChart state with:', chartData);
       setProgressChart(chartData);
-      console.log('📅 progressChart state has been set');
-      
       setAnalytics(analyticsData);
       setActivityIndicators(indicatorsData);
 
@@ -302,7 +277,6 @@ export default function Calendar() {
             const healthData = await HealthKitService.getStepsDataForCalendar(31);
             setStepsData(healthData);
           } catch (healthError) {
-            console.log('HealthKit data unavailable, loading from backend:', healthError.message);
             // Fallback to backend data
             const stepsResponse = await CalendarDataService.fetchStepsData(userId);
             setStepsData(stepsResponse);
@@ -313,19 +287,14 @@ export default function Calendar() {
           setStepsData(stepsResponse);
         }
       } catch (permissionError) {
-        console.log('Health permission check failed, loading from backend:', permissionError.message);
         // Fallback to backend data if permission check fails
         try {
           const stepsResponse = await CalendarDataService.fetchStepsData(userId);
           setStepsData(stepsResponse);
         } catch (backendError) {
-          console.log('Backend steps data unavailable:', backendError.message);
           // Steps data will be null, component will handle gracefully
         }
       }
-      
-      console.log('📅 CALENDAR: loadCalendarData COMPLETED');
-      console.log('═══════════════════════════════════════════════════════');
     } catch (error) {
       console.error("❌ Error loading calendar data:", error);
       console.error("❌ Error stack:", error.stack);

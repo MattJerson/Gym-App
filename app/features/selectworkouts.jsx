@@ -194,9 +194,6 @@ export default function SelectWorkouts() {
         "onboarding:selectedWorkouts",
         JSON.stringify(selectedWorkouts)
       );
-
-      console.log("✅ Successfully saved", selectedWorkouts.length, "workouts");
-
       // Check if meal plan step is already complete
       const updatedStatus = await OnboardingService.checkOnboardingStatus(user.id);
       

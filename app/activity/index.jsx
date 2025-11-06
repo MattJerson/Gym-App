@@ -360,7 +360,6 @@ export default function ActivityLog() {
                         activity={activity}
                         onPress={() => {
                           // Handle activity press if needed
-                          console.log("Activity pressed:", activity.id);
                         }}
                       />
                     ))}

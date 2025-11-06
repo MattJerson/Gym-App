@@ -14,39 +14,15 @@ export default function ProgressGraph({ chart, userId }) {
 
   // 🔍 COMPREHENSIVE LOGGING - Component Mount
   useEffect(() => {
-    console.log('📊 ProgressGraph MOUNTED');
-    console.log('📊 Props received:', {
-      userId: userId,
-      hasChart: !!chart,
-      chartTitle: chart?.title,
-      chartLabels: chart?.labels,
-      chartValues: chart?.values,
-      chartLabelsLength: chart?.labels?.length,
-      chartValuesLength: chart?.values?.length,
-      fullChart: chart
-    });
   }, []);
 
   // 🔍 Log when chart prop changes
   useEffect(() => {
-    console.log('📊 ProgressGraph: Chart prop CHANGED:', {
-      hasChart: !!chart,
-      title: chart?.title,
-      labelsCount: chart?.labels?.length || 0,
-      valuesCount: chart?.values?.length || 0,
-      values: chart?.values,
-      labels: chart?.labels,
-      trend: chart?.trend,
-      weightChange: chart?.weightChange,
-      currentWeight: chart?.currentWeight,
-      startWeight: chart?.startWeight
-    });
   }, [chart]);
 
   // Load unlock status when component mounts
   useEffect(() => {
     if (userId) {
-      console.log('📊 ProgressGraph: userId detected, loading unlock status:', userId);
       loadUnlockStatus();
     } else {
       console.warn('📊 ProgressGraph: No userId provided!');
@@ -55,10 +31,8 @@ export default function ProgressGraph({ chart, userId }) {
 
   const loadUnlockStatus = async () => {
     try {
-      console.log('� ProgressGraph: Loading unlock status for userId:', userId);
       setIsLoadingStatus(true);
       const status = await WeightProgressService.checkUnlockStatus(userId);
-      console.log('� ProgressGraph: Received unlock status:', status);
       setUnlockStatus(status);
     } catch (error) {
       console.error('❌ ProgressGraph: Error loading unlock status:', error);
@@ -76,14 +50,6 @@ export default function ProgressGraph({ chart, userId }) {
   // With automatic weight tracking, we can show progress with just the initial weight
   const hasSufficientData = chart?.values && chart.values.length >= 1 && 
     chart.values.filter(v => v && v > 0).length >= 1;
-  
-  console.log('📊 ProgressGraph: Data check:', {
-    hasSufficientData,
-    hasChartValues: !!chart?.values,
-    chartValuesLength: chart?.values?.length,
-    validValuesCount: chart?.values?.filter(v => v && v > 0).length
-  });
-
   // Smart data sampling: Show max 4 dates intelligently
   const filteredData = useMemo(() => {
     if (!chart?.labels || !chart?.values || chart.labels.length === 0 || chart.values.length === 0) {

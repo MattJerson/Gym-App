@@ -44,8 +44,6 @@ export default function DayActivityModal({ visible, onClose, date }) {
         const activityDate = new Date(activity.timestamp).toISOString().split('T')[0];
         return activityDate === date;
       });
-
-      console.log(`📅 Found ${dayActivities.length} activities for ${date}`);
       setActivities(dayActivities);
     } catch (error) {
       console.error('Error fetching day activities:', error);

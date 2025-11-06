@@ -238,8 +238,6 @@ export default function SubscriptionPackages() {
 
       // Free trial - no payment needed
       if (subscription.price === 0 || subscription.slug === "free-trial") {
-        console.log("Starting free trial...");
-
         // Get the subscription package ID
         const { data: packageData, error: packageError } = await supabase
           .from("subscription_packages")
@@ -275,8 +273,6 @@ export default function SubscriptionPackages() {
           setIsProcessing(false);
           return;
         }
-
-        console.log("Free trial created successfully!");
         router.push("/features/selectworkouts");
         return;
       }
@@ -327,8 +323,6 @@ export default function SubscriptionPackages() {
       if (paymentError) {
         console.error("Payment failed:", paymentError);
       } else {
-        console.log("Payment successful ✅");
-        
         // Create subscription record in database after successful payment
         try {
           const { data: packageData, error: pkgError } = await supabase
@@ -369,7 +363,6 @@ export default function SubscriptionPackages() {
                 "Payment successful but subscription tracking failed. Please contact support."
               );
             } else {
-              console.log("Subscription record created in database ✅");
             }
           }
         } catch (dbError) {

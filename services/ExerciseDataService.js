@@ -143,15 +143,9 @@ export const ExerciseDataService = {
    */
   async getFeaturedExercises(limit = 20) {
     try {
-      console.log('🔍 getFeaturedExercises called with limit:', limit);
-      
       // Get a mix of exercises from different body parts
       const bodyParts = ['chest', 'back', 'upper legs', 'shoulders', 'upper arms', 'lower arms', 'cardio'];
       const exercisesPerBodyPart = Math.ceil(limit / bodyParts.length);
-
-      console.log('Fetching exercises from body parts:', bodyParts);
-      console.log('Exercises per body part:', exercisesPerBodyPart);
-
       const exercisePromises = bodyParts.map(async bodyPart => {
         // Query exercises via junction table
         const { data, error } = await supabase
@@ -171,23 +165,15 @@ export const ExerciseDataService = {
       });
 
       const results = await Promise.all(exercisePromises);
-      
-      console.log('Query results count:', results.length);
       results.forEach((result, index) => {
-        console.log(`Body part ${bodyParts[index]}: ${result.data?.length || 0} exercises, Error:`, result.error?.message);
       });
       
       const allExercises = results
         .filter(result => !result.error)
         .flatMap(result => result.data || []);
-
-      console.log('Total exercises before shuffle:', allExercises.length);
-
       // Shuffle and limit
       const shuffled = allExercises.sort(() => 0.5 - Math.random());
       const limited = shuffled.slice(0, limit);
-      
-      console.log('✅ Returning', limited.length, 'exercises');
       return limited;
     } catch (error) {
       console.error('❌ Error fetching featured exercises:', error);

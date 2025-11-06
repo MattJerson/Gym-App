@@ -134,7 +134,6 @@ export default function ForgotPasswordFlow() {
     if (step < stepsConfig.length - 1) {
       setStep((prev) => prev + 1);
     } else {
-      console.log("Final Data:", formData);
       router.replace("/auth/loginregister");
     }
     setIsLoading(false);

@@ -103,18 +103,10 @@ export const TrainingDataService = {
   // Today's Planned Workout
   async fetchTodaysWorkout(userId) {
     try {
-      console.log('🔍 ===== FETCH TODAY\'S WORKOUT START =====');
-      
       // Get current day of week (0 = Sunday, 1 = Monday, etc.)
       const today = new Date();
       const dayOfWeek = today.getDay();
-      
-      console.log('📅 Current date:', today.toISOString());
-      console.log('📅 Day of week:', dayOfWeek, '(0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat)');
-      console.log('👤 User ID:', userId);
-
       // Query user_saved_workouts for workouts scheduled for today
-      console.log('🔎 Querying user_saved_workouts...');
       const { data: workouts, error: workoutsError } = await supabase
         .from('user_saved_workouts')
         .select(`
@@ -144,33 +136,17 @@ export const TrainingDataService = {
         console.error('❌ Error fetching scheduled workouts:', JSON.stringify(workoutsError, null, 2));
         return null;
       }
-      
-      console.log('📋 Raw query result:', JSON.stringify(workouts, null, 2));
-      console.log('� Raw query result:', JSON.stringify(workouts, null, 2));
-      console.log('�📊 Number of workouts found:', workouts?.length || 0);
-      
       if (!workouts || workouts.length === 0) {
-        console.log('⚠️ No scheduled workout for today');
-        console.log('⚠️ Checked: user_id =', userId, ', scheduled_day_of_week =', dayOfWeek, ', is_scheduled = true');
         return null;
       }
 
       const workout = workouts[0];
-      console.log('✅ First workout:', JSON.stringify(workout, null, 2));
-      
       const template = workout.workout_templates;
 
       if (!template) {
-        console.log('⚠️ No template found for workout');
-        console.log('⚠️ Workout object:', JSON.stringify(workout, null, 2));
         return null;
       }
-
-      console.log('✅ Found workout template:', template.name);
-      console.log('📦 Template details:', JSON.stringify(template, null, 2));
-
       // Check if there's an active session for this workout
-      console.log('🔎 Checking for active sessions...');
       const { data: activeSessions, error: sessionError } = await supabase
         .from('workout_sessions')
         .select('id')
@@ -182,18 +158,12 @@ export const TrainingDataService = {
       if (sessionError) {
         console.error('❌ Error checking active sessions:', JSON.stringify(sessionError, null, 2));
       } else {
-        console.log('📋 Active sessions query result:', JSON.stringify(activeSessions, null, 2));
       }
 
       if (activeSessions && activeSessions.length > 0) {
-        console.log('⚠️ Workout already has active session, skipping');
         return null;
       }
-      
-      console.log('✅ No active session found, proceeding...');
-
       // Count exercises for this template
-      console.log('🔎 Counting exercises for template:', workout.template_id);
       const { count: exerciseCount, error: countError } = await supabase
         .from('workout_template_exercises')
         .select('*', { count: 'exact', head: true })
@@ -202,14 +172,9 @@ export const TrainingDataService = {
       if (countError) {
         console.error('❌ Error counting exercises:', JSON.stringify(countError, null, 2));
       } else {
-        console.log('📊 Exercise count:', exerciseCount);
       }
 
       const category = template.workout_categories;
-      console.log('🏷️ Category details:', JSON.stringify(category, null, 2));
-      
-      console.log('✅ Today\'s workout found:', template.name, 'with', exerciseCount, 'exercises');
-
       const result = {
         id: workout.template_id,
         workoutName: template.name,
@@ -221,10 +186,6 @@ export const TrainingDataService = {
         categoryColor: category?.color || "#A3E635",
         categoryIcon: category?.icon || "dumbbell"
       };
-      
-      console.log('📦 Final result object:', JSON.stringify(result, null, 2));
-      console.log('🔍 ===== FETCH TODAY\'S WORKOUT END =====');
-      
       return result;
     } catch (error) {
       console.error('❌ ===== FETCH TODAY\'S WORKOUT ERROR =====');
@@ -543,9 +504,6 @@ export const TrainingDataService = {
   // Custom Workout Management
   async createCustomWorkout(userId, workoutData) {
     try {
-      console.log('Creating custom workout for user:', userId);
-      console.log('Workout data:', workoutData);
-
       // ✅ For custom workouts, use user_custom_categories instead of workout_categories
       let categoryId = null;
       
@@ -564,8 +522,6 @@ export const TrainingDataService = {
       }
 
       categoryId = customCategory;
-      console.log('Using custom category ID:', categoryId);
-
       // Transform exercises to match database format
       const exercises = workoutData.exercises.map(ex => ({
         exercise_id: ex.exercise_id, // ID from the exercises table
@@ -581,13 +537,10 @@ export const TrainingDataService = {
       }));
 
       // 🔥 Calculate estimated calories based on exercises and user weight
-      console.log('💪 Calculating calories for user:', userId);
       const estimatedCalories = await CalorieCalculator.calculateWorkoutCaloriesForUser(
         workoutData.exercises,
         userId
       );
-      console.log('🔥 Calculated calories:', estimatedCalories);
-
       const { data, error } = await supabase.rpc('create_custom_workout_v2', {
         p_user_id: userId,
         p_name: workoutData.name,

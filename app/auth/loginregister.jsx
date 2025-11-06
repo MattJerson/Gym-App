@@ -429,11 +429,9 @@ export default function Register() {
                   try {
                     const token = await registerDeviceToken(supabase, signInData.user.id);
                     if (__DEV__ && token) {
-                      console.log("[AUTH] Device token registered after signup");
                     }
                   } catch (tokenErr) {
                     if (__DEV__) {
-                      console.log("[AUTH] Device token registration failed (non-fatal):", tokenErr?.message);
                     }
                   }
                 }
@@ -466,19 +464,16 @@ export default function Register() {
         }
         
         if (__DEV__) {
-          console.log("[AUTH] User logged in:", data?.user?.id);
         }
 
         // Register device token for push notifications
         try {
           const token = await registerDeviceToken(supabase, data.user.id);
           if (__DEV__ && token) {
-            console.log("[AUTH] Device token registered for push notifications");
           }
         } catch (tokenErr) {
           // Non-fatal - push notifications will just not work
           if (__DEV__) {
-            console.log("[AUTH] Device token registration failed (non-fatal):", tokenErr?.message);
           }
         }
 

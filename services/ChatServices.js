@@ -308,14 +308,6 @@ export const sendChannelMessage = async (channelId, content, userId) => {
         }
       };
     }
-    
-    console.log(`[ChatServices] sendChannelMessage start`, {
-      channelId,
-      userId,
-      characterCount: validation.characterCount,
-      preview: content?.slice(0, 120),
-    });
-
     const { data, error } = await supabase
       .from("channel_messages")
       .insert({
@@ -333,13 +325,6 @@ export const sendChannelMessage = async (channelId, content, userId) => {
       console.error("[ChatServices] sendChannelMessage error:", error);
       return { data: null, error };
     }
-
-    console.log("[ChatServices] sendChannelMessage success", {
-      id: data?.id,
-      channelId: data?.channel_id,
-      isFlagged: data?.is_flagged
-    });
-
     // Enrich with public profile
     try {
       const { data: profile } = await supabase
@@ -487,14 +472,6 @@ export const sendDirectMessage = async (conversationId, senderId, content) => {
         }
       };
     }
-    
-    console.log(`[ChatServices] sendDirectMessage start`, {
-      conversationId,
-      senderId,
-      characterCount: validation.characterCount,
-      preview: content?.slice(0, 120),
-    });
-
     const { data, error } = await supabase
       .from("direct_messages")
       .insert({
@@ -512,13 +489,6 @@ export const sendDirectMessage = async (conversationId, senderId, content) => {
       console.error("[ChatServices] sendDirectMessage error:", error);
       return { data: null, error };
     }
-
-    console.log("[ChatServices] sendDirectMessage success", {
-      id: data?.id,
-      conversationId: data?.conversation_id,
-      isFlagged: data?.is_flagged
-    });
-
     try {
       const { data: profile } = await supabase
         .from("chats_public_with_id")

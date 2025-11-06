@@ -94,9 +94,6 @@ export default function SelectMealPlan() {
         console.error("Supabase error:", error);
         throw error;
       }
-
-      console.log("Loaded meal plans:", data?.length || 0);
-
       // 🔥 Calculate personalized values for each plan using the dynamic function
       const plansWithPersonalization = await Promise.all(
         (data || []).map(async (plan) => {
@@ -121,8 +118,6 @@ export default function SelectMealPlan() {
                 personalizedPlan.bmr = personalized.bmr;
                 personalizedPlan.tdee = personalized.tdee;
                 personalizedPlan.is_personalized = true;
-                
-                console.log(`✅ Personalized ${plan.name}: ${personalized.daily_calories} cal (TDEE: ${Math.round(personalized.tdee)})`);
               }
             } catch (calcError) {
               console.error(`Failed to calculate personalized values for ${plan.name}:`, calcError);
@@ -298,16 +293,6 @@ export default function SelectMealPlan() {
       const registration = regRaw ? JSON.parse(regRaw) : {};
       const bodyfatFromStorage = bodyRaw ? JSON.parse(bodyRaw) : null;
       const selectedWorkouts = workoutsRaw ? JSON.parse(workoutsRaw) : [];
-
-      console.log("=== SELECTMEALPLAN DEBUG ===");
-      console.log("Registration data from AsyncStorage:", registration);
-      console.log(
-        "Has registration data?",
-        Object.keys(registration).length > 0
-      );
-      console.log("Bodyfat from database:", existingBodyfat);
-      console.log("Bodyfat from AsyncStorage:", bodyfatFromStorage);
-
       // Use bodyfat from database if it exists, otherwise from AsyncStorage
       const bodyfat = existingBodyfat 
         ? {
@@ -327,7 +312,6 @@ export default function SelectMealPlan() {
 
       // Only save registration profile if we have data (don't overwrite with empty object!)
       if (Object.keys(registration).length > 0 && registration.gender) {
-        console.log("Saving registration profile...");
         // Save registration profile
         const registrationPayload = {
           user_id: user.id,
@@ -377,11 +361,7 @@ export default function SelectMealPlan() {
           setIsCompleting(false);
           return;
         }
-        console.log("✅ Registration profile saved");
       } else {
-        console.log(
-          "⚠️ Skipping registration save - no data in AsyncStorage (already saved in previous step)"
-        );
       }
 
       // Save body fat profile

@@ -51,25 +51,20 @@ class StepsSyncService {
   async syncStepsInBackground(userId) {
     // Prevent concurrent syncs
     if (this.isSyncing) {
-      console.log('📊 Steps sync already in progress, skipping...');
       return false;
     }
 
     // Check if sync is needed
     const needsSync = await this.shouldSync();
     if (!needsSync) {
-      console.log('📊 Steps recently synced, skipping...');
       return false;
     }
 
     try {
       this.isSyncing = true;
-      console.log('📊 Starting background steps sync...');
-
       // Check if health permission is granted
       const hasPermission = await HealthKitService.checkPermission();
       if (!hasPermission) {
-        console.log('📊 No health permission, skipping sync');
         return false;
       }
 
@@ -77,7 +72,6 @@ class StepsSyncService {
       const stepsArray = await HealthKitService.getStepsForLastNDays(MAX_DAYS_TO_SYNC);
       
       if (!stepsArray || stepsArray.length === 0) {
-        console.log('📊 No steps data available from health app');
         return false;
       }
 
@@ -109,7 +103,6 @@ class StepsSyncService {
             
             // Only log today's sync to avoid spam
             if (dayData.date === todayStr) {
-              console.log(`✅ Today's steps synced: ${dayData.steps.toLocaleString()}`);
             }
             
             return true;
@@ -125,8 +118,6 @@ class StepsSyncService {
       // Update last sync timestamp
       await AsyncStorage.setItem(LAST_SYNC_KEY, Date.now().toString());
       this.lastSyncTimestamp = Date.now();
-      
-      console.log(`✅ Steps sync complete: ${successCount}/${stepsArray.length} days synced`);
       return true;
 
     } catch (error) {
@@ -174,7 +165,6 @@ class StepsSyncService {
     try {
       await AsyncStorage.removeItem(LAST_SYNC_KEY);
       this.lastSyncTimestamp = null;
-      console.log('✅ Sync history cleared');
     } catch (error) {
       console.error('Error clearing sync history:', error);
     }

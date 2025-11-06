@@ -158,10 +158,6 @@ export default function BodyFatUser() {
     
     const currentBF = Math.round(currentBodyFat);
     const goalBF = Math.round(goalBodyFat);
-    
-    console.log("Current Body Fat:", `${currentBF}%`);
-    console.log("Goal Body Fat:", `${goalBF}%`);
-    
     try {
       // Get authenticated user
       const userResp = await supabase.auth.getUser();
@@ -247,9 +243,6 @@ export default function BodyFatUser() {
 
   const handleSubmit = () => {
     setIsLoading(true);
-    console.log("Current Body Fat:", `${Math.round(currentBodyFat)}%`);
-    console.log("Goal Body Fat:", `${Math.round(goalBodyFat)}%`);
-
     setTimeout(() => {
       setIsLoading(false);
       router.push("features/subscriptionpackages");

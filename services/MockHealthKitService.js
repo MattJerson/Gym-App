@@ -49,7 +49,6 @@ class MockHealthKitService {
    * Mock permission request (always grants)
    */
   async initialize() {
-    console.log('🧪 MockHealthKitService: Granting permission (simulator mode)');
     this.isInitialized = true;
     this.hasPermission = true;
     await AsyncStorage.setItem(MOCK_PERMISSION_KEY, 'true');

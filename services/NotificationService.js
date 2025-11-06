@@ -11,13 +11,11 @@ export const NotificationService = {
     try {
       if (!userId) {
         if (__DEV__) {
-          console.log('NotificationService: No userId provided');
         }
         return [];
       }
 
       if (__DEV__) {
-        console.log('NotificationService: Fetching notifications for user:', userId);
       }
 
       // First, get dismissed notifications to filter them out
@@ -42,10 +40,6 @@ export const NotificationService = {
       );
 
       if (__DEV__) {
-        console.log('NotificationService: Dismissed notifications:', {
-          manual: dismissedManual.size,
-          automated: dismissedAutomated.size
-        });
       }
 
       // Fetch both manual broadcasts AND automated notifications in parallel
@@ -107,7 +101,6 @@ export const NotificationService = {
 
       if (allNotifications.length === 0) {
         if (__DEV__) {
-          console.log('NotificationService: No notifications found');
         }
         return [];
       }
@@ -133,7 +126,6 @@ export const NotificationService = {
       }
 
       if (__DEV__) {
-        console.log('NotificationService: Fetched', allNotifications.length, 'notifications (manual + automated)');
       }
 
       // Merge with read status
@@ -169,7 +161,6 @@ export const NotificationService = {
     try {
       if (!userId) {
         if (__DEV__) {
-          console.log('NotificationService: No userId for unread count');
         }
         return 0;
       }
@@ -225,11 +216,6 @@ export const NotificationService = {
         const unDismissedAutomated = (automatedNotifs || []).filter(n => !dismissedAutomated.has(n.id));
         
         if (__DEV__) {
-          console.log('NotificationService: Unread count:', {
-            manual: 0,
-            automated: unDismissedAutomated.length,
-            total: unDismissedAutomated.length
-          });
         }
 
         return unDismissedAutomated.length;
@@ -263,11 +249,6 @@ export const NotificationService = {
         console.error('Error fetching automated notifications for count:', automatedError.message);
         
         if (__DEV__) {
-          console.log('NotificationService: Unread count:', {
-            manual: manualUnreadCount,
-            automated: 0,
-            total: manualUnreadCount
-          });
         }
         
         return manualUnreadCount;
@@ -279,13 +260,6 @@ export const NotificationService = {
       const totalUnread = manualUnreadCount + unDismissedAutomated.length;
 
       if (__DEV__) {
-        console.log('NotificationService: Unread count:', {
-          manual: manualUnreadCount,
-          automated: unDismissedAutomated.length,
-          total: totalUnread,
-          dismissedManual: dismissedManual.size,
-          dismissedAutomated: dismissedAutomated.size
-        });
       }
       
       return totalUnread;
@@ -339,7 +313,6 @@ export const NotificationService = {
       }
       
       if (__DEV__) {
-        console.log('NotificationService: Marked all as read:', data);
       }
       
       return data; // Returns { manual_marked_read, automated_deleted, total_processed }
@@ -365,7 +338,6 @@ export const NotificationService = {
       }
       
       if (__DEV__) {
-        console.log('NotificationService: Dismissed all notifications:', data);
       }
       
       return data; // Returns { manual_dismissed, automated_dismissed, total_dismissed }
@@ -381,13 +353,11 @@ export const NotificationService = {
   subscribeToNotifications(userId, onNewNotification) {
     if (!userId) {
       if (__DEV__) {
-        console.log('NotificationService: No userId for subscription');
       }
       return { unsubscribe: () => {} };
     }
 
     if (__DEV__) {
-      console.log('NotificationService: Setting up real-time subscription for user:', userId);
     }
 
     // Create unique channel name to avoid conflicts
@@ -408,7 +378,6 @@ export const NotificationService = {
         filter: 'status=eq.sent'
       }, payload => {
         if (__DEV__) {
-          console.log('🔔 NotificationService: New manual notification:', payload.new.title);
         }
         errorCount = 0;
         if (errorTimeout) {
@@ -432,11 +401,6 @@ export const NotificationService = {
         table: 'notifications'
       }, payload => {
         if (__DEV__) {
-          console.log('📡 NotificationService: Received UPDATE event:', {
-            old_status: payload.old?.status,
-            new_status: payload.new?.status,
-            title: payload.new?.title
-          });
         }
         
         const wasNotSent = payload.old?.status !== 'sent';
@@ -444,7 +408,6 @@ export const NotificationService = {
         
         if (wasNotSent && isNowSent) {
           if (__DEV__) {
-            console.log('🔔 NotificationService: Manual notification sent:', payload.new.title);
           }
           errorCount = 0;
           if (errorTimeout) {
@@ -462,7 +425,6 @@ export const NotificationService = {
           }
         } else {
           if (__DEV__) {
-            console.log('⏭️ NotificationService: UPDATE event ignored (not a draft->sent transition)');
           }
         }
       })
@@ -474,7 +436,6 @@ export const NotificationService = {
         filter: `user_id=eq.${userId}`
       }, payload => {
         if (__DEV__) {
-          console.log('🤖 NotificationService: New automated notification:', payload.new.title);
         }
         errorCount = 0;
         if (errorTimeout) {
@@ -499,12 +460,10 @@ export const NotificationService = {
       })
       .subscribe((status, err) => {
         if (__DEV__) {
-          console.log('NotificationService: Subscription status:', status);
         }
         
         if (status === 'SUBSCRIBED') {
           if (__DEV__) {
-            console.log('✅ NotificationService: Successfully subscribed to real-time notifications');
           }
           errorCount = 0;
           if (errorTimeout) {
@@ -516,7 +475,6 @@ export const NotificationService = {
           
           if (!errorTimeout) {
             if (__DEV__) {
-              console.log(`⚠️ NotificationService: Connection issue (attempt ${errorCount}), waiting ${MAX_RETRY_WAIT/1000}s...`);
             }
             
             errorTimeout = setTimeout(() => {
@@ -539,7 +497,6 @@ export const NotificationService = {
             errorTimeout = null;
           }
           if (__DEV__) {
-            console.log('NotificationService: Unsubscribing from channel:', channelName);
           }
           supabase.removeChannel(channel);
         } catch (e) {

@@ -18,7 +18,6 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 if (__DEV__) {
   try {
     const masked = SUPABASE_ANON_KEY ? `${SUPABASE_ANON_KEY.slice(0, 8)}…` : 'undefined';
-    console.log('[Supabase] URL:', SUPABASE_URL, 'ANON:', masked);
   } catch {}
 }
 
@@ -43,13 +42,10 @@ export async function pingSupabase(timeoutMs = 5000) {
 // Handle auth errors globally
 supabase.auth.onAuthStateChange((event, session) => {
   if (event === 'TOKEN_REFRESHED') {
-    console.log('Auth token refreshed successfully');
   }
   if (event === 'SIGNED_OUT') {
-    console.log('User signed out');
   }
   if (event === 'USER_UPDATED') {
-    console.log('User data updated');
   }
 });
 
@@ -82,7 +78,6 @@ export const ensureValidSession = async () => {
     const { data: { session }, error } = await supabase.auth.getSession();
     
     if (error || !session) {
-      console.log('No valid session found, signing out...');
       await supabase.auth.signOut();
       return null;
     }

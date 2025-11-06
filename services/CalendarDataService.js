@@ -192,31 +192,10 @@ export const CalendarDataService = {
   // Progress Data
   async fetchProgressChart(userId, metric = "weight", period = "week") {
     try {
-      console.log('═══════════════════════════════════════════════════════');
-      console.log('📊 CalendarDataService.fetchProgressChart CALLED');
-      console.log('📊 Parameters:', { userId, metric, period });
-      console.log('═══════════════════════════════════════════════════════');
-      
       const daysBack = period === "week" ? 7 : 30;
-      
-      console.log('📊 Fetching weight progress (with projections) for user:', userId, 'period:', period, 'daysBack:', daysBack);
-      
       // Use new projection system
       const { WeightProgressService } = require('./WeightProgressService');
-      console.log('📊 WeightProgressService loaded, calling getWeightProgressChart...');
-      
       const progressData = await WeightProgressService.getWeightProgressChart(userId, daysBack);
-
-      console.log('📊 Weight progress data received from service:');
-      console.log('  - labelsCount:', progressData.labels?.length || 0);
-      console.log('  - valuesCount:', progressData.values?.length || 0);
-      console.log('  - actualCount:', progressData.actualMeasurements?.length || 0);
-      console.log('  - projectionsCount:', progressData.projections?.length || 0);
-      console.log('  - trend:', progressData.trend);
-      console.log('  - labels:', progressData.labels);
-      console.log('  - values:', progressData.values);
-      console.log('  - Full data:', progressData);
-
       if (!progressData.values || progressData.values.length === 0) {
         console.warn('⚠️ No weight data found - returning empty chart');
         return {
@@ -233,9 +212,6 @@ export const CalendarDataService = {
           calorieBalance: 0
         };
       }
-
-      console.log('✅ Weight data found:', progressData.values.length, 'measurements');
-
       // Get user's weight goal
       const { data: goalData } = await supabase
         .from('user_goals')
@@ -261,10 +237,6 @@ export const CalendarDataService = {
         startWeight: progressData.startWeight,
         currentWeight: progressData.currentWeight
       };
-
-      console.log('📊 Returning final chart object:', finalChart);
-      console.log('═══════════════════════════════════════════════════════');
-      
       return finalChart;
     } catch (error) {
       console.error('❌ Error fetching progress chart:', error);
@@ -524,7 +496,6 @@ export const CalendarDataService = {
 
   // Fetch comprehensive day activity details
   async fetchDayActivityDetails(userId, date) {
-    console.log(`📅 Fetching activity details for ${date}`);
     try {
       // Fetch all data in parallel
       const [workoutsResult, mealsResult, stepsResult, weightResult, calorieBalanceResult] = await Promise.all([
@@ -613,9 +584,6 @@ export const CalendarDataService = {
 
       // Process calorie balance
       const calorieBalance = calorieBalanceResult.data?.[0] || null;
-
-      console.log(`✅ Day activity details: ${workouts.length} workouts, ${meals.length} meals, ${steps?.count || 0} steps`);
-
       return {
         workouts,
         meals,
@@ -640,8 +608,6 @@ export const CalendarDataService = {
   // Fetch activity indicators for calendar date marking
   async fetchActivityIndicators(userId, startDate, endDate) {
     try {
-      console.log('📊 Fetching activity indicators for date range:', startDate, endDate);
-
       const [workoutsResult, mealsResult, stepsResult, weightResult] = await Promise.all([
         // Get dates with workouts from workout_logs
         supabase
@@ -715,8 +681,6 @@ export const CalendarDataService = {
           indicators[item.measurement_date].push('weight');
         }
       });
-
-      console.log('✅ Activity indicators loaded:', Object.keys(indicators).length, 'days');
       return indicators;
     } catch (error) {
       console.error('Error fetching activity indicators:', error);

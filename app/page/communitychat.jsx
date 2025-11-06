@@ -153,7 +153,6 @@ export default function CommunityChat() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    console.log("[CommunityChat] getCurrentUser auth user:", user);
     if (user) {
       // Check if user is admin
       const { data: adminCheck } = await supabase
@@ -163,7 +162,6 @@ export default function CommunityChat() {
         .single();
       
       if (adminCheck?.is_admin) {
-        console.log("[CommunityChat] User is admin");
         setIsAdmin(true);
       }
 
@@ -173,9 +171,6 @@ export default function CommunityChat() {
         .select("*")
         .eq("id", user.id)
         .single();
-
-      console.log("[CommunityChat] getCurrentUser profile:", profile);
-
       if (profile) {
         setCurrentUser(profile);
       } else {
@@ -213,7 +208,6 @@ export default function CommunityChat() {
               is_online: true,
             });
           } else {
-            console.log("[CommunityChat] created chats profile:", created);
             setCurrentUser(created);
           }
         } catch (err) {
@@ -283,13 +277,6 @@ export default function CommunityChat() {
       
       const formattedMessages = data.map((msg) => {
         const isMe = currentUser?.id && msg.user_id === currentUser.id;
-        console.log('[CommunityChat] Message formatting:', { // DEBUG
-          msgUserId: msg.user_id,
-          currentUserId: currentUser?.id,
-          isMe,
-          username: msg.chats?.username
-        });
-        
         return {
           id: msg.id,
           user: msg.chats?.username || 'unknown',
@@ -457,22 +444,12 @@ export default function CommunityChat() {
       setSending(false);
       return;
     }
-
-    console.log("[CommunityChat] handleSendMessage start", {
-      viewMode,
-      activeChannel,
-      activeConversationId,
-      userId: currentUser?.id,
-      preview: payloadPreview,
-    });
-
     // Safety: ensure sending flag clears even if remote call hangs
     let cleared = false;
     const clearSending = (reason) => {
       if (!cleared) {
         cleared = true;
         setSending(false);
-        console.log(`[CommunityChat] sending cleared (${reason})`);
       }
     };
 
@@ -487,13 +464,11 @@ export default function CommunityChat() {
         if (error) {
           // Handle profanity error (expected behavior - not a system error)
           if (error.message?.includes('inappropriate language') || error.message?.includes('profanity')) {
-            console.log("[CommunityChat] Profanity detected, showing inline error");
             setProfanityError(true);
             setTimeout(() => setProfanityError(false), 5000);
           }
           // Handle rate limit error
           else if (error.code === 'RATE_LIMIT') {
-            console.log("[CommunityChat] Rate limit hit");
             setRateLimitError(`Too many messages. Please wait ${error.waitSeconds} seconds.`);
             setTimeout(() => setRateLimitError(null), error.waitSeconds * 1000);
           } else {
@@ -502,7 +477,6 @@ export default function CommunityChat() {
             Alert.alert("Error", error.message || "Failed to send message");
           }
         } else {
-          console.log("[CommunityChat] channel message sent", { id: data?.id });
           setMessage("");
           setCharacterCount(0);
         }
@@ -516,13 +490,11 @@ export default function CommunityChat() {
         if (error) {
           // Handle profanity error (expected behavior - not a system error)
           if (error.message?.includes('inappropriate language') || error.message?.includes('profanity')) {
-            console.log("[CommunityChat] Profanity detected in DM, showing inline error");
             setProfanityError(true);
             setTimeout(() => setProfanityError(false), 5000);
           }
           // Handle rate limit error
           else if (error.code === 'RATE_LIMIT') {
-            console.log("[CommunityChat] Rate limit hit on DM");
             setRateLimitError(`Too many messages. Please wait ${error.waitSeconds} seconds.`);
             setTimeout(() => setRateLimitError(null), error.waitSeconds * 1000);
           } else {
@@ -531,7 +503,6 @@ export default function CommunityChat() {
             Alert.alert("Error", error.message || "Failed to send message");
           }
         } else {
-          console.log("[CommunityChat] direct message sent", { id: data?.id });
           setMessage("");
           setCharacterCount(0);
         }

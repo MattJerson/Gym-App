@@ -11,8 +11,6 @@ export const WorkoutSessionServiceV2 = {
    */
   async getWorkoutTemplate(templateId) {
     try {
-      console.log('WorkoutSessionServiceV2.getWorkoutTemplate - templateId:', templateId);
-      
       const { data: template, error: templateError } = await supabase
         .from('workout_templates')
         .select(`
@@ -34,19 +32,12 @@ export const WorkoutSessionServiceV2 = {
         `)
         .eq('id', templateId)
         .single();
-
-      console.log('Query result - template:', template);
-      console.log('Query result - error:', templateError);
-
       if (templateError) throw templateError;
       
       // Sort exercises by order_index (not order)
       if (template?.exercises) {
-        console.log('Raw exercises from DB:', template.exercises);
         template.exercises.sort((a, b) => a.order_index - b.order_index);
-        console.log('Sorted exercises:', template.exercises.length);
       } else {
-        console.log('No exercises found in template');
       }
       
       return template;
@@ -61,8 +52,6 @@ export const WorkoutSessionServiceV2 = {
    */
   async createSession(userId, templateId) {
     try {
-      console.log('🏁 Creating new workout session for template:', templateId);
-      
       // Get the workout template with exercises
       const template = await this.getWorkoutTemplate(templateId);
       if (!template) {
@@ -72,9 +61,6 @@ export const WorkoutSessionServiceV2 = {
       if (!template.exercises || template.exercises.length === 0) {
         throw new Error('Template has no exercises');
       }
-
-      console.log('📋 Template loaded:', template.name, '- Exercises:', template.exercises.length);
-
       // Create the workout session
       const { data: session, error: sessionError } = await supabase
         .from('workout_sessions')
@@ -100,9 +86,6 @@ export const WorkoutSessionServiceV2 = {
         console.error('❌ Error creating session:', sessionError);
         throw sessionError;
       }
-
-      console.log('✅ Session created:', session.id);
-
       // Create workout_session_exercises entries for each exercise
       const exercisePromises = template.exercises.map((exercise, index) => {
         return supabase
@@ -122,8 +105,6 @@ export const WorkoutSessionServiceV2 = {
       });
 
       await Promise.all(exercisePromises);
-      console.log('✅ Created', template.exercises.length, 'exercise entries');
-
       // Fetch the created session with all details
       return await this.getSession(session.id);
     } catch (error) {
@@ -174,8 +155,6 @@ export const WorkoutSessionServiceV2 = {
    */
   async getActiveSession(userId) {
     try {
-      console.log('🔍 WorkoutSessionServiceV2.getActiveSession - checking for user:', userId);
-      
       const { data, error } = await supabase
         .from('workout_sessions')
         .select(`
@@ -193,15 +172,6 @@ export const WorkoutSessionServiceV2 = {
         console.error('❌ Error fetching active session:', error);
         throw error;
       }
-
-      console.log('📊 Active session query result:', data ? {
-        id: data.id,
-        status: data.status,
-        template_id: data.template_id || data.workout_template_id,
-        started_at: data.started_at,
-        completed_at: data.completed_at
-      } : 'No active sessions found');
-
       if (data) {
         // Sort exercises and sets
         if (data.exercises) {
@@ -447,20 +417,10 @@ export const WorkoutSessionServiceV2 = {
    */
   async completeSession(sessionId, difficultyRating = null, notes = null) {
     try {
-      console.log('Completing workout session:', sessionId);
-      
       // Get session details first to get user_id
       const session = await this.getSession(sessionId);
       const userId = session?.user_id;
       const templateId = session?.workout_template_id || session?.template_id;
-      
-      console.log('Session before completion:', {
-        id: session.id,
-        status: session.status,
-        user_id: userId,
-        template_id: templateId
-      });
-      
       // Calculate workout statistics from completed sets
       const { data: setsData, error: setsError } = await supabase
         .from('exercise_sets')
@@ -531,19 +491,6 @@ export const WorkoutSessionServiceV2 = {
       
       // Apply fitness multiplier
       const estimatedCalories = Math.round((baseCalories + volumeBonus) * fitnessMultiplier);
-
-      console.log('✅ Realistic Calorie Calculation:', {
-        userWeight: Math.round(userWeight),
-        durationMinutes: Math.round((totalDurationSeconds / 60)),
-        durationHours: durationHours.toFixed(2),
-        totalSets: totalSetsCompleted,
-        averageMET: averageMET.toFixed(1),
-        baseCalories: Math.round(baseCalories),
-        volumeBonus,
-        fitnessMultiplier,
-        totalCalories: estimatedCalories
-      });
-
       // ⭐ CALCULATE POINTS EARNED
       // Points system based on effort and achievement
       const basePoints = 10; // Base points for completing any workout
@@ -553,16 +500,6 @@ export const WorkoutSessionServiceV2 = {
       const difficultyPoints = difficultyRating ? difficultyRating * 5 : 0; // 5 points per difficulty level
       
       const totalPointsEarned = basePoints + setsPoints + volumePoints + caloriePoints + difficultyPoints;
-
-      console.log('✅ Points Calculation:', {
-        basePoints,
-        setsPoints,
-        volumePoints,
-        caloriePoints,
-        difficultyPoints,
-        totalPointsEarned
-      });
-
       // Update workout session directly - NO RPC
       const { error: updateError } = await supabase
         .from('workout_sessions')
@@ -585,9 +522,6 @@ export const WorkoutSessionServiceV2 = {
         console.error('Error updating session:', updateError);
         throw updateError;
       }
-
-      console.log('✅ Session marked as completed successfully');
-
       // ⭐ UPDATE USER STATS WITH POINTS
       const { data: currentStats } = await supabase
         .from('user_stats')
@@ -637,8 +571,6 @@ export const WorkoutSessionServiceV2 = {
             updated_at: now.toISOString()
           })
           .eq('user_id', userId);
-
-        console.log('✅ Updated user stats with points:', totalPointsEarned);
       } else {
         // Create new stats record
         await supabase
@@ -655,8 +587,6 @@ export const WorkoutSessionServiceV2 = {
             created_at: now.toISOString(),
             updated_at: now.toISOString()
           });
-
-        console.log('✅ Created user stats with points:', totalPointsEarned);
       }
 
       // Update workout_session_exercises completion status
@@ -730,8 +660,6 @@ export const WorkoutSessionServiceV2 = {
             })
             .eq('user_id', userId)
             .eq('template_id', templateId);
-          
-          console.log('✅ Updated workout completion count to:', (currentWorkout.times_completed || 0) + 1);
         }
       }
 
@@ -765,8 +693,6 @@ export const WorkoutSessionServiceV2 = {
             updated_at: now.toISOString()
           })
           .eq('id', existingTracking.id);
-
-        console.log('✅ Updated daily activity tracking - Workouts:', newWorkoutsCompleted, 'Calories:', newTotalCalories);
       } else {
         // Create new record for today
         await supabase
@@ -784,8 +710,6 @@ export const WorkoutSessionServiceV2 = {
             created_at: now.toISOString(),
             updated_at: now.toISOString()
           });
-
-        console.log('✅ Created new daily activity tracking - Calories:', estimatedCalories);
       }
 
       // 🎮 SYNC GAMIFICATION STATS after completing workout
@@ -793,7 +717,6 @@ export const WorkoutSessionServiceV2 = {
         try {
           const GamificationDataService = require('./GamificationDataService').default;
           await GamificationDataService.syncUserStatsFromActivity(userId);
-          console.log('✅ Gamification stats synced for user:', userId);
         } catch (gamErr) {
           console.warn('⚠️ Failed to sync gamification stats:', gamErr);
           // Non-fatal: workout is still completed
@@ -802,10 +725,6 @@ export const WorkoutSessionServiceV2 = {
 
       // Return the completed session
       const completedSession = await this.getSession(sessionId);
-      console.log('✅ Workout completed successfully!');
-      console.log('Final session status:', completedSession?.status);
-      console.log('Session completion timestamp:', completedSession?.completed_at);
-      
       return completedSession;
     } catch (error) {
       console.error('Error completing session:', error);
