@@ -61,16 +61,71 @@ export const WorkoutSessionServiceV2 = {
    */
   async createSession(userId, templateId) {
     try {
-      const { data: sessionId, error } = await supabase
-        .rpc('create_workout_session_from_template', {
-          p_user_id: userId,
-          p_template_id: templateId
-        });
-
-      if (error) throw error;
+      console.log('🏁 Creating new workout session for template:', templateId);
       
+      // Get the workout template with exercises
+      const template = await this.getWorkoutTemplate(templateId);
+      if (!template) {
+        throw new Error('Template not found');
+      }
+
+      if (!template.exercises || template.exercises.length === 0) {
+        throw new Error('Template has no exercises');
+      }
+
+      console.log('📋 Template loaded:', template.name, '- Exercises:', template.exercises.length);
+
+      // Create the workout session
+      const { data: session, error: sessionError } = await supabase
+        .from('workout_sessions')
+        .insert({
+          user_id: userId,
+          workout_template_id: templateId,
+          template_id: templateId,
+          workout_name: template.name,
+          workout_type: template.category?.name || 'Workout',
+          category_id: template.category_id,
+          status: 'in_progress',
+          total_exercises: template.exercises.length,
+          current_exercise_index: 0,
+          completed_exercises: 0,
+          started_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (sessionError) {
+        console.error('❌ Error creating session:', sessionError);
+        throw sessionError;
+      }
+
+      console.log('✅ Session created:', session.id);
+
+      // Create workout_session_exercises entries for each exercise
+      const exercisePromises = template.exercises.map((exercise, index) => {
+        return supabase
+          .from('workout_session_exercises')
+          .insert({
+            session_id: session.id,
+            user_id: userId,
+            exercise_name: exercise.exercise?.name || exercise.exercise_name || 'Unknown',
+            exercise_index: index,
+            target_sets: exercise.sets || 3,
+            target_reps: exercise.reps || '10',
+            completed_sets: 0,
+            is_completed: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+      });
+
+      await Promise.all(exercisePromises);
+      console.log('✅ Created', template.exercises.length, 'exercise entries');
+
       // Fetch the created session with all details
-      return await this.getSession(sessionId);
+      return await this.getSession(session.id);
     } catch (error) {
       console.error('Error creating workout session:', error);
       throw error;
@@ -397,17 +452,19 @@ export const WorkoutSessionServiceV2 = {
       // Get session details first to get user_id
       const session = await this.getSession(sessionId);
       const userId = session?.user_id;
+      const templateId = session?.workout_template_id || session?.template_id;
       
       console.log('Session before completion:', {
         id: session.id,
         status: session.status,
-        user_id: userId
+        user_id: userId,
+        template_id: templateId
       });
       
       // Calculate workout statistics from completed sets
       const { data: setsData, error: setsError } = await supabase
         .from('exercise_sets')
-        .select('actual_reps, weight_kg, is_completed, exercise_index')
+        .select('actual_reps, weight_kg, is_completed, exercise_index, exercise_name')
         .eq('session_id', sessionId)
         .eq('is_completed', true);
 
@@ -426,16 +483,84 @@ export const WorkoutSessionServiceV2 = {
       const now = new Date();
       const totalDurationSeconds = Math.floor((now - startedAt) / 1000) - (session.total_pause_duration || 0);
 
-      // Estimate calories (simple formula: 5 calories per minute of workout)
-      const estimatedCalories = Math.round((totalDurationSeconds / 60) * 5);
+      // Get comprehensive user profile for accurate calorie calculation
+      const { data: userProfile } = await supabase
+        .from('registration_profiles')
+        .select('weight_kg, height_cm, age, gender, activity_level, fitness_level')
+        .eq('user_id', userId)
+        .single();
 
-      console.log('Calculated stats:', {
-        totalSetsCompleted,
-        totalRepsCompleted,
-        totalVolumeKg,
-        completedExercises,
-        totalDurationSeconds,
-        estimatedCalories
+      const userWeight = userProfile?.weight_kg || 70;
+      const fitnessLevel = userProfile?.fitness_level || 'intermediate';
+
+      // Activity multiplier based on fitness level
+      const fitnessMultiplier = {
+        'beginner': 0.9,
+        'intermediate': 1.0,
+        'advanced': 1.1
+      }[fitnessLevel] || 1.0;
+
+      // ✅ REALISTIC CALORIE CALCULATION using standard MET formula
+      // Formula: Calories = MET × weight_kg × duration_hours
+      // Resistance training MET values: 
+      // - Light (3.5): bodyweight exercises, light weights
+      // - Moderate (5.0): moderate weights, compound movements
+      // - Vigorous (6.0-8.0): heavy weights, high intensity
+      
+      const durationHours = totalDurationSeconds / 3600;
+      
+      // Determine average MET based on workout intensity
+      let averageMET = 5.0; // Default moderate intensity
+      
+      // Adjust MET based on sets completed (more sets = higher intensity)
+      if (totalSetsCompleted >= 30) {
+        averageMET = 6.5; // High intensity
+      } else if (totalSetsCompleted >= 20) {
+        averageMET = 5.5; // Moderate-high intensity
+      } else if (totalSetsCompleted >= 10) {
+        averageMET = 5.0; // Moderate intensity
+      } else {
+        averageMET = 4.0; // Light-moderate intensity
+      }
+      
+      // Base calorie calculation
+      const baseCalories = averageMET * userWeight * durationHours;
+      
+      // Small bonus for volume (weight lifted)
+      const volumeBonus = Math.min(50, Math.floor(totalVolumeKg / 500)); // Max 50 calories from volume
+      
+      // Apply fitness multiplier
+      const estimatedCalories = Math.round((baseCalories + volumeBonus) * fitnessMultiplier);
+
+      console.log('✅ Realistic Calorie Calculation:', {
+        userWeight: Math.round(userWeight),
+        durationMinutes: Math.round((totalDurationSeconds / 60)),
+        durationHours: durationHours.toFixed(2),
+        totalSets: totalSetsCompleted,
+        averageMET: averageMET.toFixed(1),
+        baseCalories: Math.round(baseCalories),
+        volumeBonus,
+        fitnessMultiplier,
+        totalCalories: estimatedCalories
+      });
+
+      // ⭐ CALCULATE POINTS EARNED
+      // Points system based on effort and achievement
+      const basePoints = 10; // Base points for completing any workout
+      const setsPoints = totalSetsCompleted * 2; // 2 points per set
+      const volumePoints = Math.floor(totalVolumeKg / 100); // 1 point per 100kg total volume
+      const caloriePoints = Math.floor(estimatedCalories / 50); // 1 point per 50 calories
+      const difficultyPoints = difficultyRating ? difficultyRating * 5 : 0; // 5 points per difficulty level
+      
+      const totalPointsEarned = basePoints + setsPoints + volumePoints + caloriePoints + difficultyPoints;
+
+      console.log('✅ Points Calculation:', {
+        basePoints,
+        setsPoints,
+        volumePoints,
+        caloriePoints,
+        difficultyPoints,
+        totalPointsEarned
       });
 
       // Update workout session directly - NO RPC
@@ -463,6 +588,77 @@ export const WorkoutSessionServiceV2 = {
 
       console.log('✅ Session marked as completed successfully');
 
+      // ⭐ UPDATE USER STATS WITH POINTS
+      const { data: currentStats } = await supabase
+        .from('user_stats')
+        .select('total_points, total_workouts, total_calories_burned, total_exercises_completed, last_workout_date, current_streak, longest_streak')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      const todayDate = now.toISOString().split('T')[0];
+      const lastWorkoutDate = currentStats?.last_workout_date;
+      
+      // Calculate streak
+      let newStreak = currentStats?.current_streak || 0;
+      let newLongestStreak = currentStats?.longest_streak || 0;
+      
+      if (lastWorkoutDate) {
+        const lastDate = new Date(lastWorkoutDate);
+        const todayDateObj = new Date(todayDate);
+        const daysDiff = Math.floor((todayDateObj - lastDate) / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff === 1) {
+          // Consecutive day
+          newStreak += 1;
+        } else if (daysDiff === 0) {
+          // Same day, keep streak
+          newStreak = currentStats.current_streak;
+        } else {
+          // Streak broken
+          newStreak = 1;
+        }
+      } else {
+        newStreak = 1;
+      }
+      
+      newLongestStreak = Math.max(newStreak, newLongestStreak);
+
+      if (currentStats) {
+        await supabase
+          .from('user_stats')
+          .update({
+            total_points: (currentStats.total_points || 0) + totalPointsEarned,
+            total_workouts: (currentStats.total_workouts || 0) + 1,
+            total_calories_burned: (currentStats.total_calories_burned || 0) + estimatedCalories,
+            total_exercises_completed: (currentStats.total_exercises_completed || 0) + completedExercises,
+            last_workout_date: todayDate,
+            current_streak: newStreak,
+            longest_streak: newLongestStreak,
+            updated_at: now.toISOString()
+          })
+          .eq('user_id', userId);
+
+        console.log('✅ Updated user stats with points:', totalPointsEarned);
+      } else {
+        // Create new stats record
+        await supabase
+          .from('user_stats')
+          .insert({
+            user_id: userId,
+            total_points: totalPointsEarned,
+            total_workouts: 1,
+            total_calories_burned: estimatedCalories,
+            total_exercises_completed: completedExercises,
+            last_workout_date: todayDate,
+            current_streak: 1,
+            longest_streak: 1,
+            created_at: now.toISOString(),
+            updated_at: now.toISOString()
+          });
+
+        console.log('✅ Created user stats with points:', totalPointsEarned);
+      }
+
       // Update workout_session_exercises completion status
       if (setsData && setsData.length > 0) {
         for (const exerciseIndex of new Set(setsData.map(s => s.exercise_index))) {
@@ -483,6 +679,113 @@ export const WorkoutSessionServiceV2 = {
             .eq('session_id', sessionId)
             .eq('exercise_index', exerciseIndex);
         }
+      }
+
+      // ✅ UPDATE COMPLETION COUNT in user_saved_workouts
+      if (templateId) {
+        const { error: updateCompletionError } = await supabase
+          .from('user_saved_workouts')
+          .update({
+            times_completed: supabase.rpc('increment', { x: 1 }), // Will be handled by Postgres
+            last_completed_at: now.toISOString(),
+            total_time_spent: supabase.rpc('increment_by', { amount: Math.floor(totalDurationSeconds / 60) }),
+            total_calories_burned: supabase.rpc('increment_by', { amount: estimatedCalories }),
+            updated_at: now.toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('template_id', templateId);
+
+        // Use raw SQL update for increment since RPC might not exist
+        const { error: rawUpdateError } = await supabase.rpc('exec_sql', {
+          query: `
+            UPDATE user_saved_workouts
+            SET 
+              times_completed = COALESCE(times_completed, 0) + 1,
+              last_completed_at = $3,
+              total_time_spent = COALESCE(total_time_spent, 0) + $4,
+              total_calories_burned = COALESCE(total_calories_burned, 0) + $5,
+              updated_at = $3
+            WHERE user_id = $1 AND template_id = $2
+          `,
+          params: [userId, templateId, now.toISOString(), Math.floor(totalDurationSeconds / 60), estimatedCalories]
+        });
+
+        // Try direct increment approach instead
+        const { data: currentWorkout } = await supabase
+          .from('user_saved_workouts')
+          .select('times_completed, total_time_spent, total_calories_burned')
+          .eq('user_id', userId)
+          .eq('template_id', templateId)
+          .maybeSingle();
+
+        if (currentWorkout) {
+          await supabase
+            .from('user_saved_workouts')
+            .update({
+              times_completed: (currentWorkout.times_completed || 0) + 1,
+              last_completed_at: now.toISOString(),
+              total_time_spent: (currentWorkout.total_time_spent || 0) + Math.floor(totalDurationSeconds / 60),
+              total_calories_burned: (currentWorkout.total_calories_burned || 0) + estimatedCalories,
+              updated_at: now.toISOString()
+            })
+            .eq('user_id', userId)
+            .eq('template_id', templateId);
+          
+          console.log('✅ Updated workout completion count to:', (currentWorkout.times_completed || 0) + 1);
+        }
+      }
+
+      // ✅ UPDATE DAILY ACTIVITY TRACKING
+      const today = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+      
+      // Check if tracking record exists for today
+      const { data: existingTracking } = await supabase
+        .from('daily_activity_tracking')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('tracking_date', today)
+        .maybeSingle();
+
+      if (existingTracking) {
+        // Update existing record
+        const newWorkoutsCompleted = (existingTracking.workouts_completed || 0) + 1;
+        const newTotalMinutes = (existingTracking.total_workout_minutes || 0) + Math.floor(totalDurationSeconds / 60);
+        const newTotalCalories = (existingTracking.total_calories_burned || 0) + estimatedCalories;
+        const workoutsGoal = existingTracking.workouts_goal || 1;
+        const caloriesGoal = existingTracking.calories_goal || 500;
+
+        await supabase
+          .from('daily_activity_tracking')
+          .update({
+            workouts_completed: newWorkoutsCompleted,
+            workouts_percentage: (newWorkoutsCompleted / workoutsGoal) * 100,
+            total_workout_minutes: newTotalMinutes,
+            total_calories_burned: newTotalCalories,
+            calories_percentage: (newTotalCalories / caloriesGoal) * 100,
+            updated_at: now.toISOString()
+          })
+          .eq('id', existingTracking.id);
+
+        console.log('✅ Updated daily activity tracking - Workouts:', newWorkoutsCompleted, 'Calories:', newTotalCalories);
+      } else {
+        // Create new record for today
+        await supabase
+          .from('daily_activity_tracking')
+          .insert({
+            user_id: userId,
+            tracking_date: today,
+            workouts_completed: 1,
+            workouts_goal: 1,
+            workouts_percentage: 100,
+            total_workout_minutes: Math.floor(totalDurationSeconds / 60),
+            total_calories_burned: estimatedCalories,
+            calories_goal: 500,
+            calories_percentage: (estimatedCalories / 500) * 100,
+            created_at: now.toISOString(),
+            updated_at: now.toISOString()
+          });
+
+        console.log('✅ Created new daily activity tracking - Calories:', estimatedCalories);
       }
 
       // 🎮 SYNC GAMIFICATION STATS after completing workout

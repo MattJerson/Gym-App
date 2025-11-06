@@ -543,31 +543,28 @@ export const TrainingDataService = {
   // Custom Workout Management
   async createCustomWorkout(userId, workoutData) {
     try {
-      // Map UI category names to database category names
-      const categoryMapping = {
-        'strength': 'Strength Training',
-        'cardio': 'Cardio',
-        'hiit': 'High Intensity',
-        'yoga': 'Flexibility',
-        'core': 'Core Training',
-        'functional': 'Functional Training',
-        'custom': 'Custom' // Add custom category mapping
-      };
+      console.log('Creating custom workout for user:', userId);
+      console.log('Workout data:', workoutData);
 
-      const categoryName = categoryMapping[workoutData.category.toLowerCase()] || workoutData.category;
+      // ✅ For custom workouts, use user_custom_categories instead of workout_categories
+      let categoryId = null;
+      
+      // Get or create custom category for this user
+      const { data: customCategory, error: categoryError } = await supabase
+        .rpc('get_or_create_custom_category', {
+          p_user_id: userId,
+          p_name: workoutData.categoryName || 'My Workouts',
+          p_emoji: workoutData.emoji || '💪',
+          p_color: workoutData.color || '#3B82F6'
+        });
 
-      // Get category ID from category name
-      const { data: categories, error: categoryError } = await supabase
-        .from('workout_categories')
-        .select('id')
-        .ilike('name', categoryName)
-        .limit(1)
-        .single();
-
-      if (categoryError || !categories) {
-        console.error('Category lookup error:', categoryError);
-        throw new Error(`Invalid category: ${workoutData.category}. Please make sure the "Custom" category exists in workout_categories table.`);
+      if (categoryError) {
+        console.error('Error getting/creating custom category:', categoryError);
+        throw categoryError;
       }
+
+      categoryId = customCategory;
+      console.log('Using custom category ID:', categoryId);
 
       // Transform exercises to match database format
       const exercises = workoutData.exercises.map(ex => ({
@@ -591,14 +588,14 @@ export const TrainingDataService = {
       );
       console.log('🔥 Calculated calories:', estimatedCalories);
 
-      const { data, error } = await supabase.rpc('create_custom_workout', {
+      const { data, error } = await supabase.rpc('create_custom_workout_v2', {
         p_user_id: userId,
         p_name: workoutData.name,
         p_description: workoutData.description || '',
-        p_category_id: categories.id,
+        p_custom_category_id: categoryId, // Use custom category instead
         p_difficulty: workoutData.difficulty.charAt(0).toUpperCase() + workoutData.difficulty.slice(1),
         p_duration_minutes: parseInt(workoutData.duration) || 45,
-        p_estimated_calories: estimatedCalories, // Use calculated calories
+        p_estimated_calories: estimatedCalories,
         p_exercises: exercises,
         p_custom_color: workoutData.color || null,
         p_custom_emoji: workoutData.emoji || null
@@ -612,7 +609,7 @@ export const TrainingDataService = {
       return {
         id: data,
         ...workoutData,
-        estimatedCalories, // Include in return value
+        estimatedCalories,
         isCustom: true,
         createdAt: new Date().toISOString()
       };
@@ -624,53 +621,53 @@ export const TrainingDataService = {
 
   async updateCustomWorkout(userId, templateId, workoutData) {
     try {
-      // Map UI category names to database category names
-      const categoryMapping = {
-        'strength': 'Strength Training',
-        'cardio': 'Cardio',
-        'hiit': 'High Intensity',
-        'yoga': 'Flexibility',
-        'core': 'Core Training',
-        'functional': 'Functional Training',
-        'custom': 'Custom' // Add custom category mapping
-      };
+      // ✅ Get or create custom category for this user
+      const { data: customCategory, error: categoryError } = await supabase
+        .rpc('get_or_create_custom_category', {
+          p_user_id: userId,
+          p_name: workoutData.categoryName || 'My Workouts',
+          p_emoji: workoutData.emoji || '💪',
+          p_color: workoutData.color || '#3B82F6'
+        });
 
-      const categoryName = categoryMapping[workoutData.category.toLowerCase()] || workoutData.category;
-
-      // Get category ID from category name
-      const { data: categories, error: categoryError } = await supabase
-        .from('workout_categories')
-        .select('id')
-        .ilike('name', categoryName)
-        .limit(1)
-        .single();
-
-      if (categoryError || !categories) {
-        console.error('Category lookup error:', categoryError);
-        throw new Error(`Invalid category: ${workoutData.category}`);
+      if (categoryError) {
+        console.error('Error getting/creating custom category:', categoryError);
+        throw categoryError;
       }
+
+      const categoryId = customCategory;
 
       // Transform exercises to match database format
       const exercises = workoutData.exercises.map(ex => ({
+        exercise_id: ex.exercise_id,
         name: ex.name || ex.exercise_name,
         description: ex.description || '',
         sets: ex.sets || 3,
         reps: ex.reps || '10',
         rest_seconds: parseInt(ex.restTime || ex.rest_seconds) || 60,
         muscle_groups: ex.muscle_groups || [],
-        equipment: ex.equipment || []
+        equipment: ex.equipment || [],
+        met_value: ex.met_value || 6.0
       }));
 
-      const { data, error } = await supabase.rpc('update_custom_workout', {
+      // Calculate calories
+      const estimatedCalories = await CalorieCalculator.calculateWorkoutCaloriesForUser(
+        workoutData.exercises,
+        userId
+      );
+
+      const { data, error } = await supabase.rpc('update_custom_workout_v2', {
         p_user_id: userId,
         p_template_id: templateId,
         p_name: workoutData.name,
         p_description: workoutData.description || '',
-        p_category_id: categories.id,
+        p_custom_category_id: categoryId,
         p_difficulty: workoutData.difficulty.charAt(0).toUpperCase() + workoutData.difficulty.slice(1),
         p_duration_minutes: parseInt(workoutData.duration) || 45,
-        p_estimated_calories: workoutData.estimatedCalories || (parseInt(workoutData.duration) * 6),
-        p_exercises: exercises
+        p_estimated_calories: estimatedCalories,
+        p_exercises: exercises,
+        p_custom_color: workoutData.color || null,
+        p_custom_emoji: workoutData.emoji || null
       });
 
       if (error) {

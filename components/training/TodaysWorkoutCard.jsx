@@ -9,7 +9,6 @@ export default function TodaysWorkoutCard({
   totalExercises = 7,
   estimatedDuration = 45,
   difficulty = "Intermediate",
-  caloriesEstimate = 340,
   categoryColor = "#A3E635",
   categoryIcon = "dumbbell",
   scheduledDay = "Tuesday",
@@ -108,13 +107,6 @@ export default function TodaysWorkoutCard({
                     {estimatedDuration}
                   </Text>
                   <Text style={styles.metricLabel}>min</Text>
-                </View>
-                <View style={[styles.metricDivider, { backgroundColor: `${categoryColor}25` }]} />
-                <View style={styles.metricItem}>
-                  <Text style={[styles.metricNum, { color: categoryColor }]}>
-                    {caloriesEstimate}
-                  </Text>
-                  <Text style={styles.metricLabel}>kcal</Text>
                 </View>
               </View>
             </View>

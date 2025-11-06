@@ -36,23 +36,27 @@ export const MealPlanDataService = {
         // Try to fetch from the dynamic calculation view
         const { data: planData, error: planError } = await supabase
           .from('user_meal_plan_calculations')
-          .select('daily_calories, daily_protein, daily_carbs, daily_fats')
+          .select('daily_calories, daily_protein, daily_carbs, daily_fats, plan_name')
           .eq('user_id', userId)
           .eq('is_active', true)
           .maybeSingle();
 
-        if (!planError && planData) {
+        if (planError) {
+          console.error('❌ Error fetching meal plan:', planError.message, planError.details);
+          console.log('⚠️ No active meal plan, using default goals');
+        } else if (planData) {
           // Use personalized values from the dynamic calculation
           goals.calories = planData.daily_calories || goals.calories;
           goals.protein = planData.daily_protein || goals.protein;
           goals.carbs = planData.daily_carbs || goals.carbs;
           goals.fats = planData.daily_fats || goals.fats;
-          console.log(`✅ Using personalized macro goals: ${goals.calories} cal`);
+          console.log(`✅ Using personalized meal plan: "${planData.plan_name}" (${goals.calories} cal, ${goals.protein}g protein, ${goals.carbs}g carbs, ${goals.fats}g fats)`);
         } else {
-          console.log('⚠️ No active meal plan, using default goals');
+          console.log('⚠️ No active meal plan found for user, using default goals');
         }
       } catch (err) {
-        console.log('⚠️ Could not fetch personalized goals, using defaults:', err.message);
+        console.error('❌ Exception fetching personalized goals:', err);
+        console.log('⚠️ Using default goals due to error');
       }
 
       return {
@@ -1073,19 +1077,19 @@ export const MealPlanDataService = {
         .maybeSingle();
 
       if (error) {
-        console.error("❌ Error fetching user active plan:", error);
+        console.error("❌ Error fetching user active plan:", error.message, error.details, error.hint);
         return null;
       }
 
       if (data) {
-        console.log(`✅ Loaded personalized meal plan: ${data.plan_name} (${data.daily_calories} cal)`);
+        console.log(`✅ Loaded personalized meal plan: ${data.plan_name} (${data.daily_calories} cal, Protein: ${data.daily_protein}g, Carbs: ${data.daily_carbs}g, Fats: ${data.daily_fats}g)`);
       } else {
-        console.log('ℹ️ No active meal plan found for user');
+        console.log('ℹ️ No active meal plan found for user', userId);
       }
 
       return data;
     } catch (error) {
-      console.error("❌ Error fetching user active plan:", error);
+      console.error("❌ Exception in getUserActivePlan:", error);
       return null;
     }
   },

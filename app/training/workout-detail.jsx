@@ -212,11 +212,6 @@ export default function WorkoutDetail() {
               <Text style={styles.statLabel}>minutes</Text>
             </View>
             <View style={styles.statBox}>
-              <Ionicons name="flame-outline" size={20} color="#EF4444" />
-              <Text style={styles.statValue}>{workout.totalCalories}</Text>
-              <Text style={styles.statLabel}>calories</Text>
-            </View>
-            <View style={styles.statBox}>
               <Ionicons name="barbell-outline" size={20} color="#3B82F6" />
               <Text style={styles.statValue}>{workout.exercises.length}</Text>
               <Text style={styles.statLabel}>exercises</Text>

@@ -309,21 +309,51 @@ export default function WorkoutSession() {
   const handleCompleteWorkout = async () => {
     try {
       console.log('Starting workout completion...');
-      // Complete the session
+      
+      // ✅ Complete session in backend FIRST (with accurate user weight)
       const completedSession = await WorkoutSessionServiceV2.completeSession(
         session.id,
         difficultyRating,
         completionNotes
       );
-      console.log('Workout completed successfully, session status:', completedSession?.status);
-
-      // Close modal and navigate to training page
-      setShowCompleteModal(false);
+      console.log('✅ Workout completed successfully, backend status:', completedSession?.status);
       
-      // Small delay to allow modal to close before navigating
+      // ✅ Calculate points from backend-calculated values
+      const setsCompleted = completedSession?.total_sets_completed || 0;
+      const volumeKg = completedSession?.total_volume_kg || 0;
+      const caloriesBurned = completedSession?.estimated_calories_burned || 0;
+      const difficultyPoints = difficultyRating ? difficultyRating * 5 : 0;
+      
+      const pointsEarned = 10 + // Base points
+                          (setsCompleted * 2) + // Sets points
+                          Math.floor(volumeKg / 100) + // Volume points
+                          Math.floor(caloriesBurned / 50) + // Calorie points
+                          difficultyPoints; // Difficulty bonus
+      
+      console.log('📊 Final Stats:', {
+        totalSetsCompleted: setsCompleted,
+        totalVolumeKg: Math.round(volumeKg),
+        estimatedCalories: caloriesBurned,
+        pointsEarned
+      });
+      
+      // ✅ Update session state with backend values so modal shows accurate stats
+      const updatedSession = {
+        ...completedSession,
+        points_earned: pointsEarned
+      };
+      
+      setSession(updatedSession);
+      
+      // Wait a moment to show the stats before closing
       setTimeout(() => {
-        router.push("/page/training");
-      }, 300);
+        setShowCompleteModal(false);
+        
+        // Navigate to training page after modal closes
+        setTimeout(() => {
+          router.push("/page/training");
+        }, 300);
+      }, 2000); // Show completion stats for 2 seconds
     } catch (error) {
       console.error("Error completing workout:", error);
       Alert.alert("Error", "Failed to complete workout. Please try again.");
@@ -551,6 +581,13 @@ export default function WorkoutSession() {
                   {session.estimated_calories_burned || 0}
                 </Text>
                 <Text style={styles.statCardLabel}>Calories</Text>
+              </View>
+              <View style={styles.statCard}>
+                <MaterialCommunityIcons name="trophy" size={24} color="#F59E0B" />
+                <Text style={[styles.statCardValue, { color: '#F59E0B' }]}>
+                  {session.points_earned || 0}
+                </Text>
+                <Text style={styles.statCardLabel}>Points</Text>
               </View>
             </View>
 

@@ -139,24 +139,8 @@ export default function WorkoutCategory() {
                     </View>
                   </View>
 
-                  {/* Calories & Start Button */}
+                  {/* Bottom Row - Start Button */}
                   <View style={styles.bottomRow}>
-                    <View style={styles.caloriesContainer}>
-                      <Ionicons
-                        name="flame-outline"
-                        size={16}
-                        color={categoryColor || "#A3E635"}
-                      />
-                      <Text
-                        style={[
-                          styles.caloriesText,
-                          { color: categoryColor || "#A3E635" },
-                        ]}
-                      >
-                        {workout.estimated_calories || 0}
-                      </Text>
-                      <Text style={styles.caloriesLabel}>kcal</Text>
-                    </View>
                     <Pressable
                       style={[
                         styles.startButton,
@@ -167,6 +151,7 @@ export default function WorkoutCategory() {
                       ]}
                       onPress={() => handleWorkoutPress(workout.id)}
                     >
+                      <Text style={styles.startButtonText}>Start Workout</Text>
                       <Ionicons
                         name="arrow-forward"
                         size={20}
@@ -303,33 +288,27 @@ const styles = StyleSheet.create({
   bottomRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-  },
-  caloriesContainer: {
-    gap: 4,
-    flexDirection: "row",
-    alignItems: "baseline",
-  },
-  caloriesText: {
-    fontSize: 20,
-    fontWeight: "800",
-  },
-  caloriesLabel: {
-    fontSize: 12,
-    color: "#A1A1AA",
-    fontWeight: "600",
+    justifyContent: "flex-end",
   },
   startButton: {
-    width: 48,
-    height: 48,
+    gap: 8,
     elevation: 5,
     shadowRadius: 6,
-    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     shadowOpacity: 0.4,
     shadowColor: "#000",
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     shadowOffset: { width: 0, height: 3 },
     borderWidth: 2,
+  },
+  startButtonText: {
+    fontSize: 14,
+    color: "#0B0B0B",
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
 });

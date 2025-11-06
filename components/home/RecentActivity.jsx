@@ -56,12 +56,14 @@ export default function RecentActivity() {
 
     let duration = activity.metadata?.duration || '';
     let calories = activity.metadata?.calories || 0;
+    let points = activity.metadata?.points || 0;
     
     return {
       label: activity.title,
       date: timeAgo,
       duration: duration,
       calories: calories,
+      points: points,
       type: activity.type
     };
   };
@@ -138,6 +140,12 @@ export default function RecentActivity() {
                   <View style={styles.durationChip}>
                     <Text style={styles.chipIcon}>⏱</Text>
                     <Text style={styles.chipText}>{item.duration}</Text>
+                  </View>
+                )}
+                {isWorkout && item.points && (
+                  <View style={styles.pointsChip}>
+                    <Text style={styles.chipIcon}>⭐</Text>
+                    <Text style={[styles.chipText, styles.pointsText]}>{item.points}</Text>
                   </View>
                 )}
               </View>
@@ -257,6 +265,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: "#aaa",
     fontWeight: "600",
+  },
+  pointsChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+    backgroundColor: "rgba(245, 158, 11, 0.1)",
+  },
+  pointsText: {
+    color: "#F59E0B",
   },
   loadingContainer: {
     paddingVertical: 32,

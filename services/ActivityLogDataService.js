@@ -43,6 +43,8 @@ export const ActivityLogDataService = {
           completed_exercises,
           estimated_calories_burned,
           difficulty_rating,
+          total_sets_completed,
+          total_volume_kg,
           workout_categories(name, icon, color)
         `)
         .eq('user_id', userId)
@@ -56,6 +58,14 @@ export const ActivityLogDataService = {
         const category = this.mapWorkoutTypeToCategory(session.workout_type);
         const durationMins = Math.round(session.total_duration_seconds / 60);
         
+        // Calculate points earned
+        const basePoints = 10;
+        const setsPoints = (session.total_sets_completed || 0) * 2;
+        const volumePoints = Math.floor((session.total_volume_kg || 0) / 100);
+        const caloriePoints = Math.floor((session.estimated_calories_burned || 0) / 50);
+        const difficultyPoints = (session.difficulty_rating || 0) * 5;
+        const pointsEarned = basePoints + setsPoints + volumePoints + caloriePoints + difficultyPoints;
+        
         return {
           id: session.id,
           type: "workout",
@@ -68,7 +78,8 @@ export const ActivityLogDataService = {
             exercises: session.total_exercises || 0,
             completedExercises: session.completed_exercises || 0,
             calories: session.estimated_calories_burned || 0,
-            difficulty: session.difficulty_rating
+            difficulty: session.difficulty_rating,
+            points: pointsEarned
           }
         };
       });

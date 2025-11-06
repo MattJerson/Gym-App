@@ -148,13 +148,6 @@ const WorkoutCardItem = ({ item, onPress, onOptions }) => {
             </Text>
             <Text style={styles.metricLabel}>min</Text>
           </View>
-          <View style={[styles.metricDivider, { backgroundColor: `${cardColor}25` }]} />
-          <View style={styles.metricItem}>
-            <Text style={[styles.metricNum, { color: cardColor }]}>
-              {item.estimated_calories || item.calories}
-            </Text>
-            <Text style={styles.metricLabel}>kcal</Text>
-          </View>
         </View>
       </View>
     </Pressable>
@@ -198,33 +191,75 @@ export default function MyWorkouts({
   const loadMyWorkouts = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase.rpc('get_my_workouts', { 
-        p_user_id: userId 
-      });
+      
+      // Direct query instead of RPC
+      const { data, error } = await supabase
+        .from('user_saved_workouts')
+        .select(`
+          id,
+          template_id,
+          workout_name,
+          workout_type,
+          scheduled_day_of_week,
+          is_scheduled,
+          times_completed,
+          last_completed_at,
+          total_time_spent,
+          total_calories_burned,
+          is_favorite,
+          custom_notes,
+          created_at,
+          template:workout_templates(
+            id,
+            name,
+            difficulty,
+            duration_minutes,
+            estimated_calories,
+            is_custom,
+            custom_color,
+            custom_emoji,
+            category:workout_categories(
+              name,
+              color,
+              icon
+            ),
+            exercises:workout_template_exercises(
+              exercise:exercises(met_value)
+            )
+          )
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
       
       if (error) throw error;
+
+      // Day of week names
+      const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       
       // Transform database response to match card format
-      const transformedWorkouts = (data || []).map(workout => ({
-        id: workout.id,
-        schedule_id: workout.id, // This is the schedule ID for editing/deleting
-        workout_name: workout.workout_name,
-        workout_type: workout.workout_type,
-        category_color: workout.category_color,
-        category_icon: workout.category_icon,
-        custom_color: workout.custom_color, // Custom workout color
-        custom_emoji: workout.custom_emoji, // Custom workout emoji
-        difficulty: workout.difficulty_level,
-        duration_minutes: workout.duration_minutes,
-        estimated_calories: workout.estimated_calories,
-        times_completed: workout.times_completed,
-        is_scheduled: workout.is_scheduled,
-        scheduled_day_name: workout.scheduled_day_name,
-        scheduled_day_of_week: workout.day_of_week,
-        is_favorite: workout.is_favorite,
-        template_id: workout.template_id,
-        is_custom: workout.is_custom, // FIX: Include is_custom flag
-      }));
+      const transformedWorkouts = (data || []).map(workout => {
+        const template = workout.template;
+
+        return {
+          id: workout.id,
+          schedule_id: workout.id,
+          workout_name: workout.workout_name || template?.name || 'Untitled Workout',
+          workout_type: workout.workout_type || 'Pre-Made',
+          category_color: template?.category?.color || '#A3E635',
+          category_icon: template?.category?.icon || '💪',
+          custom_color: template?.custom_color,
+          custom_emoji: template?.custom_emoji,
+          difficulty: template?.difficulty || 'Intermediate',
+          duration_minutes: template?.duration_minutes || 30,
+          times_completed: workout.times_completed || 0,
+          is_scheduled: workout.is_scheduled || false,
+          scheduled_day_name: workout.scheduled_day_of_week !== null ? dayNames[workout.scheduled_day_of_week] : null,
+          scheduled_day_of_week: workout.scheduled_day_of_week,
+          is_favorite: workout.is_favorite || false,
+          template_id: workout.template_id,
+          is_custom: template?.is_custom || false,
+        };
+      });
       
       setWorkouts(transformedWorkouts);
     } catch (error) {

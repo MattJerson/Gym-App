@@ -287,15 +287,21 @@ export const TrainingDataServiceNew = {
    */
   async fetchWorkoutProgress(userId) {
     try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Direct query instead of RPC
       const { data, error } = await supabase
-        .rpc('get_user_daily_stats', { 
-          p_user_id: userId,
-          p_date: new Date().toISOString().split('T')[0]
-        });
+        .from('daily_activity_tracking')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('tracking_date', today)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        throw error;
+      }
 
-      const stats = data && data.length > 0 ? data[0] : null;
+      const stats = data || null;
 
       return {
         workoutData: { 
@@ -338,25 +344,47 @@ export const TrainingDataServiceNew = {
    */
   async fetchContinueWorkout(userId) {
     try {
+      // Direct query instead of RPC
       const { data, error } = await supabase
-        .rpc('get_continue_workout', { p_user_id: userId });
+        .from('workout_sessions')
+        .select(`
+          id,
+          workout_template_id,
+          template_id,
+          workout_name,
+          workout_type,
+          completed_exercises,
+          total_exercises,
+          started_at,
+          total_pause_duration,
+          estimated_calories_burned
+        `)
+        .eq('user_id', userId)
+        .in('status', ['in_progress', 'paused'])
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') throw error;
       
-      if (!data || data.length === 0) return null;
+      if (!data) return null;
 
-      const session = data[0];
+      // Calculate elapsed time
+      const startedAt = new Date(data.started_at);
+      const now = new Date();
+      const elapsedSeconds = Math.floor((now - startedAt) / 1000) - (data.total_pause_duration || 0);
+      const progressPercentage = (data.completed_exercises / data.total_exercises) * 100;
       
       return {
-        id: session.template_id,
-        sessionId: session.session_id,
-        workoutName: session.workout_name,
-        workoutType: session.workout_type,
-        completedExercises: session.completed_exercises,
-        totalExercises: session.total_exercises,
-        timeElapsed: Math.floor(session.elapsed_seconds / 60),
-        progress: session.progress_percentage / 100,
-        caloriesBurned: session.calories_burned || 0
+        id: data.workout_template_id || data.template_id,
+        sessionId: data.id,
+        workoutName: data.workout_name,
+        workoutType: data.workout_type,
+        completedExercises: data.completed_exercises,
+        totalExercises: data.total_exercises,
+        timeElapsed: Math.floor(elapsedSeconds / 60),
+        progress: progressPercentage / 100,
+        caloriesBurned: data.estimated_calories_burned || 0
       };
     } catch (error) {
       console.error('Error fetching continue workout:', error);
@@ -503,7 +531,7 @@ export const TrainingDataServiceNew = {
       
       console.log('Returning workout:', template.name);
 
-      // Get exercise count for this template
+      // Get exercise count
       const { count: exerciseCount } = await supabase
         .from('workout_template_exercises')
         .select('*', { count: 'exact', head: true })
@@ -513,9 +541,6 @@ export const TrainingDataServiceNew = {
       const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const scheduledDay = daysOfWeek[workout.scheduled_day_of_week];
 
-      // Use template's estimated calories (from database, not hardcoded calculation)
-      const estimatedCalories = template.estimated_calories || Math.round(template.duration_minutes * 7.5);
-
       return {
         id: template.id,
         workoutName: template.name,
@@ -523,7 +548,6 @@ export const TrainingDataServiceNew = {
         difficulty: template.difficulty,
         estimatedDuration: template.duration_minutes,
         totalExercises: exerciseCount || 0,
-        caloriesEstimate: estimatedCalories,
         categoryColor: template.workout_categories?.color || '#A3E635',
         categoryIcon: template.workout_categories?.icon || 'dumbbell',
         scheduledDay: scheduledDay

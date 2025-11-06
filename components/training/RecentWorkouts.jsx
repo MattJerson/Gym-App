@@ -32,6 +32,9 @@ export default function RecentWorkouts() {
           total_duration_seconds,
           total_exercises,
           estimated_calories_burned,
+          total_sets_completed,
+          total_volume_kg,
+          difficulty_rating,
           workout_categories(name, color)
         `)
         .eq('user_id', user.id)
@@ -41,7 +44,21 @@ export default function RecentWorkouts() {
 
       if (error) throw error;
 
-      setWorkouts(data || []);
+      // Calculate points for each workout
+      const workoutsWithPoints = (data || []).map(workout => {
+        const basePoints = 10;
+        const setsPoints = (workout.total_sets_completed || 0) * 2;
+        const volumePoints = Math.floor((workout.total_volume_kg || 0) / 100);
+        const caloriePoints = Math.floor((workout.estimated_calories_burned || 0) / 50);
+        const difficultyPoints = (workout.difficulty_rating || 0) * 5;
+        
+        return {
+          ...workout,
+          points_earned: basePoints + setsPoints + volumePoints + caloriePoints + difficultyPoints
+        };
+      });
+
+      setWorkouts(workoutsWithPoints);
     } catch (error) {
       console.error('Error fetching recent workouts:', error);
     } finally {
@@ -67,6 +84,7 @@ export default function RecentWorkouts() {
       date: timeAgo,
       duration: `${durationMins} min`,
       calories: workout.estimated_calories_burned || 0,
+      points: workout.points_earned || 0,
     };
   };
 
@@ -145,6 +163,10 @@ export default function RecentWorkouts() {
               <View style={styles.statChip}>
                 <Text style={styles.statIcon}>⏱</Text>
                 <Text style={styles.statText}>{item.duration}</Text>
+              </View>
+              <View style={[styles.statChip, styles.pointsChip]}>
+                <Text style={styles.statIcon}>⭐</Text>
+                <Text style={[styles.statText, styles.pointsText]}>{item.points}</Text>
               </View>
             </View>
           </View>
@@ -255,6 +277,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: "#aaa",
     fontWeight: "600",
+  },
+  pointsChip: {
+    backgroundColor: "rgba(245, 158, 11, 0.1)",
+  },
+  pointsText: {
+    color: "#F59E0B",
   },
   loadingContainer: {
     paddingVertical: 32,
