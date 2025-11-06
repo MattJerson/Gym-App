@@ -139,7 +139,7 @@ export default function SubscriptionPackages() {
     {
       slug: "monthly",
       name: "Monthly",
-      price: 9.99,
+      price: 27.99,
       billing_interval: "month",
       features: [
         { text: "Unlimited workout plans", included: true },
@@ -161,8 +161,8 @@ export default function SubscriptionPackages() {
     },
     {
       slug: "annual",
-      name: "Annual",
-      price: 79.99,
+      name: "6 Months",
+      price: 149.99,
       billing_interval: "year",
       features: [
         { text: "Everything in Monthly", included: true },
@@ -184,8 +184,8 @@ export default function SubscriptionPackages() {
     },
     {
       slug: "lifetime",
-      name: "Lifetime",
-      price: 149.99,
+      name: "12 Months",
+      price: 200.00,
       billing_interval: "one_time",
       features: [
         { text: "Everything in Annual", included: true },
@@ -328,7 +328,7 @@ export default function SubscriptionPackages() {
         console.error("Payment failed:", paymentError);
       } else {
         console.log("Payment successful ✅");
-        
+
         // Create subscription record in database after successful payment
         try {
           const { data: packageData, error: pkgError } = await supabase
@@ -342,7 +342,7 @@ export default function SubscriptionPackages() {
           } else if (packageData) {
             const startDate = new Date();
             const endDate = new Date();
-            
+
             // Calculate expiration based on billing interval
             if (subscription.billing_interval === 'month') {
               endDate.setMonth(endDate.getMonth() + 1);
@@ -376,7 +376,7 @@ export default function SubscriptionPackages() {
           console.error("Database error after payment:", dbError);
           // Still navigate since payment succeeded
         }
-        
+
         router.push("/page/home");
       }
     } catch (err) {
