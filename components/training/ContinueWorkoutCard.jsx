@@ -7,64 +7,95 @@ export default function ContinueWorkoutCard({
   workoutType = "Custom Workout",
   completedExercises = 4,
   totalExercises = 6,
+  progressPercentage = null, // Use database value if provided
   timeElapsed = 15,
-  progress = 0.66,
+  categoryColor = "#FCD34D",
   onContinue = () => {},
 }) {
-  const progressPercent = Math.round(progress * 100);
-  // Calculate estimated calories based on time elapsed (approx 6 kcal per minute)
-  const estimatedCalories = Math.round(timeElapsed * 6);
+  // Use progressPercentage from database if provided, otherwise calculate from completed exercises
+  const progressPercent = progressPercentage !== null && progressPercentage !== undefined
+    ? progressPercentage
+    : (totalExercises > 0 ? Math.round((completedExercises / totalExercises) * 100) : 0);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Continue Workout</Text>
-      <Pressable style={styles.card} onPress={onContinue}>
+      <View style={styles.headerRow}>
+        <Text style={styles.header}>Continue Workout</Text>
+        <View style={styles.statusBadge}>
+          <View style={styles.pulseDot} />
+          <Text style={styles.statusText}>IN PROGRESS</Text>
+        </View>
+      </View>
+      
+      <Pressable 
+        style={({ pressed }) => [
+          styles.card,
+          pressed && styles.cardPressed
+        ]} 
+        onPress={onContinue}
+      >
         <View style={styles.cardInner}>
-          <View style={styles.contentWrapper}>
-            <View style={styles.leftContent}>
-              <View style={styles.topSection}>
-                <View style={styles.typeBadge}>
-                  <Text style={styles.type}>{workoutType.toUpperCase()}</Text>
+          {/* Color accent stripe */}
+          <View style={[styles.colorAccent, { backgroundColor: categoryColor }]} />
+          
+          {/* Main content */}
+          <View style={styles.content}>
+            {/* Left side - Continue button */}
+            <View style={styles.leftSection}>
+              <Pressable 
+                style={[styles.continueButton, { backgroundColor: categoryColor }]}
+                onPress={onContinue}
+              >
+                <Ionicons name="play" size={24} color="#000" />
+              </Pressable>
+            </View>
+
+            {/* Right side - Workout info */}
+            <View style={styles.rightSection}>
+              {/* Top badges */}
+              <View style={styles.topInfo}>
+                <View style={[styles.typeBadge, { 
+                  backgroundColor: `${categoryColor}12`,
+                  borderColor: `${categoryColor}25`,
+                }]}>
+                  <Text style={[styles.typeText, { color: categoryColor }]}>
+                    {workoutType.toUpperCase()}
+                  </Text>
                 </View>
               </View>
 
+              {/* Workout name */}
               <Text style={styles.title} numberOfLines={2}>
                 {workoutName}
               </Text>
 
-              {/* Progress Bar Section */}
+              {/* Progress section */}
               <View style={styles.progressSection}>
                 <View style={styles.progressInfo}>
                   <Text style={styles.progressText}>
-                    {completedExercises}/{totalExercises} exercises
+                    {completedExercises} of {totalExercises} exercises
                   </Text>
-                  <Text style={styles.progressPercent}>{progressPercent}%</Text>
+                  <Text style={[styles.progressPercent, { color: categoryColor }]}>
+                    {progressPercent}%
+                  </Text>
                 </View>
-                <View style={styles.progressBarBg}>
-                  <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+                <View style={[styles.progressBarBg, { 
+                  backgroundColor: `${categoryColor}15`,
+                  borderColor: `${categoryColor}25`,
+                }]}>
+                  <View style={[
+                    styles.progressBarFill, 
+                    { width: `${progressPercent}%`, backgroundColor: categoryColor }
+                  ]} />
                 </View>
               </View>
 
-              <View style={styles.bottomSection}>
-                <View style={styles.metrics}>
-                  <View style={styles.metric}>
-                    <Text style={styles.metricNum}>{estimatedCalories}</Text>
-                    <Text style={styles.metricLabel}>kcal</Text>
-                  </View>
-                  <View style={styles.metricDivider} />
-                  <View style={styles.metric}>
-                    <Text style={styles.metricNum}>{timeElapsed}</Text>
-                    <Text style={styles.metricLabel}>min</Text>
-                  </View>
+              {/* Bottom metrics */}
+              <View style={styles.bottomInfo}>
+                <View style={styles.metricItem}>
+                  <Ionicons name="time-outline" size={14} color="#A1A1AA" />
+                  <Text style={styles.metricText}>{timeElapsed} min elapsed</Text>
                 </View>
-                
-                <Pressable 
-                  style={styles.goBtn} 
-                  onPress={onContinue}
-                  android_ripple={{ color: 'rgba(252, 211, 77, 0.3)' }}
-                >
-                  <Ionicons name="play" size={18} color="#0B0B0B" />
-                </Pressable>
               </View>
             </View>
           </View>
@@ -78,140 +109,145 @@ const styles = StyleSheet.create({
   container: { 
     marginBottom: 18,
   },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
   header: { 
     color: "#FAFAFA", 
     fontSize: 15, 
-    fontWeight: "700", 
-    marginBottom: 10,
+    fontWeight: "700",
     letterSpacing: 0.3,
+  },
+  statusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(252, 211, 77, 0.12)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "rgba(252, 211, 77, 0.25)",
+  },
+  pulseDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#FCD34D",
+  },
+  statusText: {
+    color: "#FCD34D",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.8,
   },
   card: {
     borderRadius: 16,
     overflow: "hidden",
   },
+  cardPressed: {
+    opacity: 0.7,
+  },
   cardInner: {
+    backgroundColor: "#161616",
     borderRadius: 16,
-    borderWidth: 2,
-    borderLeftWidth: 4,
-    borderLeftColor: "#FCD34D", // Amber accent border on left
-    borderColor: "rgba(252, 211, 77, 0.2)",
+    borderWidth: 1,
+    borderColor: "#27272A",
     overflow: "hidden",
-    backgroundColor: "#161616", // Slightly lighter than #0B0B0B
   },
-  contentWrapper: {
+  colorAccent: {
+    height: 4,
+    width: "100%",
+  },
+  content: {
     flexDirection: "row",
-    flex: 1,
-    minHeight: 150,
-  },
-  leftContent: {
-    flex: 1,
     padding: 16,
-    justifyContent: "space-between",
+    gap: 12,
   },
-  topSection: {
-    marginBottom: 12,
+  leftSection: {
+    justifyContent: "center",
+  },
+  continueButton: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+  },
+  rightSection: {
+    flex: 1,
+    gap: 8,
+  },
+  topInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   typeBadge: {
-    backgroundColor: "rgba(252, 211, 77, 0.12)",
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: "rgba(252, 211, 77, 0.25)",
-    alignSelf: "flex-start",
   },
-  type: { 
-    color: "#FCD34D",
-    fontSize: 10, 
+  typeText: {
+    fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.8,
   },
   title: { 
     color: "#FAFAFA", 
-    fontSize: 20, 
-    fontWeight: "800", 
-    marginBottom: 8,
-    lineHeight: 26,
+    fontSize: 18, 
+    fontWeight: "800",
+    lineHeight: 24,
   },
   progressSection: {
-    marginBottom: 12,
+    gap: 6,
   },
   progressInfo: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 6,
   },
   progressText: {
-    color: "#E5E5E5",
-    fontSize: 11,
+    color: "#A1A1AA",
+    fontSize: 12,
     fontWeight: "600",
   },
   progressPercent: {
-    color: "#FCD34D",
     fontSize: 12,
     fontWeight: "800",
   },
   progressBarBg: {
     height: 6,
-    backgroundColor: "rgba(252, 211, 77, 0.15)",
     borderRadius: 3,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(252, 211, 77, 0.25)",
   },
   progressBarFill: {
     height: "100%",
-    backgroundColor: "#FCD34D",
     borderRadius: 3,
   },
-  bottomSection: {
+  bottomInfo: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+    gap: 16,
   },
-  metrics: { 
-    flexDirection: "row", 
-    alignItems: "center",
-    backgroundColor: "rgba(252, 211, 77, 0.08)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: "rgba(252, 211, 77, 0.15)",
-  },
-  metric: { 
+  metricItem: {
     flexDirection: "row",
-    alignItems: "baseline",
-    gap: 4,
-  },
-  metricNum: { 
-    color: "#FCD34D", 
-    fontWeight: "800", 
-    fontSize: 16,
-  },
-  metricLabel: { 
-    color: "#A1A1AA", 
-    fontSize: 11,
-    fontWeight: "500",
-  },
-  metricDivider: {
-    width: 1,
-    height: 16,
-    backgroundColor: "rgba(252, 211, 77, 0.25)",
-  },
-  goBtn: {
-    backgroundColor: "#FCD34D",
-    width: 52,
-    height: 52,
-    borderRadius: 26,
     alignItems: "center",
-    justifyContent: "center",
-    elevation: 4,
-    shadowColor: "#FCD34D",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    gap: 6,
+  },
+  metricText: {
+    color: "#A1A1AA",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });
+

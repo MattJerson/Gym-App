@@ -227,7 +227,7 @@ export default function Training() {
           // There's an active session for a DIFFERENT workout
           Alert.alert(
             "Active Workout Found",
-            "You have an active workout in progress. Would you like to continue that workout or abandon it to start this one?",
+            "You have an active workout in progress. What would you like to do?",
             [
               {
                 text: "Continue Previous",
@@ -245,6 +245,20 @@ export default function Training() {
                   } catch (error) {
                     console.error("Error abandoning session:", error);
                     Alert.alert("Error", "Failed to abandon previous workout");
+                  }
+                },
+              },
+              {
+                text: "Just Abandon",
+                onPress: async () => {
+                  try {
+                    await WorkoutSessionServiceV2.abandonSession(existingSession.id);
+                    Alert.alert("Success", "Workout abandoned successfully");
+                    // Reload the training data to remove the continue workout card
+                    loadTrainingData();
+                  } catch (error) {
+                    console.error("Error abandoning session:", error);
+                    Alert.alert("Error", "Failed to abandon workout");
                   }
                 },
               },
@@ -306,8 +320,9 @@ export default function Training() {
                 workoutType={continueWorkout.workoutType}
                 completedExercises={continueWorkout.completedExercises}
                 totalExercises={continueWorkout.totalExercises}
+                progressPercentage={continueWorkout.progressPercentage}
                 timeElapsed={continueWorkout.timeElapsed}
-                progress={continueWorkout.progress}
+                categoryColor={continueWorkout.categoryColor || "#FCD34D"}
                 onContinue={handleContinueWorkout}
               />
             )}

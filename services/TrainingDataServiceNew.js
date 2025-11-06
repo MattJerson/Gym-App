@@ -344,7 +344,7 @@ export const TrainingDataServiceNew = {
    */
   async fetchContinueWorkout(userId) {
     try {
-      // Direct query instead of RPC
+      // Direct query with category join to get color
       const { data, error } = await supabase
         .from('workout_sessions')
         .select(`
@@ -355,9 +355,12 @@ export const TrainingDataServiceNew = {
           workout_type,
           completed_exercises,
           total_exercises,
+          progress_percentage,
           started_at,
           total_pause_duration,
-          estimated_calories_burned
+          estimated_calories_burned,
+          category_id,
+          workout_categories!inner(color)
         `)
         .eq('user_id', userId)
         .in('status', ['in_progress', 'paused'])
@@ -373,7 +376,11 @@ export const TrainingDataServiceNew = {
       const startedAt = new Date(data.started_at);
       const now = new Date();
       const elapsedSeconds = Math.floor((now - startedAt) / 1000) - (data.total_pause_duration || 0);
-      const progressPercentage = (data.completed_exercises / data.total_exercises) * 100;
+      
+      // Use progress_percentage from database if available, otherwise calculate from completed_exercises
+      const progressPercentage = data.progress_percentage !== null && data.progress_percentage !== undefined
+        ? data.progress_percentage
+        : (data.completed_exercises / data.total_exercises) * 100;
       
       return {
         id: data.workout_template_id || data.template_id,
@@ -382,9 +389,11 @@ export const TrainingDataServiceNew = {
         workoutType: data.workout_type,
         completedExercises: data.completed_exercises,
         totalExercises: data.total_exercises,
+        progressPercentage: Math.round(progressPercentage), // 0-100
         timeElapsed: Math.floor(elapsedSeconds / 60),
-        progress: progressPercentage / 100,
-        caloriesBurned: data.estimated_calories_burned || 0
+        progress: progressPercentage / 100, // 0-1 for backward compatibility
+        caloriesBurned: data.estimated_calories_burned || 0,
+        categoryColor: data.workout_categories?.color || "#FCD34D"
       };
     } catch (error) {
       console.error('Error fetching continue workout:', error);

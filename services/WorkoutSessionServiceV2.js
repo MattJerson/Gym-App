@@ -75,6 +75,7 @@ export const WorkoutSessionServiceV2 = {
           total_exercises: template.exercises.length,
           current_exercise_index: 0,
           completed_exercises: 0,
+          progress_percentage: 0,
           started_at: new Date().toISOString(),
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -291,6 +292,9 @@ export const WorkoutSessionServiceV2 = {
         result = data;
       }
 
+      // Update completed_exercises count in workout_sessions
+      await this.updateCompletedExercisesCount(sessionId);
+
       return result;
     } catch (error) {
       console.error('Error logging set:', error);
@@ -317,6 +321,10 @@ export const WorkoutSessionServiceV2 = {
         .single();
 
       if (error) throw error;
+
+      // Update completed_exercises count in workout_sessions
+      await this.updateCompletedExercisesCount(sessionId);
+
       return data;
     } catch (error) {
       console.error('Error undoing set:', error);
@@ -801,6 +809,58 @@ export const WorkoutSessionServiceV2 = {
     } catch (error) {
       console.error('Error fetching personal records:', error);
       return [];
+    }
+  },
+
+  /**
+   * Update completed_exercises count and progress_percentage based on actual completed exercises
+   * An exercise is considered complete when all its target sets are completed
+   */
+  async updateCompletedExercisesCount(sessionId) {
+    try {
+      // Get the session with exercises and sets
+      const session = await this.getSession(sessionId);
+      if (!session) return;
+
+      // Get the template to know target sets for each exercise
+      const template = await this.getWorkoutTemplate(session.workout_template_id || session.template_id);
+      if (!template || !template.exercises) return;
+
+      // Count how many exercises have all their sets completed
+      let completedCount = 0;
+      
+      template.exercises.forEach((exercise, idx) => {
+        const targetSets = exercise.sets || 3;
+        const exerciseSets = session.sets?.filter(
+          (s) => s.exercise_index === idx && s.is_completed
+        ) || [];
+        
+        // If this exercise has all its sets completed, count it
+        if (exerciseSets.length >= targetSets) {
+          completedCount++;
+        }
+      });
+
+      // Calculate progress percentage
+      const totalExercises = template.exercises.length;
+      const progressPercentage = totalExercises > 0 
+        ? Math.round((completedCount / totalExercises) * 100) 
+        : 0;
+
+      // Update the workout_sessions table with both count and percentage
+      const { error } = await supabase
+        .from('workout_sessions')
+        .update({
+          completed_exercises: completedCount,
+          progress_percentage: progressPercentage,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', sessionId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating completed exercises count:', error);
+      // Don't throw - this is a non-critical update
     }
   },
 
