@@ -192,24 +192,33 @@ export const CalendarDataService = {
   // Progress Data
   async fetchProgressChart(userId, metric = "weight", period = "week") {
     try {
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('📊 CalendarDataService.fetchProgressChart CALLED');
+      console.log('📊 Parameters:', { userId, metric, period });
+      console.log('═══════════════════════════════════════════════════════');
+      
       const daysBack = period === "week" ? 7 : 30;
       
-      console.log('📊 Fetching weight progress (with projections) for user:', userId, 'period:', period);
+      console.log('📊 Fetching weight progress (with projections) for user:', userId, 'period:', period, 'daysBack:', daysBack);
       
       // Use new projection system
       const { WeightProgressService } = require('./WeightProgressService');
+      console.log('📊 WeightProgressService loaded, calling getWeightProgressChart...');
+      
       const progressData = await WeightProgressService.getWeightProgressChart(userId, daysBack);
 
-      console.log('📊 Weight progress data:', { 
-        labelsCount: progressData.labels.length,
-        valuesCount: progressData.values.length,
-        actualCount: progressData.actualMeasurements.length,
-        projectionsCount: progressData.projections.length,
-        trend: progressData.trend
-      });
+      console.log('📊 Weight progress data received from service:');
+      console.log('  - labelsCount:', progressData.labels?.length || 0);
+      console.log('  - valuesCount:', progressData.values?.length || 0);
+      console.log('  - actualCount:', progressData.actualMeasurements?.length || 0);
+      console.log('  - projectionsCount:', progressData.projections?.length || 0);
+      console.log('  - trend:', progressData.trend);
+      console.log('  - labels:', progressData.labels);
+      console.log('  - values:', progressData.values);
+      console.log('  - Full data:', progressData);
 
       if (!progressData.values || progressData.values.length === 0) {
-        console.log('⚠️ No weight data found - returning empty chart');
+        console.warn('⚠️ No weight data found - returning empty chart');
         return {
           title: "Weight Progress",
           labels: [],
@@ -237,7 +246,7 @@ export const CalendarDataService = {
         .limit(1)
         .single();
 
-      return {
+      const finalChart = {
         title: "Weight Progress",
         labels: progressData.labels,
         values: progressData.values,
@@ -248,12 +257,18 @@ export const CalendarDataService = {
         goal: goalData?.target_value || 70,
         trend: progressData.trend,
         weightChange: progressData.weightChange,
-        calorieBalance: progressData.calorieBalance,
+        calorieBalance: progressData.avgCalorieBalance,
         startWeight: progressData.startWeight,
         currentWeight: progressData.currentWeight
       };
+
+      console.log('📊 Returning final chart object:', finalChart);
+      console.log('═══════════════════════════════════════════════════════');
+      
+      return finalChart;
     } catch (error) {
-      console.error('Error fetching progress chart:', error);
+      console.error('❌ Error fetching progress chart:', error);
+      console.error('❌ Error stack:', error.stack);
       return {
         title: "Weight Progress",
         labels: [],

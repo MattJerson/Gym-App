@@ -12,22 +12,56 @@ export default function ProgressGraph({ chart, userId }) {
   const [unlockStatus, setUnlockStatus] = useState(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
 
+  // 🔍 COMPREHENSIVE LOGGING - Component Mount
+  useEffect(() => {
+    console.log('📊 ProgressGraph MOUNTED');
+    console.log('📊 Props received:', {
+      userId: userId,
+      hasChart: !!chart,
+      chartTitle: chart?.title,
+      chartLabels: chart?.labels,
+      chartValues: chart?.values,
+      chartLabelsLength: chart?.labels?.length,
+      chartValuesLength: chart?.values?.length,
+      fullChart: chart
+    });
+  }, []);
+
+  // 🔍 Log when chart prop changes
+  useEffect(() => {
+    console.log('📊 ProgressGraph: Chart prop CHANGED:', {
+      hasChart: !!chart,
+      title: chart?.title,
+      labelsCount: chart?.labels?.length || 0,
+      valuesCount: chart?.values?.length || 0,
+      values: chart?.values,
+      labels: chart?.labels,
+      trend: chart?.trend,
+      weightChange: chart?.weightChange,
+      currentWeight: chart?.currentWeight,
+      startWeight: chart?.startWeight
+    });
+  }, [chart]);
+
   // Load unlock status when component mounts
   useEffect(() => {
     if (userId) {
+      console.log('📊 ProgressGraph: userId detected, loading unlock status:', userId);
       loadUnlockStatus();
+    } else {
+      console.warn('📊 ProgressGraph: No userId provided!');
     }
   }, [userId]);
 
   const loadUnlockStatus = async () => {
     try {
-      console.log('📱 ProgressGraph: Loading unlock status for userId:', userId);
+      console.log('� ProgressGraph: Loading unlock status for userId:', userId);
       setIsLoadingStatus(true);
       const status = await WeightProgressService.checkUnlockStatus(userId);
-      console.log('📱 ProgressGraph: Received status:', status);
+      console.log('� ProgressGraph: Received unlock status:', status);
       setUnlockStatus(status);
     } catch (error) {
-      console.error('📱 ProgressGraph: Error loading unlock status:', error);
+      console.error('❌ ProgressGraph: Error loading unlock status:', error);
       setUnlockStatus({
         isUnlocked: false,
         totalActivities: 0,
@@ -38,9 +72,17 @@ export default function ProgressGraph({ chart, userId }) {
     }
   };
 
-  // Check if we have sufficient data (at least 2 data points)
-  const hasSufficientData = chart?.values && chart.values.length >= 2 && 
-    chart.values.filter(v => v && v > 0).length >= 2;
+  // Check if we have sufficient data (at least 1 data point for automatic tracking)
+  // With automatic weight tracking, we can show progress with just the initial weight
+  const hasSufficientData = chart?.values && chart.values.length >= 1 && 
+    chart.values.filter(v => v && v > 0).length >= 1;
+  
+  console.log('📊 ProgressGraph: Data check:', {
+    hasSufficientData,
+    hasChartValues: !!chart?.values,
+    chartValuesLength: chart?.values?.length,
+    validValuesCount: chart?.values?.filter(v => v && v > 0).length
+  });
 
   // Smart data sampling: Show max 4 dates intelligently
   const filteredData = useMemo(() => {
@@ -299,7 +341,7 @@ const aestheticChartConfig = {
       {!hasSufficientData ? (
         <EmptyDataState
           title="Start Tracking"
-          message="Complete more workouts to see your progress trends"
+          message="Log meals and workouts to see automatic weight tracking"
           icon="trending-up-outline"
           iconColor="#0A84FF"
           sampleComponent={

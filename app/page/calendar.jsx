@@ -8,10 +8,10 @@ import {
   ScrollView,
   ActionSheetIOS,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase, getCurrentUser } from "../../services/supabase";
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Calendar as RNCalendar } from "react-native-calendars";
 import RecentActivity from "../../components/home/RecentActivity";
 import RecentActivitySkeleton from "../../components/skeletons/RecentActivitySkeleton";
@@ -90,6 +90,16 @@ export default function Calendar() {
       checkHealthPermission();
     }
   }, [userId]);
+
+  // Reload data when screen comes into focus (navigating back to calendar)
+  useFocusEffect(
+    useCallback(() => {
+      if (userId) {
+        loadCalendarData();
+        loadStreakData();
+      }
+    }, [userId])
+  );
 
   const checkHealthPermission = async () => {
     try {
@@ -213,6 +223,11 @@ export default function Calendar() {
 
   const loadCalendarData = async () => {
     try {
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('📅 CALENDAR: loadCalendarData STARTED');
+      console.log('📅 Current userId:', userId);
+      console.log('═══════════════════════════════════════════════════════');
+      
       setIsLoading(true);
       
       // Get dynamic date range for calendar (current month ± 2 months)
@@ -226,6 +241,9 @@ export default function Calendar() {
         const day = String(date.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
       };
+      
+      console.log('📅 Fetching all calendar data in parallel...');
+      console.log('📅 Date range:', formatDate(startDate), 'to', formatDate(endDate));
       
       const [
         notificationsData,
@@ -253,11 +271,26 @@ export default function Calendar() {
         ),
       ]);
       
+      console.log('📅 All data fetched! Setting state...');
+      console.log('📅 chartData received:', {
+        hasData: !!chartData,
+        title: chartData?.title,
+        labelsCount: chartData?.labels?.length || 0,
+        valuesCount: chartData?.values?.length || 0,
+        labels: chartData?.labels,
+        values: chartData?.values,
+        fullChartData: chartData
+      });
+      
       setNotifications(notificationsData.count);
       setWorkoutData(calendarData);
       setRecentActivitiesData(activitiesData);
       setWorkoutTypes(typesData);
+      
+      console.log('📅 Setting progressChart state with:', chartData);
       setProgressChart(chartData);
+      console.log('📅 progressChart state has been set');
+      
       setAnalytics(analyticsData);
       setActivityIndicators(indicatorsData);
 
@@ -290,8 +323,12 @@ export default function Calendar() {
           // Steps data will be null, component will handle gracefully
         }
       }
+      
+      console.log('📅 CALENDAR: loadCalendarData COMPLETED');
+      console.log('═══════════════════════════════════════════════════════');
     } catch (error) {
-      console.error("Error loading calendar data:", error);
+      console.error("❌ Error loading calendar data:", error);
+      console.error("❌ Error stack:", error.stack);
       Alert.alert("Error", "Failed to load calendar data.");
     } finally {
       setIsLoading(false);
