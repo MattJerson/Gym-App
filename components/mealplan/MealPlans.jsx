@@ -15,23 +15,6 @@ export default function MealPlans({
     return null;
   }
 
-  // Calculate plan statistics
-  const daysCompleted = activePlan.days_completed || 0;
-  const durationWeeks = activePlan.duration_weeks || 8;
-  const totalDays = durationWeeks * 7;
-  const progressPercentage = Math.min((daysCompleted / totalDays) * 100, 100);
-  
-  // Format calorie adjustment
-  const adjustmentPercent = activePlan.calorie_adjustment_percent 
-    ? Math.round(activePlan.calorie_adjustment_percent * 100) 
-    : 0;
-  
-  const adjustmentText = adjustmentPercent > 0 
-    ? `+${adjustmentPercent}% Surplus` 
-    : adjustmentPercent < 0 
-    ? `${adjustmentPercent}% Deficit`
-    : 'Maintenance';
-  
   // Get plan type color
   const planColor = getPlanTypeColor(activePlan.plan_type);
   
@@ -40,87 +23,73 @@ export default function MealPlans({
 
   return (
     <View style={styles.container}>
-      {/* Compact Plan Card */}
-      <View style={[styles.planCard, { borderLeftColor: planColor, borderLeftWidth: 3 }]}>
-        {/* Header Row */}
-        <View style={styles.headerRow}>
-          <View style={styles.headerLeft}>
-            <View style={styles.statusBadge}>
-              <View style={[styles.statusDot, { backgroundColor: planColor }]} />
-              <Text style={styles.statusText}>Active</Text>
-            </View>
-            <Text style={styles.planName}>{activePlan.plan_name}</Text>
-          </View>
-          <View style={[styles.typeBadge, { backgroundColor: planColor + "20", borderColor: planColor + "30" }]}>
-            <Text style={[styles.typeText, { color: planColor }]}>
+      <View style={styles.planCard}>
+        {/* Compact Header with Plan Info */}
+        <View style={styles.header}>
+          <View style={[styles.planDot, { backgroundColor: planColor }]} />
+          <View style={styles.headerContent}>
+            <Text style={styles.planName} numberOfLines={1}>{activePlan.plan_name}</Text>
+            <Text style={[styles.planType, { color: planColor }]}>
               {formatPlanType(activePlan.plan_type)}
             </Text>
           </View>
-        </View>
-
-        {/* Quick Stats Row */}
-        <View style={styles.quickStatsRow}>
-          {/* Calorie Target */}
-          <View style={styles.quickStat}>
-            <Ionicons name="flame" size={14} color="#FF6B35" />
-            <View>
-              <Text style={styles.quickStatValue}>{activePlan.daily_calories}</Text>
-              <Text style={styles.quickStatLabel}>kcal/day</Text>
-            </View>
-          </View>
-
-          {/* Macros */}
-          <View style={styles.quickStat}>
-            <Ionicons name="nutrition" size={14} color="#888" />
-            <View>
-              <Text style={styles.quickStatValue}>
-                {activePlan.daily_protein}g • {activePlan.daily_carbs}g • {activePlan.daily_fats}g
-              </Text>
-              <Text style={styles.quickStatLabel}>P • C • F</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Progress Row */}
-        <View style={styles.progressRow}>
-          {/* Duration */}
-          <View style={styles.progressItem}>
-            <View style={styles.progressHeader}>
-              <Ionicons name="calendar-outline" size={12} color="#888" />
-              <Text style={styles.progressLabel}>Week {Math.ceil(daysCompleted / 7)}/{durationWeeks}</Text>
-            </View>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${progressPercentage}%`, backgroundColor: planColor }]} />
-            </View>
-          </View>
-
-          {/* Adherence */}
           {adherence > 0 && (
-            <View style={styles.progressItem}>
-              <View style={styles.progressHeader}>
-                <Ionicons name="trophy-outline" size={12} color="#888" />
-                <Text style={styles.progressLabel}>
-                  {Math.round(adherence)}% Adherence
-                </Text>
-              </View>
-              <View style={styles.progressBar}>
-                <View style={[
-                  styles.progressFill, 
-                  { 
-                    width: `${adherence}%`, 
-                    backgroundColor: adherence >= 80 ? '#00D4AA' : adherence >= 60 ? '#FFB300' : '#FF6B35' 
-                  }
-                ]} />
-              </View>
+            <View style={styles.adherenceBadge}>
+              <Ionicons 
+                name={adherence >= 80 ? "checkmark-circle" : "time"} 
+                size={14} 
+                color={adherence >= 80 ? '#00D4AA' : '#FFB300'} 
+              />
+              <Text style={[styles.adherenceText, { 
+                color: adherence >= 80 ? '#00D4AA' : '#FFB300' 
+              }]}>
+                {Math.round(adherence)}%
+              </Text>
             </View>
           )}
         </View>
 
-        {/* Strategy Info (Compact) */}
+        {/* Targets Row - All in One Line */}
+        <View style={styles.targetsRow}>
+          <View style={styles.targetItem}>
+            <Ionicons name="flame" size={16} color={planColor} />
+            <Text style={[styles.targetValue, { color: planColor }]}>
+              {activePlan.daily_calories}
+            </Text>
+            <Text style={styles.targetLabel}>cal</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.targetItem}>
+            <Text style={styles.targetEmoji}>🥩</Text>
+            <Text style={styles.targetValue}>{activePlan.daily_protein}g</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.targetItem}>
+            <Text style={styles.targetEmoji}>🍞</Text>
+            <Text style={styles.targetValue}>{activePlan.daily_carbs}g</Text>
+          </View>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.targetItem}>
+            <Text style={styles.targetEmoji}>🥑</Text>
+            <Text style={styles.targetValue}>{activePlan.daily_fats}g</Text>
+          </View>
+        </View>
+
+        {/* Optional Footer - Condensed */}
         {activePlan.bmr && activePlan.tdee && (
-          <View style={styles.strategyRow}>
-            <Text style={styles.strategyText}>
-              BMR {Math.round(activePlan.bmr)} → TDEE {Math.round(activePlan.tdee)} → {adjustmentText}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              BMR: <Text style={styles.footerValue}>{Math.round(activePlan.bmr)}</Text>
+              <Text style={styles.footerSep}> • </Text>
+              TDEE: <Text style={styles.footerValue}>{Math.round(activePlan.tdee)}</Text>
+              <Text style={styles.footerSep}> • </Text>
+              <Text style={styles.footerValue}>{activePlan.duration_weeks}w</Text>
             </Text>
           </View>
         )}
@@ -151,130 +120,109 @@ function formatPlanType(planType) {
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20,
+    marginBottom: 14,
   },
   planCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 16,
-    padding: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    borderRadius: 12,
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
   },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 12,
-  },
-  headerLeft: {
-    flex: 1,
-    gap: 4,
-  },
-  statusBadge: {
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-start",
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    backgroundColor: "rgba(0, 212, 170, 0.12)",
-    borderRadius: 6,
+    padding: 10,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.04)",
   },
-  statusDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    marginRight: 4,
+  planDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  statusText: {
-    fontSize: 9,
-    fontWeight: "700",
-    color: "#00D4AA",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+  headerContent: {
+    flex: 1,
   },
   planName: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#fff",
-    letterSpacing: -0.3,
-  },
-  typeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-    marginLeft: 8,
-  },
-  typeText: {
-    fontSize: 9,
+    fontSize: 14,
     fontWeight: "700",
+    color: "#fff",
+    letterSpacing: -0.2,
+    marginBottom: 2,
+  },
+  planType: {
+    fontSize: 10,
+    fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    opacity: 0.8,
   },
-  quickStatsRow: {
+  adherenceBadge: {
     flexDirection: "row",
-    gap: 12,
-    marginBottom: 10,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.06)",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    borderRadius: 6,
   },
-  quickStat: {
+  adherenceText: {
+    fontSize: 10,
+    fontWeight: "700",
+  },
+  targetsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+  },
+  targetItem: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    justifyContent: "center",
+    gap: 4,
   },
-  quickStatValue: {
+  targetEmoji: {
+    fontSize: 12,
+  },
+  targetValue: {
     fontSize: 13,
     fontWeight: "800",
     color: "#fff",
     letterSpacing: -0.3,
   },
-  quickStatLabel: {
+  targetLabel: {
+    fontSize: 9,
+    fontWeight: "600",
+    color: "#888",
+  },
+  divider: {
+    width: 1,
+    height: 14,
+    backgroundColor: "rgba(255, 255, 255, 0.06)",
+  },
+  footer: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    backgroundColor: "rgba(0, 0, 0, 0.15)",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.04)",
+  },
+  footerText: {
     fontSize: 9,
     fontWeight: "600",
     color: "#666",
-    textTransform: "uppercase",
-    letterSpacing: 0.3,
-  },
-  progressRow: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  progressItem: {
-    gap: 4,
-  },
-  progressHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  progressLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#888",
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 2,
-  },
-  strategyRow: {
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.06)",
-  },
-  strategyText: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#888",
     textAlign: "center",
-    letterSpacing: -0.2,
+    letterSpacing: 0.2,
+  },
+  footerValue: {
+    color: "#fff",
+    fontWeight: "700",
+  },
+  footerSep: {
+    color: "#444",
   },
 });

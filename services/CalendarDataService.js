@@ -609,14 +609,14 @@ export const CalendarDataService = {
   async fetchActivityIndicators(userId, startDate, endDate) {
     try {
       const [workoutsResult, mealsResult, stepsResult, weightResult] = await Promise.all([
-        // Get dates with workouts from workout_logs
+        // Get dates with workouts from workout_sessions
         supabase
-          .from('workout_logs')
-          .select('log_date')
+          .from('workout_sessions')
+          .select('completed_at')
           .eq('user_id', userId)
-          .gte('log_date', startDate)
-          .lte('log_date', endDate)
-          .eq('status', 'completed'),
+          .eq('status', 'completed')
+          .gte('completed_at', startDate)
+          .lte('completed_at', endDate),
 
         // Get dates with meals
         supabase
@@ -644,13 +644,13 @@ export const CalendarDataService = {
           .lte('measurement_date', endDate)
       ]);
 
-      // Build indicators map
+      // Build indicators map with counts
       const indicators = {};
 
-      // Add workout indicators
+      // Add workout indicators with counts
       workoutsResult.data?.forEach(item => {
-        const date = item.log_date;
-        if (date) {
+        if (item.completed_at) {
+          const date = item.completed_at.split('T')[0]; // Extract date from timestamp
           if (!indicators[date]) indicators[date] = [];
           if (!indicators[date].includes('workout')) {
             indicators[date].push('workout');
@@ -685,6 +685,95 @@ export const CalendarDataService = {
     } catch (error) {
       console.error('Error fetching activity indicators:', error);
       return {};
+    }
+  },
+
+  // Fetch detailed activity counts for a specific day
+  async fetchDayActivityCounts(userId, date) {
+    try {
+      const [workoutsResult, mealsResult] = await Promise.all([
+        // Count workouts for the day
+        supabase
+          .from('workout_sessions')
+          .select('id', { count: 'exact', head: false })
+          .eq('user_id', userId)
+          .eq('status', 'completed')
+          .gte('completed_at', `${date}T00:00:00`)
+          .lte('completed_at', `${date}T23:59:59`),
+
+        // Count meals for the day
+        supabase
+          .from('user_meal_logs')
+          .select('id', { count: 'exact', head: false })
+          .eq('user_id', userId)
+          .eq('meal_date', date)
+      ]);
+
+      return {
+        workouts: workoutsResult.data?.length || 0,
+        meals: mealsResult.data?.length || 0
+      };
+    } catch (error) {
+      console.error('Error fetching day activity counts:', error);
+      return { workouts: 0, meals: 0 };
+    }
+  },
+
+  // Monthly Analytics
+  async fetchMonthlyAnalytics(userId, year, month) {
+    try {
+      const { data, error } = await supabase.rpc('get_monthly_analytics', {
+        p_user_id: userId,
+        p_year: year,
+        p_month: month
+      });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        return {
+          totalWorkouts: 0,
+          totalDuration: 0,
+          totalCalories: 0,
+          totalVolume: 0,
+          avgDuration: 0,
+          currentStreak: 0,
+          longestStreak: 0,
+          totalMeals: 0,
+          avgSteps: 0,
+          daysActive: 0
+        };
+      }
+
+      const analytics = data[0];
+      return {
+        totalWorkouts: analytics.total_workouts || 0,
+        totalDuration: analytics.total_duration_minutes || 0,
+        totalCalories: analytics.total_calories_burned || 0,
+        totalVolume: parseFloat(analytics.total_volume_kg || 0),
+        avgDuration: analytics.avg_workout_duration || 0,
+        currentStreak: analytics.current_streak || 0,
+        longestStreak: analytics.longest_streak || 0,
+        totalPoints: analytics.total_points || 0,
+        daysActive: analytics.days_active || 0,
+        completionRate: analytics.completion_rate || 0,
+        workoutsPerWeek: parseFloat(analytics.workouts_per_week || 0)
+      };
+    } catch (error) {
+      console.error('Error fetching monthly analytics:', error);
+      return {
+        totalWorkouts: 0,
+        totalDuration: 0,
+        totalCalories: 0,
+        totalVolume: 0,
+        avgDuration: 0,
+        currentStreak: 0,
+        longestStreak: 0,
+        totalPoints: 0,
+        daysActive: 0,
+        completionRate: 0,
+        workoutsPerWeek: 0
+      };
     }
   }
 };

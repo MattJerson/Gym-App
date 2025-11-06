@@ -32,6 +32,18 @@ export default function WorkoutSession() {
   const [isPaused, setIsPaused] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
 
+  // Real-time workout stats
+  const [userWeight, setUserWeight] = useState(70); // Default weight in kg
+  const [currentStats, setCurrentStats] = useState({
+    baseSets: 0,
+    completedSets: 0,
+    baseCalories: 0,
+    currentCalories: 0,
+    basePoints: 0,
+    currentPoints: 0,
+    totalVolumeKg: 0
+  });
+
   // Modal states
   const [showExerciseDetail, setShowExerciseDetail] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState(null);
@@ -54,6 +66,20 @@ export default function WorkoutSession() {
       initializeWorkout();
     }
   }, [userId, workoutId]);
+
+  // Get user weight for calorie calculations
+  useEffect(() => {
+    if (userId) {
+      getUserWeight();
+    }
+  }, [userId]);
+
+  // Calculate real-time stats when session or template changes
+  useEffect(() => {
+    if (template && session) {
+      calculateRealTimeStats();
+    }
+  }, [template, session, userWeight]);
 
   // Timer effect - stop when completed or paused
   useEffect(() => {
@@ -103,9 +129,9 @@ export default function WorkoutSession() {
   }, [template, session?.sets]);
 
   const progressPercentage = useMemo(() => {
-    if (!template || template.exercises.length === 0) return 0;
-    return (completedExercisesCount / template.exercises.length) * 100;
-  }, [completedExercisesCount, template]);
+    if (currentStats.baseSets === 0) return 0;
+    return (currentStats.completedSets / currentStats.baseSets) * 100;
+  }, [currentStats.completedSets, currentStats.baseSets]);
 
   const getUser = async () => {
     try {
@@ -121,6 +147,83 @@ export default function WorkoutSession() {
       console.error("Error getting user:", error);
       Alert.alert("Error", "Failed to get user session");
     }
+  };
+
+  const getUserWeight = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('registration_profiles')
+        .select('weight_kg')
+        .eq('user_id', userId)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error fetching user weight:', error);
+        return;
+      }
+
+      if (data?.weight_kg) {
+        setUserWeight(data.weight_kg);
+      }
+    } catch (error) {
+      console.error('Error getting user weight:', error);
+    }
+  };
+
+  const calculateRealTimeStats = () => {
+    if (!template || !session) return;
+
+    // Calculate base stats from template
+    const baseSets = template.exercises.reduce((total, exercise) => {
+      return total + (exercise.sets || 3);
+    }, 0);
+
+    const baseCalories = template.exercises.reduce((total, exercise) => {
+      const metValue = exercise.exercise?.met_value || 5;
+      const sets = exercise.sets || 3;
+      const restTime = exercise.rest_seconds || 60;
+      const workTime = sets * 45; // Assume 45 seconds per set
+      const totalTime = (workTime + (sets - 1) * restTime) / 60; // Convert to minutes
+      return total + (metValue * userWeight * totalTime / 60);
+    }, 0);
+
+    const basePoints = 50 + (baseSets * 3); // Base 50 points + 3 per set
+
+    // Calculate current stats from completed sets
+    const completedSets = session.sets?.filter(s => s.is_completed).length || 0;
+    
+    const totalVolumeKg = session.sets?.reduce((total, set) => {
+      if (set.is_completed && set.weight_kg && set.actual_reps) {
+        return total + (set.weight_kg * set.actual_reps);
+      }
+      return total;
+    }, 0) || 0;
+
+    // Current calories based on completion percentage and actual volume
+    const completionPercent = completedSets / baseSets;
+    let currentCalories = baseCalories * completionPercent;
+    
+    // Add bonus calories for heavy lifting (volume above expected)
+    const expectedVolume = baseSets * 50; // Assume 50kg average per set
+    if (totalVolumeKg > expectedVolume) {
+      const volumeBonus = (totalVolumeKg - expectedVolume) / 1000 * 10; // 10 cal per 1000kg extra
+      currentCalories += volumeBonus;
+    }
+
+    // Current points calculation
+    const volumePoints = Math.floor(totalVolumeKg / 100); // 1 point per 100kg volume
+    const difficultyPoints = difficultyRating * 5;
+    const currentPoints = Math.floor(basePoints * completionPercent + volumePoints + difficultyPoints);
+
+    setCurrentStats({
+      baseSets,
+      completedSets,
+      baseCalories: Math.round(baseCalories),
+      currentCalories: Math.round(currentCalories),
+      basePoints,
+      currentPoints,
+      totalVolumeKg: Math.round(totalVolumeKg)
+    });
   };
 
   const initializeWorkout = async () => {
@@ -247,6 +350,8 @@ export default function WorkoutSession() {
       );
       setSession(updatedSession);
 
+      // Real-time stats will be recalculated automatically via useEffect
+
       // Check if all exercises are complete - compare against template exercises
       // Count how many template exercises have all their sets completed
       const templateExerciseCount = template.exercises.length;
@@ -288,27 +393,32 @@ export default function WorkoutSession() {
 
   const handleCompleteWorkout = async () => {
     try {
-      // ✅ Complete session in backend FIRST (with accurate user weight)
+      // Use real-time calculated stats for completion
+      const completionData = {
+        total_sets_completed: currentStats.completedSets,
+        estimated_calories_burned: currentStats.currentCalories,
+        total_volume_kg: currentStats.totalVolumeKg,
+        points_earned: currentStats.currentPoints,
+        user_weight_kg: userWeight,
+        difficulty_rating: difficultyRating,
+        completion_notes: completionNotes
+      };
+
+      // Complete session in backend with our calculated values
       const completedSession = await WorkoutSessionServiceV2.completeSession(
         session.id,
         difficultyRating,
-        completionNotes
+        completionNotes,
+        completionData
       );
-      // ✅ Calculate points from backend-calculated values
-      const setsCompleted = completedSession?.total_sets_completed || 0;
-      const volumeKg = completedSession?.total_volume_kg || 0;
-      const caloriesBurned = completedSession?.estimated_calories_burned || 0;
-      const difficultyPoints = difficultyRating ? difficultyRating * 5 : 0;
       
-      const pointsEarned = 10 + // Base points
-                          (setsCompleted * 2) + // Sets points
-                          Math.floor(volumeKg / 100) + // Volume points
-                          Math.floor(caloriesBurned / 50) + // Calorie points
-                          difficultyPoints; // Difficulty bonus
-      // ✅ Update session state with backend values so modal shows accurate stats
+      // Update session state with our real-time values
       const updatedSession = {
         ...completedSession,
-        points_earned: pointsEarned
+        total_sets_completed: currentStats.completedSets,
+        estimated_calories_burned: currentStats.currentCalories,
+        total_volume_kg: currentStats.totalVolumeKg,
+        points_earned: currentStats.currentPoints
       };
       
       setSession(updatedSession);
@@ -410,14 +520,18 @@ export default function WorkoutSession() {
               <Text style={styles.statText}>{formatTime(elapsedTime)}</Text>
             </View>
             <View style={styles.statBadge}>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={14}
-                color="#74B9FF"
-              />
+              <Ionicons name="checkmark-circle-outline" size={14} color="#74B9FF" />
               <Text style={styles.statText}>
-                {completedExercisesCount}/{template.exercises.length}
+                {currentStats.completedSets}/{currentStats.baseSets}
               </Text>
+            </View>
+            <View style={styles.statBadge}>
+              <Ionicons name="flame-outline" size={14} color="#FF6B35" />
+              <Text style={styles.statText}>{currentStats.currentCalories}</Text>
+            </View>
+            <View style={styles.statBadge}>
+              <Ionicons name="trophy-outline" size={14} color="#F59E0B" />
+              <Text style={styles.statText}>{currentStats.currentPoints}</Text>
             </View>
           </View>
         </View>
@@ -438,9 +552,22 @@ export default function WorkoutSession() {
             style={[styles.progressFill, { width: `${progressPercentage}%` }]}
           />
         </View>
-        <Text style={styles.progressText}>
-          {Math.round(progressPercentage)}% Complete
-        </Text>
+        <View style={styles.progressInfo}>
+          <Text style={styles.progressText}>
+            {Math.round(progressPercentage)}% Complete
+          </Text>
+          <View style={styles.progressStats}>
+            <Text style={styles.progressStatText}>
+              📊 {currentStats.totalVolumeKg}kg lifted
+            </Text>
+            <Text style={styles.progressStatText}>
+              🔥 {currentStats.currentCalories}/{currentStats.baseCalories} cal
+            </Text>
+            <Text style={styles.progressStatText}>
+              🏆 {currentStats.currentPoints} pts
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* Exercise List */}
@@ -521,7 +648,7 @@ export default function WorkoutSession() {
         <View style={styles.modalOverlay}>
           <View style={styles.completeModal}>
             <View style={styles.completeModalHeader}>
-              <MaterialCommunityIcons name="trophy" size={48} color="#74B9FF" />
+              <MaterialCommunityIcons name="trophy" size={32} color="#74B9FF" />
               <Text style={styles.completeModalTitle}>Workout Complete!</Text>
               <Text style={styles.completeModalSubtitle}>
                 Great job on completing {template.name}
@@ -539,23 +666,59 @@ export default function WorkoutSession() {
               <View style={styles.statCard}>
                 <Ionicons name="barbell" size={24} color="#74B9FF" />
                 <Text style={styles.statCardValue}>
-                  {session.total_sets_completed}
+                  {currentStats.completedSets}
                 </Text>
                 <Text style={styles.statCardLabel}>Total Sets</Text>
               </View>
               <View style={styles.statCard}>
-                <Ionicons name="flame" size={24} color="#74B9FF" />
+                <Ionicons name="flame" size={24} color="#FF6B35" />
                 <Text style={styles.statCardValue}>
-                  {session.estimated_calories_burned || 0}
+                  {currentStats.currentCalories}
                 </Text>
                 <Text style={styles.statCardLabel}>Calories</Text>
               </View>
               <View style={styles.statCard}>
                 <MaterialCommunityIcons name="trophy" size={24} color="#F59E0B" />
                 <Text style={[styles.statCardValue, { color: '#F59E0B' }]}>
-                  {session.points_earned || 0}
+                  {currentStats.currentPoints}
                 </Text>
                 <Text style={styles.statCardLabel}>Points</Text>
+              </View>
+            </View>
+            
+            {/* Volume Stats */}
+            <View style={styles.volumeStats}>
+              <MaterialCommunityIcons name="weight-lifter" size={20} color="#74B9FF" />
+              <Text style={styles.volumeLabel}>Total Volume Lifted</Text>
+              <Text style={styles.volumeValue}>{currentStats.totalVolumeKg.toLocaleString()} kg</Text>
+            </View>
+
+            {/* Difficulty Rating */}
+            <View style={styles.difficultySection}>
+              <Text style={styles.difficultyTitle}>How was this workout?</Text>
+              <View style={styles.difficultyRating}>
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <Pressable
+                    key={rating}
+                    style={[
+                      styles.difficultyButton,
+                      difficultyRating === rating && styles.difficultyButtonActive
+                    ]}
+                    onPress={() => setDifficultyRating(rating)}
+                  >
+                    <Text style={[
+                      styles.difficultyButtonText,
+                      difficultyRating === rating && styles.difficultyButtonTextActive
+                    ]}>
+                      {rating}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <View style={styles.difficultyLabels}>
+                <Text style={styles.difficultyLabelText}>Too Easy</Text>
+                <Text style={styles.difficultyLabelText}>Perfect</Text>
+                <Text style={styles.difficultyLabelText}>Too Hard</Text>
               </View>
             </View>
 
@@ -689,7 +852,7 @@ const styles = StyleSheet.create({
   progressBar: {
     height: 8,
     borderRadius: 4,
-    marginBottom: 8,
+    marginBottom: 12,
     overflow: "hidden",
     backgroundColor: "#161616",
   },
@@ -698,11 +861,25 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: "#74B9FF",
   },
+  progressInfo: {
+    alignItems: "center",
+  },
   progressText: {
     fontSize: 12,
     color: "#71717A",
     fontWeight: "600",
-    textAlign: "center",
+    marginBottom: 8,
+  },
+  progressStats: {
+    flexDirection: "row",
+    gap: 12,
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+  progressStatText: {
+    fontSize: 10,
+    color: "#A1A1AA",
+    fontWeight: "600",
   },
   exerciseList: {
     flex: 1,
@@ -734,77 +911,97 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalOverlay: {
     flex: 1,
-    padding: 20,
+    padding: 16,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
   },
   completeModal: {
-    padding: 24,
-    width: "100%",
-    maxWidth: 400,
-    borderWidth: 1,
+    padding: 0,
+    width: "90%",
+    maxWidth: 340,
     borderRadius: 24,
     backgroundColor: "#161616",
-    borderColor: "rgba(116, 185, 255, 0.3)",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
+    elevation: 15,
+    borderWidth: 1,
+    borderColor: "rgba(116, 185, 255, 0.2)",
   },
   completeModalHeader: {
-    marginBottom: 24,
+    padding: 20,
+    paddingBottom: 16,
     alignItems: "center",
+    backgroundColor: "rgba(116, 185, 255, 0.08)",
   },
   completeModalTitle: {
-    fontSize: 24,
-    marginTop: 12,
-    marginBottom: 8,
+    fontSize: 22,
+    marginTop: 8,
+    marginBottom: 4,
     color: "#FAFAFA",
-    fontWeight: "700",
+    fontWeight: "800",
+    letterSpacing: -0.5,
   },
   completeModalSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#A1A1AA",
     fontWeight: "500",
     textAlign: "center",
+    lineHeight: 18,
+    opacity: 0.8,
   },
   completeModalStats: {
-    gap: 12,
-    marginBottom: 24,
+    gap: 8,
+    padding: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
     flexDirection: "row",
   },
   statCard: {
     flex: 1,
-    padding: 16,
-    borderWidth: 1,
-    borderRadius: 16,
+    padding: 12,
+    borderRadius: 12,
     alignItems: "center",
-    backgroundColor: "#0B0B0B",
+    backgroundColor: "rgba(30, 30, 35, 0.6)",
+    borderWidth: 0.5,
     borderColor: "rgba(116, 185, 255, 0.2)",
   },
   statCardValue: {
-    fontSize: 20,
-    marginTop: 8,
-    marginBottom: 4,
+    fontSize: 16,
+    marginTop: 6,
+    marginBottom: 2,
     color: "#FAFAFA",
-    fontWeight: "700",
+    fontWeight: "800",
+    letterSpacing: -0.3,
   },
   statCardLabel: {
-    fontSize: 12,
-    color: "#71717A",
+    fontSize: 9,
+    color: "#A1A1AA",
     fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   notesInput: {
-    padding: 16,
-    fontSize: 14,
-    minHeight: 80,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    padding: 12,
+    fontSize: 13,
+    minHeight: 60,
     borderWidth: 1,
-    marginBottom: 24,
-    color: "#FAFAFA",
     borderRadius: 12,
-    borderColor: "#27272A",
+    color: "#FAFAFA",
+    lineHeight: 18,
+    borderColor: "rgba(116, 185, 255, 0.2)",
     textAlignVertical: "top",
-    backgroundColor: "#0B0B0B",
+    backgroundColor: "rgba(30, 30, 35, 0.4)",
   },
   modalActions: {
-    gap: 12,
+    padding: 20,
+    paddingTop: 12,
+    gap: 10,
     flexDirection: "row",
   },
   modalButton: {
@@ -813,26 +1010,104 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   modalButtonSecondary: {
-    paddingVertical: 16,
+    paddingVertical: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#27272A",
+    backgroundColor: "rgba(30, 30, 35, 0.6)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   modalButtonPrimary: {
-    paddingVertical: 16,
+    paddingVertical: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#5994d7ff",
+    backgroundColor: "#2563eb",
   },
   modalButtonTextSecondary: {
-    fontSize: 16,
-    color: "#FAFAFA",
-    fontWeight: "700",
+    fontSize: 14,
+    color: "#D4D4D8",
+    fontWeight: "600",
   },
   modalButtonTextPrimary: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#FAFAFA",
+    fontWeight: "600",
+  },
+  volumeStats: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+    padding: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    backgroundColor: "rgba(116, 185, 255, 0.1)",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+  },
+  volumeLabel: {
+    fontSize: 11,
+    color: "#A1A1AA",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
+  },
+  volumeValue: {
+    fontSize: 14,
+    color: "#74B9FF",
+    fontWeight: "800",
+    letterSpacing: -0.3,
+    marginLeft: 4,
+  },
+  difficultySection: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+  },
+  difficultyTitle: {
+    fontSize: 13,
+    color: "#FAFAFA",
+    fontWeight: "600",
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  difficultyRating: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  difficultyButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(30, 30, 35, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  difficultyButtonActive: {
+    borderColor: "#74B9FF",
+    backgroundColor: "rgba(116, 185, 255, 0.25)",
+  },
+  difficultyButtonText: {
+    fontSize: 13,
+    color: "#A1A1AA",
     fontWeight: "700",
+  },
+  difficultyButtonTextActive: {
+    color: "#74B9FF",
+  },
+  difficultyLabels: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 2,
+  },
+  difficultyLabelText: {
+    fontSize: 8,
+    color: "#71717A",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
 });
 

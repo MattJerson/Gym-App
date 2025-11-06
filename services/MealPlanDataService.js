@@ -399,10 +399,42 @@ export const MealPlanDataService = {
 
       if (error) throw error;
 
-      return data.map(food => ({
+      // If user has recent foods, return them
+      if (data && data.length > 0) {
+        return data.map(food => ({
+          ...food,
+          source: "database",
+          mode: "recent"
+        }));
+      }
+
+      // Fallback: Return common foods if user has no history
+      const { data: commonFoods, error: commonError } = await supabase
+        .from('food_database')
+        .select('*')
+        .in('name', [
+          'Chicken Breast, Grilled',
+          'Rice, White, Cooked',
+          'Broccoli, Steamed',
+          'Salmon, Cooked',
+          'Sweet Potato, Baked',
+          'Eggs, Whole',
+          'Oats, Dry',
+          'Banana',
+          'Almonds',
+          'Greek Yogurt'
+        ])
+        .limit(limit);
+
+      if (commonError) {
+        console.warn("❌ Error fetching common foods:", commonError);
+        return [];
+      }
+
+      return (commonFoods || []).map(food => ({
         ...food,
         source: "database",
-        mode: "recent"
+        mode: "default"
       }));
     } catch (error) {
       console.error("❌ Error fetching user recent foods:", error);
@@ -411,15 +443,150 @@ export const MealPlanDataService = {
   },
 
   /**
-   * Search foods from API
+   * Search foods from API with local database fallback
    */
   async searchFoodsAPI(query, pageSize = 12, pageNumber = 1) {
     try {
-      const result = await FoodDataService.searchFoods(query, pageSize, pageNumber);
-      return result;
+      // First, search our local database for cached/custom foods
+      // Increase limit when searching to have fallback if API fails
+      const localLimit = 10; // Increased from 5
+      const localResults = await this.searchLocalDatabase(query, localLimit);
+      console.log(`📂 Local database results: ${localResults.length}`);
+      
+      // Then search the external API
+      const apiResult = await FoodDataService.searchFoods(query, pageSize, pageNumber);
+      console.log(`🌐 API results: ${apiResult.foods?.length || 0}`);
+      if (apiResult.error) {
+        console.warn(`⚠️  API Error: ${apiResult.error} - Showing local results only`);
+      }
+      
+      // Merge results: prioritize local database matches, then API results
+      let mergedFoods = [];
+      
+      if (localResults.length > 0) {
+        // Add local results first (they're already relevant and have usage data)
+        mergedFoods = localResults.map(food => ({
+          ...food,
+          source: 'database',
+          _isLocalMatch: true
+        }));
+      }
+      
+      // Add API results that aren't duplicates
+      if (apiResult.foods && apiResult.foods.length > 0) {
+        const localFdcIds = new Set(localResults.map(f => f.fdc_id).filter(Boolean));
+        const localNamesNormalized = new Set(
+          localResults.map(f => this.normalizeForComparison(f.name))
+        );
+        
+        const uniqueAPIFoods = apiResult.foods.filter(apiFood => {
+          // Skip if we already have this FDC ID from local
+          if (apiFood.fdc_id && localFdcIds.has(apiFood.fdc_id)) return false;
+          
+          // Skip if name is very similar to local result
+          const apiNameNormalized = this.normalizeForComparison(apiFood.name);
+          return !localNamesNormalized.has(apiNameNormalized);
+        });
+        
+        mergedFoods = [...mergedFoods, ...uniqueAPIFoods];
+      }
+      
+      // Limit to page size
+      const paginatedFoods = mergedFoods.slice(0, pageSize);
+      
+      // 🔍 DEBUG: Log search results
+      console.log('\n🔍 SEARCH RESULTS for:', query);
+      console.log('📊 Total results:', paginatedFoods.length);
+      paginatedFoods.forEach((food, index) => {
+        console.log(`\n${index + 1}. ${food.name}${food.brand ? ' (' + food.brand + ')' : ''}`);
+        console.log(`   📈 Calories: ${food.calories} | Protein: ${food.protein}g | Carbs: ${food.carbs}g | Fats: ${food.fats}g`);
+        console.log(`   🏷️  Source: ${food.source || 'API'} | FDC ID: ${food.fdc_id}`);
+      });
+      console.log('\n');
+      
+      return {
+        foods: paginatedFoods,
+        totalHits: mergedFoods.length,
+        currentPage: pageNumber,
+        totalPages: Math.ceil(mergedFoods.length / pageSize)
+      };
     } catch (error) {
       console.error("❌ Error searching foods from API:", error);
       return { foods: [], totalHits: 0, currentPage: 1 };
+    }
+  },
+
+  /**
+   * Normalize food name for comparison
+   */
+  normalizeForComparison(name) {
+    return name.toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .trim();
+  },
+
+  /**
+   * Search local food database with popularity ranking
+   */
+  async searchLocalDatabase(query, limit = 5) {
+    try {
+      const searchTerm = query.toLowerCase().trim();
+      const searchPattern = `%${searchTerm}%`;
+      
+      // Search with usage count for popularity
+      const { data, error } = await supabase
+        .from('food_database')
+        .select(`
+          *,
+          usage_count:user_meal_logs(count)
+        `)
+        .or(`name.ilike.${searchPattern},brand.ilike.${searchPattern}`)
+        .limit(limit * 2); // Get more to filter duplicates
+      
+      if (error) throw error;
+      
+      if (!data || data.length === 0) return [];
+      
+      // Score and sort by relevance + popularity
+      const scoredFoods = data.map(food => {
+        let score = 0;
+        const lowerName = food.name.toLowerCase();
+        const lowerBrand = (food.brand || '').toLowerCase();
+        const usageCount = food.usage_count?.[0]?.count || 0;
+        
+        // Exact match (highest priority)
+        if (lowerName === searchTerm) score += 100;
+        else if (lowerName.startsWith(searchTerm)) score += 50;
+        else if (lowerName.includes(searchTerm)) score += 25;
+        
+        // Brand match
+        if (lowerBrand === searchTerm) score += 80;
+        else if (lowerBrand.includes(searchTerm)) score += 20;
+        
+        // Popularity boost (usage count)
+        score += Math.min(usageCount * 5, 50); // Cap at 50 points
+        
+        return { ...food, _score: score, _usageCount: usageCount };
+      });
+      
+      // Filter out incomplete nutrition data
+      const validFoods = scoredFoods.filter(food => {
+        // Must have all macros present and realistic
+        // Real food should have calories AND all three macros > 0
+        return food.calories > 0 && 
+               food.protein > 0 && 
+               food.carbs > 0 && 
+               food.fats > 0;
+      });
+      
+      // Sort by score (includes popularity)
+      validFoods.sort((a, b) => b._score - a._score);
+      
+      // Take top results
+      return validFoods.slice(0, limit);
+    } catch (error) {
+      console.error("❌ Error searching local database:", error);
+      return [];
     }
   },
 
@@ -479,6 +646,14 @@ export const MealPlanDataService = {
    */
   async logFoodToMeal(userId, mealType, foodId, quantity, servingSize, date = new Date()) {
     try {
+      console.log('📝 Logging food to meal...', {
+        userId: userId?.substring(0, 8),
+        mealType,
+        foodId: foodId?.substring(0, 8),
+        quantity,
+        servingSize
+      });
+
       // Get food details from database
       const { data: food, error: foodError } = await supabase
         .from('food_database')
@@ -486,7 +661,12 @@ export const MealPlanDataService = {
         .eq('id', foodId)
         .single();
 
-      if (foodError) throw foodError;
+      if (foodError) {
+        console.error('❌ Error fetching food:', foodError);
+        throw foodError;
+      }
+
+      console.log('✅ Food loaded:', food.name);
 
       // Calculate nutrition based on quantity
       const multiplier = (quantity * servingSize) / 100;
@@ -500,24 +680,40 @@ export const MealPlanDataService = {
         sodium: Math.round(food.sodium * multiplier * 10) / 10
       };
 
+      console.log('📊 Calculated nutrition:', calculatedNutrition);
+
+      const mealLogData = {
+        user_id: userId,
+        food_id: foodId,
+        meal_type: mealType,
+        meal_date: date.toISOString().split('T')[0],
+        meal_time: new Date().toTimeString().split(' ')[0],
+        quantity: quantity,
+        serving_size: servingSize,
+        serving_unit: food.serving_unit,
+        ...calculatedNutrition
+      };
+
+      console.log('💾 Inserting meal log...', { meal_type: mealLogData.meal_type });
+
       // Insert meal log
       const { data: mealLog, error: logError } = await supabase
         .from('user_meal_logs')
-        .insert([{
-          user_id: userId,
-          food_id: foodId,
-          meal_type: mealType,
-          meal_date: date.toISOString().split('T')[0],
-          meal_time: new Date().toTimeString().split(' ')[0],
-          quantity: quantity,
-          serving_size: servingSize,
-          serving_unit: food.serving_unit,
-          ...calculatedNutrition
-        }])
+        .insert([mealLogData])
         .select()
         .single();
 
-      if (logError) throw logError;
+      if (logError) {
+        console.error('❌ Error inserting meal log:', {
+          code: logError.code,
+          message: logError.message,
+          details: logError.details,
+          hint: logError.hint
+        });
+        throw logError;
+      }
+
+      console.log('✅ Meal logged successfully!', { id: mealLog.id });
       return mealLog;
     } catch (error) {
       console.error("❌ Error logging food to meal:", error);

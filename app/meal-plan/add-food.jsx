@@ -711,7 +711,7 @@ export default function AddFood() {
           <Ionicons name="search" size={18} color="#888" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search foods..."
+            placeholder="Search foods... (Try brand names for fast food)"
             placeholderTextColor="#666"
             value={searchQuery}
             onChangeText={setSearchQuery}

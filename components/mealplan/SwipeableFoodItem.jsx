@@ -118,52 +118,40 @@ export default function SwipeableFoodItem({
             <Ionicons name="chevron-back" size={14} color="#666" style={styles.swipeHint} />
           </View>
 
-          {/* Meta Info */}
-          {(item.brand || item.serving) && (
-            <View style={styles.metaRow}>
-              {item.brand && (
-                <View style={styles.metaBadge}>
-                  <Ionicons name="pricetag" size={10} color={mealColor} />
-                  <Text style={[styles.brandText, { color: mealColor }]}>{item.brand}</Text>
-                </View>
-              )}
-              {item.serving && (
-                <View style={styles.metaBadge}>
-                  <Ionicons name="restaurant" size={10} color="#888" />
-                  <Text style={styles.servingText}>{item.serving}</Text>
-                </View>
-              )}
+          {/* Serving Size Only */}
+          {item.serving && (
+            <View style={styles.servingRow}>
+              <Ionicons name="restaurant" size={10} color="#888" />
+              <Text style={styles.servingText}>{item.serving}</Text>
             </View>
           )}
 
-          {/* Nutrition Info */}
-          <View style={styles.nutritionContainer}>
-            <View style={styles.nutritionGrid}>
-              <View style={styles.macroCard}>
-                <Text style={[styles.macroValue, { color: mealColor }]}>{item.calories}</Text>
-                <Text style={styles.macroLabel}>calories</Text>
-              </View>
-
-              <View style={styles.macroDivider} />
-
-              <View style={styles.macroCard}>
-                <Text style={styles.macroValue}>{item.carbs}g</Text>
-                <Text style={styles.macroLabel}>carbs</Text>
-              </View>
-                
-              <View style={styles.macroDivider} />
-
-                <View style={styles.macroCard}>
-                <Text style={styles.macroValue}>{item.protein}g</Text>
-                <Text style={styles.macroLabel}>protein</Text>
-              </View>
-
-              <View style={styles.macroDivider} />
-
-              <View style={styles.macroCard}>
-                <Text style={styles.macroValue}>{item.fats}g</Text>
-                <Text style={styles.macroLabel}>fats</Text>
-              </View>
+          {/* Nutrition Info - Compact */}
+          <View style={styles.nutritionRow}>
+            <View style={styles.macroItem}>
+              <Text style={[styles.macroValue, { color: mealColor }]}>{item.calories}</Text>
+              <Text style={styles.macroLabel}>cal</Text>
+            </View>
+            
+            <View style={styles.macroDot} />
+            
+            <View style={styles.macroItem}>
+              <Text style={styles.macroValue}>{item.protein}g</Text>
+              <Text style={styles.macroLabel}>protein</Text>
+            </View>
+            
+            <View style={styles.macroDot} />
+            
+            <View style={styles.macroItem}>
+              <Text style={styles.macroValue}>{item.carbs}g</Text>
+              <Text style={styles.macroLabel}>carbs</Text>
+            </View>
+            
+            <View style={styles.macroDot} />
+            
+            <View style={styles.macroItem}>
+              <Text style={styles.macroValue}>{item.fats}g</Text>
+              <Text style={styles.macroLabel}>fats</Text>
             </View>
           </View>
         </View>
@@ -243,14 +231,14 @@ const styles = StyleSheet.create({
     width: 4,
   },
   foodContent: {
-    padding: 14,
-    paddingLeft: 16,
+    padding: 12,
+    paddingLeft: 14,
   },
   foodHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   foodName: {
     fontSize: 16,
@@ -265,25 +253,11 @@ const styles = StyleSheet.create({
     opacity: 0.4,
     marginTop: 2,
   },
-  metaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 10,
-  },
-  metaBadge: {
+  servingRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  brandText: {
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 0.3,
+    marginBottom: 8,
   },
   servingText: {
     fontSize: 11,
@@ -291,37 +265,35 @@ const styles = StyleSheet.create({
     color: "#888",
     letterSpacing: 0.3,
   },
-  nutritionContainer: {
-    backgroundColor: "rgba(0, 0, 0, 0.2)",
-    borderRadius: 10,
-    marginBottom: 0,
-  },
-  nutritionGrid: {
+  nutritionRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
+    gap: 2,
+    marginTop: 2,
   },
-  macroCard: {
-    alignItems: "center",
-    flex: 1,
+  macroItem: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 3,
   },
   macroValue: {
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 13,
+    fontWeight: "700",
     color: "#fff",
-    letterSpacing: -0.5,
-    marginBottom: 2,
+    letterSpacing: -0.3,
   },
   macroLabel: {
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: "600",
-    color: "#888",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+    color: "#666",
+    letterSpacing: 0.2,
   },
-  macroDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  macroDot: {
+    width: 2,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: "#444",
+    marginHorizontal: 6,
   },
 });

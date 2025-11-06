@@ -21,9 +21,8 @@ import { MealPlanDataService } from "../../services/MealPlanDataService";
 import MacroProgressSummary from "../../components/mealplan/MacroProgressSummary";
 import { MealPlanPageSkeleton } from "../../components/skeletons/MealPlanPageSkeleton";
 
-const router = useRouter();
-
 export default function Mealplan() {
+  const router = useRouter();
   // 🔄 Data-driven state management
   const [macroGoals, setMacroGoals] = useState(null);
   const [weeklyPlan, setWeeklyPlan] = useState([]);
@@ -295,11 +294,11 @@ export default function Mealplan() {
       detailsMessage += `\n\nDuration: ${currentPlan.duration_weeks} weeks`;
     }
     
-    if (currentPlan.progress_percentage !== undefined) {
+    if (currentPlan.progress_percentage && typeof currentPlan.progress_percentage === 'number') {
       detailsMessage += `\nProgress: ${currentPlan.progress_percentage.toFixed(1)}%`;
     }
     
-    if (currentPlan.adherence_score !== undefined) {
+    if (currentPlan.adherence_score && typeof currentPlan.adherence_score === 'number') {
       detailsMessage += `\nAdherence: ${currentPlan.adherence_score.toFixed(1)}%`;
     }
 

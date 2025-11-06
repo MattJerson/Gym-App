@@ -21,10 +21,9 @@ import WorkoutLogModal from "../../components/calendar/WorkoutLogModal";
 import HealthKitService from "../../services/HealthKitService";
 import StepsSyncService from "../../services/StepsSyncService";
 import { CalendarDataService } from "../../services/CalendarDataService";
-import CalendarAnalytics from "../../components/calendar/CalendarAnalytics";
 import CalendarStatsCard from "../../components/calendar/CalendarStatsCard";
 import WorkoutDetailsModal from "../../components/calendar/WorkoutDetailsModal";
-import DayActivityModal from "../../components/calendar/DayActivityModal";
+import DayActivityTooltip from "../../components/calendar/DayActivityTooltip";
 import { CalendarPageSkeleton } from "../../components/skeletons/CalendarPageSkeleton";
 
 export default function Calendar() {
@@ -43,16 +42,16 @@ export default function Calendar() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [viewingWorkout, setViewingWorkout] = useState(null);
 
-  // State for comprehensive day activity modal
-  const [showDayActivityModal, setShowDayActivityModal] = useState(false);
-  const [selectedDayData, setSelectedDayData] = useState(null);
+  // State for day activity tooltip
+  const [showTooltip, setShowTooltip] = useState(false);
+  const [tooltipCounts, setTooltipCounts] = useState(null);
+  const [tooltipPosition, setTooltipPosition] = useState(null);
 
   const [workoutData, setWorkoutData] = useState({});
   const [recentActivitiesData, setRecentActivitiesData] = useState([]);
   const [workoutTypes, setWorkoutTypes] = useState([]);
   const [progressChart, setProgressChart] = useState(null);
   const [stepsData, setStepsData] = useState(null);
-  const [analytics, setAnalytics] = useState(null);
   const [activityIndicators, setActivityIndicators] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState(null);
@@ -63,6 +62,7 @@ export default function Calendar() {
   const [stepsTrackingEnabled, setStepsTrackingEnabled] = useState(false);
   const [hasSeenStepsPrompt, setHasSeenStepsPrompt] = useState(false);
   const [streakData, setStreakData] = useState({ current: 0, longest: 0 });
+  const [monthlyAnalytics, setMonthlyAnalytics] = useState(null);
 
   // Get authenticated user
   useEffect(() => {
@@ -87,9 +87,17 @@ export default function Calendar() {
     if (userId) {
       loadCalendarData();
       loadStreakData();
+      loadMonthlyAnalytics();
       checkHealthPermission();
     }
   }, [userId]);
+
+  // Reload monthly analytics when month changes
+  useEffect(() => {
+    if (userId && currentDate) {
+      loadMonthlyAnalytics();
+    }
+  }, [userId, currentDate]);
 
   // Reload data when screen comes into focus (navigating back to calendar)
   useFocusEffect(
@@ -97,9 +105,24 @@ export default function Calendar() {
       if (userId) {
         loadCalendarData();
         loadStreakData();
+        loadMonthlyAnalytics();
       }
-    }, [userId])
+    }, [userId, currentDate])
   );
+
+  const loadMonthlyAnalytics = async () => {
+    if (!userId || !currentDate) return;
+    
+    try {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1; // JavaScript months are 0-indexed
+      
+      const analytics = await CalendarDataService.fetchMonthlyAnalytics(userId, year, month);
+      setMonthlyAnalytics(analytics);
+    } catch (error) {
+      console.error("Error loading monthly analytics:", error);
+    }
+  };
 
   const checkHealthPermission = async () => {
     try {
@@ -242,7 +265,6 @@ export default function Calendar() {
         activitiesData,
         typesData,
         chartData,
-        analyticsData,
         indicatorsData,
       ] = await Promise.all([
         CalendarDataService.fetchUserNotifications(userId),
@@ -254,7 +276,6 @@ export default function Calendar() {
         CalendarDataService.fetchRecentActivities(userId),
         CalendarDataService.fetchWorkoutTypes(),
         CalendarDataService.fetchProgressChart(userId, "weight"),
-        CalendarDataService.fetchCalendarAnalytics(userId),
         CalendarDataService.fetchActivityIndicators(
           userId,
           formatDate(startDate),
@@ -266,7 +287,6 @@ export default function Calendar() {
       setRecentActivitiesData(activitiesData);
       setWorkoutTypes(typesData);
       setProgressChart(chartData);
-      setAnalytics(analyticsData);
       setActivityIndicators(indicatorsData);
 
       // Load steps from HealthKit if permission granted
@@ -327,7 +347,7 @@ export default function Calendar() {
     }
   };
 
-  // Updated handler for day presses - simplified activity view
+  // Updated handler for day presses - show tooltip with activity counts
   const handleDayPress = async (day) => {
     const dateString = day.dateString;
     const selectedDateObj = new Date(dateString + 'T00:00:00');
@@ -341,8 +361,24 @@ export default function Calendar() {
 
     setSelectedDate(dateString);
     
-    // Simply open the modal - it will fetch its own data
-    setShowDayActivityModal(true);
+    // Fetch activity counts for this day
+    try {
+      const counts = await CalendarDataService.fetchDayActivityCounts(userId, dateString);
+      setTooltipCounts(counts);
+      
+      // Calculate position (centered above the day, approximate)
+      // Note: This is a simplified positioning. For exact positioning, you'd need to measure the calendar layout
+      setTooltipPosition({ x: 20, y: 200 }); // You can adjust these values
+      
+      setShowTooltip(true);
+      
+      // Auto-hide tooltip after 3 seconds
+      setTimeout(() => {
+        setShowTooltip(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Error fetching day activity counts:', error);
+    }
   };
 
   const addWorkout = async () => {
@@ -426,11 +462,15 @@ export default function Calendar() {
   }, [activityIndicators, selectedDate]);
 
   const monthlyStats = useMemo(() => {
+    if (monthlyAnalytics) {
+      return monthlyAnalytics;
+    }
+
+    // Fallback to calculating from workoutData if analytics not loaded yet
     const currentMonth = currentDate.getMonth();
     const currentYear = currentDate.getFullYear();
     let workouts = 0;
 
-    // Count workouts in current month
     Object.entries(workoutData).forEach(([dateKey, workout]) => {
       const [year, month] = dateKey.split("-").map(Number);
       if (
@@ -442,13 +482,20 @@ export default function Calendar() {
       }
     });
 
-    // Use streak from user_stats (already loaded from database)
-    const currentStreakCount = streakData.current;
-
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const goalPercentage = Math.round((workouts / daysInMonth) * 100);
-    return { workouts, streak: currentStreakCount, goalPercentage };
-  }, [currentDate, workoutData, streakData]);
+    return {
+      totalWorkouts: workouts,
+      currentStreak: streakData.current,
+      longestStreak: streakData.longest,
+      daysActive: workouts,
+      totalDuration: 0,
+      totalCalories: 0,
+      totalVolume: 0,
+      avgDuration: 0,
+      totalPoints: 0,
+      completionRate: 0,
+      workoutsPerWeek: 0
+    };
+  }, [currentDate, workoutData, streakData, monthlyAnalytics]);
 
   return (
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
@@ -522,7 +569,6 @@ export default function Calendar() {
                 </Pressable>
               </View>
             )}
-            {analytics && <CalendarAnalytics analytics={analytics} />}
             <RecentActivity />
           </>
         )}
@@ -550,11 +596,11 @@ export default function Calendar() {
         onEdit={() => {}}
       />
 
-      {/* MODAL: Simplified Day Activity View */}
-      <DayActivityModal
-        visible={showDayActivityModal}
-        onClose={() => setShowDayActivityModal(false)}
-        date={selectedDate}
+      {/* Tooltip: Day Activity Summary */}
+      <DayActivityTooltip
+        visible={showTooltip}
+        counts={tooltipCounts}
+        position={tooltipPosition}
       />
 
       {/* Health Permission Prompt */}

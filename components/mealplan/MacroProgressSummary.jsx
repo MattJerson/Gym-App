@@ -62,6 +62,20 @@ export default function MacroProgressSummary({ macroGoals, selectedDate, activeP
   const planColor = activePlan ? getPlanColor(activePlan.plan_type) : '#00D4AA';
   const { calories, protein, carbs, fats } = macroGoals;
 
+  // Helper to get text color based on progress
+  // White if under or slightly over, red if 20%+ over
+  const getTextColor = (current, target) => {
+    const percentOver = ((current - target) / target) * 100;
+    if (percentOver >= 20) return '#FF3B30'; // Red if 20%+ over
+    return '#fff'; // White otherwise
+  };
+
+  // Helper to check if significantly over (20%+)
+  const isSignificantlyOver = (current, target) => {
+    const percentOver = ((current - target) / target) * 100;
+    return percentOver >= 20;
+  };
+
   const carbsProgress = Math.min(carbs.current / targets.carbs, 1);
   const proteinProgress = Math.min(protein.current / targets.protein, 1);
   const fatsProgress = Math.min(fats.current / targets.fats, 1);
@@ -76,9 +90,12 @@ export default function MacroProgressSummary({ macroGoals, selectedDate, activeP
       current: carbs.current,
       target: targets.carbs,
       progress: carbsProgress,
-      color: '#ff9f43',
+      color: '#ff9f43', // Always use base color for progress bar
+      baseColor: '#ff9f43',
       icon: '🍞',
-      unit: carbs.unit
+      unit: carbs.unit,
+      textColor: getTextColor(carbs.current, targets.carbs),
+      isSignificantlyOver: isSignificantlyOver(carbs.current, targets.carbs)
     },
     {
       label: 'Protein',
@@ -86,8 +103,11 @@ export default function MacroProgressSummary({ macroGoals, selectedDate, activeP
       target: targets.protein,
       progress: proteinProgress,
       color: '#8e44ad',
+      baseColor: '#8e44ad',
       icon: '🥩',
-      unit: protein.unit
+      unit: protein.unit,
+      textColor: getTextColor(protein.current, targets.protein),
+      isSignificantlyOver: isSignificantlyOver(protein.current, targets.protein)
     },
     {
       label: 'Fats',
@@ -95,8 +115,11 @@ export default function MacroProgressSummary({ macroGoals, selectedDate, activeP
       target: targets.fats,
       progress: fatsProgress,
       color: '#1abc9c',
+      baseColor: '#1abc9c',
       icon: '🥑',
-      unit: fats.unit
+      unit: fats.unit,
+      textColor: getTextColor(fats.current, targets.fats),
+      isSignificantlyOver: isSignificantlyOver(fats.current, targets.fats)
     },
   ];
 
@@ -114,16 +137,6 @@ export default function MacroProgressSummary({ macroGoals, selectedDate, activeP
 
   return (
     <View style={styles.outerContainer}>
-      {/* Plan Indicator - Show when meal plan is active */}
-      {activePlan && (
-        <View style={styles.planIndicator}>
-          <View style={[styles.planIndicatorDot, { backgroundColor: planColor }]} />
-          <Text style={styles.planIndicatorText}>
-            Tracking with <Text style={[styles.planIndicatorName, { color: planColor }]}>{activePlan.plan_name}</Text>
-          </Text>
-        </View>
-      )}
-
       {/* Macro Progress Card */}
       <View style={styles.card}>
       {/* Subtle gradient overlay */}
@@ -137,9 +150,9 @@ export default function MacroProgressSummary({ macroGoals, selectedDate, activeP
             <Circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
             
             {/* Macro Arcs */}
-            <Arc radius={45} progress={carbsProgress} startAngle={0} totalAngle={ARC_SEGMENT_ANGLE} color="#ff9f43" />
-            <Arc radius={45} progress={proteinProgress} startAngle={ARC_SEGMENT_ANGLE + ARC_GAP} totalAngle={ARC_SEGMENT_ANGLE} color="#8e44ad" />
-            <Arc radius={45} progress={fatsProgress} startAngle={(ARC_SEGMENT_ANGLE + ARC_GAP) * 2} totalAngle={ARC_SEGMENT_ANGLE} color="#1abc9c" />
+            <Arc radius={45} progress={carbsProgress} startAngle={0} totalAngle={ARC_SEGMENT_ANGLE} color={macroDetails[0].color} />
+            <Arc radius={45} progress={proteinProgress} startAngle={ARC_SEGMENT_ANGLE + ARC_GAP} totalAngle={ARC_SEGMENT_ANGLE} color={macroDetails[1].color} />
+            <Arc radius={45} progress={fatsProgress} startAngle={(ARC_SEGMENT_ANGLE + ARC_GAP) * 2} totalAngle={ARC_SEGMENT_ANGLE} color={macroDetails[2].color} />
           </Svg>
           
           <View style={styles.circleTextContainer}>
@@ -148,7 +161,10 @@ export default function MacroProgressSummary({ macroGoals, selectedDate, activeP
               <Text style={styles.dayText}>{day}</Text>
             </View>
             <View style={styles.calorieInfo}>
-              <Text style={styles.circlePercentage}>{Math.round(caloriesProgress * 100)}</Text>
+              <Text style={[
+                styles.circlePercentage,
+                { color: getTextColor(calories.current, targets.calories) }
+              ]}>{Math.round(caloriesProgress * 100)}</Text>
               <Text style={styles.percentSymbol}>%</Text>
             </View>
             <Text style={styles.calorieLabel}>
@@ -175,8 +191,8 @@ export default function MacroProgressSummary({ macroGoals, selectedDate, activeP
                 </View>
               </View>
               {macro.progress >= 1 && (
-                <View style={[styles.completeBadge, { backgroundColor: macro.color }]}>
-                  <Text style={styles.completeBadgeText}>✓</Text>
+                <View style={[styles.completeBadge, { backgroundColor: macro.isSignificantlyOver ? '#FF3B30' : macro.baseColor }]}>
+                  <Text style={styles.completeBadgeText}>{macro.isSignificantlyOver ? '!' : '✓'}</Text>
                 </View>
               )}
             </View>
@@ -186,7 +202,7 @@ export default function MacroProgressSummary({ macroGoals, selectedDate, activeP
                 <Text style={styles.macroIcon}>{macro.icon}</Text>
                 <Text style={styles.macroDetailLabel}>{macro.label}</Text>
               </View>
-              <Text style={styles.macroDetailValue}>
+              <Text style={[styles.macroDetailValue, { color: macro.textColor }]}>
                 {macro.current}<Text style={styles.macroTarget}>/{macro.target}g</Text>
               </Text>
               <View style={styles.miniBar}>
@@ -203,59 +219,27 @@ export default function MacroProgressSummary({ macroGoals, selectedDate, activeP
 
 const styles = StyleSheet.create({
   outerContainer: {
-    marginBottom: 25,
-  },
-  planIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: 20,
-    alignSelf: "flex-start",
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
-  },
-  planIndicatorDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginRight: 6,
-  },
-  planIndicatorText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#888",
-    letterSpacing: 0.2,
-  },
-  planIndicatorName: {
-    fontWeight: "800",
-    letterSpacing: -0.2,
+    marginBottom: 20,
   },
   card: {
-    paddingVertical: 25,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    borderColor: "rgba(255, 255, 255, 0.06)",
     flexDirection: 'row',
     overflow: 'hidden',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
   },
   gradientOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: '60%',
-    backgroundColor: 'rgba(142, 68, 173, 0.03)',
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
+    height: '50%',
+    backgroundColor: 'rgba(142, 68, 173, 0.02)',
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
   // --- LEFT SECTION ---
   circleSection: {
@@ -263,8 +247,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   circleContainer: {
-    width: 150,
-    height: 150,
+    width: 130,
+    height: 130,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -297,21 +281,21 @@ const styles = StyleSheet.create({
   },
   circlePercentage: {
     color: '#fff',
-    fontSize: 40,
+    fontSize: 34,
     fontWeight: '900',
-    lineHeight: 40,
+    lineHeight: 34,
     letterSpacing: -1,
   },
   percentSymbol: {
     color: '#888',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     marginTop: 2,
     marginLeft: 1,
   },
   calorieLabel: {
     color: '#666',
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '600',
     marginTop: 1,
     textTransform: 'uppercase',
@@ -320,7 +304,7 @@ const styles = StyleSheet.create({
   // --- RIGHT SECTION ---
   detailsContainer: {
     flex: 1,
-    marginLeft: 20,
+    marginLeft: 16,
     justifyContent: 'space-between',
     paddingVertical: 2,
   },
@@ -333,15 +317,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   vProgressBar: {
-    height: 40,
-    width: 7,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 3.5,
+    height: 34,
+    width: 6,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 3,
     overflow: 'hidden',
   },
   vProgressFill: {
     width: '100%',
-    borderRadius: 3.5,
+    borderRadius: 3,
     position: 'relative',
     alignSelf: 'flex-end',
   },
@@ -350,16 +334,16 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: 3.5,
+    height: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 3,
   },
   completeBadge: {
     position: 'absolute',
-    top: -6,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    top: -5,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
@@ -367,12 +351,12 @@ const styles = StyleSheet.create({
   },
   completeBadgeText: {
     color: '#fff',
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '900',
   },
   macroText: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 10,
   },
   macroHeader: {
     flexDirection: 'row',
@@ -380,33 +364,33 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   macroIcon: {
-    fontSize: 14,
-    marginRight: 5,
+    fontSize: 12,
+    marginRight: 4,
   },
   macroDetailLabel: {
     color: '#aaa',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   macroDetailValue: {
     color: '#fff',
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '800',
-    letterSpacing: -0.5,
-    marginBottom: 4,
+    letterSpacing: -0.4,
+    marginBottom: 3,
   },
   macroTarget: {
     color: '#666',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   miniBar: {
     width: '100%',
-    height: 2.5,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderRadius: 1.25,
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 1,
     overflow: 'hidden',
   },
   miniBarFill: {

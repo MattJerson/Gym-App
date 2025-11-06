@@ -87,62 +87,23 @@ class FoodDataAPIService {
       // Rate limiting
       await this.waitForRateLimit();
 
-      // Prefer proxy call to avoid exposing API key; fallback to direct if env key provided
-      const requestSize = pageSize + 8; // Small buffer for filtering
-      let data;
-      if (!this.apiKey) {
-        // Secure path via Edge Function
-        logger.info('FoodData search via Edge Function');
-        data = await callEdgeFunction('fooddata_proxy', {
-          method: 'POST',
-          body: {
-            path: 'foods/search',
-            params: {
-              query: query.trim(),
-              pageSize: String(requestSize),
-              pageNumber: String(pageNumber),
-              dataType: "Survey (FNDDS),Foundation,Branded",
-              sortBy: "dataType.keyword",
-              sortOrder: "asc"
-            }
-          }
-        });
-      } else {
-        // Backward-compatible direct call using public env key (not recommended)
-        const url = `${this.baseURL}/foods/search`;
-        const params = new URLSearchParams({
-          api_key: this.apiKey,
-          query: query.trim(),
-          pageSize: requestSize.toString(),
-          pageNumber: pageNumber.toString(),
-          dataType: "Survey (FNDDS),Foundation,Branded",
-          sortBy: "dataType.keyword",
-          sortOrder: "asc"
-        });
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-        const response = await fetch(`${url}?${params}`, { signal: controller.signal });
-        clearTimeout(timeout);
-        if (!response.ok) throw new Error(`API Error: ${response.status} ${response.statusText}`);
-        data = await response.json();
-      }
+      // Simple search with original query
+      const data = await this.performAPISearch(query.trim(), pageSize + 15, pageNumber);
       
-      // Transform and validate results (lightweight validation)
+      // Transform and validate results
       let transformedFoods = this.transformFoodResults(data.foods || []);
       
       // Quick validation - only filter out obvious bad data
       transformedFoods = this.validateAndFilterFoods(transformedFoods);
       
-      // Remove duplicates
-      transformedFoods = this.removeDuplicates(transformedFoods);
+      // Remove duplicates and keep most popular variant
+      transformedFoods = this.deduplicateByPopularity(transformedFoods);
       
       // Score and sort by relevance
       transformedFoods = this.scoreAndSortFoods(transformedFoods, query);
       
       // Limit to requested page size
-      const startIndex = 0;
-      const endIndex = pageSize;
-      const paginatedFoods = transformedFoods.slice(startIndex, endIndex);
+      const paginatedFoods = transformedFoods.slice(0, pageSize);
       
       const transformedData = {
         foods: paginatedFoods,
@@ -154,7 +115,7 @@ class FoodDataAPIService {
       // Cache the results
       this.setCachedData(cacheKey, transformedData);
 
-  logger.debug(`Found ${paginatedFoods.length} results`);
+      logger.debug(`Found ${paginatedFoods.length} results`);
 
       return transformedData;
     } catch (error) {
@@ -228,23 +189,146 @@ class FoodDataAPIService {
       // Validate basic calorie range (0-900 cal per 100g is realistic)
       if (food.calories > 900) return false;
       
-      // Must have at least one macro nutrient
-      const hasMacros = (food.protein > 0) || (food.carbs > 0) || (food.fats > 0);
-      if (!hasMacros) return false;
+      // Must have ALL macros present (protein, carbs, fats)
+      // Real food items should have complete nutritional data
+      // All macros must be > 0 (not just >= 0) for realistic foods
+      if (!food.protein || food.protein <= 0) return false;
+      if (!food.carbs || food.carbs <= 0) return false;
+      if (!food.fats || food.fats <= 0) return false;
       
       return true;
     });
   }
 
   /**
-   * Remove duplicate foods (same name/brand)
+   * Perform actual API search call
+   */
+  async performAPISearch(searchQuery, requestSize, pageNumber) {
+    let data;
+    
+    if (!this.apiKey) {
+      // Secure path via Edge Function
+      logger.info('FoodData search via Edge Function');
+      data = await callEdgeFunction('fooddata_proxy', {
+        method: 'POST',
+        body: {
+          path: 'foods/search',
+          params: {
+            query: searchQuery,
+            pageSize: String(requestSize),
+            pageNumber: String(pageNumber),
+            dataType: "Branded,Survey (FNDDS),Foundation",
+            sortBy: "dataType.keyword",
+            sortOrder: "asc"
+          }
+        }
+      });
+    } else {
+      // Backward-compatible direct call using public env key (not recommended)
+      const url = `${this.baseURL}/foods/search`;
+      const params = new URLSearchParams({
+        api_key: this.apiKey,
+        query: searchQuery,
+        pageSize: requestSize.toString(),
+        pageNumber: pageNumber.toString(),
+        dataType: "Branded,Survey (FNDDS),Foundation",
+        sortBy: "dataType.keyword",
+        sortOrder: "asc"
+      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000); // Increased to 15s
+      const response = await fetch(`${url}?${params}`, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!response.ok) {
+        console.warn(`⚠️  FoodData API returned ${response.status}: ${response.statusText}`);
+        // Return empty result instead of throwing to allow local results to still work
+        return { foods: [], totalHits: 0 };
+      }
+      data = await response.json();
+    }
+    
+    return data;
+  }
+
+  /**
+   * Deduplicate foods by keeping the most popular/relevant variant
+   * Groups similar foods and keeps only one (the best one)
+   */
+  deduplicateByPopularity(foods) {
+    const groups = new Map();
+    
+    foods.forEach(food => {
+      // Create a normalized key for grouping similar items
+      const nameParts = food.name.toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '') // Remove special chars
+        .trim()
+        .split(/\s+/)
+        .filter(w => w.length > 2) // Filter out very short words
+        .sort(); // Sort for consistent key
+      
+      const baseKey = nameParts.slice(0, 4).join(' '); // Use first 4 significant words
+      const brandKey = (food.brand || '').toLowerCase().slice(0, 10);
+      const groupKey = `${baseKey}_${brandKey}`;
+      
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, []);
+      }
+      groups.get(groupKey).push(food);
+    });
+    
+    // From each group, pick the best one
+    const deduplicated = [];
+    
+    groups.forEach(group => {
+      if (group.length === 1) {
+        deduplicated.push(group[0]);
+        return;
+      }
+      
+      // Score each item in the group
+      const scored = group.map(food => {
+        let score = 0;
+        
+        // Prefer branded items (more specific)
+        if (food.dataType === 'Branded' && food.brand) score += 30;
+        
+        // Prefer Foundation/Survey data (USDA verified)
+        if (food.dataType === 'Survey (FNDDS)') score += 25;
+        if (food.dataType === 'Foundation') score += 20;
+        
+        // Prefer items with complete nutrition data
+        if (food.protein > 0) score += 5;
+        if (food.carbs > 0) score += 5;
+        if (food.fats > 0) score += 5;
+        if (food.fiber > 0) score += 3;
+        
+        // Prefer shorter, cleaner names (less descriptive fluff)
+        const nameLength = food.name.length;
+        if (nameLength < 50) score += 10;
+        else if (nameLength > 100) score -= 5;
+        
+        // Prefer standard serving sizes (100g or common portions)
+        if (food.serving_size === 100) score += 8;
+        
+        return { ...food, _groupScore: score };
+      });
+      
+      // Sort by score and take the best one
+      scored.sort((a, b) => b._groupScore - a._groupScore);
+      deduplicated.push(scored[0]);
+    });
+    
+    return deduplicated;
+  }
+
+  /**
+   * Remove duplicate foods (simple version - kept for backwards compatibility)
    */
   removeDuplicates(foods) {
     const seen = new Set();
     const unique = [];
     
     for (const food of foods) {
-      // Create unique key from name (simpler, faster)
       const key = `${food.name.toLowerCase()}_${(food.brand || '').toLowerCase()}`;
       
       if (!seen.has(key)) {
@@ -260,40 +344,102 @@ class FoodDataAPIService {
    * Score and sort foods by relevance to search query (optimized)
    */
   scoreAndSortFoods(foods, query) {
-    const lowerQuery = query.toLowerCase();
+    const lowerQuery = query.toLowerCase().trim();
     const queryWords = lowerQuery.split(/\s+/).filter(w => w.length > 0);
     
     const scoredFoods = foods.map(food => {
       let score = 0;
       const lowerName = food.name.toLowerCase();
       const lowerBrand = (food.brand || '').toLowerCase();
+      const combinedText = `${lowerName} ${lowerBrand}`;
       
-      // Exact name match (highest priority)
+      // EXACT PHRASE MATCH (highest priority) - e.g., "big mac"
+      if (lowerName === lowerQuery || combinedText.includes(lowerQuery)) {
+        score += 1000;
+      }
+      
+      // Exact name match (very high priority)
       if (lowerName === lowerQuery) {
+        score += 500;
+      }
+      // Name starts with exact query
+      else if (lowerName.startsWith(lowerQuery)) {
+        score += 300;
+      }
+      // Query phrase appears in name
+      else if (lowerName.includes(lowerQuery)) {
+        score += 200;
+      }
+      
+      // All query words present in order (e.g., "big" then "mac")
+      if (queryWords.length > 1) {
+        let allWordsInOrder = true;
+        let lastIndex = -1;
+        
+        for (const word of queryWords) {
+          const index = lowerName.indexOf(word, lastIndex + 1);
+          if (index === -1) {
+            allWordsInOrder = false;
+            break;
+          }
+          lastIndex = index;
+        }
+        
+        if (allWordsInOrder) {
+          score += 150;
+        }
+      }
+      
+      // Brand exact match bonus (helps with branded items like "Big Mac" from McDonald's)
+      if (lowerBrand === lowerQuery) {
+        score += 400;
+      } else if (lowerBrand && lowerBrand.includes(lowerQuery)) {
         score += 100;
       }
-      // Name starts with query
-      else if (lowerName.startsWith(lowerQuery)) {
-        score += 50;
-      }
-      // Query is in the name
-      else if (lowerName.includes(lowerQuery)) {
-        score += 25;
+      
+      // Count matching words and their positions
+      let matchingWordsScore = 0;
+      queryWords.forEach((word, idx) => {
+        if (lowerName.includes(word)) {
+          matchingWordsScore += 30;
+          
+          // Bonus if word appears at the start of name
+          if (lowerName.startsWith(word)) {
+            matchingWordsScore += 20;
+          }
+        }
+        if (lowerBrand.includes(word)) {
+          matchingWordsScore += 15;
+        }
+      });
+      score += matchingWordsScore;
+      
+      // Word density bonus (shorter names with matches rank higher)
+      const nameWordCount = lowerName.split(/\s+/).length;
+      if (nameWordCount > 0 && queryWords.length > 0) {
+        const matchRatio = queryWords.filter(word => 
+          lowerName.includes(word)
+        ).length / nameWordCount;
+        score += matchRatio * 50;
       }
       
-      // Brand match bonus
-      if (lowerBrand && lowerBrand.includes(lowerQuery)) {
-        score += 30;
+      // Penalize very long names (likely less relevant)
+      if (lowerName.length > 100) {
+        score -= 20;
       }
       
-      // Count matching words (quick check)
-      const matchingWords = queryWords.filter(word => 
-        lowerName.includes(word) || lowerBrand.includes(word)
-      ).length;
-      score += matchingWords * 8;
-      
-      // Branded foods get small boost
+      // Branded foods get boost (usually more specific for restaurant items)
       if (food.brand) {
+        score += 10;
+      }
+      
+      // For branded fast food items, give extra boost
+      if (food.dataType === 'Branded') {
+        score += 15;
+      }
+      
+      // Survey/Foundation data gets small boost for generic items
+      if (food.dataType === 'Survey (FNDDS)' || food.dataType === 'Foundation') {
         score += 5;
       }
       
