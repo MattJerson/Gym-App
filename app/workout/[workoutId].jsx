@@ -18,6 +18,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { WorkoutSessionServiceV2 } from "../../services/WorkoutSessionServiceV2";
+import { WorkoutSessionPageSkeleton } from "../../components/skeletons/WorkoutSessionPageSkeleton";
 
 export default function WorkoutSession() {
   const router = useRouter();
@@ -477,10 +478,7 @@ export default function WorkoutSession() {
     return (
       <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
         <StatusBar barStyle="light-content" />
-        <View style={styles.loadingContainer}>
-          <MaterialCommunityIcons name="dumbbell" size={48} color="#74B9FF" />
-          <Text style={styles.loadingText}>Loading workout...</Text>
-        </View>
+        <WorkoutSessionPageSkeleton />
       </View>
     );
   }

@@ -1,6 +1,9 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import Svg, { Path, Circle } from "react-native-svg";
+import { getStreakTheme } from "../../utils/streakTheme";
+import { PulseGlow } from "../effects/StreakEffects";
+import { supabase } from "../../services/supabase";
 
 // Helper functions remain the same
 const describeArc = (x, y, radius, startAngle, endAngle) => {
@@ -38,6 +41,54 @@ const Arc = ({ radius, progress, startAngle, totalAngle, color }) => {
 };
 
 export default function MacroProgressSummary({ macroGoals, selectedDate, activePlan }) {
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [userId, setUserId] = useState(null);
+
+  // Load user and streak data
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        if (user) {
+          setUserId(user.id);
+        }
+      } catch (error) {
+        console.error("Error getting user:", error);
+      }
+    };
+    getUser();
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      loadStreakData();
+    }
+  }, [userId]);
+
+  const loadStreakData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_stats')
+        .select('current_streak')
+        .eq('user_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
+
+      if (data) {
+        setCurrentStreak(data.current_streak || 0);
+      }
+    } catch (error) {
+      console.error("Error loading streak data:", error);
+    }
+  };
+
+  // Get streak theme for container enhancement
+  const streakTheme = getStreakTheme(currentStreak);
+
   // Use targets directly from macroGoals prop (already fetched by parent with correct view)
   const targets = {
     calories: macroGoals?.calories?.target || 2200,
@@ -137,10 +188,33 @@ export default function MacroProgressSummary({ macroGoals, selectedDate, activeP
 
   return (
     <View style={styles.outerContainer}>
-      {/* Macro Progress Card */}
-      <View style={styles.card}>
-      {/* Subtle gradient overlay */}
-      <View style={styles.gradientOverlay} />
+      {/* Macro Progress Card with Streak Enhancement */}
+      <PulseGlow 
+        enabled={streakTheme.pulseAnimation} 
+        glowColor={streakTheme.glowColor}
+        intensity={streakTheme.glowIntensity}
+      >
+        <View style={[
+          styles.card,
+          streakTheme.cardGradient && { backgroundColor: 'transparent' },
+          streakTheme.borderColor && { 
+            borderColor: streakTheme.borderColor,
+            borderWidth: 1.5,
+            shadowColor: streakTheme.glowColor || 'transparent',
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: streakTheme.glowIntensity ? 0.3 : 0,
+            shadowRadius: streakTheme.glowIntensity || 0,
+            elevation: streakTheme.glowIntensity ? 8 : 0,
+          }
+        ]}>
+          {/* Enhanced gradient overlay with streak theming */}
+          <View style={[
+            styles.gradientOverlay,
+            streakTheme.cardGradient && {
+              backgroundColor: 'transparent',
+              background: `linear-gradient(135deg, ${streakTheme.cardGradient[0]}, ${streakTheme.cardGradient[1]})`
+            }
+          ]} />
       
       {/* Left Side: Progress Circle */}
       <View style={styles.circleSection}>
@@ -212,7 +286,8 @@ export default function MacroProgressSummary({ macroGoals, selectedDate, activeP
           </View>
         ))}
       </View>
-    </View>
+        </View>
+      </PulseGlow>
     </View>
   );
 }

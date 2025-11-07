@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import SettingsHeader from "../../../components/SettingsHeader";
 import { supabase } from "../../../services/supabase";
+import { MyInquiriesPageSkeleton } from "../../../components/skeletons/MyInquiriesPageSkeleton";
 
 const statusConfig = {
   new: { label: "New", color: "#4A9EFF", icon: "radio-button-on" },
@@ -91,10 +92,7 @@ export default function MyInquiries() {
       <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
         <SafeAreaView style={{ flex: 1 }}>
           <SettingsHeader title="My Inquiries" />
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#00D4AA" />
-            <Text style={styles.loadingText}>Loading inquiries...</Text>
-          </View>
+          <MyInquiriesPageSkeleton />
         </SafeAreaView>
       </View>
     );

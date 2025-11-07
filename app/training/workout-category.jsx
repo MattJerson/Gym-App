@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../services/supabase";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { View, Text, StyleSheet, ScrollView, Pressable } from "react-native";
+import { WorkoutCategoryPageSkeleton } from "../../components/skeletons/WorkoutCategoryPageSkeleton";
 
 export default function WorkoutCategory() {
   const router = useRouter();
@@ -74,9 +75,7 @@ export default function WorkoutCategory() {
         showsVerticalScrollIndicator={false}
       >
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading workouts...</Text>
-          </View>
+          <WorkoutCategoryPageSkeleton />
         ) : (
           <View style={styles.workoutGrid}>
             {workouts.map((workout) => (

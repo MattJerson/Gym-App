@@ -94,7 +94,7 @@ export const getStreakTheme = (streakDays) => {
     // 6-7 days: CONSISTENT (Green/Teal)
     return {
       level: 'consistent',
-      name: '🔥 Consistent Streak',
+      name: null,
       progressGradient: ['#10B981', '#14B8A6'],
       progressGradientLocations: [0, 1],
       cardGradient: ['rgba(16, 185, 129, 0.05)', 'rgba(20, 184, 166, 0.05)'],
@@ -196,7 +196,7 @@ export const getStreakMessage = (streakDays) => {
   if (streakDays >= 15) return "Expert dedication! 💎";
   if (streakDays >= 10) return "You're on fire! 🌟";
   if (streakDays >= 8) return "Strong commitment! ✨";
-  if (streakDays >= 6) return "Building momentum! 🔥";
+  if (streakDays >= 6) return "Keep it going!";
   if (streakDays >= 4) return "Great progress! 💪";
   if (streakDays >= 2) return "Keep it going! 🌱";
   return "Start your streak! 💫";

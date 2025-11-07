@@ -1,12 +1,13 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "../../services/supabase";
 import { useRouter, usePathname } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import QuickStart from "../../components/home/QuickStart";
 import FeaturedVideo from "../../components/home/FeaturedVideo";
 import { HomeDataService } from "../../services/HomeDataService";
 import RecentActivity from "../../components/home/RecentActivity";
 import DailyProgressCard from "../../components/home/DailyProgressCard";
-import { View, Text, Alert, StyleSheet, ScrollView } from "react-native";
+import { View, Text, Alert, StyleSheet, ScrollView, RefreshControl } from "react-native";
 import { HomePageSkeleton } from "../../components/skeletons/HomePageSkeleton";
 
 export default function Home() {
@@ -22,6 +23,7 @@ export default function Home() {
   const [featuredContent, setFeaturedContent] = useState(null);
   const [recentActivities, setRecentActivities] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Get authenticated user
   useEffect(() => {
@@ -50,9 +52,23 @@ export default function Home() {
     }
   }, [userId]);
 
-  const loadHomeData = async () => {
+  // Refresh data whenever the home page comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (userId) {
+        // Use refresh mode when coming back to the page
+        loadHomeData(true);
+      }
+    }, [userId])
+  );
+
+  const loadHomeData = async (isRefresh = false) => {
     try {
-      setIsLoading(true);
+      if (isRefresh) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
 
       // Fetch all home data in parallel
       const [
@@ -77,6 +93,7 @@ export default function Home() {
       Alert.alert("Error", "Failed to load home data. Please try again.");
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -102,14 +119,28 @@ export default function Home() {
 
   return (
     <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => {
+              if (userId) {
+                loadHomeData(true);
+              }
+            }}
+            tintColor="#74B9FF"
+            colors={["#74B9FF"]}
+          />
+        }
+      >
         {/* Loading State */}
         {isLoading ? (
           <HomePageSkeleton />
         ) : (
           <>
             {/* ✅ Daily Progress Card Component - Now fetches its own data */}
-            <DailyProgressCard />
+            <DailyProgressCard key={`daily-progress-${Date.now()}`} />
 
             {/* Quick Start Section */}
             {quickStartCategories.length > 0 && (

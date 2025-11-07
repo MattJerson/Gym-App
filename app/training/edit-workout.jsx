@@ -24,6 +24,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useState, useEffect, useRef } from "react";
 import { TrainingDataService } from "../../services/TrainingDataService";
 import { supabase } from "../../services/supabase";
+import { EditWorkoutPageSkeleton } from "../../components/skeletons/EditWorkoutPageSkeleton";
 
 export default function EditWorkout() {
   const router = useRouter();
@@ -273,10 +274,7 @@ export default function EditWorkout() {
     return (
       <View style={[styles.container, { backgroundColor: "#0B0B0B" }]}>
         <StatusBar barStyle="light-content" />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#A3E635" />
-          <Text style={styles.loadingText}>Loading workout...</Text>
-        </View>
+        <EditWorkoutPageSkeleton />
       </View>
     );
   }
