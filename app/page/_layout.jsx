@@ -46,6 +46,8 @@ export default function PageLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
+          gestureEnabled: false,
+          swipeEnabled: false,
           tabBarStyle: {
             height: 80,
             paddingTop: 10,

@@ -150,6 +150,7 @@ export default function Layout() {
           screenOptions={{
             headerShown: false,
             animation: "none",
+            gestureEnabled: false,
           }}
         />
       )}

@@ -1,40 +1,71 @@
 import { View, Text, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { getStreakTheme } from "../../../utils/streakTheme";
+import { ShimmerGradient, PulseGlow, FloatingParticles } from "../../effects/StreakEffects";
 
-export default function TotalProgressBar({ totalProgress }) {
+export default function TotalProgressBar({ totalProgress, currentStreak = 0 }) {
   const isCompleted = totalProgress >= 100;
+  const streakTheme = getStreakTheme(currentStreak);
   
   return (
-    <View style={styles.totalProgressWrapper}>
-      <View style={styles.progressHeader}>
-        <Text style={styles.totalProgressText}>
-          Daily Progress
-        </Text>
-        <Text style={[
-          styles.progressPercentage, 
-          isCompleted && styles.completedPercentage
-        ]}>
-          {Math.round(totalProgress)}%
-        </Text>
-      </View>
-      
-      <View style={styles.totalProgressContainer}>
-        <LinearGradient
-          colors={["#4378beff", "#043d87ff"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={[styles.totalProgressBar, { width: `${Math.min(totalProgress, 100)}%` }]}
-        />
+    <PulseGlow 
+      enabled={streakTheme.pulseAnimation} 
+      glowColor={streakTheme.glowColor}
+      intensity={streakTheme.glowIntensity}
+      style={styles.totalProgressWrapper}
+    >
+      <View>
+        <View style={styles.progressHeader}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={styles.totalProgressText}>
+              Daily Progress
+            </Text>
+            {streakTheme.name && (
+              <Text style={[styles.streakBadge, { color: streakTheme.progressGradient[0] }]}>
+                {streakTheme.name}
+              </Text>
+            )}
+          </View>
+          <Text style={[
+            styles.progressPercentage, 
+            isCompleted && styles.completedPercentage,
+            streakTheme.textShadow && { 
+              textShadowColor: streakTheme.glowColor,
+              textShadowOffset: { width: 0, height: 0 },
+              textShadowRadius: 10
+            }
+          ]}>
+            {Math.round(totalProgress)}%
+          </Text>
+        </View>
         
-        {/* Progress indicator dot */}
-        {totalProgress > 5 && (
-          <View style={[
-            styles.progressDot, 
-            { left: `${Math.min(totalProgress, 95)}%` }
-          ]} />
-        )}
+        <View style={[
+          styles.totalProgressContainer,
+          streakTheme.borderColor && { borderColor: streakTheme.borderColor, borderWidth: 1 }
+        ]}>
+          <ShimmerGradient
+            colors={streakTheme.progressGradient}
+            locations={streakTheme.progressGradientLocations}
+            enabled={streakTheme.shimmerEffect}
+            style={[styles.totalProgressBar, { width: `${Math.min(totalProgress, 100)}%` }]}
+          />
+          
+          {/* Progress indicator dot */}
+          {totalProgress > 5 && (
+            <View style={[
+              styles.progressDot, 
+              { 
+                left: `${Math.min(totalProgress, 95)}%`,
+                backgroundColor: streakTheme.level !== 'default' ? streakTheme.progressGradient[0] : '#fff'
+              }
+            ]} />
+          )}
+          
+          {/* Floating particles for legendary streaks */}
+          <FloatingParticles enabled={streakTheme.particleEffect} color={streakTheme.glowColor} />
+        </View>
       </View>
-    </View>
+    </PulseGlow>
   );
 }
 
@@ -52,6 +83,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#fff",
+  },
+  streakBadge: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   progressPercentage: {
     fontSize: 18,

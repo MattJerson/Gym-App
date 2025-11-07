@@ -1,92 +1,87 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import SkeletonLoader, { SkeletonCircle, SkeletonText } from '../SkeletonLoader';
+import SkeletonLoader from '../SkeletonLoader';
 
 export const ProfilePageSkeleton = () => {
   return (
     <View style={styles.container}>
-      {/* Profile Header - matches ProfileHeader */}
+      {/* Profile Header */}
       <View style={styles.headerSection}>
-        <SkeletonCircle size={120} style={{ alignSelf: 'center', marginBottom: 16, borderWidth: 3, borderColor: 'rgba(255, 255, 255, 0.1)' }} />
-        <SkeletonText width="50%" lines={1} style={{ alignSelf: 'center', marginBottom: 8, height: 28 }} />
-        <SkeletonText width="35%" lines={1} style={{ alignSelf: 'center', marginBottom: 4 }} />
-        <SkeletonText width="30%" lines={1} style={{ alignSelf: 'center', marginBottom: 20 }} />
+        {/* Avatar with border */}
+        <View style={styles.avatarContainer}>
+          <SkeletonLoader width={120} height={120} borderRadius={60} />
+        </View>
+        <SkeletonLoader width={150} height={28} borderRadius={14} style={{ alignSelf: 'center', marginBottom: 8 }} />
+        <SkeletonLoader width={100} height={16} borderRadius={8} style={{ alignSelf: 'center', marginBottom: 4 }} />
+        <SkeletonLoader width={90} height={12} borderRadius={6} style={{ alignSelf: 'center', marginBottom: 20 }} />
       </View>
 
-      {/* Profile Stats Card - matches ProfileStatsCard */}
+      {/* Profile Stats Card - 3 stats */}
       <View style={styles.statsCard}>
         <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <SkeletonLoader width={28} height={28} borderRadius={14} style={{ marginBottom: 8 }} />
-            <SkeletonText width={40} lines={1} style={{ marginBottom: 4, height: 16 }} />
-            <SkeletonText width={50} lines={1} style={{ height: 10 }} />
-          </View>
-          <View style={styles.statItem}>
-            <SkeletonLoader width={28} height={28} borderRadius={14} style={{ marginBottom: 8 }} />
-            <SkeletonText width={35} lines={1} style={{ marginBottom: 4, height: 16 }} />
-            <SkeletonText width={55} lines={1} style={{ height: 10 }} />
-          </View>
-          <View style={styles.statItem}>
-            <SkeletonLoader width={28} height={28} borderRadius={14} style={{ marginBottom: 8 }} />
-            <SkeletonText width={30} lines={1} style={{ marginBottom: 4, height: 16 }} />
-            <SkeletonText width={45} lines={1} style={{ height: 10 }} />
-          </View>
-        </View>
-      </View>
-
-      {/* Leaderboard Card - matches LeaderboardCard */}
-      <View style={styles.leaderboardCard}>
-        <View style={styles.leaderboardHeader}>
-          <SkeletonText width="45%" lines={1} style={{ height: 18 }} />
-          <View style={styles.timerContainer}>
-            <SkeletonCircle size={14} style={{ marginRight: 6 }} />
-            <SkeletonText width={60} lines={1} />
-          </View>
-        </View>
-        
-        {/* Top 10 Leaderboard Rows */}
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((position) => (
-          <View key={position} style={styles.leaderboardRow}>
-            <SkeletonLoader width={28} height={28} borderRadius={14} style={{ marginRight: 12 }} />
-            <View style={{ flex: 1 }}>
-              <SkeletonText width="60%" lines={1} style={{ marginBottom: 6 }} />
-              <SkeletonLoader width="100%" height={4} borderRadius={2} />
-            </View>
-            <SkeletonText width={45} lines={1} style={{ marginLeft: 12 }} />
-          </View>
-        ))}
-      </View>
-
-      {/* Achievement Badges - matches AchievementBadges */}
-      <View style={styles.badgesCard}>
-        <View style={styles.badgesHeader}>
-          <SkeletonText width="40%" lines={1} />
-          <SkeletonText width={60} lines={1} />
-        </View>
-        <View style={styles.badgesGrid}>
-          {[1, 2, 3, 4, 5, 6].map((item) => (
-            <View key={item} style={styles.badgeItem}>
-              <SkeletonCircle size={64} style={{ marginBottom: 8 }} />
-              <SkeletonText width={60} lines={1} style={{ marginBottom: 4 }} />
-              <SkeletonText width={70} lines={1} />
+          {[...Array(3)].map((_, i) => (
+            <View key={i} style={styles.statItem}>
+              <SkeletonLoader width={28} height={28} borderRadius={14} style={{ marginBottom: 4 }} />
+              <SkeletonLoader width={40} height={16} borderRadius={8} style={{ marginBottom: 2 }} />
+              <SkeletonLoader width={50} height={10} borderRadius={5} />
             </View>
           ))}
         </View>
       </View>
 
-      {/* Profile Menu Section - matches ProfileMenuSection */}
+      {/* Leaderboard Card */}
+      <View style={styles.leaderboardCard}>
+        <View style={styles.leaderboardHeader}>
+          <View>
+            <SkeletonLoader width={160} height={18} borderRadius={9} style={{ marginBottom: 4 }} />
+            <SkeletonLoader width={140} height={14} borderRadius={7} />
+          </View>
+          <SkeletonLoader width={80} height={14} borderRadius={7} />
+        </View>
+        
+        {/* Top 10 Leaderboard Rows */}
+        {[...Array(10)].map((_, i) => (
+          <View key={i} style={styles.leaderboardRow}>
+            <SkeletonLoader width={28} height={28} borderRadius={14} />
+            <View style={styles.leaderboardInfo}>
+              <SkeletonLoader width="60%" height={16} borderRadius={8} style={{ marginBottom: 6 }} />
+              <SkeletonLoader width="100%" height={4} borderRadius={2} />
+            </View>
+            <SkeletonLoader width={45} height={16} borderRadius={8} />
+          </View>
+        ))}
+      </View>
+
+      {/* Achievement Badges */}
+      <View style={styles.badgesCard}>
+        <View style={styles.badgesHeader}>
+          <SkeletonLoader width={130} height={20} borderRadius={10} />
+          <SkeletonLoader width={60} height={16} borderRadius={8} />
+        </View>
+        <View style={styles.badgesGrid}>
+          {[...Array(6)].map((_, i) => (
+            <View key={i} style={styles.badgeItem}>
+              <SkeletonLoader width={64} height={64} borderRadius={32} style={{ marginBottom: 8 }} />
+              <SkeletonLoader width={60} height={12} borderRadius={6} style={{ marginBottom: 4 }} />
+              <SkeletonLoader width={70} height={10} borderRadius={5} />
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Profile Menu Section */}
       <View style={styles.menuCard}>
-        <SkeletonText width="35%" lines={1} style={{ marginBottom: 16 }} />
-        {[1, 2, 3, 4].map((item) => (
-          <View key={item} style={styles.menuItem}>
+        <SkeletonLoader width={100} height={18} borderRadius={9} style={{ marginBottom: 16 }} />
+        {[...Array(4)].map((_, i) => (
+          <View key={i} style={styles.menuItem}>
             <View style={styles.menuLeft}>
-              <SkeletonCircle size={24} style={{ marginRight: 12 }} />
-              <View>
-                <SkeletonText width={100} lines={1} style={{ marginBottom: 4 }} />
-                <SkeletonText width={140} lines={1} />
+              <SkeletonLoader width={24} height={24} borderRadius={12} />
+              <View style={{ marginLeft: 12 }}>
+                <SkeletonLoader width={100} height={16} borderRadius={8} style={{ marginBottom: 4 }} />
+                <SkeletonLoader width={140} height={12} borderRadius={6} />
               </View>
             </View>
-            <SkeletonCircle size={16} />
+            <SkeletonLoader width={16} height={16} borderRadius={8} />
           </View>
         ))}
       </View>
@@ -96,13 +91,19 @@ export const ProfilePageSkeleton = () => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 15,
-    paddingTop: 10,
-    paddingBottom: 40,
+    padding: 0,
   },
   headerSection: {
-    marginBottom: 24,
-    paddingVertical: 20,
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingVertical: 10,
+  },
+  avatarContainer: {
+    marginBottom: 15,
+    borderWidth: 3,
+    borderColor: 'rgba(247, 151, 30, 0.3)',
+    borderRadius: 63,
+    padding: 4,
   },
   statsCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
@@ -114,8 +115,8 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 5,
   },
   statItem: {
     alignItems: 'center',
@@ -132,15 +133,11 @@ const styles = StyleSheet.create({
   leaderboardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  timerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   leaderboardRow: {
     flexDirection: 'row',
@@ -150,6 +147,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    gap: 12,
+  },
+  leaderboardInfo: {
+    flex: 1,
   },
   badgesCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',

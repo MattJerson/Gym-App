@@ -203,7 +203,7 @@ export default function DailyProgressCard() {
 
       <CalendarStrip selectedDate={selectedDate} onDateSelect={setSelectedDate} />
 
-      <TotalProgressBar totalProgress={totalProgress} />
+      <TotalProgressBar totalProgress={totalProgress} currentStreak={currentStreak} />
 
       <ProgressCirclesGroup
         workoutData={workoutData}

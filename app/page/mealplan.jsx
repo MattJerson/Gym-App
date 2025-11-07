@@ -34,6 +34,7 @@ export default function Mealplan() {
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
+  const [currentStreak, setCurrentStreak] = useState(0);
 
   // 🔄 Get actual user ID from Supabase
   const [userId, setUserId] = useState(null);
@@ -52,8 +53,30 @@ export default function Mealplan() {
   useEffect(() => {
     if (userId) {
       loadMealPlanData();
+      loadStreakData();
     }
   }, [userId]);
+
+  const loadStreakData = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_stats')
+        .select('current_streak')
+        .eq('user_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error loading streak:', error);
+        return;
+      }
+
+      if (data) {
+        setCurrentStreak(data.current_streak || 0);
+      }
+    } catch (error) {
+      console.error('Error loading streak data:', error);
+    }
+  };
 
   // Reload data when screen comes into focus (e.g., after adding food)
   useFocusEffect(
@@ -352,9 +375,7 @@ export default function Mealplan() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Loading State */}
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Loading meal plan data...</Text>
-          </View>
+          <MealPlanPageSkeleton />
         ) : (
           <>
             {/* Macro Progress Summary */}
@@ -363,6 +384,7 @@ export default function Mealplan() {
                 macroGoals={macroGoals}
                 selectedDate={selectedDate}
                 activePlan={currentPlan}
+                currentStreak={currentStreak}
               />
             )}
 

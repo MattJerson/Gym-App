@@ -427,9 +427,9 @@ export default function WorkoutSession() {
       setTimeout(() => {
         setShowCompleteModal(false);
         
-        // Navigate to training page after modal closes
+        // Replace with training page (removes workout from stack)
         setTimeout(() => {
-          router.push("/page/training");
+          router.replace("/page/training");
         }, 300);
       }, 2000); // Show completion stats for 2 seconds
     } catch (error) {
@@ -450,9 +450,9 @@ export default function WorkoutSession() {
           onPress: async () => {
             try {
               await WorkoutSessionServiceV2.pauseSession(session.id);
-              router.push("/page/training");
+              router.replace("/page/training");
             } catch (error) {
-              router.push("/page/training");
+              router.replace("/page/training");
             }
           },
         },

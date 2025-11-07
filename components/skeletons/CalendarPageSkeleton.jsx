@@ -1,125 +1,132 @@
 import React from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
-import SkeletonLoader, { SkeletonCircle, SkeletonText } from '../SkeletonLoader';
-
-const screenWidth = Dimensions.get("window").width;
+import { View, StyleSheet } from 'react-native';
+import SkeletonLoader from '../SkeletonLoader';
 
 export const CalendarPageSkeleton = () => {
   return (
     <View style={styles.container}>
-      {/* Calendar Card - matches RNCalendar size */}
+      {/* Calendar Card with Stats */}
       <View style={styles.calendarCard}>
-        {/* Calendar Header */}
+        {/* Calendar Month Header */}
         <View style={styles.calendarHeader}>
-          <SkeletonCircle size={24} style={{ marginRight: 12 }} />
-          <SkeletonText width={120} lines={1} />
-          <SkeletonCircle size={24} style={{ marginLeft: 12 }} />
+          <SkeletonLoader width={30} height={30} borderRadius={15} />
+          <SkeletonLoader width={120} height={20} borderRadius={10} />
+          <SkeletonLoader width={30} height={30} borderRadius={15} />
         </View>
 
-        {/* Day Headers */}
+        {/* Day Headers (S M T W T F S) */}
         <View style={styles.dayHeaders}>
-          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
-            <SkeletonText key={idx} width={30} lines={1} style={{ textAlign: 'center' }} />
+          {[...Array(7)].map((_, i) => (
+            <SkeletonLoader key={i} width={30} height={16} borderRadius={8} style={{ marginHorizontal: 4 }} />
           ))}
         </View>
 
-        {/* Calendar Grid - 5 weeks */}
-        {[1, 2, 3, 4, 5].map((week) => (
-          <View key={week} style={styles.weekRow}>
-            {[1, 2, 3, 4, 5, 6, 7].map((day) => (
-              <View key={day} style={styles.dayCell}>
+        {/* Calendar Days Grid (5 rows x 7 days) */}
+        {[...Array(5)].map((_, rowIndex) => (
+          <View key={rowIndex} style={styles.weekRow}>
+            {[...Array(7)].map((_, dayIndex) => (
+              <View key={dayIndex} style={styles.dayCell}>
                 <SkeletonLoader width={32} height={32} borderRadius={16} />
               </View>
             ))}
           </View>
         ))}
 
-        {/* Calendar Stats Card - matches CalendarStatsCard */}
-        <View style={styles.statsSection}>
-          <SkeletonText width="60%" lines={1} style={{ marginBottom: 12, alignSelf: 'center' }} />
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <SkeletonCircle size={20} style={{ marginBottom: 6 }} />
-              <SkeletonText width={30} lines={1} style={{ marginBottom: 4 }} />
-              <SkeletonText width={45} lines={1} />
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <SkeletonCircle size={20} style={{ marginBottom: 6 }} />
-              <SkeletonText width={30} lines={1} style={{ marginBottom: 4 }} />
-              <SkeletonText width={50} lines={1} />
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <SkeletonCircle size={20} style={{ marginBottom: 6 }} />
-              <SkeletonText width={30} lines={1} style={{ marginBottom: 4 }} />
-              <SkeletonText width={35} lines={1} />
-            </View>
+        {/* Calendar Stats Section - 6 stats in 2 rows */}
+        <View style={styles.statsContainer}>
+          <SkeletonLoader width={150} height={16} borderRadius={8} style={{ marginBottom: 12, alignSelf: 'center' }} />
+          
+          {/* First Row - 3 stats (Streak, Workouts, Active Days) */}
+          <View style={styles.statRow}>
+            {[...Array(3)].map((_, i) => (
+              <React.Fragment key={i}>
+                <View style={styles.statItem}>
+                  <SkeletonLoader width={20} height={20} borderRadius={10} style={{ marginBottom: 6 }} />
+                  <SkeletonLoader width={40} height={24} borderRadius={8} style={{ marginBottom: 4 }} />
+                  <SkeletonLoader width={50} height={12} borderRadius={6} style={{ marginBottom: 2 }} />
+                  <SkeletonLoader width={70} height={10} borderRadius={5} />
+                </View>
+                {i < 2 && <View style={styles.divider} />}
+              </React.Fragment>
+            ))}
+          </View>
+
+          {/* Second Row - 3 stats (Progress, Points, Frequency) */}
+          <View style={styles.statRow}>
+            {[...Array(3)].map((_, i) => (
+              <React.Fragment key={i}>
+                <View style={styles.statItem}>
+                  <SkeletonLoader width={20} height={20} borderRadius={10} style={{ marginBottom: 6 }} />
+                  <SkeletonLoader width={40} height={24} borderRadius={8} style={{ marginBottom: 4 }} />
+                  <SkeletonLoader width={50} height={12} borderRadius={6} style={{ marginBottom: 2 }} />
+                  <SkeletonLoader width={70} height={10} borderRadius={5} />
+                </View>
+                {i < 2 && <View style={styles.divider} />}
+              </React.Fragment>
+            ))}
           </View>
         </View>
       </View>
 
-      {/* Progress Graph - matches ProgressGraph size */}
-      <View style={styles.progressGraph}>
+      {/* Progress Graph Card */}
+      <View style={styles.progressCard}>
         <View style={styles.graphHeader}>
-          <SkeletonText width="40%" lines={1} />
+          <SkeletonLoader width={120} height={18} borderRadius={9} />
           <View style={{ alignItems: 'flex-end' }}>
-            <SkeletonText width={50} lines={1} style={{ marginBottom: 4 }} />
-            <SkeletonText width={70} lines={1} />
+            <SkeletonLoader width={50} height={14} borderRadius={7} style={{ marginBottom: 4 }} />
+            <SkeletonLoader width={70} height={12} borderRadius={6} />
           </View>
         </View>
-        <SkeletonLoader width={screenWidth - 48} height={220} borderRadius={16} />
+        <View style={styles.chartArea}>
+          {[...Array(7)].map((_, i) => (
+            <View key={i} style={styles.barContainer}>
+              <SkeletonLoader 
+                width={30} 
+                height={Math.random() * 80 + 40} 
+                borderRadius={6} 
+                style={{ marginBottom: 6 }} 
+              />
+              <SkeletonLoader width={20} height={10} borderRadius={5} />
+            </View>
+          ))}
+        </View>
       </View>
 
-      {/* Steps Bar Graph - matches StepsBarGraph */}
-      <View style={styles.stepsGraph}>
+      {/* Steps Bar Graph Card */}
+      <View style={styles.stepsCard}>
         <View style={styles.stepsHeader}>
-          <SkeletonText width="35%" lines={1} />
-          <SkeletonLoader width={80} height={24} borderRadius={12} />
+          <SkeletonLoader width={100} height={18} borderRadius={9} />
+          <SkeletonLoader width={80} height={14} borderRadius={7} />
         </View>
-        <View style={styles.barsContainer}>
-          {[1, 2, 3, 4, 5, 6, 7].map((item) => (
-            <View key={item} style={styles.barColumn}>
-              <SkeletonLoader width={28} height={120} borderRadius={8} style={{ marginBottom: 8 }} />
-              <SkeletonText width={28} lines={1} />
+        <View style={styles.stepsChart}>
+          {[...Array(7)].map((_, i) => (
+            <View key={i} style={styles.stepsBar}>
+              <SkeletonLoader 
+                width={35} 
+                height={Math.random() * 100 + 50} 
+                borderRadius={6} 
+                style={{ marginBottom: 6 }} 
+              />
+              <SkeletonLoader width={25} height={10} borderRadius={5} />
             </View>
           ))}
         </View>
-      </View>
-
-      {/* Calendar Analytics - matches CalendarAnalytics */}
-      <View style={styles.analyticsCard}>
-        <SkeletonText width="45%" lines={1} style={{ marginBottom: 16 }} />
-        <View style={styles.analyticsGrid}>
-          {[1, 2, 3, 4].map((item) => (
-            <View key={item} style={styles.analyticsItem}>
-              <SkeletonCircle size={16} style={{ marginBottom: 8 }} />
-              <SkeletonText width={50} lines={1} style={{ marginBottom: 4 }} />
-              <SkeletonText width={60} lines={1} />
-            </View>
-          ))}
+        <View style={styles.stepsFooter}>
+          <SkeletonLoader width={120} height={12} borderRadius={6} />
         </View>
       </View>
 
-      {/* Recent Activity - matches RecentActivity */}
-      <View style={styles.recentCard}>
-        <View style={styles.recentHeader}>
-          <SkeletonText width="40%" lines={1} />
-          <SkeletonCircle size={18} />
-        </View>
-        {[1, 2, 3].map((item) => (
-          <View key={item} style={styles.activityItem}>
-            <SkeletonLoader width={28} height={28} borderRadius={14} />
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <View style={styles.activityHeader}>
-                <SkeletonText width="60%" lines={1} style={{ marginBottom: 6 }} />
-                <SkeletonText width={50} lines={1} />
-              </View>
-              <View style={styles.activityMeta}>
-                <SkeletonLoader width={60} height={18} borderRadius={6} style={{ marginRight: 6 }} />
-                <SkeletonLoader width={50} height={18} borderRadius={6} />
-              </View>
+      {/* Recent Activity Card */}
+      <View style={styles.recentActivityCard}>
+        <SkeletonLoader width={130} height={20} borderRadius={10} style={{ marginBottom: 16 }} />
+        {[...Array(3)].map((_, i) => (
+          <View key={i} style={styles.activityItem}>
+            <SkeletonLoader width={40} height={40} borderRadius={20} />
+            <View style={styles.activityContent}>
+              <SkeletonLoader width="70%" height={16} borderRadius={8} style={{ marginBottom: 6 }} />
+              <SkeletonLoader width="50%" height={12} borderRadius={6} />
             </View>
+            <SkeletonLoader width={60} height={24} borderRadius={12} />
           </View>
         ))}
       </View>
@@ -129,22 +136,19 @@ export const CalendarPageSkeleton = () => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 15,
-    paddingTop: 10,
-    paddingBottom: 40,
+    padding: 0,
   },
   calendarCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 22,
     marginBottom: 20,
     padding: 16,
-    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   calendarHeader: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
   },
@@ -160,50 +164,62 @@ const styles = StyleSheet.create({
   },
   dayCell: {
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  statsSection: {
-    paddingTop: 16,
+  statsContainer: {
+    paddingTop: 14,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.1)',
+    marginTop: 12,
   },
-  statsRow: {
+  statRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingVertical: 8,
+    paddingVertical: 12,
+    marginBottom: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    borderRadius: 12,
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
   },
-  statDivider: {
+  divider: {
     width: 1,
-    height: 40,
+    height: 50,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
-  progressGraph: {
-    backgroundColor: '#1C1C1E',
-    borderRadius: 24,
-    paddingVertical: 20,
-    paddingHorizontal: 10,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  graphHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-    paddingHorizontal: 14,
-  },
-  stepsGraph: {
+  progressCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 20,
     padding: 16,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  graphHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  chartArea: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+    height: 150,
+  },
+  barContainer: {
+    alignItems: 'center',
+  },
+  stepsCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   stepsHeader: {
     flexDirection: 'row',
@@ -211,64 +227,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  barsContainer: {
+  stepsChart: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'flex-end',
-    height: 150,
+    height: 140,
+    marginBottom: 12,
   },
-  barColumn: {
+  stepsBar: {
     alignItems: 'center',
-    justifyContent: 'flex-end',
   },
-  analyticsCard: {
+  stepsFooter: {
+    alignItems: 'center',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  recentActivityCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  analyticsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  analyticsItem: {
-    width: '47%',
     padding: 16,
-    borderRadius: 16,
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-  },
-  recentCard: {
-    padding: 20,
-    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  recentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   activityItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    marginBottom: 6,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    marginBottom: 12,
   },
-  activityHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  activityMeta: {
-    flexDirection: 'row',
+  activityContent: {
+    flex: 1,
+    marginLeft: 12,
   },
 });

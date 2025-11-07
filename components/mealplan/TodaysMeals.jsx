@@ -20,7 +20,7 @@ const toTitleCase = (str) => {
     .join(' ');
 };
 
-const MealSection = ({ mealType, mealItems, onAddFood, onDeleteFood, onEditFood }) => {
+const MealSection = ({ mealType, mealItems, onAddFood, onDeleteFood, onEditFood, isLast }) => {
   const getMealColor = (type) => {
     switch (type) {
       case "Breakfast": return "#FF9500";
@@ -70,7 +70,7 @@ const MealSection = ({ mealType, mealItems, onAddFood, onDeleteFood, onEditFood 
   };
 
   return (
-    <View style={styles.mealSection}>
+    <View style={[styles.mealSection, !isLast && styles.mealSectionWithBorder]}>
       {/* Meal Header with Icon */}
       <View style={styles.mealSectionHeader}>
         <View style={styles.mealTitleRow}>
@@ -144,9 +144,8 @@ const MealSection = ({ mealType, mealItems, onAddFood, onDeleteFood, onEditFood 
         </>
       ) : (
         <View style={styles.emptyState}>
-          <Ionicons name="fast-food-outline" size={32} color="#333" />
-          <Text style={styles.emptyText}>No foods logged yet</Text>
-          <Text style={styles.emptySubtext}>Tap + to add your first item</Text>
+          <Ionicons name="fast-food-outline" size={24} color="#333" />
+          <Text style={styles.emptyText}>No foods logged</Text>
         </View>
       )}
     </View>
@@ -173,16 +172,19 @@ export default function TodaysMeals({
         <Text style={styles.cardTitle}>Today's Meals</Text>
       </View>
 
-      {Object.entries(mealsByType).map(([mealType, mealItems]) => (
-        <MealSection
-          key={mealType}
-          mealType={mealType}
-          mealItems={mealItems}
-          onAddFood={onAddFood}
-          onDeleteFood={onDeleteFood}
-          onEditFood={onEditFood}
-        />
-      ))}
+      <View style={styles.mealsContainer}>
+        {Object.entries(mealsByType).map(([mealType, mealItems], index) => (
+          <MealSection
+            key={mealType}
+            mealType={mealType}
+            mealItems={mealItems}
+            onAddFood={onAddFood}
+            onDeleteFood={onDeleteFood}
+            onEditFood={onEditFood}
+            isLast={index === Object.entries(mealsByType).length - 1}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -208,21 +210,23 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.5,
   },
+  mealsContainer: {
+    // Container for all meal sections - no padding/margin
+  },
   mealSection: {
-    marginHorizontal: 16,
-    marginBottom: 20,
-    borderRadius: 16,
-    overflow: "hidden",
+    // No margin - full width of card
     backgroundColor: "rgba(255, 255, 255, 0.02)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
+  },
+  mealSectionWithBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.05)",
   },
   mealSectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.05)",
   },
@@ -263,21 +267,16 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 40,
+    paddingVertical: 20,
     paddingHorizontal: 20,
+    flexDirection: "row",
+    gap: 8,
   },
   emptyText: {
-    fontSize: 15,
-    color: "#666",
-    fontWeight: "600",
-    marginTop: 12,
-    letterSpacing: 0.2,
-  },
-  emptySubtext: {
     fontSize: 13,
-    color: "#444",
-    fontWeight: "500",
-    marginTop: 4,
+    color: "#555",
+    fontWeight: "600",
+    letterSpacing: 0.2,
   },
   mealTotalsContainer: {
     borderTopWidth: 1,
