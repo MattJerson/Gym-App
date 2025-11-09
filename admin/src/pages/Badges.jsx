@@ -18,7 +18,7 @@ import {
   Users,
   Activity
 } from "lucide-react";
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseAdmin } from '../lib/supabase';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
@@ -34,6 +34,21 @@ const Badges = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingBadge, setEditingBadge] = useState(null);
+  
+  // Weekly Challenge States
+  const [activeWeeklyChallenge, setActiveWeeklyChallenge] = useState(null);
+  const [showChallengeModal, setShowChallengeModal] = useState(false);
+  const [challengeFormData, setChallengeFormData] = useState({
+    title: '',
+    description: '',
+    challenge_type: 'weekly',
+    metric_type: 'workouts completed',
+    target_value: 5,
+    start_date: '',
+    end_date: '',
+    weekly_rotation: true,
+    is_active: false
+  });
   
   // Filters and sorting
   const [sortBy, setSortBy] = useState("points_value");
@@ -55,6 +70,7 @@ const Badges = () => {
     fetchBadges();
     fetchChallenges();
     fetchLeaderboard();
+    fetchActiveWeeklyChallenge();
   }, []);
 
   const fetchBadges = async () => {
@@ -76,18 +92,66 @@ const Badges = () => {
   const fetchLeaderboard = async () => {
     try {
       setLeaderboardLoading(true);
+      
+      // Fetch leaderboard data
       const { data, error } = await supabase
-        .from('safe_weekly_leaderboard')
+        .from('weekly_challenge_leaderboard')
         .select('*')
-        .order('position', { ascending: true })
+        .order('challenge_score', { ascending: false })
         .limit(10);
 
       if (error) throw error;
-      setLeaderboard(data || []);
+      
+      // Fetch emails from auth.users using admin client (like Dashboard does)
+      let emailMap = {};
+      try {
+        if (supabaseAdmin) {
+          const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers();
+          if (!authError && authUsers?.users) {
+            authUsers.users.forEach(u => {
+              emailMap[u.id] = u.email;
+            });
+          }
+        }
+      } catch (err) {
+        console.log('Could not fetch auth emails:', err.message);
+      }
+      
+      // Map to expected format with emails from auth
+      const mappedData = (data || []).map((user, index) => ({
+        user_id: user.user_id,
+        rank: index + 1,
+        full_name: user.full_name || user.nickname || 'Unknown User',
+        email: emailMap[user.user_id] || user.email || 'No email',  // Get from auth first
+        total_points: user.challenge_score || 0,  // Weekly points
+        workouts_count: user.progress_value || 0,  // Workouts completed
+        current_streak: user.current_streak || 0,
+        badges_earned: user.badges_earned || 0
+      }));
+      
+      setLeaderboard(mappedData);
     } catch (err) {
       console.error('Error fetching leaderboard:', err);
     } finally {
       setLeaderboardLoading(false);
+    }
+  };
+
+  const fetchActiveWeeklyChallenge = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('active_weekly_challenge')
+        .select(`
+          *,
+          challenges (*)
+        `)
+        .eq('is_current', true)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      setActiveWeeklyChallenge(data);
+    } catch (err) {
+      console.error('Error fetching active weekly challenge:', err);
     }
   };
 
@@ -113,14 +177,9 @@ const Badges = () => {
 
   const toggleChallengeStatus = async (challengeId, currentStatus) => {
     try {
-      if (!currentStatus) {
-        // Activating this challenge - deactivate all others first
-        await supabase
-          .from('challenges')
-          .update({ is_active: false })
-          .neq('id', challengeId);
-      }
-
+      // Toggle challenge in/out of rotation pool
+      // Multiple challenges can be is_active=true (in pool)
+      // The active_weekly_challenge table determines which ONE is currently running
       const { error } = await supabase
         .from('challenges')
         .update({ is_active: !currentStatus })
@@ -133,6 +192,74 @@ const Badges = () => {
       console.error('Error toggling challenge:', error);
       alert('Failed to update challenge status');
     }
+  };
+
+  const toggleWeeklyRotation = async (challengeId, currentValue) => {
+    try {
+      const { error } = await supabase
+        .from('challenges')
+        .update({ weekly_rotation: !currentValue })
+        .eq('id', challengeId);
+
+      if (error) throw error;
+      fetchChallenges();
+      alert(`Challenge ${!currentValue ? 'enabled' : 'disabled'} for weekly rotation`);
+    } catch (error) {
+      console.error('Error toggling weekly rotation:', error);
+      alert('Failed to update weekly rotation status');
+    }
+  };
+
+  const handleRotateChallenge = async () => {
+    if (!confirm('Rotate to next weekly challenge? This will archive the current challenge and start a new one.')) return;
+
+    try {
+      const { data, error } = await supabase.rpc('rotate_weekly_challenge');
+      
+      if (error) throw error;
+      
+      alert(`Challenge rotated successfully!\n${data.message || 'New challenge activated'}`);
+      fetchChallenges();
+      fetchLeaderboard();
+      fetchActiveWeeklyChallenge();
+    } catch (error) {
+      console.error('Error rotating challenge:', error);
+      alert('Failed to rotate challenge: ' + error.message);
+    }
+  };
+
+  const handleCreateChallenge = async (e) => {
+    e.preventDefault();
+    
+    try {
+      const { error } = await supabase
+        .from('challenges')
+        .insert([challengeFormData]);
+
+      if (error) throw error;
+      
+      alert('Challenge created successfully!');
+      setShowChallengeModal(false);
+      resetChallengeForm();
+      fetchChallenges();
+    } catch (error) {
+      console.error('Error creating challenge:', error);
+      alert('Failed to create challenge: ' + error.message);
+    }
+  };
+
+  const resetChallengeForm = () => {
+    setChallengeFormData({
+      title: '',
+      description: '',
+      challenge_type: 'weekly',
+      metric_type: 'workouts completed',
+      target_value: 5,
+      start_date: '',
+      end_date: '',
+      weekly_rotation: true,
+      is_active: false
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -703,6 +830,90 @@ const Badges = () => {
           </div>
         )}
 
+        {/* Weekly Challenge Rotation Control */}
+        <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl shadow-lg border-2 border-blue-200 p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shadow-lg">
+                <RefreshCw className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Weekly Challenge Rotation</h2>
+                <p className="text-sm text-gray-600">Manage automatic weekly challenge system</p>
+              </div>
+            </div>
+            <Button
+              variant="primary"
+              onClick={() => setShowChallengeModal(true)}
+              className="flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              New Challenge
+            </Button>
+          </div>
+
+          {activeWeeklyChallenge ? (
+            <div className="bg-white rounded-xl p-5 shadow-sm border-2 border-green-300">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="px-3 py-1 bg-green-600 text-white text-xs font-bold rounded-full uppercase">
+                      🔥 Currently Active
+                    </span>
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">
+                    {activeWeeklyChallenge.challenges?.title}
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-3">
+                    {activeWeeklyChallenge.challenges?.description}
+                  </p>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-500 font-medium">Metric:</span>
+                      <p className="font-bold text-gray-900 capitalize">
+                        {activeWeeklyChallenge.challenges?.metric_type}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 font-medium">Target:</span>
+                      <p className="font-bold text-gray-900">
+                        {activeWeeklyChallenge.challenges?.target_value}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 font-medium">Ends:</span>
+                      <p className="font-bold text-gray-900">
+                        {new Date(activeWeeklyChallenge.ends_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <Button
+                variant="primary"
+                onClick={handleRotateChallenge}
+                className="w-full mt-4 flex items-center justify-center gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Rotate to Next Challenge
+              </Button>
+            </div>
+          ) : (
+            <div className="bg-yellow-50 border-2 border-yellow-300 rounded-xl p-5 text-center">
+              <p className="text-yellow-800 font-semibold mb-3">⚠️ No Active Weekly Challenge</p>
+              <p className="text-sm text-yellow-700 mb-4">Click below to start the weekly challenge rotation</p>
+              <Button
+                variant="primary"
+                onClick={handleRotateChallenge}
+                className="flex items-center justify-center gap-2 mx-auto"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Start First Challenge
+              </Button>
+            </div>
+          )}
+        </div>
+
         {/* Challenges & Leaderboard Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Challenges Management */}
@@ -713,8 +924,8 @@ const Badges = () => {
                   <Target className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Challenges</h2>
-                  <p className="text-xs text-gray-600">Manage community challenges</p>
+                  <h2 className="text-xl font-bold text-gray-900">All Challenges</h2>
+                  <p className="text-xs text-gray-600">Manage and configure challenges</p>
                 </div>
               </div>
               <button
@@ -753,11 +964,17 @@ const Badges = () => {
                       {/* Header with Status */}
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <h3 className="font-bold text-gray-900">{challenge.title}</h3>
                             {challenge.is_active && (
                               <span className="px-2 py-0.5 bg-green-600 text-white text-xs font-bold rounded-full uppercase">
                                 Active
+                              </span>
+                            )}
+                            {challenge.weekly_rotation && challenge.challenge_type === 'weekly' && (
+                              <span className="px-2 py-0.5 bg-purple-600 text-white text-xs font-bold rounded-full uppercase flex items-center gap-1">
+                                <RefreshCw className="h-3 w-3" />
+                                Rotation
                               </span>
                             )}
                             {isExpired && !challenge.is_active && (
@@ -774,18 +991,34 @@ const Badges = () => {
                           <p className="text-sm text-gray-600">{challenge.description}</p>
                         </div>
                         
-                        {!isExpired && (
-                          <button
-                            onClick={() => toggleChallengeStatus(challenge.id, challenge.is_active)}
-                            className={`ml-3 px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${
-                              challenge.is_active
-                                ? 'bg-red-500 text-white hover:bg-red-600'
-                                : 'bg-green-500 text-white hover:bg-green-600'
-                            }`}
-                          >
-                            {challenge.is_active ? 'Deactivate' : 'Activate'}
-                          </button>
-                        )}
+                        <div className="ml-3 flex flex-col gap-2">
+                          {!isExpired && (
+                            <button
+                              onClick={() => toggleChallengeStatus(challenge.id, challenge.is_active)}
+                              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${
+                                challenge.is_active
+                                  ? 'bg-red-500 text-white hover:bg-red-600'
+                                  : 'bg-green-500 text-white hover:bg-green-600'
+                              }`}
+                            >
+                              {challenge.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                          )}
+                          {challenge.challenge_type === 'weekly' && (
+                            <button
+                              onClick={() => toggleWeeklyRotation(challenge.id, challenge.weekly_rotation)}
+                              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1 ${
+                                challenge.weekly_rotation
+                                  ? 'bg-purple-500 text-white hover:bg-purple-600'
+                                  : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                              }`}
+                              title={challenge.weekly_rotation ? 'Disable weekly rotation' : 'Enable weekly rotation'}
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                              {challenge.weekly_rotation ? 'Enabled' : 'Enable'}
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {/* Challenge Details */}
@@ -951,7 +1184,135 @@ const Badges = () => {
           </div>
         </div>
 
-        {/* Create/Edit Modal */}
+        {/* Create Challenge Modal */}
+        <Modal
+          isOpen={showChallengeModal}
+          onClose={() => {
+            setShowChallengeModal(false);
+            resetChallengeForm();
+          }}
+          title="Create Weekly Challenge"
+          size="lg"
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setShowChallengeModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" onClick={handleCreateChallenge}>
+                Create Challenge
+              </Button>
+            </>
+          }
+        >
+          <form onSubmit={handleCreateChallenge} className="space-y-4">
+            <Input
+              label="Challenge Title"
+              value={challengeFormData.title}
+              onChange={(e) => setChallengeFormData({ ...challengeFormData, title: e.target.value })}
+              placeholder="e.g., 5-Workout Week"
+              required
+            />
+            
+            <Input
+              label="Description"
+              value={challengeFormData.description}
+              onChange={(e) => setChallengeFormData({ ...challengeFormData, description: e.target.value })}
+              placeholder="Complete at least 5 workouts this week"
+              required
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <Select
+                label="Challenge Type"
+                value={challengeFormData.challenge_type}
+                onChange={(e) => setChallengeFormData({ ...challengeFormData, challenge_type: e.target.value })}
+                options={[
+                  { value: 'weekly', label: 'Weekly' },
+                  { value: 'monthly', label: 'Monthly' },
+                  { value: 'special event', label: 'Special Event' }
+                ]}
+                required
+              />
+              
+              <Select
+                label="Metric Type"
+                value={challengeFormData.metric_type}
+                onChange={(e) => setChallengeFormData({ ...challengeFormData, metric_type: e.target.value })}
+                options={[
+                  { value: 'workouts completed', label: 'Workouts Completed' },
+                  { value: 'calories burned', label: 'Calories Burned' },
+                  { value: 'total exercises', label: 'Total Exercises' },
+                  { value: 'streak days', label: 'Streak Days' }
+                ]}
+                required
+              />
+            </div>
+
+            <Input
+              label="Target Value"
+              type="number"
+              value={challengeFormData.target_value}
+              onChange={(e) => setChallengeFormData({ ...challengeFormData, target_value: parseInt(e.target.value) })}
+              icon={Target}
+              required
+            />
+
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label="Start Date"
+                type="date"
+                value={challengeFormData.start_date}
+                onChange={(e) => setChallengeFormData({ ...challengeFormData, start_date: e.target.value })}
+                required
+              />
+              
+              <Input
+                label="End Date"
+                type="date"
+                value={challengeFormData.end_date}
+                onChange={(e) => setChallengeFormData({ ...challengeFormData, end_date: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="weekly_rotation"
+                  checked={challengeFormData.weekly_rotation}
+                  onChange={(e) => setChallengeFormData({ ...challengeFormData, weekly_rotation: e.target.checked })}
+                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                />
+                <label htmlFor="weekly_rotation" className="text-sm font-medium text-gray-700 flex items-center gap-1">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Enable for Weekly Rotation
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 ml-6">
+                This challenge will be included in the automatic weekly rotation pool
+              </p>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_active_challenge"
+                  checked={challengeFormData.is_active}
+                  onChange={(e) => setChallengeFormData({ ...challengeFormData, is_active: e.target.checked })}
+                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                />
+                <label htmlFor="is_active_challenge" className="text-sm font-medium text-gray-700">
+                  Activate immediately (not recommended)
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 ml-6">
+                Leave unchecked - use the rotation button to activate challenges properly
+              </p>
+            </div>
+          </form>
+        </Modal>
+
+        {/* Create/Edit Badge Modal */}
         <Modal
           isOpen={showModal}
           onClose={() => {

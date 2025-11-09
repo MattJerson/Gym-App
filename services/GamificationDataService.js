@@ -401,19 +401,20 @@ const GamificationDataService = {
   },
 
   /**
-   * Get weekly leaderboard (safe, privacy-respecting)
-   * Only reads from safe_weekly_leaderboard. No fallback to unsafe views.
+   * Get weekly challenge leaderboard (safe, privacy-respecting)
+   * Shows challenge-specific scores that reset weekly, NOT permanent user points
+   * Only reads from safe_weekly_challenge_leaderboard view
    * Enhanced to fetch actual nicknames from profiles table.
    */
   async getWeeklyLeaderboard(limit = 100) {
     try {
       const { data, error } = await supabase
-        .from('safe_weekly_leaderboard')
+        .from('safe_weekly_challenge_leaderboard')
         .select('*')
         .limit(limit);
 
       if (error) {
-        console.error('Error querying safe_weekly_leaderboard:', error);
+        console.error('Error querying safe_weekly_challenge_leaderboard:', error);
         throw error;
       }
 
@@ -442,22 +443,25 @@ const GamificationDataService = {
       }
 
       // Normalize returned rows to a predictable client shape with real nicknames
+      // Note: challenge_score is used instead of total_points for weekly challenge
       const leaderboard = (data || []).map((row, index) => ({
         anon_id: row.anon_id || `anon-${index + 1}`,
         user_id: row.user_id || null, // Include user_id for reference
         display_name: row.user_id && nicknameMap[row.user_id] 
           ? nicknameMap[row.user_id]
           : (row.display_name || `User ${index + 1}`),
-        total_points: Number(row.total_points) || 0,
+        total_points: Number(row.challenge_score) || 0, // Challenge score, not permanent points
         current_streak: Number(row.current_streak) || 0,
         total_workouts: Number(row.total_workouts) || 0,
         badges_earned: Number(row.badges_earned) || 0,
         position: row.position ?? index + 1,
+        progress_value: Number(row.progress_value) || 0, // Challenge progress
+        target_value: Number(row.target_value) || 0, // Challenge target
       }));
 
       return leaderboard;
     } catch (error) {
-      console.error('Error fetching weekly leaderboard (safe):', error);
+      console.error('Error fetching weekly challenge leaderboard (safe):', error);
       throw error;
     }
   },

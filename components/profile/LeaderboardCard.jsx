@@ -10,15 +10,45 @@ export default function LeaderboardCard({
   currentUserNickname,
   getTimeRemaining
 }) {
+  // Format metric type for display
+  const formatMetricType = (metricType) => {
+    if (!metricType) return "";
+    const map = {
+      "workouts_completed": "Workouts",
+      "calories_burned": "Calories",
+      "total_exercises": "Exercises",
+      "streak_days": "Streak Days"
+    };
+    return map[metricType] || metricType;
+  };
+
+  // If leaderboard is empty, create placeholder with current user at 0 points
+  const displayLeaderboard = leaderboard.length > 0 
+    ? leaderboard 
+    : [{
+        position: 1,
+        user_id: currentUserId,
+        display_name: currentUserNickname || 'You',
+        total_points: 0,
+        current_streak: 0,
+        progress_value: 0
+      }];
+
   return (
     <View style={styles.card}>
       <View style={styles.leaderboardHeader}>
-        <View>
-          <Text style={styles.cardTitle}>🏁 Weekly Leaderboard</Text>
+        <View style={{flex: 1}}>
+          <Text style={styles.cardTitle}>🏁 Weekly Challenge</Text>
           {activeChallenge && (
-            <Text style={styles.challengeSubtitle}>
-              🎯 {activeChallenge.title}
-            </Text>
+            <>
+              <Text style={styles.challengeSubtitle}>
+                🎯 {activeChallenge.title}
+              </Text>
+              <Text style={styles.challengeMetric}>
+                {formatMetricType(activeChallenge.metric_type)}
+                {activeChallenge.target_value && ` • Target: ${activeChallenge.target_value}`}
+              </Text>
+            </>
           )}
         </View>
         <View style={styles.leaderboardHeaderRight}>
@@ -27,9 +57,10 @@ export default function LeaderboardCard({
       </View>
       
       <View style={styles.leaderboardContainer}>
-        {leaderboard.slice(0, 10).map((leaderUser, index) => {
+        {displayLeaderboard.slice(0, 10).map((leaderUser, index) => {
           const leaderKey = leaderUser.anon_id || leaderUser.user_id || `pos-${leaderUser.position || index}`;
-          const isCurrentUser = currentUserPosition && (leaderUser.position === currentUserPosition);
+          const isCurrentUser = (currentUserPosition && leaderUser.position === currentUserPosition) || 
+                                (leaderboard.length === 0 && leaderUser.user_id === currentUserId);
           
           // Use the display_name from the database (already includes nickname logic from GamificationDataService)
           let displayName = leaderUser.display_name || leaderUser.user_name || `User ${leaderUser.position || index + 1}`;
@@ -78,7 +109,7 @@ export default function LeaderboardCard({
                       style={[
                         styles.progressFill,
                         {
-                          width: `${Math.min((leaderUser.total_points / (leaderboard[0]?.total_points || 1)) * 100, 100)}%`,
+                          width: `${Math.min((leaderUser.total_points / (displayLeaderboard[0]?.total_points || 1)) * 100, 100)}%`,
                           backgroundColor:
                             leaderUser.position === 1 ? "#f1c40f" :
                             leaderUser.position === 2 ? "#95a5a6" :
@@ -107,15 +138,14 @@ export default function LeaderboardCard({
             </View>
           );
         })}
-        {leaderboard.length === 0 && (
-          <Text style={styles.emptyText}>
-            No active users this week. Be the first!
-          </Text>
-        )}
       </View>
       
       <View style={styles.leaderboardFooter}>
-        <Text style={styles.footerText}>💪 Keep pushing to climb higher!</Text>
+        <Text style={styles.footerText}>
+          {leaderboard.length === 0 
+            ? "🎯 Start a workout to earn your first points!" 
+            : "💪 Keep pushing to climb higher!"}
+        </Text>
       </View>
     </View>
   );
@@ -149,6 +179,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginTop: 4,
     fontStyle: "italic",
+  },
+  challengeMetric: {
+    fontSize: 10,
+    color: "#aaa",
+    fontWeight: "500",
+    marginTop: 2,
   },
   leaderboardHeaderRight: {
     alignItems: "flex-end",

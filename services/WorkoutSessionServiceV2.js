@@ -731,6 +731,63 @@ export const WorkoutSessionServiceV2 = {
         }
       }
 
+      // 🏆 UPDATE WEEKLY CHALLENGE PROGRESS
+      if (userId) {
+        try {
+          const WeeklyChallengeService = require('./WeeklyChallengeService').default;
+          
+          // Update workout count for the challenge
+          await WeeklyChallengeService.updateChallengeProgress(
+            userId,
+            'workouts_completed',
+            1
+          );
+          
+          // Update calories burned for the challenge
+          if (estimatedCalories > 0) {
+            await WeeklyChallengeService.updateChallengeProgress(
+              userId,
+              'calories_burned',
+              estimatedCalories
+            );
+          }
+          
+          // Update total exercises for the challenge
+          if (completedExercises > 0) {
+            await WeeklyChallengeService.updateChallengeProgress(
+              userId,
+              'total_exercises',
+              completedExercises
+            );
+          }
+          
+          // Update streak days for the challenge (only if streak increased)
+          if (newStreak > (currentStats?.current_streak || 0)) {
+            await WeeklyChallengeService.updateChallengeProgress(
+              userId,
+              'streak_days',
+              newStreak
+            );
+          }
+
+          // 💰 UPDATE CHALLENGE POINTS
+          // Add the points earned from THIS workout to the user's challenge points
+          // This only counts points earned during the current challenge period
+          if (totalPointsEarned > 0) {
+            await WeeklyChallengeService.updateChallengePoints(
+              userId,
+              totalPointsEarned
+            );
+            console.log(`✅ Added ${totalPointsEarned} points to weekly challenge`);
+          }
+          
+          console.log('✅ Weekly challenge progress updated');
+        } catch (challengeErr) {
+          console.warn('⚠️ Failed to update weekly challenge progress:', challengeErr);
+          // Non-fatal: workout is still completed
+        }
+      }
+
       // Return the completed session
       const completedSession = await this.getSession(sessionId);
       return completedSession;

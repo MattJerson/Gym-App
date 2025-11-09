@@ -11,6 +11,8 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { supabase } from "../../services/supabase";
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -643,8 +645,10 @@ export default function WorkoutSession() {
         animationType="fade"
         onRequestClose={() => setShowCompleteModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.completeModal}>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.completeModal}>
             <View style={styles.completeModalHeader}>
               <MaterialCommunityIcons name="trophy" size={32} color="#74B9FF" />
               <Text style={styles.completeModalTitle}>Workout Complete!</Text>
@@ -745,7 +749,9 @@ export default function WorkoutSession() {
               </Pressable>
             </View>
           </View>
-        </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </View>
   );

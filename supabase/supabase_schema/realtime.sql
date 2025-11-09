@@ -12,39 +12,6 @@ CREATE TABLE realtime.messages (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   CONSTRAINT messages_pkey PRIMARY KEY (id, inserted_at)
 );
-CREATE TABLE realtime.messages_2025_11_03 (
-  topic text NOT NULL,
-  extension text NOT NULL,
-  payload jsonb,
-  event text,
-  private boolean DEFAULT false,
-  updated_at timestamp without time zone NOT NULL DEFAULT now(),
-  inserted_at timestamp without time zone NOT NULL DEFAULT now(),
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  CONSTRAINT messages_2025_11_03_pkey PRIMARY KEY (id, inserted_at)
-);
-CREATE TABLE realtime.messages_2025_11_04 (
-  topic text NOT NULL,
-  extension text NOT NULL,
-  payload jsonb,
-  event text,
-  private boolean DEFAULT false,
-  updated_at timestamp without time zone NOT NULL DEFAULT now(),
-  inserted_at timestamp without time zone NOT NULL DEFAULT now(),
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  CONSTRAINT messages_2025_11_04_pkey PRIMARY KEY (id, inserted_at)
-);
-CREATE TABLE realtime.messages_2025_11_05 (
-  topic text NOT NULL,
-  extension text NOT NULL,
-  payload jsonb,
-  event text,
-  private boolean DEFAULT false,
-  updated_at timestamp without time zone NOT NULL DEFAULT now(),
-  inserted_at timestamp without time zone NOT NULL DEFAULT now(),
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  CONSTRAINT messages_2025_11_05_pkey PRIMARY KEY (id, inserted_at)
-);
 CREATE TABLE realtime.messages_2025_11_06 (
   topic text NOT NULL,
   extension text NOT NULL,
@@ -88,6 +55,39 @@ CREATE TABLE realtime.messages_2025_11_09 (
   inserted_at timestamp without time zone NOT NULL DEFAULT now(),
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   CONSTRAINT messages_2025_11_09_pkey PRIMARY KEY (id, inserted_at)
+);
+CREATE TABLE realtime.messages_2025_11_10 (
+  topic text NOT NULL,
+  extension text NOT NULL,
+  payload jsonb,
+  event text,
+  private boolean DEFAULT false,
+  updated_at timestamp without time zone NOT NULL DEFAULT now(),
+  inserted_at timestamp without time zone NOT NULL DEFAULT now(),
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  CONSTRAINT messages_2025_11_10_pkey PRIMARY KEY (id, inserted_at)
+);
+CREATE TABLE realtime.messages_2025_11_11 (
+  topic text NOT NULL,
+  extension text NOT NULL,
+  payload jsonb,
+  event text,
+  private boolean DEFAULT false,
+  updated_at timestamp without time zone NOT NULL DEFAULT now(),
+  inserted_at timestamp without time zone NOT NULL DEFAULT now(),
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  CONSTRAINT messages_2025_11_11_pkey PRIMARY KEY (id, inserted_at)
+);
+CREATE TABLE realtime.messages_2025_11_12 (
+  topic text NOT NULL,
+  extension text NOT NULL,
+  payload jsonb,
+  event text,
+  private boolean DEFAULT false,
+  updated_at timestamp without time zone NOT NULL DEFAULT now(),
+  inserted_at timestamp without time zone NOT NULL DEFAULT now(),
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  CONSTRAINT messages_2025_11_12_pkey PRIMARY KEY (id, inserted_at)
 );
 CREATE TABLE realtime.schema_migrations (
   version bigint NOT NULL,

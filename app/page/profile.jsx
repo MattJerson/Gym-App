@@ -1,3 +1,4 @@
+import React from "react";
 import {
   View,
   Text,
@@ -9,7 +10,7 @@ import {
 import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "../../services/supabase";
-import { useRouter, usePathname } from "expo-router";
+import { useRouter, usePathname, useFocusEffect } from "expo-router";
 import ProfileHeader from "../../components/profile/ProfileHeader";
 import LeaderboardCard from "../../components/profile/LeaderboardCard";
 import ProfileStatsCard from "../../components/profile/ProfileStatsCard";
@@ -35,6 +36,13 @@ export default function Profile() {
   useEffect(() => {
     loadUserData();
   }, []);
+
+  // Reload data when screen comes into focus (e.g., after weekly challenge rotation)
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUserData();
+    }, [])
+  );
 
   const loadUserData = async () => {
     try {
@@ -90,17 +98,23 @@ export default function Profile() {
       }
 
       // Load gamification data and user's leaderboard position
-      const [stats, badges, leaderboardData, activeChallenges] =
+      // Fetch active weekly challenge from active_weekly_challenge table
+      const [stats, badges, leaderboardData, activeWeeklyChallengeData] =
         await Promise.all([
           GamificationDataService.getUserStats(authUser.id),
           GamificationDataService.getUserBadges(authUser.id),
           GamificationDataService.getWeeklyLeaderboard(100),
           supabase
-            .from("challenges")
-            .select("*")
-            .eq("is_active", true)
-            .order("created_at", { ascending: false })
-            .limit(1),
+            .from("active_weekly_challenge")
+            .select(`
+              challenge_id,
+              is_current,
+              started_at,
+              ends_at,
+              challenges (*)
+            `)
+            .eq("is_current", true)
+            .single(),
         ]);
 
       // Try to get the user's position (may be null if safe view prevents mapping)
@@ -116,7 +130,7 @@ export default function Profile() {
       setUserBadges(badges);
       setLeaderboard(leaderboardData || []);
       setCurrentUserPosition(position);
-      setActiveChallenge(activeChallenges?.data?.[0] || null);
+      setActiveChallenge(activeWeeklyChallengeData?.data?.challenges || null);
     } catch (error) {
       console.error("Error loading user data:", error);
     } finally {
