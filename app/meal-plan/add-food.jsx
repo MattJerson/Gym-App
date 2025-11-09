@@ -354,35 +354,35 @@ export default function AddFood() {
     checkmarkScale.setValue(0);
     blurOpacity.setValue(1);
 
-    // Blur the background content
+    // Blur the background content (faster)
     Animated.timing(blurOpacity, {
       toValue: 0.3,
-      duration: 200,
+      duration: 150,
       useNativeDriver: true,
     }).start();
 
-    // Animate success circle
+    // Animate success circle (faster)
     Animated.parallel([
       Animated.spring(successScale, {
         toValue: 1,
-        tension: 50,
-        friction: 7,
+        tension: 80,
+        friction: 6,
         useNativeDriver: true,
       }),
       Animated.timing(successOpacity, {
         toValue: 1,
-        duration: 200,
+        duration: 150,
         useNativeDriver: true,
       }),
     ]).start(() => {
-      // After circle appears, animate checkmark
+      // After circle appears, animate checkmark (faster)
       Animated.spring(checkmarkScale, {
         toValue: 1,
-        tension: 100,
+        tension: 150,
         friction: 5,
         useNativeDriver: true,
       }).start(() => {
-        // Close modal after a short delay
+        // Close modal after a shorter delay
         setTimeout(() => {
           setShowQuantityModal(false);
           setShowSuccessAnimation(false);
@@ -393,7 +393,7 @@ export default function AddFood() {
           blurOpacity.setValue(1);
           // Navigate back
           router.back();
-        }, 600);
+        }, 300);
       });
     });
   };

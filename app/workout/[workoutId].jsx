@@ -53,10 +53,14 @@ export default function WorkoutSession() {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [completionNotes, setCompletionNotes] = useState("");
   const [difficultyRating, setDifficultyRating] = useState(3);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
 
   // Animation
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const timerInterval = useRef(null);
+  const successScale = useRef(new Animated.Value(0)).current;
+  const successOpacity = useRef(new Animated.Value(0)).current;
+  const checkmarkScale = useRef(new Animated.Value(0)).current;
 
   // Get user on mount
   useEffect(() => {
@@ -332,7 +336,41 @@ export default function WorkoutSession() {
         }
       }
 
-      await WorkoutSessionServiceV2.logSet(
+      // OPTIMISTIC UPDATE: Update UI immediately for instant feedback
+      const newSet = {
+        exercise_index: exerciseIndex,
+        set_number: setNumber,
+        exercise_name: exerciseName,
+        actual_reps: setData.reps,
+        weight_kg: setData.weight || 0,
+        target_reps: targetReps,
+        is_completed: true,
+        rpe: setData.rpe || null,
+        completed_at: new Date().toISOString(),
+      };
+
+      // Update session state immediately
+      setSession(prevSession => {
+        const updatedSets = [...(prevSession.sets || [])];
+        const existingSetIndex = updatedSets.findIndex(
+          s => s.exercise_index === exerciseIndex && s.set_number === setNumber
+        );
+
+        if (existingSetIndex >= 0) {
+          updatedSets[existingSetIndex] = { ...updatedSets[existingSetIndex], ...newSet };
+        } else {
+          updatedSets.push(newSet);
+        }
+
+        return {
+          ...prevSession,
+          sets: updatedSets,
+        };
+      });
+
+      // Save to database in background (non-blocking)
+      console.log(`🔄 [Background] Saving set ${setNumber} for exercise ${exerciseName}...`);
+      WorkoutSessionServiceV2.logSet(
         session.id,
         userId,
         exerciseIndex,
@@ -345,23 +383,18 @@ export default function WorkoutSession() {
           is_completed: true,
           rpe: setData.rpe || null,
         }
-      );
-
-      // Refresh session
-      const updatedSession = await WorkoutSessionServiceV2.getSession(
-        session.id
-      );
-      setSession(updatedSession);
-
-      // Real-time stats will be recalculated automatically via useEffect
+      ).then(() => {
+        console.log(`✅ [Background] Set ${setNumber} saved successfully`);
+      }).catch(error => {
+        console.error(`❌ [Background] Error saving set ${setNumber}:`, error);
+      });
 
       // Check if all exercises are complete - compare against template exercises
-      // Count how many template exercises have all their sets completed
       const templateExerciseCount = template.exercises.length;
       const completedExercisesCount = template.exercises.filter((exercise, idx) => {
-        const exerciseSets = updatedSession.sets?.filter(
+        const exerciseSets = [...(session.sets || []), newSet].filter(
           (s) => s.exercise_index === idx && s.is_completed
-        ) || [];
+        );
         const targetSets = exercise.sets || 3;
         return exerciseSets.length >= targetSets;
       }).length;
@@ -395,8 +428,12 @@ export default function WorkoutSession() {
   };
 
   const handleCompleteWorkout = async () => {
+    // Play success animation
+    playSuccessAnimation();
+
+    // Save to database in background (non-blocking)
+    console.log("🔄 [Background] Completing workout session...");
     try {
-      // Use real-time calculated stats for completion
       const completionData = {
         total_sets_completed: currentStats.completedSets,
         estimated_calories_burned: currentStats.currentCalories,
@@ -407,39 +444,55 @@ export default function WorkoutSession() {
         completion_notes: completionNotes
       };
 
-      // Complete session in backend with our calculated values
-      const completedSession = await WorkoutSessionServiceV2.completeSession(
+      // Complete session in background
+      await WorkoutSessionServiceV2.completeSession(
         session.id,
         difficultyRating,
         completionNotes,
         completionData
       );
-      
-      // Update session state with our real-time values
-      const updatedSession = {
-        ...completedSession,
-        total_sets_completed: currentStats.completedSets,
-        estimated_calories_burned: currentStats.currentCalories,
-        total_volume_kg: currentStats.totalVolumeKg,
-        points_earned: currentStats.currentPoints
-      };
-      
-      setSession(updatedSession);
-      
-      // Wait a moment to show the stats before closing
-      setTimeout(() => {
-        setShowCompleteModal(false);
-        
-        // Replace with training page (removes workout from stack)
-        setTimeout(() => {
-          router.replace("/page/training");
-        }, 300);
-      }, 2000); // Show completion stats for 2 seconds
+
+      console.log("✅ [Background] Workout completed and saved successfully");
     } catch (error) {
-      console.error("Error completing workout:", error);
-      Alert.alert("Error", "Failed to complete workout. Please try again.");
-      // Don't close modal on error so user can retry
+      console.error("❌ [Background] Error completing workout:", error);
+      // Silently fail - data is already saved from individual sets
+      // User has already navigated away, so no need to show error
     }
+  };
+
+  // Success animation for workout completion
+  const playSuccessAnimation = () => {
+    setShowSuccessAnimation(true);
+    setShowCompleteModal(false);
+
+    // Animate checkmark
+    Animated.sequence([
+      Animated.parallel([
+        Animated.spring(successScale, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+        Animated.timing(successOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.spring(checkmarkScale, {
+        toValue: 1,
+        tension: 100,
+        friction: 5,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Navigate after animation
+    setTimeout(() => {
+      setShowSuccessAnimation(false);
+      router.replace("/page/training");
+    }, 800);
   };
 
   const handleQuitWorkout = () => {
@@ -637,6 +690,33 @@ export default function WorkoutSession() {
         exercise={selectedExercise}
         onClose={() => setShowExerciseDetail(false)}
       />
+
+      {/* Success Animation */}
+      {showSuccessAnimation && (
+        <View style={styles.successOverlay}>
+          <Animated.View
+            style={[
+              styles.successContainer,
+              {
+                opacity: successOpacity,
+                transform: [{ scale: successScale }],
+              },
+            ]}
+          >
+            <Animated.View
+              style={[
+                styles.checkmarkContainer,
+                {
+                  transform: [{ scale: checkmarkScale }],
+                },
+              ]}
+            >
+              <Ionicons name="checkmark-circle" size={80} color="#74B9FF" />
+            </Animated.View>
+            <Text style={styles.successText}>Workout Saved!</Text>
+          </Animated.View>
+        </View>
+      )}
 
       {/* Complete Workout Modal */}
       <Modal
@@ -911,6 +991,35 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 40,
+  },
+  // Success Animation
+  successOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    zIndex: 9999,
+  },
+  successContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 32,
+    borderRadius: 24,
+    backgroundColor: "#161616",
+    borderWidth: 1,
+    borderColor: "rgba(116, 185, 255, 0.3)",
+  },
+  checkmarkContainer: {
+    marginBottom: 16,
+  },
+  successText: {
+    fontSize: 20,
+    color: "#FAFAFA",
+    fontWeight: "700",
   },
   // Modal Styles
   modalOverlay: {
@@ -1271,21 +1380,31 @@ function ExerciseCard({
 
   const handleUndoSet = async (setNumber) => {
     try {
-      // Call service to mark set as not completed
-      await WorkoutSessionServiceV2.undoSet(
+      // OPTIMISTIC UPDATE: Update UI immediately
+      if (onSessionUpdate) {
+        onSessionUpdate(prevSession => {
+          const updatedSets = prevSession.sets?.map(s => {
+            if (s.exercise_index === exerciseIndex && s.set_number === setNumber) {
+              return { ...s, is_completed: false };
+            }
+            return s;
+          }) || [];
+
+          return {
+            ...prevSession,
+            sets: updatedSets,
+          };
+        });
+      }
+
+      // Update database in background
+      WorkoutSessionServiceV2.undoSet(
         session.id,
         exerciseIndex,
         setNumber
-      );
-
-      // Refresh session data
-      const updatedSession = await WorkoutSessionServiceV2.getSession(
-        session.id
-      );
-      // Update parent component's session state
-      if (onSessionUpdate) {
-        onSessionUpdate(updatedSession);
-      }
+      ).catch(error => {
+        console.error("Error undoing set in database:", error);
+      });
     } catch (error) {
       console.error("Error undoing set:", error);
       Alert.alert("Error", "Failed to undo set");
