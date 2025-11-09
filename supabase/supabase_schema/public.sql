@@ -1,6 +1,16 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
 
+CREATE TABLE public.active_weekly_challenge (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  challenge_id uuid NOT NULL,
+  started_at timestamp with time zone DEFAULT now(),
+  ends_at timestamp with time zone NOT NULL,
+  is_current boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT active_weekly_challenge_pkey PRIMARY KEY (id),
+  CONSTRAINT active_weekly_challenge_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id)
+);
 CREATE TABLE public.active_workout_sessions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
@@ -74,6 +84,37 @@ CREATE TABLE public.bodyfat_profiles (
   CONSTRAINT bodyfat_profiles_pkey PRIMARY KEY (user_id),
   CONSTRAINT bodyfat_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
+CREATE TABLE public.challenge_history (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  challenge_id uuid NOT NULL,
+  challenge_title text NOT NULL,
+  challenge_type text NOT NULL,
+  started_at timestamp with time zone NOT NULL,
+  ended_at timestamp with time zone NOT NULL,
+  total_participants integer DEFAULT 0,
+  winner_user_id uuid,
+  winner_score integer,
+  top_10_user_ids ARRAY,
+  archived_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT challenge_history_pkey PRIMARY KEY (id),
+  CONSTRAINT challenge_history_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id),
+  CONSTRAINT challenge_history_winner_user_id_fkey FOREIGN KEY (winner_user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.challenge_participations (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  challenge_id uuid NOT NULL,
+  challenge_score integer DEFAULT 0,
+  progress_value integer DEFAULT 0,
+  completed boolean DEFAULT false,
+  started_at timestamp with time zone DEFAULT now(),
+  completed_at timestamp with time zone,
+  last_updated timestamp with time zone DEFAULT now(),
+  points_earned integer DEFAULT 0,
+  CONSTRAINT challenge_participations_pkey PRIMARY KEY (id),
+  CONSTRAINT challenge_participations_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT challenge_participations_challenge_id_fkey FOREIGN KEY (challenge_id) REFERENCES public.challenges(id)
+);
 CREATE TABLE public.challenge_progress (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   challenge_id uuid NOT NULL,
@@ -102,6 +143,8 @@ CREATE TABLE public.challenges (
   created_by uuid,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  weekly_rotation boolean DEFAULT false,
+  last_activated_at timestamp with time zone,
   CONSTRAINT challenges_pkey PRIMARY KEY (id),
   CONSTRAINT challenges_prize_badge_id_fkey FOREIGN KEY (prize_badge_id) REFERENCES public.badges(id),
   CONSTRAINT challenges_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)

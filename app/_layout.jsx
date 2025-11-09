@@ -7,6 +7,7 @@ import { supabase, getCurrentUser } from "../services/supabase";
 import { NotificationService } from "../services/NotificationService";
 import StepsSyncService from "../services/StepsSyncService";
 import SplashScreenVideo from "../components/SplashScreen";
+import TrialExpiredModal from "../src/components/TrialExpiredModal";
 
 // Configure how notifications are displayed when app is in foreground
 Notifications.setNotificationHandler({
@@ -23,6 +24,69 @@ export default function Layout() {
   const realtimeSubscription = useRef();
   const [userId, setUserId] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
+  const [showTrialExpiredModal, setShowTrialExpiredModal] = useState(false);
+  const hasCheckedTrial = useRef(false);
+
+  // Check if user's trial has expired
+  const checkTrialExpiration = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .select('status, package_slug')
+        .eq('user_id', userId)
+        .eq('status', 'pending_downgrade')
+        .single();
+
+      if (!error && data) {
+        // User has an expired trial waiting for decision
+        setShowTrialExpiredModal(true);
+      }
+    } catch (error) {
+      // Silent fail - don't interrupt app flow
+      console.log('Trial check error:', error.message);
+    }
+  };
+
+  // Handle when user dismisses modal (continue with free)
+  const handleTrialModalDismiss = async () => {
+    setShowTrialExpiredModal(false);
+    
+    if (!userId) return;
+
+    try {
+      // Get base-free package ID
+      const { data: basePkg, error: pkgError } = await supabase
+        .from('subscription_packages')
+        .select('id')
+        .eq('slug', 'base-free')
+        .single();
+
+      if (pkgError) throw pkgError;
+
+      // Update expired trial to 'expired' status
+      await supabase
+        .from('user_subscriptions')
+        .update({ status: 'expired' })
+        .eq('user_id', userId)
+        .eq('status', 'pending_downgrade');
+
+      // Create new base-free subscription
+      await supabase
+        .from('user_subscriptions')
+        .insert({
+          user_id: userId,
+          package_id: basePkg.id,
+          package_slug: 'base-free',
+          status: 'active',
+          started_at: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString(), // 100 years
+        });
+
+      console.log('User downgraded to base-free');
+    } catch (error) {
+      console.error('Error downgrading user:', error);
+    }
+  };
 
   useEffect(() => {
     // Get current user and set up real-time subscription
@@ -32,6 +96,12 @@ export default function Layout() {
         
         if (user) {
           setUserId(user.id);
+          
+          // Check if user has expired trial (only once per app session)
+          if (!hasCheckedTrial.current) {
+            hasCheckedTrial.current = true;
+            await checkTrialExpiration(user.id);
+          }
           
           // Trigger background steps sync (non-blocking)
           // This will sync steps from HealthKit/Google Fit if permission is granted
@@ -146,13 +216,19 @@ export default function Layout() {
       {showSplash ? (
         <SplashScreenVideo onFinish={() => setShowSplash(false)} />
       ) : (
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            animation: "none",
-            gestureEnabled: false,
-          }}
-        />
+        <>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              animation: "none",
+              gestureEnabled: false,
+            }}
+          />
+          <TrialExpiredModal 
+            visible={showTrialExpiredModal} 
+            onDismiss={handleTrialModalDismiss}
+          />
+        </>
       )}
     </StripeProvider>
   );

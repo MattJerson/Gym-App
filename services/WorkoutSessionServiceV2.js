@@ -423,82 +423,108 @@ export const WorkoutSessionServiceV2 = {
   /**
    * Complete workout session
    */
-  async completeSession(sessionId, difficultyRating = null, notes = null) {
+  async completeSession(sessionId, difficultyRating = null, notes = null, completionData = null) {
     try {
       // Get session details first to get user_id
       const session = await this.getSession(sessionId);
       const userId = session?.user_id;
       const templateId = session?.workout_template_id || session?.template_id;
-      // Calculate workout statistics from completed sets
-      const { data: setsData, error: setsError } = await supabase
+      
+      // Use completionData if provided (from frontend calculation), otherwise calculate from sets
+      let totalSetsCompleted, totalVolumeKg, estimatedCalories;
+      
+      if (completionData) {
+        // Use pre-calculated data from frontend (more accurate, based on actual exercises)
+        totalSetsCompleted = completionData.total_sets_completed || 0;
+        totalVolumeKg = completionData.total_volume_kg || 0;
+        estimatedCalories = completionData.estimated_calories_burned || 0;
+      } else {
+        // Fallback: Calculate workout statistics from completed sets
+        const { data: setsData, error: setsError } = await supabase
+          .from('exercise_sets')
+          .select('actual_reps, weight_kg, is_completed, exercise_index, exercise_name')
+          .eq('session_id', sessionId)
+          .eq('is_completed', true);
+
+        if (setsError) {
+          console.warn('Error fetching sets data:', setsError);
+        }
+
+        // Calculate totals
+        totalSetsCompleted = setsData?.length || 0;
+        const totalRepsCompleted = setsData?.reduce((sum, set) => sum + (set.actual_reps || 0), 0) || 0;
+        totalVolumeKg = setsData?.reduce((sum, set) => sum + ((set.actual_reps || 0) * (set.weight_kg || 0)), 0) || 0;
+        const completedExercises = new Set(setsData?.map(set => set.exercise_index) || []).size;
+
+        // Calculate duration
+        const startedAt = new Date(session.started_at);
+        const now = new Date();
+        const totalDurationSeconds = Math.floor((now - startedAt) / 1000) - (session.total_pause_duration || 0);
+
+        // Get comprehensive user profile for accurate calorie calculation
+        const { data: userProfile } = await supabase
+          .from('registration_profiles')
+          .select('weight_kg, height_cm, age, gender, activity_level, fitness_level')
+          .eq('user_id', userId)
+          .single();
+
+        const userWeight = userProfile?.weight_kg || 70;
+        const fitnessLevel = userProfile?.fitness_level || 'intermediate';
+
+        // Activity multiplier based on fitness level
+        const fitnessMultiplier = {
+          'beginner': 0.9,
+          'intermediate': 1.0,
+          'advanced': 1.1
+        }[fitnessLevel] || 1.0;
+
+        // ✅ REALISTIC CALORIE CALCULATION using standard MET formula
+        // Formula: Calories = MET × weight_kg × duration_hours
+        // Resistance training MET values: 
+        // - Light (3.5): bodyweight exercises, light weights
+        // - Moderate (5.0): moderate weights, compound movements
+        // - Vigorous (6.0-8.0): heavy weights, high intensity
+        
+        const durationHours = totalDurationSeconds / 3600;
+        
+        // Determine average MET based on workout intensity
+        let averageMET = 5.0; // Default moderate intensity
+        
+        // Adjust MET based on sets completed (more sets = higher intensity)
+        if (totalSetsCompleted >= 30) {
+          averageMET = 6.5; // High intensity
+        } else if (totalSetsCompleted >= 20) {
+          averageMET = 5.5; // Moderate-high intensity
+        } else if (totalSetsCompleted >= 10) {
+          averageMET = 5.0; // Moderate intensity
+        } else {
+          averageMET = 4.0; // Light-moderate intensity
+        }
+        
+        // Base calorie calculation
+        const baseCalories = averageMET * userWeight * durationHours;
+        
+        // Small bonus for volume (weight lifted)
+        const volumeBonus = Math.min(50, Math.floor(totalVolumeKg / 500)); // Max 50 calories from volume
+        
+        // Apply fitness multiplier
+        estimatedCalories = Math.round((baseCalories + volumeBonus) * fitnessMultiplier);
+      }
+      
+      // Calculate remaining values needed for completion
+      const { data: allSetsData } = await supabase
         .from('exercise_sets')
-        .select('actual_reps, weight_kg, is_completed, exercise_index, exercise_name')
+        .select('actual_reps, weight_kg, is_completed, exercise_index')
         .eq('session_id', sessionId)
         .eq('is_completed', true);
-
-      if (setsError) {
-        console.warn('Error fetching sets data:', setsError);
-      }
-
-      // Calculate totals
-      const totalSetsCompleted = setsData?.length || 0;
-      const totalRepsCompleted = setsData?.reduce((sum, set) => sum + (set.actual_reps || 0), 0) || 0;
-      const totalVolumeKg = setsData?.reduce((sum, set) => sum + ((set.actual_reps || 0) * (set.weight_kg || 0)), 0) || 0;
-      const completedExercises = new Set(setsData?.map(set => set.exercise_index) || []).size;
-
+      
+      const totalRepsCompleted = allSetsData?.reduce((sum, set) => sum + (set.actual_reps || 0), 0) || 0;
+      const completedExercises = new Set(allSetsData?.map(set => set.exercise_index) || []).size;
+      
       // Calculate duration
       const startedAt = new Date(session.started_at);
       const now = new Date();
       const totalDurationSeconds = Math.floor((now - startedAt) / 1000) - (session.total_pause_duration || 0);
-
-      // Get comprehensive user profile for accurate calorie calculation
-      const { data: userProfile } = await supabase
-        .from('registration_profiles')
-        .select('weight_kg, height_cm, age, gender, activity_level, fitness_level')
-        .eq('user_id', userId)
-        .single();
-
-      const userWeight = userProfile?.weight_kg || 70;
-      const fitnessLevel = userProfile?.fitness_level || 'intermediate';
-
-      // Activity multiplier based on fitness level
-      const fitnessMultiplier = {
-        'beginner': 0.9,
-        'intermediate': 1.0,
-        'advanced': 1.1
-      }[fitnessLevel] || 1.0;
-
-      // ✅ REALISTIC CALORIE CALCULATION using standard MET formula
-      // Formula: Calories = MET × weight_kg × duration_hours
-      // Resistance training MET values: 
-      // - Light (3.5): bodyweight exercises, light weights
-      // - Moderate (5.0): moderate weights, compound movements
-      // - Vigorous (6.0-8.0): heavy weights, high intensity
-      
-      const durationHours = totalDurationSeconds / 3600;
-      
-      // Determine average MET based on workout intensity
-      let averageMET = 5.0; // Default moderate intensity
-      
-      // Adjust MET based on sets completed (more sets = higher intensity)
-      if (totalSetsCompleted >= 30) {
-        averageMET = 6.5; // High intensity
-      } else if (totalSetsCompleted >= 20) {
-        averageMET = 5.5; // Moderate-high intensity
-      } else if (totalSetsCompleted >= 10) {
-        averageMET = 5.0; // Moderate intensity
-      } else {
-        averageMET = 4.0; // Light-moderate intensity
-      }
-      
-      // Base calorie calculation
-      const baseCalories = averageMET * userWeight * durationHours;
-      
-      // Small bonus for volume (weight lifted)
-      const volumeBonus = Math.min(50, Math.floor(totalVolumeKg / 500)); // Max 50 calories from volume
-      
-      // Apply fitness multiplier
-      const estimatedCalories = Math.round((baseCalories + volumeBonus) * fitnessMultiplier);
       // ⭐ CALCULATE POINTS EARNED
       // Points system based on effort and achievement
       const basePoints = 10; // Base points for completing any workout
@@ -598,9 +624,9 @@ export const WorkoutSessionServiceV2 = {
       }
 
       // Update workout_session_exercises completion status
-      if (setsData && setsData.length > 0) {
-        for (const exerciseIndex of new Set(setsData.map(s => s.exercise_index))) {
-          const exerciseSets = setsData.filter(s => s.exercise_index === exerciseIndex);
+      if (allSetsData && allSetsData.length > 0) {
+        for (const exerciseIndex of new Set(allSetsData.map(s => s.exercise_index))) {
+          const exerciseSets = allSetsData.filter(s => s.exercise_index === exerciseIndex);
           const exerciseCompleted = exerciseSets.length;
           const exerciseReps = exerciseSets.reduce((sum, s) => sum + (s.actual_reps || 0), 0);
           const exerciseVolume = exerciseSets.reduce((sum, s) => sum + ((s.actual_reps || 0) * (s.weight_kg || 0)), 0);

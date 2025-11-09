@@ -319,7 +319,7 @@ export default function MySubscription() {
 
                 <View style={styles.card}>
                   {subscriptionPackage.price === 0 ? (
-                    // Free trial - show upgrade option prominently
+                    // Free tier (base-free or free-trial) - show upgrade option prominently
                     <>
                       <Pressable
                         style={[styles.linkButton, styles.upgradeHighlight]}
@@ -329,10 +329,14 @@ export default function MySubscription() {
                           <Ionicons name="rocket" size={22} color="#A3E635" />
                           <View>
                             <Text style={styles.linkButtonText}>
-                              Upgrade to Premium
+                              {subscriptionPackage.slug === 'free-trial' 
+                                ? 'Upgrade to Keep Premium Features' 
+                                : 'Start 7-Day Free Trial'}
                             </Text>
                             <Text style={styles.linkButtonSubtext}>
-                              Unlock all features
+                              {subscriptionPackage.slug === 'free-trial'
+                                ? 'Your trial expires soon'
+                                : 'Try all features free for 7 days'}
                             </Text>
                           </View>
                         </View>

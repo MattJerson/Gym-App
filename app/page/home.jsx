@@ -3,6 +3,7 @@ import { supabase } from "../../services/supabase";
 import { useRouter, usePathname } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import QuickStart from "../../components/home/QuickStart";
+import RapidResultsCoachingBanner from "../../components/home/RapidResultsCoachingBanner";
 import FeaturedVideo from "../../components/home/FeaturedVideo";
 import { HomeDataService } from "../../services/HomeDataService";
 import RecentActivity from "../../components/home/RecentActivity";
@@ -146,6 +147,9 @@ export default function Home() {
             {quickStartCategories.length > 0 && (
               <QuickStart categories={quickStartCategories} />
             )}
+
+            {/* Rapid Results Coaching Banner */}
+            <RapidResultsCoachingBanner />
 
             {/* Featured Video */}
             {featuredContent && (

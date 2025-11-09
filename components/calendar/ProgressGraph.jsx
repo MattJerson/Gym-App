@@ -11,6 +11,8 @@ const screenWidth = Dimensions.get("window").width;
 export default function ProgressGraph({ chart, userId }) {
   const [unlockStatus, setUnlockStatus] = useState(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+  const [dailyBalance, setDailyBalance] = useState(null);
+  const [isLoadingBalance, setIsLoadingBalance] = useState(true);
 
   // 🔍 COMPREHENSIVE LOGGING - Component Mount
   useEffect(() => {
@@ -24,6 +26,7 @@ export default function ProgressGraph({ chart, userId }) {
   useEffect(() => {
     if (userId) {
       loadUnlockStatus();
+      loadDailyBalance();
     } else {
       console.warn('📊 ProgressGraph: No userId provided!');
     }
@@ -43,6 +46,37 @@ export default function ProgressGraph({ chart, userId }) {
       });
     } finally {
       setIsLoadingStatus(false);
+    }
+  };
+
+  const loadDailyBalance = async () => {
+    try {
+      setIsLoadingBalance(true);
+      const today = new Date().toISOString().split('T')[0];
+      const balance = await WeightProgressService.getDailyCalorieBalance(userId, today);
+      
+      // Calculate net balance: consumed - burned
+      // Positive = surplus, Negative = deficit
+      const netBalance = balance.caloriesConsumed - balance.caloriesBurned;
+      
+      setDailyBalance({
+        consumed: balance.caloriesConsumed,
+        burned: balance.caloriesBurned,
+        net: netBalance,
+        isDeficit: netBalance < 0,
+        isSurplus: netBalance > 0
+      });
+    } catch (error) {
+      console.error('❌ ProgressGraph: Error loading daily balance:', error);
+      setDailyBalance({
+        consumed: 0,
+        burned: 0,
+        net: 0,
+        isDeficit: false,
+        isSurplus: false
+      });
+    } finally {
+      setIsLoadingBalance(false);
     }
   };
 
@@ -271,33 +305,26 @@ const aestheticChartConfig = {
         )}
       </View>
 
-      {/* Calorie Balance Indicator */}
-      {hasSufficientData && chart.calorieBalance !== undefined && (
-        <View style={styles.calorieBalanceContainer}>
-          <View style={styles.balanceRow}>
-            <View style={styles.balanceItem}>
-              <Text style={styles.balanceLabel}>Current Weight</Text>
-              <Text style={styles.balanceValue}>{chart.currentWeight} kg</Text>
+      {/* Current Weight & Daily Balance Indicator */}
+      {hasSufficientData && !isLoadingBalance && dailyBalance && (
+        <View style={styles.compactBalanceContainer}>
+          <View style={styles.compactBalanceRow}>
+            <View style={styles.compactBalanceItem}>
+              <Text style={styles.compactBalanceLabel}>Current Weight</Text>
+              <Text style={styles.compactBalanceValue}>{chart.currentWeight} kg</Text>
             </View>
-            <View style={styles.balanceDivider} />
-            <View style={styles.balanceItem}>
-              <Text style={styles.balanceLabel}>Cal Balance</Text>
+            <View style={styles.compactBalanceDivider} />
+            <View style={styles.compactBalanceItem}>
+              <Text style={styles.compactBalanceLabel}>Daily Balance</Text>
               <Text style={[
-                styles.balanceValue,
-                { color: chart.calorieBalance < 0 ? '#10B981' : chart.calorieBalance > 0 ? '#EF4444' : '#999' }
+                styles.compactBalanceValue,
+                { color: dailyBalance.isDeficit ? '#10B981' : dailyBalance.isSurplus ? '#EF4444' : '#999' }
               ]}>
-                {chart.calorieBalance > 0 ? '+' : ''}{chart.calorieBalance}
+                {dailyBalance.net > 0 ? '+' : ''}{dailyBalance.net}
               </Text>
-            </View>
-          </View>
-          <View style={styles.legendRow}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#0A84FF' }]} />
-              <Text style={styles.legendText}>Actual</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#0A84FF', opacity: 0.4 }]} />
-              <Text style={styles.legendText}>Projected</Text>
+              <Text style={styles.compactBalanceSubtext}>
+                {dailyBalance.isDeficit ? 'Deficit' : dailyBalance.isSurplus ? 'Surplus' : 'Balanced'}
+              </Text>
             </View>
           </View>
         </View>
@@ -412,59 +439,51 @@ const styles = StyleSheet.create({
     color: "rgba(235, 235, 245, 0.6)",
     textAlign: 'right',
   },
-  calorieBalanceContainer: {
+  // Compact Balance Container (New Design)
+  compactBalanceContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 10,
+    padding: 10,
     marginHorizontal: 14,
-    marginBottom: 16,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  balanceRow: {
+  compactBalanceRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    marginBottom: 12,
   },
-  balanceItem: {
+  compactBalanceItem: {
     alignItems: 'center',
+    flex: 1,
   },
-  balanceDivider: {
+  compactBalanceDivider: {
     width: 1,
-    height: 32,
+    height: 40,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginHorizontal: 12,
   },
-  balanceLabel: {
-    fontSize: 11,
-    color: 'rgba(235, 235, 245, 0.6)',
+  compactBalanceLabel: {
+    fontSize: 10,
+    color: 'rgba(235, 235, 245, 0.5)',
     marginBottom: 4,
     fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  balanceValue: {
-    fontSize: 18,
+  compactBalanceValue: {
+    fontSize: 20,
     fontWeight: '800',
     color: '#fff',
+    marginBottom: 2,
   },
-  legendRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontSize: 11,
-    color: 'rgba(235, 235, 245, 0.6)',
-    fontWeight: '500',
+  compactBalanceSubtext: {
+    fontSize: 9,
+    color: 'rgba(235, 235, 245, 0.4)',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   chartStyle: {
     borderRadius: 16,

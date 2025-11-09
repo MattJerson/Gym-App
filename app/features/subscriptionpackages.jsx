@@ -63,29 +63,36 @@ export default function SubscriptionPackages() {
 
   const checkExistingSubscription = async () => {
     try {
-      const userResp = await supabase.auth.getUser();
-      const userId = userResp?.data?.user?.id;
+      // Check if user is coming from settings (upgrade flow)
+      // If so, don't redirect them away - let them see upgrade options
+      const isUpgradeFlow = router.canGoBack();
+      
+      if (!isUpgradeFlow) {
+        // Only check for existing subscription during onboarding
+        const userResp = await supabase.auth.getUser();
+        const userId = userResp?.data?.user?.id;
 
-      if (userId) {
-        // Check for existing active subscription
-        const { data: existingSubscription } = await supabase
-          .from("user_subscriptions")
-          .select("id, status, package_slug")
-          .eq("user_id", userId)
-          .eq("status", "active")
-          .single();
+        if (userId) {
+          // Check for existing active subscription
+          const { data: existingSubscription } = await supabase
+            .from("user_subscriptions")
+            .select("id, status, package_slug")
+            .eq("user_id", userId)
+            .eq("status", "active")
+            .single();
 
-        if (existingSubscription) {
-          logger.info("User already has active subscription, skipping to workout selection");
-          router.replace("../features/selectworkouts");
-          return;
+          if (existingSubscription) {
+            console.log("User already has active subscription, skipping to workout selection");
+            router.replace("../features/selectworkouts");
+            return;
+          }
         }
       }
 
-      // No subscription found, load packages
+      // No subscription found or user wants to upgrade, load packages
       loadSubscriptions();
     } catch (err) {
-      logger.warn("Error checking existing subscription:", err);
+      console.warn("Error checking existing subscription:", err);
       // Continue to load subscriptions even if check fails
       loadSubscriptions();
     }
@@ -96,6 +103,7 @@ export default function SubscriptionPackages() {
       const { data, error } = await supabase
         .from("subscription_packages")
         .select("*")
+        .eq("is_active", true) // Only show active packages
         .order("sort_order", { ascending: true });
 
       if (error) {
@@ -103,7 +111,9 @@ export default function SubscriptionPackages() {
         // Use fallback data if DB query fails
         setSubscriptions(getFallbackSubscriptions());
       } else {
-        setSubscriptions(data || getFallbackSubscriptions());
+        // Filter out base-free (it's auto-assigned only, not purchasable)
+        const filteredData = (data || []).filter(pkg => pkg.slug !== 'base-free');
+        setSubscriptions(filteredData.length > 0 ? filteredData : getFallbackSubscriptions());
       }
     } catch (err) {
       console.error("Failed to load subscriptions:", err);
@@ -116,22 +126,20 @@ export default function SubscriptionPackages() {
   const getFallbackSubscriptions = () => [
     {
       slug: "free-trial",
-      name: "Free Trial",
+      name: "7-Day Free Trial",
       price: 0,
       billing_interval: "one_time",
       features: [
         { text: "7 days unlimited access", included: true },
+        { text: "Full feature access", included: true },
+        { text: "Cancel anytime", included: true },
+        { text: "Automatic downgrade to Base (Free) tier after trial", included: true },
+        { text: "No credit card required", included: true },
         { text: "Basic workout plans", included: true },
         { text: "Basic meal plans", included: true },
-        { text: "Activity tracking", included: true },
-        { text: "Progress photos", included: true },
-        { text: "AI workout assistant", included: false },
-        { text: "Custom nutrition plans", included: false },
-        { text: "Advanced analytics", included: false },
-        { text: "Priority support", included: false },
-        { text: "Workout history export", included: false },
+        { text: "Progress tracking", included: true },
       ],
-      badge: "TRY FREE",
+      badge: "7 DAYS FREE",
       emoji: "🎁",
       accent_color: "#00D4AA",
       is_popular: false,
@@ -139,7 +147,7 @@ export default function SubscriptionPackages() {
     {
       slug: "monthly",
       name: "Monthly",
-      price: 9.99,
+      price: 27.99,
       billing_interval: "month",
       features: [
         { text: "Unlimited workout plans", included: true },
@@ -160,13 +168,13 @@ export default function SubscriptionPackages() {
       is_popular: false,
     },
     {
-      slug: "annual",
-      name: "Annual",
-      price: 79.99,
-      billing_interval: "year",
+      slug: "six-month",
+      name: "6-Month Plan",
+      price: 149.99,
+      billing_interval: "six_month",
       features: [
         { text: "Everything in Monthly", included: true },
-        { text: "Save 33% vs Monthly plan", included: true },
+        { text: "Save $17.95 vs monthly", included: true },
         { text: "Priority email support", included: true },
         { text: "Early access to features", included: true },
         { text: "Advanced analytics dashboard", included: true },
@@ -177,7 +185,7 @@ export default function SubscriptionPackages() {
         { text: "Monthly progress reports", included: true },
         { text: "VIP community badge", included: true },
       ],
-      badge: "BEST VALUE",
+      badge: "POPULAR",
       emoji: "🏆",
       accent_color: "#FFB800",
       is_popular: true,
