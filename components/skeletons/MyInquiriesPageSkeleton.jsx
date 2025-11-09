@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import SkeletonLoader, { SkeletonText } from '../../SkeletonLoader';
+import SkeletonLoader, { SkeletonText } from '../SkeletonLoader';
 
 export const MyInquiriesPageSkeleton = () => {
   return (
