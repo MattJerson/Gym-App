@@ -9,11 +9,21 @@ export default function TodaysWorkoutCard({
   totalExercises = 7,
   estimatedDuration = 45,
   difficulty = "Intermediate",
-  categoryColor = "#A3E635",
+  categoryColor = "#5082B4",
   categoryIcon = "dumbbell",
-  scheduledDay = "Tuesday",
+  targetMuscles = [],
+  calories = 0,
   onContinue = () => {},
 }) {
+  // Get current day dynamically based on user's local timezone
+  const getCurrentDay = () => {
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const today = new Date();
+    return days[today.getDay()];
+  };
+
+  const scheduledDay = getCurrentDay();
+
   // Difficulty badge colors
   const getDifficultyColor = (diff) => {
     switch (diff) {
@@ -43,19 +53,22 @@ export default function TodaysWorkoutCard({
         ]} 
         onPress={onContinue}
       >
-        <View style={styles.cardInner}>
-          {/* Color accent stripe */}
-          <View style={[styles.colorAccent, { backgroundColor: categoryColor }]} />
+        <LinearGradient
+          colors={[`${categoryColor}50`, `${categoryColor}28`]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.cardInner}
+        >
           
           {/* Main content */}
           <View style={styles.content}>
             {/* Left side - Start button */}
             <View style={styles.leftSection}>
               <Pressable 
-                style={[styles.startButton, { backgroundColor: categoryColor }]}
+                style={[styles.startButton, { backgroundColor: 'rgba(255, 255, 255, 0.15)' }]}
                 onPress={onContinue}
               >
-                <Ionicons name="play" size={24} color="#000" />
+                <Ionicons name="play" size={28} color="rgba(255, 255, 255, 0.95)" />
               </Pressable>
             </View>
 
@@ -108,10 +121,32 @@ export default function TodaysWorkoutCard({
                   </Text>
                   <Text style={styles.metricLabel}>min</Text>
                 </View>
+                {calories > 0 && (
+                  <>
+                    <View style={[styles.metricDivider, { backgroundColor: `${categoryColor}25` }]} />
+                    <View style={styles.metricItem}>
+                      <Text style={[styles.metricNum, { color: categoryColor }]}>
+                        {calories}
+                      </Text>
+                      <Text style={styles.metricLabel}>cal</Text>
+                    </View>
+                  </>
+                )}
               </View>
+
+              {/* Target muscles */}
+              {targetMuscles && targetMuscles.length > 0 && (
+                <View style={styles.musclesRow}>
+                  <Ionicons name="body-outline" size={11} color="rgba(255, 255, 255, 0.65)" />
+                  <Text style={styles.musclesText} numberOfLines={1}>
+                    {targetMuscles.slice(0, 3).join(', ')}
+                    {targetMuscles.length > 3 && ` +${targetMuscles.length - 3}`}
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
-        </View>
+        </LinearGradient>
       </Pressable>
     </View>
   );
@@ -139,21 +174,21 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    backgroundColor: "rgba(163, 230, 53, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(163, 230, 53, 0.25)",
+    borderColor: "rgba(255, 255, 255, 0.25)",
   },
   liveDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#A3E635",
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
   },
   todayText: {
     fontSize: 9,
     fontWeight: "800",
-    color: "#A3E635",
+    color: "rgba(255, 255, 255, 0.95)",
     letterSpacing: 0.8,
   },
   card: {
@@ -165,30 +200,20 @@ const styles = StyleSheet.create({
     opacity: 0.95,
   },
   cardInner: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
     overflow: 'hidden',
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  colorAccent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
   },
   content: {
     flexDirection: "row",
-    padding: 16,
-    paddingTop: 20,
-    gap: 16,
-    minHeight: 140,
+    padding: 18,
+    paddingTop: 22,
+    gap: 18,
+    minHeight: 150,
   },
   leftSection: {
     justifyContent: "center",
@@ -200,11 +225,8 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
-    elevation: 4,
-    shadowColor: "#A3E635",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
   rightSection: {
     flex: 1,
@@ -215,9 +237,9 @@ const styles = StyleSheet.create({
   },
   scheduledDay: {
     fontSize: 12,
-    fontWeight: "600",
-    color: "#A1A1AA",
-    letterSpacing: 0.4,
+    fontWeight: "700",
+    color: "rgba(255, 255, 255, 0.85)",
+    letterSpacing: 0.6,
     marginBottom: 6,
     textTransform: "uppercase",
   },
@@ -227,52 +249,61 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   typeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
     borderWidth: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
   typeText: {
     fontSize: 9,
-    fontWeight: "800",
-    letterSpacing: 0.6,
+    fontWeight: "900",
+    letterSpacing: 0.7,
+    color: 'rgba(255, 255, 255, 0.95)',
   },
   difficultyBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
     borderWidth: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderColor: 'rgba(255, 255, 255, 0.25)',
   },
   difficultyDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
   },
   difficultyText: {
-    fontSize: 8,
+    fontSize: 10,
     fontWeight: "700",
-    letterSpacing: 0.4,
+    letterSpacing: 0.5,
     textTransform: "uppercase",
+    color: 'rgba(255, 255, 255, 0.95)',
   },
   workoutName: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#FFFFFF",
+    color: "rgba(255, 255, 255, 0.95)",
     letterSpacing: 0.2,
     lineHeight: 23,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   metricsRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderRadius: 10,
-    gap: 6,
+    gap: 8,
     borderWidth: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
   metricItem: {
     flexDirection: "row",
@@ -282,14 +313,29 @@ const styles = StyleSheet.create({
   metricNum: {
     fontWeight: "800",
     fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.95)',
   },
   metricLabel: {
-    color: "#A1A1AA",
+    color: "rgba(255, 255, 255, 0.65)",
     fontSize: 10,
     fontWeight: "500",
   },
   metricDivider: {
     width: 1,
     height: 14,
+  },
+  musclesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
+    paddingHorizontal: 2,
+  },
+  musclesText: {
+    fontSize: 10,
+    fontWeight: "500",
+    color: "rgba(255, 255, 255, 0.65)",
+    letterSpacing: 0.2,
+    flex: 1,
   },
 });

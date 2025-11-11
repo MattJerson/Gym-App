@@ -364,7 +364,7 @@ export default function CreateWorkout() {
             <MaterialCommunityIcons
               name="clipboard-text-outline"
               size={24}
-              color="#A3E635"
+              color="#5082B4"
             />
             <Text style={styles.sectionTitle}>Workout Details</Text>
           </View>
@@ -410,7 +410,7 @@ export default function CreateWorkout() {
                     )
                   }
                 >
-                  <Ionicons name="remove" size={20} color="#A3E635" />
+                  <Ionicons name="remove" size={20} color="#5082B4" />
                 </TouchableOpacity>
                 <TextInput
                   style={styles.durationInput}
@@ -427,7 +427,7 @@ export default function CreateWorkout() {
                     )
                   }
                 >
-                  <Ionicons name="add" size={20} color="#A3E635" />
+                  <Ionicons name="add" size={20} color="#5082B4" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -437,7 +437,7 @@ export default function CreateWorkout() {
         {/* Customization Section - Color & Emoji */}
         <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="color-palette-outline" size={24} color="#A3E635" />
+            <Ionicons name="color-palette-outline" size={24} color="#5082B4" />
             <Text style={styles.sectionTitle}>Customize Appearance</Text>
           </View>
 
@@ -517,7 +517,7 @@ export default function CreateWorkout() {
         {/* Difficulty Selection */}
         <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="speedometer-outline" size={24} color="#A3E635" />
+            <Ionicons name="speedometer-outline" size={24} color="#5082B4" />
             <Text style={styles.sectionTitle}>Difficulty Level</Text>
           </View>
           <View style={styles.difficultyContainer}>
@@ -532,7 +532,7 @@ export default function CreateWorkout() {
               >
                 <Ionicons
                   name={level.icon}
-                  size={24}
+                  size={20}
                   color={difficulty === level.id ? level.color : "#71717A"}
                 />
                 <Text
@@ -559,7 +559,7 @@ export default function CreateWorkout() {
         {/* Exercises Section */}
         <Animated.View style={[styles.section, { opacity: fadeAnim }]}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="barbell-outline" size={24} color="#A3E635" />
+            <Ionicons name="barbell-outline" size={24} color="#5082B4" />
             <Text style={styles.sectionTitle}>Exercises</Text>
             <View style={styles.exerciseBadge}>
               <Text style={styles.exerciseBadgeText}>{exercises.length}</Text>
@@ -618,7 +618,7 @@ export default function CreateWorkout() {
                 style={styles.addMoreButton}
                 onPress={() => setShowExerciseModal(true)}
               >
-                <Ionicons name="add-circle-outline" size={24} color="#A3E635" />
+                <Ionicons name="add-circle-outline" size={24} color="#1E3A5F" />
                 <Text style={styles.addMoreText}>Add Another Exercise</Text>
               </Pressable>
             </>
@@ -759,7 +759,7 @@ function ExerciseCard({
                     )
                   }
                 >
-                  <Ionicons name="remove" size={16} color="#A3E635" />
+                  <Ionicons name="remove" size={16} color="#5082B4" />
                 </TouchableOpacity>
                 <TextInput
                   style={exerciseCardStyles.input}
@@ -775,7 +775,7 @@ function ExerciseCard({
                     onUpdate(exercise.id, "sets", exercise.sets + 1)
                   }
                 >
-                  <Ionicons name="add" size={16} color="#A3E635" />
+                  <Ionicons name="add" size={16} color="#5082B4" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -818,7 +818,7 @@ function ExerciseCard({
                     )
                   }
                 >
-                  <Ionicons name="remove" size={16} color="#A3E635" />
+                  <Ionicons name="remove" size={16} color="#5082B4" />
                 </TouchableOpacity>
                 <TextInput
                   style={exerciseCardStyles.input}
@@ -838,7 +838,7 @@ function ExerciseCard({
                     )
                   }
                 >
-                  <Ionicons name="add" size={16} color="#A3E635" />
+                  <Ionicons name="add" size={16} color="#5082B4" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -851,12 +851,17 @@ function ExerciseCard({
 
 const exerciseCardStyles = StyleSheet.create({
   card: {
-    padding: 16,
-    borderWidth: 1,
-    borderRadius: 16,
-    marginBottom: 12,
+    padding: 18,
+    borderWidth: 1.5,
+    borderRadius: 18,
+    marginBottom: 14,
     borderColor: "#27272A",
     backgroundColor: "#161616",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   header: {
     flexDirection: "row",
@@ -870,31 +875,39 @@ const exerciseCardStyles = StyleSheet.create({
     alignItems: "center",
   },
   indexBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#27272A",
+    backgroundColor: "#5082B4",
+    shadowColor: "#5082B4",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 3,
   },
   indexText: {
-    fontSize: 14,
-    color: "#FAFAFA",
-    fontWeight: "700",
+    fontSize: 15,
+    color: "#0B0B0B",
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
   headerInfo: {
     flex: 1,
   },
   exerciseName: {
-    fontSize: 16,
-    marginBottom: 2,
+    fontSize: 17,
+    marginBottom: 4,
     color: "#FAFAFA",
-    fontWeight: "700",
+    fontWeight: "800",
+    letterSpacing: 0.2,
   },
   exerciseTarget: {
-    fontSize: 12,
-    color: "#71717A",
+    fontSize: 13,
+    color: "#A1A1AA",
     fontWeight: "600",
+    letterSpacing: 0.1,
   },
   headerActions: {
     gap: 12,
@@ -902,12 +915,14 @@ const exerciseCardStyles = StyleSheet.create({
     alignItems: "center",
   },
   deleteButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.3)",
   },
   expandedContent: {
     gap: 12,
@@ -1187,7 +1202,7 @@ function ExerciseSelectionModal({
                         <Ionicons 
                           name={isAdded ? "checkmark" : "add"} 
                           size={24} 
-                          color={isAdded ? "#FFF" : "#A3E635"} 
+                          color={isAdded ? "#FFF" : "#5082B4"} 
                         />
                       </Pressable>
                     </Pressable>
@@ -1274,7 +1289,7 @@ function ExerciseSelectionModal({
                     style={modalStyles.loadMoreButton}
                     onPress={() => onBodyPartChange(selectedBodyPart, true)}
                   >
-                    <Ionicons name="add-circle-outline" size={20} color="#A3E635" />
+                    <Ionicons name="add-circle-outline" size={20} color="#5082B4" />
                     <Text style={modalStyles.loadMoreText}>Load More Exercises</Text>
                   </TouchableOpacity>
                 ) : null
@@ -1293,15 +1308,15 @@ const modalStyles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.85)",
+    backgroundColor: "rgba(0, 0, 0, 0.90)",
   },
   container: {
     borderWidth: 1,
     maxHeight: "90%",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    backgroundColor: "#161616",
-    borderColor: "rgba(163, 230, 53, 0.2)",
+    backgroundColor: "#0B0B0B",
+    borderColor: "rgba(80, 130, 180, 0.3)",
   },
   header: {
     padding: 20,
@@ -1361,7 +1376,7 @@ const modalStyles = StyleSheet.create({
   filterTitle: {
     fontSize: 12,
     marginBottom: 12,
-    color: "#A1A1AA",
+    color: "#5082B4",
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -1410,7 +1425,7 @@ const modalStyles = StyleSheet.create({
   exerciseItemWrapper: {
     marginBottom: 12,
     borderRadius: 12,
-    backgroundColor: "#1C1C1E",
+    backgroundColor: "#161616",
     borderWidth: 1,
     borderColor: "#27272A",
     overflow: "hidden",
@@ -1453,20 +1468,28 @@ const modalStyles = StyleSheet.create({
     borderRadius: 6,
   },
   bodyPartTag: {
-    backgroundColor: "rgba(163, 230, 53, 0.15)",
+    backgroundColor: "rgba(80, 130, 180, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(80, 130, 180, 0.25)",
   },
   equipmentTag: {
-    backgroundColor: "rgba(59, 130, 246, 0.15)",
+    backgroundColor: "rgba(80, 130, 180, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(80, 130, 180, 0.2)",
   },
   muscleTag: {
-    backgroundColor: "rgba(245, 158, 11, 0.15)",
+    backgroundColor: "rgba(80, 130, 180, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(80, 130, 180, 0.18)",
   },
   metTag: {
-    backgroundColor: "rgba(236, 72, 153, 0.15)",
+    backgroundColor: "rgba(80, 130, 180, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(80, 130, 180, 0.15)",
   },
   tagText: {
     fontSize: 11,
-    color: "#A1A1AA",
+    color: "#8BAED1",
     fontWeight: "600",
     textTransform: "capitalize",
   },
@@ -1477,12 +1500,12 @@ const modalStyles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    borderColor: "rgba(163, 230, 53, 0.3)",
-    backgroundColor: "rgba(163, 230, 53, 0.1)",
+    borderColor: "rgba(80, 130, 180, 0.4)",
+    backgroundColor: "rgba(80, 130, 180, 0.15)",
   },
   addButtonSuccess: {
-    borderColor: "#A3E635",
-    backgroundColor: "#A3E635",
+    borderColor: "#5082B4",
+    backgroundColor: "#5082B4",
   },
   skeletonText: {
     backgroundColor: "#27272A",
@@ -1516,12 +1539,12 @@ const modalStyles = StyleSheet.create({
     marginHorizontal: 20,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: "#A3E635",
-    backgroundColor: "rgba(163, 230, 53, 0.1)",
+    borderColor: "rgba(80, 130, 180, 0.4)",
+    backgroundColor: "rgba(80, 130, 180, 0.12)",
   },
   loadMoreText: {
     fontSize: 15,
-    color: "#A3E635",
+    color: "#5082B4",
     fontWeight: "600",
   },
   // Expanded Content Styles
@@ -1530,7 +1553,7 @@ const modalStyles = StyleSheet.create({
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: "#27272A",
-    backgroundColor: "#161616",
+    backgroundColor: "#0B0B0B",
   },
   expandedGifContainer: {
     width: "100%",
@@ -1552,7 +1575,7 @@ const modalStyles = StyleSheet.create({
   expandedSectionTitle: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#A3E635",
+    color: "#5082B4",
     marginBottom: 8,
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -1572,8 +1595,8 @@ const modalStyles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#A3E635",
-    color: "#0B0B0B",
+    backgroundColor: "#5082B4",
+    color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "700",
     textAlign: "center",
@@ -1599,14 +1622,14 @@ const modalStyles = StyleSheet.create({
     minWidth: "45%",
     padding: 12,
     borderRadius: 8,
-    backgroundColor: "#1C1C1E",
+    backgroundColor: "#161616",
     borderWidth: 1,
     borderColor: "#27272A",
   },
   infoLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#71717A",
+    color: "#5082B4",
     marginBottom: 4,
     textTransform: "uppercase",
     letterSpacing: 0.5,
@@ -1626,24 +1649,34 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: 60,
-    paddingBottom: 16,
+    paddingBottom: 20,
     borderBottomWidth: 1,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
     backgroundColor: "#0B0B0B",
     justifyContent: "space-between",
-    borderBottomColor: "rgba(163, 230, 53, 0.1)",
+    borderBottomColor: "rgba(163, 230, 53, 0.15)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderWidth: 1,
-    borderRadius: 20,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#161616",
-    borderColor: "rgba(163, 230, 53, 0.2)",
+    borderColor: "rgba(163, 230, 53, 0.25)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   headerCenter: {
     flex: 1,
@@ -1651,15 +1684,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 20,
     marginBottom: 4,
     color: "#FAFAFA",
-    fontWeight: "700",
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
   headerSubtitle: {
-    fontSize: 12,
-    color: "#71717A",
+    fontSize: 13,
+    color: "#5082B4",
     fontWeight: "600",
+    letterSpacing: 0.2,
   },
   headerRight: {
     width: 40,
@@ -1679,7 +1714,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   progressContainer: {
-    paddingVertical: 20,
+    paddingVertical: 24,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
@@ -1687,33 +1722,41 @@ const styles = StyleSheet.create({
     backgroundColor: "#0B0B0B",
   },
   progressStep: {
-    gap: 8,
+    gap: 10,
     alignItems: "center",
   },
   stepDot: {
-    width: 36,
-    height: 36,
-    borderWidth: 2,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderWidth: 2.5,
+    borderRadius: 22,
     alignItems: "center",
     borderColor: "#27272A",
     justifyContent: "center",
     backgroundColor: "#161616",
   },
   stepDotActive: {
+    borderWidth: 3,
     borderColor: "#A3E635",
     backgroundColor: "#A3E635",
+    shadowColor: "#A3E635",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    elevation: 5,
   },
   stepLabel: {
-    fontSize: 11,
-    color: "#71717A",
-    fontWeight: "600",
+    fontSize: 12,
+    color: "#A1A1AA",
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
   progressLine: {
-    width: 40,
-    height: 2,
-    marginBottom: 28,
+    width: 48,
+    height: 3,
+    marginBottom: 32,
     backgroundColor: "#27272A",
+    borderRadius: 2,
   },
   scrollContent: {
     paddingTop: 8,
@@ -1721,55 +1764,70 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 28,
   },
   sectionHeader: {
-    gap: 12,
-    marginBottom: 12,
+    gap: 14,
+    marginBottom: 16,
     flexDirection: "row",
     alignItems: "center",
   },
   sectionTitle: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 20,
     color: "#FAFAFA",
-    fontWeight: "700",
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
   exerciseBadge: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderColor: "rgba(163, 230, 53, 0.3)",
-    backgroundColor: "rgba(163, 230, 53, 0.1)",
+    borderWidth: 1.5,
+    borderRadius: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderColor: "rgba(80, 130, 180, 0.4)",
+    backgroundColor: "rgba(80, 130, 180, 0.15)",
+    shadowColor: "#5082B4",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   exerciseBadgeText: {
-    fontSize: 14,
-    color: "#A3E635",
-    fontWeight: "700",
+    fontSize: 15,
+    color: "#5082B4",
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
   card: {
     padding: 20,
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 18,
     borderColor: "#27272A",
     backgroundColor: "#161616",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 18,
   },
   inputLabel: {
-    fontSize: 14,
-    marginBottom: 8,
-    color: "#A1A1AA",
-    fontWeight: "600",
+    fontSize: 13,
+    marginBottom: 10,
+    color: "#5082B4",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   textInput: {
     padding: 16,
     fontSize: 16,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderRadius: 12,
     color: "#FAFAFA",
+    fontWeight: "600",
     borderColor: "#27272A",
     backgroundColor: "#0B0B0B",
   },
@@ -1797,6 +1855,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#161616",
   },
+  durationButtonIcon: {
+    color: "#1E3A5F",
+  },
   durationInput: {
     flex: 1,
     fontSize: 24,
@@ -1810,68 +1871,87 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   previewCard: {
-    padding: 16,
-    borderWidth: 1,
-    borderRadius: 16,
-    marginBottom: 20,
+    padding: 18,
+    borderWidth: 1.5,
+    borderRadius: 20,
+    marginBottom: 24,
     overflow: 'hidden',
-    borderColor: "#27272A",
+    borderColor: "rgba(255, 255, 255, 0.12)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
   },
   previewColorStripe: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 4,
+    height: 3,
+    shadowColor: 'currentColor',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
   },
   previewContent: {
-    gap: 12,
-    marginTop: 4,
+    gap: 14,
+    marginTop: 6,
     flexDirection: 'row',
     alignItems: 'center',
   },
   previewEmojiContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
+    width: 64,
+    height: 64,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
   previewEmoji: {
-    fontSize: 32,
+    fontSize: 36,
   },
   previewInfo: {
     flex: 1,
     justifyContent: 'center',
   },
   previewName: {
-    fontSize: 18,
+    fontSize: 19,
     color: '#FAFAFA',
-    fontWeight: '700',
-    marginBottom: 4,
+    fontWeight: '800',
+    marginBottom: 5,
+    letterSpacing: 0.3,
   },
   previewMeta: {
     fontSize: 13,
-    color: '#71717A',
+    color: '#A1A1AA',
     fontWeight: '600',
+    letterSpacing: 0.2,
   },
   previewCaloriesContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderRadius: 6,
+    gap: 5,
+    marginTop: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderRadius: 8,
     alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
   },
   previewCalories: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#EF4444',
     fontWeight: '700',
+    letterSpacing: 0.2,
   },
   customizeGroup: {
     marginBottom: 16,
@@ -1887,33 +1967,38 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   colorOption: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
     borderColor: 'transparent',
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 5,
   },
   colorOptionSelected: {
     borderColor: '#FAFAFA',
-    transform: [{ scale: 1.1 }],
+    borderWidth: 4,
+    transform: [{ scale: 1.15 }],
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 8,
   },
   emojiGrid: {
-    gap: 8,
+    gap: 10,
     flexWrap: 'wrap',
     flexDirection: 'row',
   },
   emojiOption: {
-    width: 56,
-    height: 56,
+    width: 60,
+    height: 60,
     borderWidth: 2,
-    borderRadius: 14,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderColor: '#27272A',
@@ -1922,72 +2007,98 @@ const styles = StyleSheet.create({
   emojiOptionSelected: {
     borderWidth: 3,
     backgroundColor: '#1C1C1E',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
   emojiText: {
-    fontSize: 28,
+    fontSize: 30,
   },
   difficultyContainer: {
     gap: 12,
     flexDirection: "row",
   },
   difficultyCard: {
-    gap: 8,
+    gap: 10,
     flex: 1,
-    padding: 16,
+    padding: 18,
     borderWidth: 2,
-    borderRadius: 16,
+    borderRadius: 18,
     alignItems: "center",
     borderColor: "#27272A",
     backgroundColor: "#161616",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   difficultyCardActive: {
-    borderColor: "#A3E635",
-    backgroundColor: "rgba(163, 230, 53, 0.05)",
+    borderWidth: 2.5,
+    borderColor: "#5082B4",
+    backgroundColor: "rgba(80, 130, 180, 0.12)",
+    shadowColor: "#5082B4",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
   difficultyName: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#A1A1AA",
     fontWeight: "700",
+    letterSpacing: 0.2,
   },
   difficultyIndicator: {
     top: 0,
     right: 0,
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
     position: "absolute",
-    borderTopRightRadius: 14,
-    borderBottomLeftRadius: 14,
+    borderTopRightRadius: 16,
+    borderBottomLeftRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
   },
   emptyState: {
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingVertical: 48,
+    borderWidth: 2,
+    borderRadius: 20,
+    paddingVertical: 56,
     alignItems: "center",
     borderStyle: "dashed",
     paddingHorizontal: 32,
-    borderColor: "#27272A",
-    backgroundColor: "#161616",
+    borderColor: "rgba(80, 130, 180, 0.3)",
+    backgroundColor: "rgba(80, 130, 180, 0.05)",
   },
   emptyStateIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 16,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    marginBottom: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(163, 230, 53, 0.05)",
+    backgroundColor: "rgba(80, 130, 180, 0.12)",
+    borderWidth: 2,
+    borderColor: "rgba(80, 130, 180, 0.25)",
   },
   emptyStateText: {
-    fontSize: 18,
-    marginBottom: 8,
+    fontSize: 20,
+    marginBottom: 10,
     color: "#FAFAFA",
-    fontWeight: "700",
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
   emptyStateSubtext: {
-    fontSize: 14,
-    color: "#71717A",
-    marginBottom: 24,
+    fontSize: 15,
+    color: "#A1A1AA",
+    marginBottom: 28,
     textAlign: "center",
+    lineHeight: 22,
+    fontWeight: "600",
   },
   emptyStateButton: {
     borderRadius: 12,
@@ -2006,49 +2117,56 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   addMoreButton: {
-    gap: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderRadius: 12,
+    gap: 10,
+    padding: 18,
+    borderWidth: 2,
+    borderRadius: 16,
     flexDirection: "row",
     alignItems: "center",
     borderStyle: "dashed",
     justifyContent: "center",
-    backgroundColor: "#161616",
-    borderColor: "rgba(163, 230, 53, 0.3)",
+    backgroundColor: "rgba(80, 130, 180, 0.08)",
+    borderColor: "rgba(80, 130, 180, 0.35)",
   },
   addMoreText: {
-    fontSize: 16,
-    color: "#A3E635",
-    fontWeight: "700",
+    fontSize: 17,
+    color: "#5082B4",
+    fontWeight: "800",
+    letterSpacing: 0.3,
   },
   fixedSaveContainer: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingTop: 12,
-    paddingBottom: 20,
+    paddingTop: 16,
+    paddingBottom: 24,
     paddingHorizontal: 20,
     backgroundColor: '#0B0B0B',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(163, 230, 53, 0.1)',
+    borderTopColor: 'rgba(163, 230, 53, 0.15)',
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 12,
   },
   saveButton: {
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: "hidden",
+    shadowColor: "#A3E635",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   saveButtonDisabled: {
     opacity: 1,
+    shadowOpacity: 0,
   },
   saveButtonGradient: {
     gap: 12,
-    paddingVertical: 18,
+    paddingVertical: 20,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -2056,7 +2174,8 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 18,
     color: "#0B0B0B",
-    fontWeight: "700",
+    fontWeight: "800",
+    letterSpacing: 0.5,
   },
   saveButtonTextDisabled: {
     color: "#71717A",

@@ -348,29 +348,6 @@ export default function Training() {
               onSelectCategory={handleSelectCategory}
             />
 
-            {/* Create Custom Workout Button */}
-            <Pressable
-              style={styles.createWorkoutButton}
-              onPress={() => {
-                router.push("/training/create-workout");
-              }}
-            >
-              <View style={styles.createWorkoutContent}>
-                <View style={styles.createWorkoutIcon}>
-                  <Ionicons name="add-circle" size={28} color="#3B82F6" />
-                </View>
-                <View style={styles.createWorkoutText}>
-                  <Text style={styles.createWorkoutTitle}>
-                    Create Custom Workout
-                  </Text>
-                  <Text style={styles.createWorkoutSubtitle}>
-                    Design your own training routine
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#71717A" />
-              </View>
-            </Pressable>
-
             {/* My Workouts Section */}
             <MyWorkouts
               onSelectWorkout={(workoutId) => {
@@ -435,37 +412,5 @@ const styles = StyleSheet.create({
   cardText: {
     fontSize: 14,
     color: "#ccc",
-  },
-  createWorkoutButton: {
-    borderWidth: 2,
-    marginBottom: 16,
-    borderRadius: 16,
-    borderLeftWidth: 4,
-    overflow: "hidden",
-    backgroundColor: "#161616",
-    borderLeftColor: "#3B82F6",
-    borderColor: "rgba(59, 130, 246, 0.2)",
-  },
-  createWorkoutContent: {
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  createWorkoutIcon: {
-    marginRight: 16,
-  },
-  createWorkoutText: {
-    flex: 1,
-  },
-  createWorkoutTitle: {
-    fontSize: 16,
-    marginBottom: 2,
-    color: "#FAFAFA",
-    fontWeight: "700",
-  },
-  createWorkoutSubtitle: {
-    fontSize: 13,
-    color: "#A1A1AA",
-    fontWeight: "500",
   },
 });
