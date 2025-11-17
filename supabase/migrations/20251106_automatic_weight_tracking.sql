@@ -9,20 +9,42 @@
 -- =====================================================
 
 -- =====================================================
--- PART 1: Trigger to Insert Initial Weight on Registration
+-- PART 1: Trigger to Insert/Update Weight from Registration/Settings
 -- =====================================================
 
 CREATE OR REPLACE FUNCTION public.insert_initial_weight_from_registration()
 RETURNS TRIGGER AS $$
+DECLARE
+  v_existing_weight_today numeric;
+  v_last_weight_date date;
 BEGIN
-  -- Only insert if weight_kg is provided and no weight entry exists yet
+  -- Only process if weight_kg is provided
   IF NEW.weight_kg IS NOT NULL THEN
-    -- Check if user already has weight entries
-    IF NOT EXISTS (
-      SELECT 1 FROM public.weight_tracking 
+    
+    -- Check if user already has a weight entry for TODAY
+    SELECT weight_kg INTO v_existing_weight_today
+    FROM public.weight_tracking
+    WHERE user_id = NEW.user_id
+      AND measurement_date = CURRENT_DATE;
+    
+    -- Get the date of the most recent weight measurement
+    SELECT MAX(measurement_date) INTO v_last_weight_date
+    FROM public.weight_tracking
+    WHERE user_id = NEW.user_id;
+    
+    IF v_existing_weight_today IS NOT NULL THEN
+      -- Update today's existing entry (user is editing weight on same day)
+      UPDATE public.weight_tracking
+      SET weight_kg = NEW.weight_kg,
+          notes = 'Weight updated from settings',
+          created_at = NOW()
       WHERE user_id = NEW.user_id
-    ) THEN
-      -- Insert initial weight measurement
+        AND measurement_date = CURRENT_DATE;
+      
+      RAISE NOTICE 'Updated today''s weight to % kg for user %', NEW.weight_kg, NEW.user_id;
+      
+    ELSIF v_last_weight_date IS NULL THEN
+      -- No weight entries exist - insert initial weight
       INSERT INTO public.weight_tracking (
         user_id,
         measurement_date,
@@ -38,6 +60,26 @@ BEGIN
       );
       
       RAISE NOTICE 'Initial weight % kg recorded for user %', NEW.weight_kg, NEW.user_id;
+      
+    ELSE
+      -- Weight entries exist, but not for today - insert new measurement
+      -- This handles users coming back after time off or procrastinating
+      INSERT INTO public.weight_tracking (
+        user_id,
+        measurement_date,
+        weight_kg,
+        notes,
+        created_at
+      ) VALUES (
+        NEW.user_id,
+        CURRENT_DATE,
+        NEW.weight_kg,
+        'Weight updated from settings',
+        NOW()
+      );
+      
+      RAISE NOTICE 'New weight measurement % kg recorded for user % (previous: %)', 
+        NEW.weight_kg, NEW.user_id, v_last_weight_date;
     END IF;
   END IF;
   
@@ -174,10 +216,9 @@ DECLARE
   v_is_actual boolean;
   v_is_projected boolean;
   v_maintenance_calories integer;
+  v_requested_start_date date;
+  v_first_activity_date date;
 BEGIN
-  -- Calculate start date
-  v_start_date := CURRENT_DATE - p_days_back;
-  
   -- Get the most recent actual weight measurement
   SELECT wt.weight_kg, wt.measurement_date 
   INTO v_latest_weight, v_latest_weight_date
@@ -190,6 +231,34 @@ BEGIN
   -- If no weight recorded, can't generate chart
   IF v_latest_weight IS NULL THEN
     RETURN;
+  END IF;
+
+  -- Calculate start date: Use the LATER of (requested days back) OR (first actual activity)
+  -- This prevents generating false historical data before user started tracking
+  v_requested_start_date := CURRENT_DATE - p_days_back;
+  
+  -- Find the earliest date with actual data (weight, meals, or workouts)
+  SELECT MIN(activity_date) INTO v_first_activity_date
+  FROM (
+    SELECT MIN(wt.measurement_date) as activity_date
+    FROM public.weight_tracking wt
+    WHERE wt.user_id = p_user_id
+    UNION ALL
+    SELECT MIN(ml.meal_date)
+    FROM public.user_meal_logs ml
+    WHERE ml.user_id = p_user_id
+    UNION ALL
+    SELECT MIN(DATE(ws.completed_at))
+    FROM public.workout_sessions ws
+    WHERE ws.user_id = p_user_id AND ws.status = 'completed'
+  ) activities;
+  
+  -- Start date is the LATER of: requested start OR first activity
+  -- This ensures we don't show data before the user started tracking
+  IF v_first_activity_date IS NOT NULL AND v_first_activity_date > v_requested_start_date THEN
+    v_start_date := v_first_activity_date;
+  ELSE
+    v_start_date := v_requested_start_date;
   END IF;
 
   -- Get user's maintenance calories

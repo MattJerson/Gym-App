@@ -192,7 +192,9 @@ export const CalendarDataService = {
   // Progress Data
   async fetchProgressChart(userId, metric = "weight", period = "week") {
     try {
-      const daysBack = period === "week" ? 7 : 30;
+      // Fetch 365 days of data to support all time ranges (week/month/year)
+      // The ProgressGraph component will filter client-side based on selected range
+      const daysBack = 365;
       // Use new projection system
       const { WeightProgressService } = require('./WeightProgressService');
       const progressData = await WeightProgressService.getWeightProgressChart(userId, daysBack);

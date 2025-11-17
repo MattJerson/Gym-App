@@ -31,22 +31,11 @@ const MealSection = ({ mealType, mealItems, onAddFood, onDeleteFood, onEditFood,
     }
   };
 
-  const getMealIcon = (type) => {
-    switch (type) {
-      case "Breakfast": return "sunny-outline";
-      case "Lunch": return "restaurant-outline";
-      case "Snack": return "nutrition-outline";
-      case "Dinner": return "moon-outline";
-      default: return "fast-food-outline";
-    }
-  };
-
   const totalCalories = mealItems.reduce((sum, item) => sum + item.calories, 0);
   const totalProtein = mealItems.reduce((sum, item) => sum + item.protein, 0);
   const totalCarbs = mealItems.reduce((sum, item) => sum + (item.carbs || 0), 0);
   const totalFats = mealItems.reduce((sum, item) => sum + (item.fats || 0), 0);
   const mealColor = getMealColor(mealType);
-  const mealIcon = getMealIcon(mealType);
 
   const handleEdit = (item) => {
     if (onEditFood) {
@@ -71,80 +60,50 @@ const MealSection = ({ mealType, mealItems, onAddFood, onDeleteFood, onEditFood,
 
   return (
     <View style={[styles.mealSection, !isLast && styles.mealSectionWithBorder]}>
-      {/* Meal Header with Icon */}
+      {/* Compact Meal Header with Inline Totals */}
       <View style={styles.mealSectionHeader}>
-        <View style={styles.mealTitleRow}>
-          <View style={[styles.mealIconContainer, { backgroundColor: `${mealColor}20` }]}>
-            <Ionicons name={mealIcon} size={18} color={mealColor} />
-          </View>
-          <View>
-            <Text style={styles.mealSectionTitle}>{mealType}</Text>
-            {mealItems.length > 0 && (
-              <Text style={styles.itemCount}>{mealItems.length} item{mealItems.length !== 1 ? 's' : ''}</Text>
-            )}
-          </View>
+        <View style={styles.headerLeft}>
+          <Text style={[styles.mealSectionTitle, { color: mealColor }]}>{mealType}</Text>
+          {mealItems.length > 0 && (
+            <>
+              <Text style={styles.compactTotal}>{totalCalories} Cal</Text>
+              <View style={styles.compactTotals}>
+                <Text style={styles.compactMacro}>Protein: {totalProtein.toFixed(0)}g</Text>
+                <View style={styles.compactDot} />
+                <Text style={styles.compactMacro}>Carbs: {totalCarbs.toFixed(0)}g</Text>
+                <View style={styles.compactDot} />
+                <Text style={styles.compactMacro}>Fats: {totalFats.toFixed(0)}g</Text>
+              </View>
+            </>
+          )}
         </View>
         <Pressable 
           style={[styles.addButton, { backgroundColor: `${mealColor}15` }]} 
           onPress={() => onAddFood(mealType)}
         >
-          <Ionicons name="add" size={22} color={mealColor} />
+          <Ionicons name="add" size={24} color={mealColor} />
         </Pressable>
       </View>
 
       {/* Food Items */}
       {mealItems.length > 0 ? (
-        <>
-          <View style={styles.mealItems}>
-            {mealItems.map((item, index) => (
-              <SwipeableFoodItem
-                key={item.id}
-                item={{
-                  ...item,
-                  name: toTitleCase(item.name), // Convert to Title Case
-                }}
-                mealColor={mealColor}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                isLast={index === mealItems.length - 1}
-              />
-            ))}
-          </View>
-
-          {/* Meal Totals - Big and Bold */}
-          <View style={[styles.mealTotalsContainer, { borderTopColor: `${mealColor}15` }]}>
-            <View style={styles.totalsRow}>
-              <View style={styles.totalItem}>
-                <Text style={[styles.totalValue, { color: mealColor }]}>{totalCalories}</Text>
-                <Text style={styles.totalLabel}>Calories</Text>
-              </View>
-              
-              <View style={styles.totalDivider} />
-              
-              <View style={styles.totalItem}>
-                <Text style={styles.totalValue}>{totalProtein.toFixed(1)}g</Text>
-                <Text style={styles.totalLabel}>Protein</Text>
-              </View>
-              
-              <View style={styles.totalDivider} />
-              
-              <View style={styles.totalItem}>
-                <Text style={styles.totalValue}>{totalCarbs.toFixed(1)}g</Text>
-                <Text style={styles.totalLabel}>Carbs</Text>
-              </View>
-              
-              <View style={styles.totalDivider} />
-              
-              <View style={styles.totalItem}>
-                <Text style={styles.totalValue}>{totalFats.toFixed(1)}g</Text>
-                <Text style={styles.totalLabel}>Fats</Text>
-              </View>
-            </View>
-          </View>
-        </>
+        <View style={styles.mealItems}>
+          {mealItems.map((item, index) => (
+            <SwipeableFoodItem
+              key={item.id}
+              item={{
+                ...item,
+                name: toTitleCase(item.name),
+              }}
+              mealColor={mealColor}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              isLast={index === mealItems.length - 1}
+            />
+          ))}
+        </View>
       ) : (
         <View style={styles.emptyState}>
-          <Ionicons name="fast-food-outline" size={24} color="#333" />
           <Text style={styles.emptyText}>No foods logged</Text>
         </View>
       )}
@@ -211,105 +170,75 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   mealsContainer: {
-    // Container for all meal sections - no padding/margin
+    // Container for all meal sections
   },
   mealSection: {
-    // No margin - full width of card
-    backgroundColor: "rgba(255, 255, 255, 0.02)",
+    backgroundColor: "rgba(255, 255, 255, 0.01)",
+    paddingVertical: 4,
   },
   mealSectionWithBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.05)",
+    borderBottomColor: "rgba(255, 255, 255, 0.04)",
   },
   mealSectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.05)",
+    borderBottomColor: "rgba(255, 255, 255, 0.03)",
   },
-  mealTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  mealIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
+  headerLeft: {
+    flex: 1,
+    gap: 4,
   },
   mealSectionTitle: {
-    fontSize: 18,
-    color: "#fff",
+    fontSize: 19,
     fontWeight: "700",
     letterSpacing: 0.3,
   },
-  itemCount: {
+  compactTotals: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  compactTotal: {
+    fontSize: 15,
+    color: "#fff",
+    fontWeight: "700",
+    letterSpacing: -0.3,
+  },
+  compactMacro: {
     fontSize: 12,
-    color: "#666",
-    fontWeight: "500",
-    marginTop: 2,
+    color: "#aaa",
+    fontWeight: "600",
+  },
+  compactDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: "#555",
   },
   addButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },
   mealItems: {
-    paddingTop: 4,
+    paddingTop: 2,
   },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 20,
+    paddingVertical: 16,
     paddingHorizontal: 20,
-    flexDirection: "row",
-    gap: 8,
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: 12,
     color: "#555",
-    fontWeight: "600",
-    letterSpacing: 0.2,
-  },
-  mealTotalsContainer: {
-    borderTopWidth: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    backgroundColor: "rgba(0, 0, 0, 0.2)",
-  },
-  totalsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-  },
-  totalItem: {
-    alignItems: "center",
-    flex: 1,
-  },
-  totalValue: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#fff",
-    letterSpacing: -0.5,
-    marginBottom: 3,
-  },
-  totalLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#666",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  totalDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    fontWeight: "500",
   },
 });

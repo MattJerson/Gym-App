@@ -1,5 +1,7 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { getRestrictionWarning } from "../../services/AllergenDetectionService";
 
 /**
  * FoodItemCard Component - Compact version matching TodaysMeals.jsx style
@@ -10,12 +12,15 @@ import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
  * - Full nutrition labels (not abbreviated)
  * - Compact vertical spacing
  * - Clean, minimal design
+ * - Dietary restriction warnings with grayed-out styling
  */
 export default function FoodItemCard({ 
   food, 
   onPress, 
   mode = "default", // "default", "recent", "log"
-  style 
+  style,
+  isRestricted = false, // Whether this food violates dietary restrictions
+  violations = [] // Array of restriction violations
 }) {
   // Format food name with proper capitalization
   const formatFoodName = (name) => {
@@ -53,22 +58,34 @@ export default function FoodItemCard({
     <TouchableOpacity
       activeOpacity={0.7}
       onPress={() => onPress(food)}
-      style={[styles.container, style]}
+      style={[
+        styles.container, 
+        style,
+        isRestricted && styles.restrictedContainer
+      ]}
     >
       <View style={styles.content}>
         {/* Food Info - Left Side */}
         <View style={styles.foodInfo}>
           {/* Food Name */}
           <View style={styles.nameRow}>
-            <Text style={styles.foodName} numberOfLines={1}>
+            <Text style={[
+              styles.foodName, 
+              isRestricted && styles.restrictedText
+            ]} numberOfLines={1}>
               {formattedName}
             </Text>
-            {mode === "recent" && (
+            {isRestricted && (
+              <View style={styles.warningBadge}>
+                <Ionicons name="alert-circle" size={12} color="#FF9500" />
+              </View>
+            )}
+            {!isRestricted && mode === "recent" && (
               <View style={[styles.modeBadge, { backgroundColor: `${getBadgeColor()}15` }]}>
                 <Text style={[styles.modeBadgeText, { color: getBadgeColor() }]}>Recent</Text>
               </View>
             )}
-            {mode === "log" && (
+            {!isRestricted && mode === "log" && (
               <View style={[styles.modeBadge, { backgroundColor: `${getBadgeColor()}15` }]}>
                 <Text style={[styles.modeBadgeText, { color: getBadgeColor() }]}>Logged</Text>
               </View>
@@ -79,35 +96,73 @@ export default function FoodItemCard({
           <View style={styles.metaRow}>
             {formattedBrand && (
               <>
-                <Text style={styles.brandText}>{formattedBrand}</Text>
+                <Text style={[
+                  styles.brandText,
+                  isRestricted && styles.restrictedText
+                ]}>{formattedBrand}</Text>
                 <View style={styles.metaDot} />
               </>
             )}
-            <Text style={styles.servingText}>
+            <Text style={[
+              styles.servingText,
+              isRestricted && styles.restrictedText
+            ]}>
               {food.serving_size || 100}{food.serving_unit || "g"}
             </Text>
           </View>
 
+          {/* Dietary Restriction Warning */}
+          {isRestricted && violations.length > 0 && (
+            <View style={styles.warningRow}>
+              <Ionicons name="alert-circle-outline" size={12} color="#FF9500" />
+              <Text style={styles.warningText}>{getRestrictionWarning(violations)}</Text>
+            </View>
+          )}
+
           {/* Nutrition Info */}
           <View style={styles.nutritionRow}>
             <View style={styles.nutritionItem}>
-              <Text style={styles.nutritionValue}>{servingCalories}</Text>
-              <Text style={styles.nutritionLabel}>calories</Text>
+              <Text style={[
+                styles.nutritionValue,
+                isRestricted && styles.restrictedText
+              ]}>{servingCalories}</Text>
+              <Text style={[
+                styles.nutritionLabel,
+                isRestricted && styles.restrictedText
+              ]}>calories</Text>
             </View>
             <View style={styles.nutritionDivider} />
             <View style={styles.nutritionItem}>
-              <Text style={styles.nutritionValue}>{Math.round(food.protein)}</Text>
-              <Text style={styles.nutritionLabel}>protein</Text>
+              <Text style={[
+                styles.nutritionValue,
+                isRestricted && styles.restrictedText
+              ]}>{Math.round(food.protein)}</Text>
+              <Text style={[
+                styles.nutritionLabel,
+                isRestricted && styles.restrictedText
+              ]}>protein</Text>
             </View>
             <View style={styles.nutritionDivider} />
             <View style={styles.nutritionItem}>
-              <Text style={styles.nutritionValue}>{Math.round(food.carbs)}</Text>
-              <Text style={styles.nutritionLabel}>carbs</Text>
+              <Text style={[
+                styles.nutritionValue,
+                isRestricted && styles.restrictedText
+              ]}>{Math.round(food.carbs)}</Text>
+              <Text style={[
+                styles.nutritionLabel,
+                isRestricted && styles.restrictedText
+              ]}>carbs</Text>
             </View>
             <View style={styles.nutritionDivider} />
             <View style={styles.nutritionItem}>
-              <Text style={styles.nutritionValue}>{Math.round(food.fats)}</Text>
-              <Text style={styles.nutritionLabel}>fats</Text>
+              <Text style={[
+                styles.nutritionValue,
+                isRestricted && styles.restrictedText
+              ]}>{Math.round(food.fats)}</Text>
+              <Text style={[
+                styles.nutritionLabel,
+                isRestricted && styles.restrictedText
+              ]}>fats</Text>
             </View>
           </View>
         </View>
@@ -124,6 +179,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.08)",
     overflow: "hidden",
+  },
+  restrictedContainer: {
+    opacity: 0.5,
+    borderColor: "rgba(255, 152, 0, 0.2)",
+    backgroundColor: "rgba(255, 152, 0, 0.05)",
+  },
+  restrictedText: {
+    opacity: 0.7,
   },
   content: {
     paddingVertical: 12,
@@ -155,6 +218,23 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.5,
+  },
+  warningBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: "rgba(255, 152, 0, 0.15)",
+  },
+  warningRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
+  warningText: {
+    fontSize: 11,
+    color: "#FF9500",
+    fontWeight: "600",
   },
   metaRow: {
     flexDirection: "row",

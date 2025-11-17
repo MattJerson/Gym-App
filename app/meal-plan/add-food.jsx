@@ -18,6 +18,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import FoodItemCard from "../../components/mealplan/FoodItemCard";
 import { MealPlanDataService } from "../../services/MealPlanDataService";
 import { AddFoodPageSkeleton } from "../../components/skeletons/AddFoodPageSkeleton";
+import { filterFoodsByRestrictions } from "../../services/AllergenDetectionService";
 
 export default function AddFood() {
   const router = useRouter();
@@ -48,6 +49,10 @@ export default function AddFood() {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedDietary, setSelectedDietary] = useState([]);
+
+  // Dietary restrictions state
+  const [userRestrictions, setUserRestrictions] = useState([]);
+  const [dietaryFilterEnabled, setDietaryFilterEnabled] = useState(true);
 
   // Animation values
   const successScale = useRef(new Animated.Value(0)).current;
@@ -210,13 +215,26 @@ export default function AddFood() {
   const hasActiveFilters =
     selectedCategory !== "all" || selectedDietary.length > 0;
 
-  // Get user session on mount
+  // Get user session and dietary restrictions on mount
   useEffect(() => {
     const getUser = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       setUserId(user?.id || null);
+
+      // Fetch user's dietary restrictions
+      if (user?.id) {
+        const { data: profile } = await supabase
+          .from("registration_profiles")
+          .select("restrictions")
+          .eq("user_id", user.id)
+          .single();
+
+        if (profile?.restrictions) {
+          setUserRestrictions(profile.restrictions);
+        }
+      }
     };
     getUser();
   }, []);
@@ -273,21 +291,16 @@ export default function AddFood() {
     try {
       setIsLoading(true);
 
-      if (activeTab === "all") {
-        const [popular, recent] = await Promise.all([
-          MealPlanDataService.getPopularFoods(10),
-          MealPlanDataService.getUserRecentFoods(userId, 10),
-        ]);
-        setPopularFoods(popular);
-        setRecentFoods(recent);
-      } else {
-        // Load user's previous logs
-        const logs = await MealPlanDataService.getMealLogsForDate(
-          userId,
-          new Date()
-        );
-        setUserLogs(logs);
-      }
+      // Load both tabs' data upfront
+      const [popular, recent, logs] = await Promise.all([
+        MealPlanDataService.getPopularFoods(10),
+        MealPlanDataService.getUserRecentFoods(userId, 10),
+        MealPlanDataService.getMealLogsForDate(userId, new Date()),
+      ]);
+      
+      setPopularFoods(popular);
+      setRecentFoods(recent);
+      setUserLogs(logs);
     } catch (error) {
       console.error("❌ Error loading initial data:", error);
       Alert.alert("Error", "Failed to load food data. Please try again.");
@@ -309,7 +322,7 @@ export default function AddFood() {
 
       const result = await MealPlanDataService.searchFoodsAPI(
         searchQuery.trim(),
-        12,
+        15, // Fetch 15 items per page
         page
       );
 
@@ -535,15 +548,20 @@ export default function AddFood() {
       }
 
       const filteredResults = filterFoods(searchResults);
+      const restrictionAnnotatedResults = filterFoodsByRestrictions(
+        filteredResults,
+        userRestrictions,
+        dietaryFilterEnabled // Hide restricted foods when toggle is ON
+      );
 
       return (
         <>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Search Results</Text>
-            <Text style={styles.sectionCount}>{filteredResults.length}</Text>
+            <Text style={styles.sectionCount}>{restrictionAnnotatedResults.length}</Text>
           </View>
 
-          {filteredResults.length === 0 ? (
+          {restrictionAnnotatedResults.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="filter-outline" size={48} color="#666" />
               <Text style={styles.emptyStateText}>No foods match filters</Text>
@@ -553,39 +571,53 @@ export default function AddFood() {
             </View>
           ) : (
             <>
-              {filteredResults.map((food, index) => (
+              {restrictionAnnotatedResults.map((food, index) => (
                 <FoodItemCard
                   key={`search-${food.fdc_id}-${index}`}
                   food={food}
                   onPress={handleFoodSelect}
                   mode="default"
+                  isRestricted={food.violatesRestrictions && !dietaryFilterEnabled}
+                  violations={food.violations}
                 />
               ))}
 
               {currentPage < totalPages && (
                 <TouchableOpacity
-                  style={styles.loadMoreButton}
+                  style={[
+                    styles.loadMoreButton,
+                    { borderColor: currentMeal.color + '40' }
+                  ]}
                   onPress={handleLoadMore}
                   disabled={isLoadingMore}
+                  activeOpacity={0.7}
                 >
                   {isLoadingMore ? (
-                    <ActivityIndicator size="small" color={currentMeal.color} />
+                    <View style={styles.loadMoreContent}>
+                      <ActivityIndicator size="small" color={currentMeal.color} />
+                      <Text style={[styles.loadMoreText, { color: currentMeal.color }]}>
+                        Loading more...
+                      </Text>
+                    </View>
                   ) : (
-                    <>
+                    <View style={styles.loadMoreContent}>
+                      <Ionicons
+                        name="add-circle-outline"
+                        size={20}
+                        color={currentMeal.color}
+                      />
                       <Text
                         style={[
                           styles.loadMoreText,
                           { color: currentMeal.color },
                         ]}
                       >
-                        Load More
+                        Load 15 More Results
                       </Text>
-                      <Ionicons
-                        name="chevron-down"
-                        size={18}
-                        color={currentMeal.color}
-                      />
-                    </>
+                      <Text style={styles.loadMoreSubtext}>
+                        Page {currentPage} of {totalPages}
+                      </Text>
+                    </View>
                   )}
                 </TouchableOpacity>
               )}
@@ -600,48 +632,64 @@ export default function AddFood() {
       const filteredRecent = filterFoods(recentFoods);
       const filteredPopular = filterFoods(popularFoods);
 
+      // Apply dietary restriction filtering
+      const restrictionAnnotatedRecent = filterFoodsByRestrictions(
+        filteredRecent,
+        userRestrictions,
+        dietaryFilterEnabled // Hide restricted foods when toggle is ON
+      );
+      const restrictionAnnotatedPopular = filterFoodsByRestrictions(
+        filteredPopular,
+        userRestrictions,
+        dietaryFilterEnabled // Hide restricted foods when toggle is ON
+      );
+
       return (
         <>
-          {filteredRecent.length > 0 && (
+          {restrictionAnnotatedRecent.length > 0 && (
             <>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Recent Foods</Text>
               </View>
-              {filteredRecent.map((food, index) => (
+              {restrictionAnnotatedRecent.map((food, index) => (
                 <FoodItemCard
                   key={`recent-${food.id}-${index}`}
                   food={food}
                   onPress={handleFoodSelect}
                   mode="recent"
+                  isRestricted={food.violatesRestrictions && !dietaryFilterEnabled}
+                  violations={food.violations}
                 />
               ))}
             </>
           )}
 
-          {filteredPopular.length > 0 && (
+          {restrictionAnnotatedPopular.length > 0 && (
             <>
               <View
                 style={[
                   styles.sectionHeader,
-                  { marginTop: filteredRecent.length > 0 ? 20 : 0 },
+                  { marginTop: restrictionAnnotatedRecent.length > 0 ? 20 : 0 },
                 ]}
               >
                 <Text style={styles.sectionTitle}>Popular Foods</Text>
                 <Text style={styles.sectionSubtitle}>Most logged by users</Text>
               </View>
-              {filteredPopular.map((food, index) => (
+              {restrictionAnnotatedPopular.map((food, index) => (
                 <FoodItemCard
                   key={`popular-${food.id}-${index}`}
                   food={food}
                   onPress={handleFoodSelect}
                   mode="default"
+                  isRestricted={food.violatesRestrictions && !dietaryFilterEnabled}
+                  violations={food.violations}
                 />
               ))}
             </>
           )}
 
-          {filteredRecent.length === 0 &&
-            filteredPopular.length === 0 &&
+          {restrictionAnnotatedRecent.length === 0 &&
+            restrictionAnnotatedPopular.length === 0 &&
             hasActiveFilters && (
               <View style={styles.emptyState}>
                 <Ionicons name="filter-outline" size={48} color="#666" />
@@ -752,6 +800,47 @@ export default function AddFood() {
         </TouchableOpacity>
       </View>
 
+      {/* Dietary Restrictions Toggle Bar */}
+      {userRestrictions.length > 0 && (
+        <TouchableOpacity
+          style={[
+            styles.restrictionToggleBar,
+            dietaryFilterEnabled && styles.restrictionToggleBarActive,
+          ]}
+          onPress={() => {
+            setDietaryFilterEnabled(!dietaryFilterEnabled);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={styles.restrictionToggleContent}>
+            <Ionicons
+              name={dietaryFilterEnabled ? "shield-checkmark" : "shield-outline"}
+              size={20}
+              color={dietaryFilterEnabled ? "#34C759" : "#888"}
+            />
+            <Text style={[
+              styles.restrictionToggleText,
+              dietaryFilterEnabled && styles.restrictionToggleTextActive
+            ]}>
+              {dietaryFilterEnabled ? "Dietary Filter ON" : "Dietary Filter OFF"}
+            </Text>
+            <View style={styles.restrictionBadges}>
+              {userRestrictions.slice(0, 3).map((restriction, index) => (
+                <View key={index} style={styles.restrictionBadge}>
+                  <Text style={styles.restrictionBadgeText}>
+                    {restriction.replace('-free', '')}
+                  </Text>
+                </View>
+              ))}
+              {userRestrictions.length > 3 && (
+                <Text style={styles.restrictionMore}>+{userRestrictions.length - 3}</Text>
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      )}
+
       {/* Active Filters Display */}
       {hasActiveFilters && (
         <View style={styles.activeFiltersContainer}>
@@ -830,7 +919,10 @@ export default function AddFood() {
               { borderBottomColor: currentMeal.color },
             ],
           ]}
-          onPress={() => setActiveTab("all")}
+          onPress={() => {
+            setActiveTab("all");
+            setSearchQuery(""); // Clear search when switching tabs
+          }}
         >
           <Text
             style={[
@@ -853,7 +945,10 @@ export default function AddFood() {
               { borderBottomColor: currentMeal.color },
             ],
           ]}
-          onPress={() => setActiveTab("logs")}
+          onPress={() => {
+            setActiveTab("logs");
+            setSearchQuery(""); // Clear search when switching tabs
+          }}
         >
           <Text
             style={[
@@ -1258,6 +1353,57 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255, 255, 255, 0.1)",
     backgroundColor: "rgba(255, 255, 255, 0.08)",
   },
+  restrictionToggleBar: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    marginBottom: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+  },
+  restrictionToggleBarActive: {
+    borderColor: "rgba(52, 199, 89, 0.3)",
+    backgroundColor: "rgba(52, 199, 89, 0.1)",
+  },
+  restrictionToggleContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  restrictionToggleText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#888",
+    flex: 1,
+  },
+  restrictionToggleTextActive: {
+    color: "#34C759",
+  },
+  restrictionBadges: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  restrictionBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  restrictionBadgeText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#aaa",
+    textTransform: "capitalize",
+  },
+  restrictionMore: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#666",
+  },
   filterButton: {
     width: 40,
     height: 40,
@@ -1405,20 +1551,28 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   loadMoreButton: {
-    gap: 6,
-    marginTop: 8,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 14,
+    marginTop: 16,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderRadius: 12,
+    paddingVertical: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+  },
+  loadMoreContent: {
+    gap: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    borderColor: "rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
   },
   loadMoreText: {
     fontSize: 15,
+    fontWeight: "700",
+  },
+  loadMoreSubtext: {
+    fontSize: 12,
+    color: "#888",
     fontWeight: "600",
+    marginLeft: 8,
   },
   modalOverlay: {
     flex: 1,

@@ -201,7 +201,6 @@ export const MealPlanDataService = {
         carbs: 45,
         fats: 12,
         time: "8:00 AM",
-        icon: "🍓",
         isCompleted: true,
         ingredients: ["Oats", "Protein Powder", "Berries", "Almond Milk"],
         prepTime: 10,
@@ -216,7 +215,6 @@ export const MealPlanDataService = {
         carbs: 15,
         fats: 18,
         time: "1:00 PM",
-        icon: "🥗",
         isCompleted: true,
         ingredients: ["Chicken Breast", "Mixed Greens", "Avocado", "Olive Oil"],
         prepTime: 20,
@@ -231,7 +229,6 @@ export const MealPlanDataService = {
         carbs: 25,
         fats: 12,
         time: "5:30 PM",
-        icon: "🍌",
         isCompleted: false,
         ingredients: ["Banana", "Almond Butter"],
         prepTime: 2,
@@ -246,7 +243,6 @@ export const MealPlanDataService = {
         carbs: 35,
         fats: 20,
         time: "7:30 PM",
-        icon: "🐟",
         isCompleted: false,
         ingredients: ["Salmon Fillet", "Sweet Potato", "Broccoli", "Lemon"],
         prepTime: 30,
@@ -277,7 +273,6 @@ export const MealPlanDataService = {
         protein: 22,
         completedAt: "2025-09-05T19:30:00Z",
         rating: 4.5,
-        image: "https://example.com/mediterranean-bowl.jpg",
         gradient: ["#1E3A5F", "#4A90E2"],
         tags: ["High Protein", "Vegetarian"],
         prepTime: 25
@@ -290,7 +285,6 @@ export const MealPlanDataService = {
         protein: 42,
         completedAt: "2025-09-04T18:15:00Z",
         rating: 5.0,
-        image: "https://example.com/grilled-salmon.jpg",
         gradient: ["#FF5722", "#FF9800"],
         tags: ["High Protein", "Omega-3"],
         prepTime: 35
@@ -303,7 +297,6 @@ export const MealPlanDataService = {
         protein: 32,
         completedAt: "2025-09-03T20:00:00Z",
         rating: 4.2,
-        image: "https://example.com/chicken-stir-fry.jpg",
         gradient: ["#4CAF50", "#8BC34A"],
         tags: ["Quick Cook", "Balanced"],
         prepTime: 20
@@ -316,7 +309,6 @@ export const MealPlanDataService = {
         protein: 25,
         completedAt: "2025-09-02T09:30:00Z",
         rating: 4.8,
-        image: "https://example.com/smoothie-bowl.jpg",
         gradient: ["#9C27B0", "#E1BEE7"],
         tags: ["Breakfast", "Antioxidants"],
         prepTime: 10
@@ -332,8 +324,6 @@ export const MealPlanDataService = {
         id: "action_1",
         title: "Meal Prep Guide",
         description: "Plan your week ahead",
-        icon: "food-apple",
-        iconLibrary: "MaterialCommunityIcons",
         color: "#1E3A5F",
         route: "/meal-prep",
         isAvailable: true
@@ -342,8 +332,6 @@ export const MealPlanDataService = {
         id: "action_2", 
         title: "Macro Calculator",
         description: "Calculate your daily needs",
-        icon: "calculator",
-        iconLibrary: "MaterialCommunityIcons",
         color: "#4CAF50",
         route: "/macro-calculator",
         isAvailable: true
@@ -352,8 +340,6 @@ export const MealPlanDataService = {
         id: "action_3",
         title: "Meal History",
         description: "View past meals & nutrition",
-        icon: "history",
-        iconLibrary: "FontAwesome5",
         color: "#FF9800",
         route: "/meal-history",
         isAvailable: true
@@ -447,72 +433,86 @@ export const MealPlanDataService = {
    */
   async searchFoodsAPI(query, pageSize = 12, pageNumber = 1) {
     try {
-      // First, search our local database for cached/custom foods
-      // Increase limit when searching to have fallback if API fails
-      const localLimit = 10; // Increased from 5
-      const localResults = await this.searchLocalDatabase(query, localLimit);
-      console.log(`📂 Local database results: ${localResults.length}`);
-      
-      // Then search the external API
-      const apiResult = await FoodDataService.searchFoods(query, pageSize, pageNumber);
-      console.log(`🌐 API results: ${apiResult.foods?.length || 0}`);
-      if (apiResult.error) {
-        console.warn(`⚠️  API Error: ${apiResult.error} - Showing local results only`);
-      }
-      
-      // Merge results: prioritize local database matches, then API results
+      // Only include local results on the FIRST page
       let mergedFoods = [];
+      let totalHits = 0;
       
-      if (localResults.length > 0) {
-        // Add local results first (they're already relevant and have usage data)
-        mergedFoods = localResults.map(food => ({
-          ...food,
-          source: 'database',
-          _isLocalMatch: true
-        }));
+      if (pageNumber === 1) {
+        // First page: search local database for cached/custom foods
+        const localLimit = 10;
+        const localResults = await this.searchLocalDatabase(query, localLimit);
+        console.log(`📂 Local database results: ${localResults.length}`);
+        
+        if (localResults.length > 0) {
+          mergedFoods = localResults.map(food => ({
+            ...food,
+            source: 'database',
+            _isLocalMatch: true
+          }));
+        }
       }
       
-      // Add API results that aren't duplicates
+      // Search the external API
+      const apiResult = await FoodDataService.searchFoods(query, pageSize, pageNumber);
+      console.log(`🌐 API results page ${pageNumber}: ${apiResult.foods?.length || 0}`);
+      
+      if (apiResult.error) {
+        console.warn(`⚠️  API Error: ${apiResult.error}`);
+        if (pageNumber === 1 && mergedFoods.length > 0) {
+          // First page with local results available
+          return {
+            foods: mergedFoods.slice(0, pageSize),
+            totalHits: mergedFoods.length,
+            currentPage: 1,
+            totalPages: Math.ceil(mergedFoods.length / pageSize)
+          };
+        }
+        return { foods: [], totalHits: 0, currentPage: pageNumber, totalPages: 0 };
+      }
+      
+      // Add API results
       if (apiResult.foods && apiResult.foods.length > 0) {
-        const localFdcIds = new Set(localResults.map(f => f.fdc_id).filter(Boolean));
-        const localNamesNormalized = new Set(
-          localResults.map(f => this.normalizeForComparison(f.name))
-        );
-        
-        const uniqueAPIFoods = apiResult.foods.filter(apiFood => {
-          // Skip if we already have this FDC ID from local
-          if (apiFood.fdc_id && localFdcIds.has(apiFood.fdc_id)) return false;
+        if (pageNumber === 1) {
+          // First page: filter out duplicates of local results
+          const localFdcIds = new Set(mergedFoods.map(f => f.fdc_id).filter(Boolean));
+          const localNamesNormalized = new Set(
+            mergedFoods.map(f => this.normalizeForComparison(f.name))
+          );
           
-          // Skip if name is very similar to local result
-          const apiNameNormalized = this.normalizeForComparison(apiFood.name);
-          return !localNamesNormalized.has(apiNameNormalized);
-        });
-        
-        mergedFoods = [...mergedFoods, ...uniqueAPIFoods];
+          const uniqueAPIFoods = apiResult.foods.filter(apiFood => {
+            if (apiFood.fdc_id && localFdcIds.has(apiFood.fdc_id)) return false;
+            const apiNameNormalized = this.normalizeForComparison(apiFood.name);
+            return !localNamesNormalized.has(apiNameNormalized);
+          });
+          
+          mergedFoods = [...mergedFoods, ...uniqueAPIFoods];
+        } else {
+          // Subsequent pages: just use API results
+          mergedFoods = apiResult.foods;
+        }
       }
       
       // Limit to page size
       const paginatedFoods = mergedFoods.slice(0, pageSize);
       
+      // Calculate total pages from API
+      totalHits = apiResult.totalHits || 0;
+      const totalPages = apiResult.totalPages || Math.ceil(totalHits / pageSize);
+      
       // 🔍 DEBUG: Log search results
-      console.log('\n🔍 SEARCH RESULTS for:', query);
-      console.log('📊 Total results:', paginatedFoods.length);
-      paginatedFoods.forEach((food, index) => {
-        console.log(`\n${index + 1}. ${food.name}${food.brand ? ' (' + food.brand + ')' : ''}`);
-        console.log(`   📈 Calories: ${food.calories} | Protein: ${food.protein}g | Carbs: ${food.carbs}g | Fats: ${food.fats}g`);
-        console.log(`   🏷️  Source: ${food.source || 'API'} | FDC ID: ${food.fdc_id}`);
-      });
-      console.log('\n');
+      console.log(`\n🔍 SEARCH RESULTS page ${pageNumber} for:`, query);
+      console.log(`� Results on this page: ${paginatedFoods.length}`);
+      console.log(`📄 Total pages available: ${totalPages}`);
       
       return {
         foods: paginatedFoods,
-        totalHits: mergedFoods.length,
+        totalHits: totalHits,
         currentPage: pageNumber,
-        totalPages: Math.ceil(mergedFoods.length / pageSize)
+        totalPages: totalPages
       };
     } catch (error) {
       console.error("❌ Error searching foods from API:", error);
-      return { foods: [], totalHits: 0, currentPage: 1 };
+      return { foods: [], totalHits: 0, currentPage: pageNumber, totalPages: 0 };
     }
   },
 
@@ -1150,7 +1150,7 @@ export const MealPlanDataService = {
         prepTime: 5,
         difficulty: "Easy",
         ingredients: ["Greek Yogurt", "Berries", "Granola", "Honey"],
-        matchScore: 0.95
+        matchScore: 95
       },
       {
         id: "rec_2",
@@ -1162,7 +1162,7 @@ export const MealPlanDataService = {
         prepTime: 10,
         difficulty: "Easy",
         ingredients: ["Whole Grain Bread", "Avocado", "Egg", "Everything Seasoning"],
-        matchScore: 0.88
+        matchScore: 88
       }
     ];
   },
@@ -1195,16 +1195,6 @@ export const MealPlanDataService = {
 
   calculateMacroPercentage(current, target) {
     return Math.round((current / target) * 100);
-  },
-
-  getMealIcon(mealType) {
-    const icons = {
-      "breakfast": "🌅",
-      "lunch": "☀️",
-      "dinner": "🌙",
-      "snack": "🍎"
-    };
-    return icons[mealType.toLowerCase()] || "🍽️";
   },
 
   getDifficultyColor(difficulty) {

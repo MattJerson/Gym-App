@@ -100,7 +100,9 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
         burned: balance.caloriesBurned,
         net: netBalance,
         isDeficit: netBalance < 0,
-        isSurplus: netBalance > 0
+        isSurplus: netBalance > 0,
+        mealsLogged: balance.mealsLogged,
+        calorieGoal: balance.calorieGoal
       });
     } catch (error) {
       console.error('❌ ProgressGraph: Error loading daily balance:', error);
@@ -109,7 +111,9 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
         burned: 0,
         net: 0,
         isDeficit: false,
-        isSurplus: false
+        isSurplus: false,
+        mealsLogged: 0,
+        calorieGoal: 2000
       });
     } finally {
       setIsLoadingBalance(false);
@@ -125,9 +129,22 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
         const today = new Date();
         const todayLabel = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
         
-        // CRITICAL FIX: Add today's calorie balance to the projection
-        // The RPC might not include today's data yet, so we calculate it manually
-        const todayWeightChange = dailyBalance.net / 7700; // 7700 calories = 1kg
+        // CRITICAL LOGIC: Calculate actual net calories based on logging behavior
+        // If NO meals logged today → Assume maintenance (0 net calories, no weight change)
+        // If meals ARE logged → Calculate deficit/surplus: (consumed - burned) - maintenance
+        let actualNetCalories;
+        
+        if (dailyBalance.mealsLogged === 0) {
+          // No meals logged = assume user ate maintenance calories (no weight change)
+          actualNetCalories = 0;
+        } else {
+          // Meals logged = start from 0, calculate actual surplus/deficit
+          // Net = (consumed - burned) - maintenance_calories
+          const maintenanceCalories = dailyBalance.calorieGoal || 2000;
+          actualNetCalories = (dailyBalance.consumed - dailyBalance.burned) - maintenanceCalories;
+        }
+        
+        const todayWeightChange = actualNetCalories / 7700; // 7700 calories = 1kg
         const adjustedProjectedWeight = projection.projectedWeight + todayWeightChange;
         const adjustedChange = projection.expectedWeightChange + todayWeightChange;
         
