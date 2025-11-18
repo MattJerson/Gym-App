@@ -10,11 +10,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../services/supabase";
 import { LinearGradient } from "expo-linear-gradient";
 import SettingsHeader from "../../components/SettingsHeader";
 import { SettingsPageSkeleton } from "../../components/skeletons/SettingsPageSkeleton";
+import { useFocusEffect } from "@react-navigation/native";
 
 export default function MySubscription() {
   const router = useRouter();
@@ -26,6 +27,13 @@ export default function MySubscription() {
   useEffect(() => {
     loadSubscriptionData();
   }, []);
+
+  // Reload data when screen comes into focus (after returning from subscription packages)
+  useFocusEffect(
+    useCallback(() => {
+      loadSubscriptionData();
+    }, [])
+  );
 
   const loadSubscriptionData = async () => {
     try {
@@ -100,8 +108,69 @@ export default function MySubscription() {
     );
   };
 
-  const handleUpgrade = () => {
+  const handleViewPlans = () => {
     router.push("/features/subscriptionpackages");
+  };
+
+  // Parse feature text with markdown-style bold (**text**)
+  const parseFeatureText = (text) => {
+    const parts = [];
+    const regex = /\*\*(.*?)\*\*/g;
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ text: text.substring(lastIndex, match.index), bold: false });
+      }
+      parts.push({ text: match[1], bold: true });
+      lastIndex = regex.lastIndex;
+    }
+    
+    if (lastIndex < text.length) {
+      parts.push({ text: text.substring(lastIndex), bold: false });
+    }
+    
+    return parts.length > 0 ? parts : [{ text, bold: false }];
+  };
+
+  // Get tier-specific styling
+  const getTierConfig = (planType, slug) => {
+    if (slug === 'basic-plan' || planType === 'automated') {
+      return {
+        useGradient: false,
+        accentColor: '#4A9EFF',
+        borderColor: 'rgba(74, 158, 255, 0.3)',
+        bgColor: 'rgba(11, 11, 11, 0.95)',
+      };
+    }
+    
+    if (slug === 'standard-plan' || planType === 'assigned') {
+      return {
+        useGradient: true,
+        gradient: ['rgba(255, 184, 0, 0.15)', 'transparent', 'rgba(243, 156, 18, 0.1)'],
+        accentColor: '#FFB800',
+        borderColor: 'rgba(255, 184, 0, 0.4)',
+      };
+    }
+    
+    if (slug === 'rapid-results-coaching' || planType === 'custom') {
+      return {
+        useGradient: true,
+        useGlow: true,
+        gradient: ['rgba(155, 89, 182, 0.2)', 'transparent', 'rgba(231, 76, 60, 0.15)'],
+        accentColor: '#9b59b6',
+        borderColor: 'rgba(155, 89, 182, 0.5)',
+        glowColor: 'rgba(155, 89, 182, 0.6)',
+      };
+    }
+    
+    return {
+      useGradient: false,
+      accentColor: '#A3E635',
+      borderColor: 'rgba(163, 230, 53, 0.3)',
+      bgColor: 'rgba(11, 11, 11, 0.95)',
+    };
   };
 
   const formatDate = (dateString) => {
@@ -157,7 +226,7 @@ export default function MySubscription() {
                 Subscribe to unlock premium features and take your fitness
                 journey to the next level
               </Text>
-              <Pressable style={styles.upgradeButton} onPress={handleUpgrade}>
+              <Pressable style={styles.upgradeButton} onPress={handleViewPlans}>
                 <LinearGradient
                   colors={["#A3E635", "#86C232"]}
                   style={styles.upgradeButtonGradient}
@@ -170,145 +239,162 @@ export default function MySubscription() {
           )}
 
           {/* Active Subscription */}
-          {subscription && subscriptionPackage && (
-            <>
-              {/* Current Plan Section */}
-              <View style={styles.sectionContainer}>
-                <View style={styles.sectionHeader}>
-                  <Ionicons
-                    name="sparkles"
-                    size={24}
-                    color={subscriptionPackage.accent_color || "#A3E635"}
-                  />
-                  <Text style={styles.sectionTitle}>Current Plan</Text>
-                </View>
-
-                <LinearGradient
-                  colors={[
-                    subscriptionPackage.accent_color || "#A3E635",
-                    `${subscriptionPackage.accent_color || "#A3E635"}CC`,
-                  ]}
-                  style={styles.premiumCard}
-                >
-                  <View style={styles.premiumHeader}>
-                    {subscriptionPackage.emoji && (
-                      <Text style={styles.premiumEmoji}>
-                        {subscriptionPackage.emoji}
-                      </Text>
-                    )}
-                    <Text style={styles.premiumTitle}>
-                      {subscriptionPackage.name}
-                    </Text>
-                    {subscriptionPackage.badge && (
-                      <View style={styles.badgeContainer}>
-                        <Text style={styles.badgeText}>
-                          {subscriptionPackage.badge}
-                        </Text>
-                      </View>
-                    )}
+          {subscription && subscriptionPackage && (() => {
+            const tierConfig = getTierConfig(subscriptionPackage.plan_type, subscriptionPackage.slug);
+            const features = Array.isArray(subscriptionPackage.features) 
+              ? subscriptionPackage.features 
+              : [];
+            
+            return (
+              <>
+                {/* Combined Current Plan & Benefits Section */}
+                <View style={styles.sectionContainer}>
+                  <View style={styles.sectionHeader}>
+                    <Ionicons
+                      name="sparkles"
+                      size={24}
+                      color={tierConfig.accentColor}
+                    />
+                    <Text style={styles.sectionTitle}>Your Subscription</Text>
                   </View>
 
-                  <View style={styles.premiumPriceContainer}>
-                    <Text style={styles.premiumPrice}>
-                      {subscriptionPackage.price === 0
-                        ? "Free"
-                        : `$${subscriptionPackage.price.toFixed(2)}`}
-                    </Text>
-                    {subscriptionPackage.price > 0 && (
-                      <Text style={styles.premiumInterval}>
-                        {getIntervalText(subscriptionPackage.billing_interval)}
-                      </Text>
+                  {/* Premium Card with tier-specific styling */}
+                  <View style={styles.premiumCardContainer}>
+                    {tierConfig.useGlow && (
+                      <View style={[styles.outerGlow, { 
+                        shadowColor: tierConfig.glowColor,
+                        borderColor: tierConfig.glowColor,
+                      }]} />
                     )}
-                  </View>
 
-                  <View style={styles.premiumDetails}>
-                    <View style={styles.premiumDetailRow}>
-                      <Ionicons
-                        name="calendar-outline"
-                        size={16}
-                        color="rgba(255,255,255,0.9)"
+                    {tierConfig.useGradient && (
+                      <LinearGradient
+                        colors={tierConfig.gradient}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.gradientBg}
                       />
-                      <Text style={styles.premiumDetailText}>
-                        Started: {formatDate(subscription.started_at)}
-                      </Text>
-                    </View>
-                    {subscription.expires_at && (
-                      <View style={styles.premiumDetailRow}>
-                        <Ionicons
-                          name={
-                            isExpiringSoon(subscription.expires_at)
-                              ? "alert-circle-outline"
-                              : "refresh-outline"
-                          }
-                          size={16}
-                          color={
-                            isExpiringSoon(subscription.expires_at)
-                              ? "#FFB800"
-                              : "rgba(255,255,255,0.9)"
-                          }
-                        />
-                        <Text
-                          style={[
-                            styles.premiumDetailText,
-                            isExpiringSoon(subscription.expires_at) && {
-                              color: "#FFB800",
-                              fontWeight: "700",
-                            },
-                          ]}
-                        >
-                          Expires: {formatDate(subscription.expires_at)}
-                        </Text>
-                      </View>
                     )}
-                  </View>
-                </LinearGradient>
-              </View>
 
-              {/* Features Section */}
-              {subscriptionPackage.features &&
-                subscriptionPackage.features.length > 0 && (
-                  <View style={styles.sectionContainer}>
-                    <View style={styles.sectionHeader}>
-                      <Ionicons
-                        name="checkmark-circle"
-                        size={24}
-                        color="#A3E635"
-                      />
-                      <Text style={styles.sectionTitle}>Your Benefits</Text>
-                    </View>
-
-                    <View style={styles.card}>
-                      {subscriptionPackage.features
-                        .filter((f) => f.included)
-                        .map((feature, index) => (
-                          <View key={index} style={styles.featureRow}>
-                            <View
-                              style={[
-                                styles.featureIcon,
-                                {
-                                  backgroundColor: `${
-                                    subscriptionPackage.accent_color ||
-                                    "#A3E635"
-                                  }20`,
-                                },
-                              ]}
-                            >
-                              <Ionicons
-                                name="checkmark"
-                                size={16}
-                                color={
-                                  subscriptionPackage.accent_color || "#A3E635"
-                                }
-                              />
-                            </View>
-                            <Text style={styles.featureText}>
-                              {feature.text}
+                    <View style={[styles.premiumCard, {
+                      backgroundColor: tierConfig.bgColor || 'rgba(11, 11, 11, 0.95)',
+                      borderColor: tierConfig.borderColor,
+                    }]}>
+                      {/* Header */}
+                      <View style={styles.premiumHeader}>
+                        {subscriptionPackage.badge && (
+                          <View style={[styles.topBadge, { 
+                            backgroundColor: `${tierConfig.accentColor}15`, 
+                            borderColor: `${tierConfig.accentColor}40` 
+                          }]}>
+                            {subscriptionPackage.emoji && (
+                              <Text style={styles.badgeEmoji}>{subscriptionPackage.emoji}</Text>
+                            )}
+                            <Text style={[styles.topBadgeText, { color: tierConfig.accentColor }]}>
+                              {subscriptionPackage.badge}
                             </Text>
                           </View>
-                        ))}
+                        )}
+                        
+                        <Text style={styles.premiumTitle}>
+                          {subscriptionPackage.name}
+                        </Text>
+
+                        {subscriptionPackage.subtitle && (
+                          <Text style={[styles.premiumSubtitle, { color: tierConfig.accentColor }]}>
+                            {subscriptionPackage.subtitle}
+                          </Text>
+                        )}
+
+                        {subscriptionPackage.description && (
+                          <Text style={styles.premiumDescription}>
+                            {subscriptionPackage.description}
+                          </Text>
+                        )}
+                      </View>
+
+                      {/* Price */}
+                      <View style={styles.premiumPriceContainer}>
+                        <Text style={[styles.premiumPrice, { color: tierConfig.accentColor }]}>
+                          {subscriptionPackage.price === 0
+                            ? "Free"
+                            : `$${subscriptionPackage.price.toFixed(0)}`}
+                        </Text>
+                        {subscriptionPackage.price > 0 && (
+                          <Text style={styles.premiumInterval}>/mo</Text>
+                        )}
+                      </View>
+
+                      {/* Subscription Info */}
+                      <View style={styles.subscriptionInfo}>
+                        <View style={styles.infoRow}>
+                          <Ionicons name="calendar-outline" size={16} color="#aaa" />
+                          <Text style={styles.infoLabel}>Started:</Text>
+                          <Text style={styles.infoValue}>{formatDate(subscription.started_at)}</Text>
+                        </View>
+                        {subscription.expires_at && (
+                          <View style={styles.infoRow}>
+                            <Ionicons 
+                              name={isExpiringSoon(subscription.expires_at) ? "alert-circle-outline" : "refresh-outline"}
+                              size={16} 
+                              color={isExpiringSoon(subscription.expires_at) ? "#FFB800" : "#aaa"} 
+                            />
+                            <Text style={styles.infoLabel}>
+                              {isExpiringSoon(subscription.expires_at) ? "Expires Soon:" : "Renews:"}
+                            </Text>
+                            <Text style={[
+                              styles.infoValue,
+                              isExpiringSoon(subscription.expires_at) && { color: "#FFB800", fontWeight: "700" }
+                            ]}>
+                              {formatDate(subscription.expires_at)}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+
+                      {/* Benefits */}
+                      {features.length > 0 && (
+                        <View style={styles.benefitsSection}>
+                          <View style={styles.benefitsHeader}>
+                            <Ionicons name="checkmark-circle" size={18} color={tierConfig.accentColor} />
+                            <Text style={styles.benefitsTitle}>What's Included</Text>
+                          </View>
+                          
+                          <View style={styles.benefitsGrid}>
+                            {features.map((feature, index) => {
+                              const featureText = typeof feature === 'string' ? feature : feature.text || feature;
+                              const parsedText = parseFeatureText(featureText);
+                              
+                              return (
+                                <View key={index} style={styles.benefitItem}>
+                                  <View style={[styles.benefitIconContainer, { 
+                                    backgroundColor: `${tierConfig.accentColor}20` 
+                                  }]}>
+                                    <Ionicons 
+                                      name="checkmark" 
+                                      size={14} 
+                                      color={tierConfig.accentColor} 
+                                    />
+                                  </View>
+                                  <Text style={styles.benefitText}>
+                                    {parsedText.map((part, i) => (
+                                      <Text 
+                                        key={i} 
+                                        style={part.bold ? styles.benefitTextBold : styles.benefitTextNormal}
+                                      >
+                                        {part.text}
+                                      </Text>
+                                    ))}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      )}
                     </View>
                   </View>
-                )}
+                </View>
 
               {/* Manage Subscription Section */}
               <View style={styles.sectionContainer}>
@@ -318,60 +404,40 @@ export default function MySubscription() {
                 </View>
 
                 <View style={styles.card}>
-                  {subscriptionPackage.price === 0 ? (
-                    // Free tier (base-free or free-trial) - show upgrade option prominently
-                    <>
-                      <Pressable
-                        style={[styles.linkButton, styles.upgradeHighlight]}
-                        onPress={handleUpgrade}
-                      >
-                        <View style={styles.linkButtonLeft}>
-                          <Ionicons name="rocket" size={22} color="#A3E635" />
-                          <View>
-                            <Text style={styles.linkButtonText}>
-                              {subscriptionPackage.slug === 'free-trial' 
-                                ? 'Upgrade to Keep Premium Features' 
-                                : 'Start 7-Day Free Trial'}
-                            </Text>
-                            <Text style={styles.linkButtonSubtext}>
-                              {subscriptionPackage.slug === 'free-trial'
-                                ? 'Your trial expires soon'
-                                : 'Try all features free for 7 days'}
-                            </Text>
-                          </View>
-                        </View>
-                        <Ionicons
-                          name="chevron-forward"
-                          size={20}
-                          color="#A3E635"
-                        />
-                      </Pressable>
+                  {/* View All Subscription Packages */}
+                  <Pressable
+                    style={[
+                      styles.linkButton,
+                      subscriptionPackage.price === 0 && styles.upgradeHighlight
+                    ]}
+                    onPress={handleViewPlans}
+                  >
+                    <View style={styles.linkButtonLeft}>
+                      <Ionicons 
+                        name="apps-outline" 
+                        size={22} 
+                        color={tierConfig.accentColor} 
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.linkButtonText}>
+                          View Subscription Packages
+                        </Text>
+                        <Text style={styles.linkButtonSubtext}>
+                          {subscriptionPackage.price === 0 
+                            ? 'Explore premium plans to unlock all features'
+                            : 'Compare plans and upgrade or change anytime'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color={subscriptionPackage.price === 0 ? tierConfig.accentColor : "#666"}
+                    />
+                  </Pressable>
 
-                      <View style={styles.divider} />
-                    </>
-                  ) : (
+                  {subscriptionPackage.price > 0 && (
                     <>
-                      <Pressable
-                        style={styles.linkButton}
-                        onPress={handleUpgrade}
-                      >
-                        <View style={styles.linkButtonLeft}>
-                          <Ionicons
-                            name="arrow-up-circle-outline"
-                            size={22}
-                            color="#A3E635"
-                          />
-                          <Text style={styles.linkButtonText}>
-                            Upgrade Plan
-                          </Text>
-                        </View>
-                        <Ionicons
-                          name="chevron-forward"
-                          size={20}
-                          color="#666"
-                        />
-                      </Pressable>
-
                       <View style={styles.divider} />
 
                       <Pressable
@@ -468,8 +534,9 @@ export default function MySubscription() {
                     </Pressable>
                   </View>
                 )}
-            </>
-          )}
+              </>
+            );
+          })()}
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -556,77 +623,180 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 0.3,
   },
-  premiumCard: {
-    padding: 28,
-    elevation: 8,
+  premiumCardContainer: {
+    position: "relative",
+  },
+  outerGlow: {
+    position: 'absolute',
+    top: -8,
+    left: -8,
+    right: -8,
+    bottom: -8,
+    borderRadius: 36,
+    borderWidth: 3,
+    opacity: 0.4,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  gradientBg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     borderRadius: 28,
-    shadowRadius: 16,
-    shadowOpacity: 0.3,
+  },
+  premiumCard: {
+    padding: 24,
+    borderRadius: 28,
+    borderWidth: 2,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
   premiumHeader: {
-    marginBottom: 20,
     alignItems: "center",
+    marginBottom: 20,
   },
-  premiumEmoji: {
-    fontSize: 48,
-    marginBottom: 12,
+  topBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    marginBottom: 8,
+  },
+  badgeEmoji: {
+    fontSize: 14,
+  },
+  topBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   premiumTitle: {
-    fontSize: 28,
+    fontSize: 26,
     color: "#fff",
-    marginBottom: 8,
     fontWeight: "900",
+    letterSpacing: 0.3,
+    textAlign: "center",
+    marginBottom: 6,
+  },
+  premiumSubtitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
     letterSpacing: 0.5,
+    marginBottom: 6,
   },
-  badgeContainer: {
-    marginTop: 8,
-    borderRadius: 8,
-    paddingVertical: 4,
+  premiumDescription: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#999',
+    textAlign: 'center',
+    lineHeight: 16,
     paddingHorizontal: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.25)",
-  },
-  badgeText: {
-    fontSize: 11,
-    color: "#fff",
-    letterSpacing: 1,
-    fontWeight: "800",
   },
   premiumPriceContainer: {
-    marginBottom: 20,
     flexDirection: "row",
     alignItems: "baseline",
     justifyContent: "center",
+    marginBottom: 20,
   },
   premiumPrice: {
-    fontSize: 42,
-    color: "#fff",
+    fontSize: 52,
     fontWeight: "900",
-    letterSpacing: -1,
+    letterSpacing: -2,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   premiumInterval: {
-    fontSize: 18,
-    marginLeft: 6,
-    fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 16,
+    marginLeft: 4,
+    fontWeight: "700",
+    color: "#888",
+    marginBottom: 8,
   },
-  premiumDetails: {
-    gap: 10,
+  subscriptionInfo: {
+    gap: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    marginBottom: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoLabel: {
+    fontSize: 13,
+    color: '#aaa',
+    fontWeight: '600',
+    flex: 1,
+  },
+  infoValue: {
+    fontSize: 13,
+    color: '#fff',
+    fontWeight: '700',
+  },
+  benefitsSection: {
     paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.25)",
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
   },
-  premiumDetailRow: {
+  benefitsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    marginBottom: 16,
   },
-  premiumDetailText: {
+  benefitsTitle: {
     fontSize: 14,
-    fontWeight: "500",
-    color: "rgba(255, 255, 255, 0.9)",
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  benefitsGrid: {
+    gap: 12,
+  },
+  benefitItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  benefitIconContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    marginTop: 2,
+  },
+  benefitText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  benefitTextBold: {
+    fontWeight: '700',
+    color: '#fff',
+  },
+  benefitTextNormal: {
+    fontWeight: '500',
+    color: '#ccc',
   },
   card: {
     padding: 20,

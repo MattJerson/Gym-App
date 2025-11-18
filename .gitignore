@@ -1964,3 +1964,4 @@ supabase/migrations/018_fix_get_my_workouts_type_mismatch.sql
 supabase/migrations/019_fix_create_custom_workout_notes.sql
 supabase/migrations/020_create_workout_session_from_template.sql
 supabase/migrations/DEBUG_check_session_exercises.sql
+supabase/migrations/20251118_update_subscription_packages.sql

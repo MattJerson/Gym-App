@@ -244,144 +244,101 @@ export default function SubscriptionPackages() {
         return;
       }
 
-      // Free trial - no payment needed
-      if (subscription.price === 0 || subscription.slug === "free-trial") {
-        // Get the subscription package ID
-        const { data: packageData, error: packageError } = await supabase
-          .from("subscription_packages")
-          .select("id")
-          .eq("slug", subscription.slug)
-          .single();
+      // TESTING MODE: Bypass Stripe and directly update subscription
+      console.log(`[TEST MODE] Subscribing user to: ${subscription.name}`);
+      
+      // Get the subscription package ID
+      const { data: packageData, error: packageError } = await supabase
+        .from("subscription_packages")
+        .select("id")
+        .eq("slug", subscription.slug)
+        .single();
 
-        if (packageError) {
-          console.error("Error fetching package:", packageError);
-          Alert.alert("Error", "Failed to start free trial");
+      if (packageError) {
+        console.error("Error fetching package:", packageError);
+        Alert.alert("Error", "Failed to fetch subscription package");
+        setIsProcessing(false);
+        return;
+      }
+
+      // Create subscription record
+      const startDate = new Date();
+      const endDate = new Date();
+      
+      // Calculate expiration based on billing interval
+      if (subscription.billing_interval === 'month') {
+        endDate.setMonth(endDate.getMonth() + 1);
+      } else if (subscription.billing_interval === 'year') {
+        endDate.setFullYear(endDate.getFullYear() + 1);
+      } else if (subscription.billing_interval === 'one_time') {
+        endDate.setFullYear(endDate.getFullYear() + 100); // Lifetime
+      }
+
+      // Check if user already has an active subscription
+      const { data: existingSubscription } = await supabase
+        .from("user_subscriptions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .single();
+
+      if (existingSubscription) {
+        // Update existing subscription
+        const { error: updateError } = await supabase
+          .from("user_subscriptions")
+          .update({
+            package_id: packageData.id,
+            started_at: startDate.toISOString(),
+            expires_at: endDate.toISOString(),
+          })
+          .eq("id", existingSubscription.id);
+
+        if (updateError) {
+          console.error("Error updating subscription:", updateError);
+          Alert.alert("Error", "Failed to update subscription");
           setIsProcessing(false);
           return;
         }
+      } else {
+        // Create new subscription
+        const { error: insertError } = await supabase
+          .from("user_subscriptions")
+          .insert({
+            user_id: user.id,
+            package_id: packageData.id,
+            status: "active",
+            started_at: startDate.toISOString(),
+            expires_at: endDate.toISOString(),
+          });
 
-        // Create free trial subscription using RPC function to avoid duplicates
-        const startDate = new Date();
-        const endDate = new Date();
-        endDate.setDate(endDate.getDate() + 7); // 7-day free trial
-
-        const { data: subscriptionId, error: subscriptionError } = await supabase.rpc(
-          'create_user_subscription',
-          {
-            p_user_id: user.id,
-            p_package_id: packageData.id,
-            p_started_at: startDate.toISOString(),
-            p_expires_at: endDate.toISOString()
-          }
-        );
-
-        if (subscriptionError) {
-          console.error("Error creating subscription:", subscriptionError);
+        if (insertError) {
+          console.error("Error creating subscription:", insertError);
           Alert.alert("Error", "Failed to create subscription");
           setIsProcessing(false);
           return;
         }
-        router.push("/features/selectworkouts");
-        return;
       }
 
-      // Paid subscription - initiate payment
-      const response = await fetch(
-        "http://192.168.0.101:3000/create-payment-intent",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            plan: subscription.name,
-            price: subscription.price,
-            interval: subscription.billing_interval,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        console.error("Backend returned error:", response.statusText);
-        return;
-      }
-
-      const { paymentIntent, ephemeralKey, customer } = await response.json();
-
-      if (!paymentIntent || !ephemeralKey || !customer) {
-        console.error("Backend response missing required fields");
-        return;
-      }
-
-      // Initialize Payment Sheet
-      const { error: initError } = await initPaymentSheet({
-        merchantDisplayName: "Gym App",
-        customerId: customer,
-        customerEphemeralKeySecret: ephemeralKey,
-        paymentIntentClientSecret: paymentIntent,
-        allowsDelayedPaymentMethods: true,
-      });
-
-      if (initError) {
-        console.error("PaymentSheet initialization failed:", initError);
-        return;
-      }
-
-      // Present the Payment Sheet
-      const { error: paymentError } = await presentPaymentSheet();
-
-      if (paymentError) {
-        console.error("Payment failed:", paymentError);
-      } else {
-        // Create subscription record in database after successful payment
-        try {
-          const { data: packageData, error: pkgError } = await supabase
-            .from("subscription_packages")
-            .select("id")
-            .eq("slug", subscription.slug)
-            .single();
-
-          if (pkgError) {
-            console.error("Error fetching package for subscription:", pkgError);
-          } else if (packageData) {
-            const startDate = new Date();
-            const endDate = new Date();
-            
-            // Calculate expiration based on billing interval
-            if (subscription.billing_interval === 'month') {
-              endDate.setMonth(endDate.getMonth() + 1);
-            } else if (subscription.billing_interval === 'year') {
-              endDate.setFullYear(endDate.getFullYear() + 1);
-            } else if (subscription.billing_interval === 'one_time') {
-              endDate.setFullYear(endDate.getFullYear() + 100); // Lifetime
-            }
-
-            const { data: subscriptionId, error: subError } = await supabase.rpc(
-              'create_user_subscription',
-              {
-                p_user_id: user.id,
-                p_package_id: packageData.id,
-                p_started_at: startDate.toISOString(),
-                p_expires_at: endDate.toISOString()
+      Alert.alert(
+        "Success! 🎉",
+        `You've been subscribed to ${subscription.name}. This is test mode - no payment processed.`,
+        [
+          {
+            text: "Continue",
+            onPress: () => {
+              // Check if coming from settings (upgrade flow) or onboarding
+              if (router.canGoBack()) {
+                router.back(); // Go back to settings
+              } else {
+                router.push("/features/selectworkouts"); // Continue onboarding
               }
-            );
-
-            if (subError) {
-              console.error("Failed to create subscription record:", subError);
-              Alert.alert(
-                "Warning",
-                "Payment successful but subscription tracking failed. Please contact support."
-              );
-            } else {
-            }
-          }
-        } catch (dbError) {
-          console.error("Database error after payment:", dbError);
-          // Still navigate since payment succeeded
-        }
-        
-        router.push("/page/home");
-      }
+            },
+          },
+        ]
+      );
     } catch (err) {
-      console.error("Payment error:", err);
+      console.error("Subscription error:", err);
+      Alert.alert("Error", "An unexpected error occurred. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -428,26 +385,40 @@ export default function SubscriptionPackages() {
                 ) : (
                   <FlatList
                     data={subscriptions}
-                    renderItem={({ item }) => (
-                      <SubscriptionCard
-                        name={item.name}
-                        price={item.price}
-                        interval={
-                          item.billing_interval === "month"
-                            ? "mo"
-                            : item.billing_interval === "year"
-                            ? "yr"
-                            : null
-                        }
-                        features={item.features || []}
-                        badge={item.badge}
-                        isPopular={item.is_popular}
-                        emoji={item.emoji}
-                        accentColor={item.accent_color}
-                        onPress={() => handleSubscribe(item)}
-                        disabled={isProcessing}
-                      />
-                    )}
+                    renderItem={({ item }) => {
+                      // Transform features from string array to object array
+                      const transformedFeatures = Array.isArray(item.features)
+                        ? item.features.map(feature => ({
+                            text: typeof feature === 'string' ? feature : feature.text,
+                            included: true
+                          }))
+                        : [];
+                      
+                      return (
+                        <SubscriptionCard
+                          name={item.name}
+                          price={item.price}
+                          interval={
+                            item.billing_interval === "month"
+                              ? "mo"
+                              : item.billing_interval === "year"
+                              ? "yr"
+                              : null
+                          }
+                          features={transformedFeatures}
+                          badge={item.badge}
+                          isPopular={item.is_popular}
+                          emoji={item.emoji}
+                          accentColor={item.accent_color}
+                          planType={item.plan_type}
+                          slug={item.slug}
+                          subtitle={item.subtitle}
+                          description={item.description}
+                          onPress={() => handleSubscribe(item)}
+                          disabled={isProcessing}
+                        />
+                      );
+                    }}
                     keyExtractor={(item, index) =>
                       item.slug || index.toString()
                     }
