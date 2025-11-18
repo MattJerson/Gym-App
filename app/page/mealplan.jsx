@@ -20,9 +20,13 @@ import PlanActionSheet from "../../components/mealplan/PlanActionSheet";
 import { MealPlanDataService } from "../../services/MealPlanDataService";
 import MacroProgressSummary from "../../components/mealplan/MacroProgressSummary";
 import { MealPlanPageSkeleton } from "../../components/skeletons/MealPlanPageSkeleton";
+import { usePageCache } from "../../contexts/PageCacheContext";
+import { INVALIDATION_RULES } from "../../utils/cacheInvalidation";
 
 export default function Mealplan() {
   const router = useRouter();
+  const { getCachedData, setCachedData, invalidateCache } = usePageCache();
+  
   // 🔄 Data-driven state management
   const [macroGoals, setMacroGoals] = useState(null);
   const [weeklyPlan, setWeeklyPlan] = useState([]);
@@ -78,11 +82,30 @@ export default function Mealplan() {
     }
   };
 
-  // Reload data when screen comes into focus (e.g., after adding food)
+  // 🚀 OPTIMIZED: Check cache before reloading data
   useFocusEffect(
     React.useCallback(() => {
       if (userId) {
-        loadMealPlanData();
+        // Check if we have cached data for this date
+        const cacheKey = `mealplan_${selectedDate.toDateString()}`;
+        const cached = getCachedData('mealplan', cacheKey);
+        
+        if (cached) {
+          // Use cached data - no reload needed!
+          console.log('[MealPlan] Using cached data');
+          setMacroGoals(cached.macroGoals);
+          setWeeklyPlan(cached.weeklyPlan);
+          setTodaysMeals(cached.todaysMeals);
+          setRecentMeals(cached.recentMeals);
+          setQuickActions(cached.quickActions);
+          setCurrentPlan(cached.currentPlan);
+          setDailyProgress(cached.dailyProgress);
+          setIsLoading(false);
+        } else {
+          // No cache - load fresh data
+          console.log('[MealPlan] Loading fresh data');
+          loadMealPlanData();
+        }
       }
     }, [userId, selectedDate])
   );
@@ -112,6 +135,19 @@ export default function Mealplan() {
 
       // Transform meal logs to TodaysMeals format
       const transformedMeals = transformMealLogs(mealLogsData);
+
+      // 🚀 CACHE THE DATA
+      const cacheKey = `mealplan_${selectedDate.toDateString()}`;
+      const dataToCache = {
+        macroGoals: macroData,
+        weeklyPlan: weeklyData,
+        todaysMeals: transformedMeals,
+        recentMeals: recentData,
+        quickActions: actionsData,
+        currentPlan: activePlanData,
+        dailyProgress: dailyTrackingData,
+      };
+      setCachedData('mealplan', cacheKey, dataToCache);
 
       // Update state with fetched data
       setMacroGoals(macroData);
@@ -201,6 +237,11 @@ export default function Mealplan() {
       const success = await MealPlanDataService.deleteMealLog(userId, logId);
 
       if (success) {
+        // 🚀 Invalidate cache for affected pages
+        INVALIDATION_RULES.MEAL_LOG_DELETED.forEach(page => {
+          invalidateCache(page);
+        });
+        
         // Reload meal plan data to refresh the UI
         loadMealPlanData();
       } else {

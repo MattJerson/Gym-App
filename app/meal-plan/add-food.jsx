@@ -19,11 +19,14 @@ import FoodItemCard from "../../components/mealplan/FoodItemCard";
 import { MealPlanDataService } from "../../services/MealPlanDataService";
 import { AddFoodPageSkeleton } from "../../components/skeletons/AddFoodPageSkeleton";
 import { filterFoodsByRestrictions } from "../../services/AllergenDetectionService";
+import { usePageCache } from "../../contexts/PageCacheContext";
+import { INVALIDATION_RULES } from "../../utils/cacheInvalidation";
 
 export default function AddFood() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { mealType = "breakfast", editMode = false, logId, foodData } = params;
+  const { invalidateMultiple } = usePageCache();
 
   // Parse foodData if in edit mode
   const existingFood = editMode && foodData ? JSON.parse(foodData) : null;
@@ -97,6 +100,28 @@ export default function AddFood() {
   // Filter foods based on selected filters
   const filterFoods = (foodsArray) => {
     return foodsArray.filter((food) => {
+      // Filter out foods with invalid/incomplete nutrition data
+      const protein = food.protein || 0;
+      const carbs = food.carbs || 0;
+      const fats = food.fats || 0;
+      
+      // Exclude if all macros are zero (incomplete data)
+      if (protein === 0 && carbs === 0 && fats === 0) {
+        return false;
+      }
+      
+      // Exclude if 2 or more macros are less than 1g (not substantial food like broth)
+      const macrosLessThanOne = [protein < 1, carbs < 1, fats < 1].filter(Boolean).length;
+      if (macrosLessThanOne >= 2) {
+        return false;
+      }
+      
+      // Exclude if only one or two macros have values (suspicious/incomplete)
+      const nonZeroCount = [protein > 0, carbs > 0, fats > 0].filter(Boolean).length;
+      if (nonZeroCount < 2) {
+        return false;
+      }
+
       // Category filter
       if (selectedCategory !== "all") {
         const category = food.category?.toLowerCase() || "";
@@ -292,14 +317,22 @@ export default function AddFood() {
       setIsLoading(true);
 
       // Load both tabs' data upfront
-      const [popular, recent, logs] = await Promise.all([
+      const [popular, logs] = await Promise.all([
         MealPlanDataService.getPopularFoods(10),
-        MealPlanDataService.getUserRecentFoods(userId, 10),
         MealPlanDataService.getMealLogsForDate(userId, new Date()),
       ]);
       
+      // Extract 2-3 most recent foods from logs for "Recent Foods" section
+      const recentFromLogs = logs
+        .slice(0, 3) // Take only the 3 most recent
+        .map(log => ({
+          ...log.food,
+          // Add any additional properties needed for display
+          last_logged: log.logged_at,
+        }));
+      
       setPopularFoods(popular);
-      setRecentFoods(recent);
+      setRecentFoods(recentFromLogs);
       setUserLogs(logs);
     } catch (error) {
       console.error("❌ Error loading initial data:", error);
@@ -311,8 +344,9 @@ export default function AddFood() {
 
   /**
    * Search foods from FoodData API
+   * Fetches multiple pages if needed to get at least 15 valid results after filtering
    */
-  const searchFoodsFromAPI = async (page = 1) => {
+  const searchFoodsFromAPI = async (page = 1, accumulatedResults = []) => {
     try {
       if (page === 1) {
         setIsSearching(true);
@@ -326,14 +360,30 @@ export default function AddFood() {
         page
       );
 
-      if (page === 1) {
-        setSearchResults(result.foods || []);
-      } else {
-        setSearchResults((prev) => [...prev, ...(result.foods || [])]);
-      }
+      const newFoods = result.foods || [];
+      const allFoods = page === 1 ? newFoods : [...accumulatedResults, ...newFoods];
+      
+      // Apply filters to see how many valid results we have
+      const filtered = filterFoods(allFoods);
+      const finalFiltered = filterFoodsByRestrictions(
+        filtered,
+        userRestrictions,
+        dietaryFilterEnabled
+      );
 
+      // Update state with accumulated results
+      setSearchResults(allFoods);
       setCurrentPage(result.currentPage || page);
       setTotalPages(result.totalPages || 1);
+
+      // If we have less than 15 valid results and there are more pages, fetch next page
+      const hasMorePages = (result.currentPage || page) < (result.totalPages || 1);
+      if (finalFiltered.length < 15 && hasMorePages && page < 5) { // Limit to 5 pages max to avoid infinite loop
+        console.log(`📦 Only ${finalFiltered.length} valid results, fetching page ${page + 1}...`);
+        await searchFoodsFromAPI(page + 1, allFoods);
+        return;
+      }
+
     } catch (error) {
       console.error("❌ Error searching foods:", error);
       Alert.alert("Error", "Failed to search foods. Please try again.");
@@ -428,6 +478,11 @@ export default function AddFood() {
         // If quantity is 0, delete the food entry
         if (quantityValue <= 0) {
           await MealPlanDataService.deleteMealLog(userId, logId);
+          
+          // 🚀 Invalidate cache after deletion
+          invalidateMultiple(INVALIDATION_RULES.MEAL_LOG_DELETED);
+          console.log('✅ Cache invalidated for:', INVALIDATION_RULES.MEAL_LOG_DELETED);
+          
           playSuccessAnimation();
           return;
         }
@@ -437,6 +492,10 @@ export default function AddFood() {
           quantity: quantityValue,
           serving_size: selectedFood.serving_size || 100,
         });
+
+        // 🚀 Invalidate cache after update
+        invalidateMultiple(INVALIDATION_RULES.MEAL_LOG_UPDATED);
+        console.log('✅ Cache invalidated for:', INVALIDATION_RULES.MEAL_LOG_UPDATED);
 
         playSuccessAnimation();
         return;
@@ -471,6 +530,10 @@ export default function AddFood() {
         new Date()
       );
 
+      // 🚀 Invalidate cache for affected pages so fresh data loads
+      invalidateMultiple(INVALIDATION_RULES.MEAL_LOG_ADDED);
+      console.log('✅ Cache invalidated for:', INVALIDATION_RULES.MEAL_LOG_ADDED);
+
       playSuccessAnimation();
     } catch (error) {
       console.error("❌ Error adding food:", error);
@@ -501,7 +564,7 @@ export default function AddFood() {
    */
   const handleLoadMore = () => {
     if (currentPage < totalPages && !isLoadingMore) {
-      searchFoodsFromAPI(currentPage + 1);
+      searchFoodsFromAPI(currentPage + 1, searchResults);
     }
   };
 
@@ -553,6 +616,22 @@ export default function AddFood() {
         userRestrictions,
         dietaryFilterEnabled // Hide restricted foods when toggle is ON
       );
+
+      // Log filtered results for debugging
+      console.log('🔍 Search Results - Total:', searchResults.length);
+      console.log('🔍 After filterFoods:', filteredResults.length);
+      console.log('🔍 After restriction filter:', restrictionAnnotatedResults.length);
+      
+      // Log ALL foods to see their data
+      restrictionAnnotatedResults.forEach((food, idx) => {
+        console.log(`Food ${idx + 1}:`, {
+          name: food.name,
+          calories: food.calories,
+          protein: food.protein,
+          carbs: food.carbs,
+          fats: food.fats
+        });
+      });
 
       return (
         <>
@@ -643,6 +722,31 @@ export default function AddFood() {
         userRestrictions,
         dietaryFilterEnabled // Hide restricted foods when toggle is ON
       );
+
+      // Log filtered results for debugging
+      console.log('🏠 Recent Foods - Total:', recentFoods.length, 'After filter:', restrictionAnnotatedRecent.length);
+      console.log('⭐ Popular Foods - Total:', popularFoods.length, 'After filter:', restrictionAnnotatedPopular.length);
+      
+      // Log first 2 of each to see their data
+      restrictionAnnotatedRecent.slice(0, 2).forEach((food, idx) => {
+        console.log(`Recent ${idx + 1}:`, {
+          name: food.name,
+          calories: food.calories,
+          protein: food.protein,
+          carbs: food.carbs,
+          fats: food.fats
+        });
+      });
+      
+      restrictionAnnotatedPopular.slice(0, 2).forEach((food, idx) => {
+        console.log(`Popular ${idx + 1}:`, {
+          name: food.name,
+          calories: food.calories,
+          protein: food.protein,
+          carbs: food.carbs,
+          fats: food.fats
+        });
+      });
 
       return (
         <>

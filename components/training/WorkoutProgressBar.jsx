@@ -101,6 +101,17 @@ export default function WorkoutProgressBar() {
     totalProgress = Math.round(workoutProgress * 100);
   }
 
+  // Get "heat" color based on progress exceeding 100%
+  const getHeatColor = (progress) => {
+    if (progress < 100) return '#fff'; // Default white
+    if (progress < 150) return '#FFF4D1'; // Very light warm white (100-149%)
+    if (progress < 200) return '#FFE8B8'; // Subtle peachy white (150-199%)
+    if (progress < 300) return '#FFD9A0'; // Light warm beige (200-299%)
+    return '#FFC888'; // Soft golden beige (300%+)
+  };
+
+  const percentageColor = getHeatColor(totalProgress);
+
   const currentDate = new Date();
   const day = String(currentDate.getDate()).padStart(2, '0');
   const month = currentDate.toLocaleDateString('en-US', { month: 'short' });
@@ -126,8 +137,8 @@ export default function WorkoutProgressBar() {
       {/* Progress Section */}
       <View style={styles.progressSection}>
         <View style={styles.percentageContainer}>
-          <Text style={styles.bigNumber}>{totalProgress}</Text>
-          <Text style={styles.percentSymbol}>%</Text>
+          <Text style={[styles.bigNumber, { color: percentageColor }]}>{totalProgress}</Text>
+          <Text style={[styles.percentSymbol, { color: percentageColor }]}>%</Text>
         </View>
         
         <View style={styles.progressBarContainer}>
@@ -142,17 +153,8 @@ export default function WorkoutProgressBar() {
 
       {/* Stats Row */}
       <View style={styles.statsRow}>
-        <View style={[styles.statCard, styles.stepsCard]}>
-          {!stepsTrackingEnabled && (
-            <View style={styles.disabledOverlay}>
-              <View style={styles.disabledContent}>
-                <Text style={styles.disabledIcon}>🔒</Text>
-                <Text style={styles.disabledTitle}>Enable Step Tracking</Text>
-                <Text style={styles.disabledMessage}>Go to Calendar to enable this feature</Text>
-              </View>
-            </View>
-          )}
-          <View style={[styles.statHeader, !stepsTrackingEnabled && styles.blurred]}>
+        <View style={[styles.statCard, styles.stepsCard, !stepsTrackingEnabled && styles.disabledCard]}>
+          <View style={styles.statHeader}>
             <Text style={styles.statIcon}>🏃</Text>
             <View style={[styles.badge, stepsProgress >= 1 && styles.badgeComplete]}>
               <Text style={styles.badgeText}>
@@ -160,12 +162,12 @@ export default function WorkoutProgressBar() {
               </Text>
             </View>
           </View>
-          <Text style={[styles.statValue, !stepsTrackingEnabled && styles.blurred]}>{stepsData.value.toLocaleString()}</Text>
-          <Text style={[styles.statLabel, !stepsTrackingEnabled && styles.blurred]}>steps</Text>
+          <Text style={styles.statValue}>{stepsData.value.toLocaleString()}</Text>
+          <Text style={styles.statLabel}>steps</Text>
           <View style={styles.miniProgressBar}>
             <View style={[styles.miniProgressFill, { width: `${Math.min(stepsProgress * 100, 100)}%` }]} />
           </View>
-          <Text style={[styles.statGoal, !stepsTrackingEnabled && styles.blurred]}>Goal: {stepsData.max.toLocaleString()}</Text>
+          <Text style={styles.statGoal}>Goal: {stepsData.max.toLocaleString()}</Text>
         </View>
 
         <View style={[styles.statCard, styles.workoutCard]}>
@@ -276,15 +278,15 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     width: '100%',
-    height: 8,
+    height: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.06)',
-    borderRadius: 4,
+    borderRadius: 6,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#30d158',
-    borderRadius: 4,
+    backgroundColor: '#0A84FF',
+    borderRadius: 6,
     position: 'relative',
   },
   progressGlow: {
@@ -294,7 +296,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: '100%',
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 4,
+    borderRadius: 6,
   },
   progressSubtext: {
     fontSize: 11,
@@ -322,41 +324,8 @@ const styles = StyleSheet.create({
     borderLeftWidth: 0,
     borderLeftColor: 'transparent',
   },
-  disabledOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-    padding: 12,
-  },
-  disabledContent: {
-    alignItems: 'center',
-    gap: 6,
-  },
-  disabledIcon: {
-    fontSize: 28,
-    marginBottom: 4,
-  },
-  disabledTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#fff',
-    textAlign: 'center',
-  },
-  disabledMessage: {
-    fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.6)',
-    textAlign: 'center',
-    lineHeight: 14,
-  },
-  blurred: {
-    opacity: 0.3,
+  disabledCard: {
+    opacity: 0.4,
   },
   statHeader: {
     flexDirection: 'row',
@@ -400,16 +369,16 @@ const styles = StyleSheet.create({
   },
   miniProgressBar: {
     width: '100%',
-    height: 3,
+    height: 4,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 1.5,
+    borderRadius: 2,
     overflow: 'hidden',
     marginBottom: 6,
   },
   miniProgressFill: {
     height: '100%',
     backgroundColor: '#30d158',
-    borderRadius: 1.5,
+    borderRadius: 2,
   },
   workoutProgress: {
     backgroundColor: '#5856d6',

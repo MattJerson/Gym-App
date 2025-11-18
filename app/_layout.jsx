@@ -8,6 +8,7 @@ import { NotificationService } from "../services/NotificationService";
 import StepsSyncService from "../services/StepsSyncService";
 import SplashScreenVideo from "../components/SplashScreen";
 import TrialExpiredModal from "../src/components/TrialExpiredModal";
+import { PageCacheProvider } from "../contexts/PageCacheContext";
 
 // Configure how notifications are displayed when app is in foreground
 Notifications.setNotificationHandler({
@@ -212,24 +213,26 @@ export default function Layout() {
   }, []);
 
   return (
-    <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_API_KEY}>
-      {showSplash ? (
-        <SplashScreenVideo onFinish={() => setShowSplash(false)} />
-      ) : (
-        <>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              animation: "none",
-              gestureEnabled: false,
-            }}
-          />
-          <TrialExpiredModal 
-            visible={showTrialExpiredModal} 
-            onDismiss={handleTrialModalDismiss}
-          />
-        </>
-      )}
-    </StripeProvider>
+    <PageCacheProvider>
+      <StripeProvider publishableKey={process.env.EXPO_PUBLIC_STRIPE_API_KEY}>
+        {showSplash ? (
+          <SplashScreenVideo onFinish={() => setShowSplash(false)} />
+        ) : (
+          <>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                animation: "none",
+                gestureEnabled: false,
+              }}
+            />
+            <TrialExpiredModal 
+              visible={showTrialExpiredModal} 
+              onDismiss={handleTrialModalDismiss}
+            />
+          </>
+        )}
+      </StripeProvider>
+    </PageCacheProvider>
   );
 }

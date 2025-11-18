@@ -21,10 +21,13 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { WorkoutSessionServiceV2 } from "../../services/WorkoutSessionServiceV2";
 import { WorkoutSessionPageSkeleton } from "../../components/skeletons/WorkoutSessionPageSkeleton";
+import { usePageCache } from "../../contexts/PageCacheContext";
+import { INVALIDATION_RULES } from "../../utils/cacheInvalidation";
 
 export default function WorkoutSession() {
   const router = useRouter();
   const { workoutId } = useLocalSearchParams();
+  const { invalidateMultiple } = usePageCache();
 
   // State management
   const [template, setTemplate] = useState(null);
@@ -451,6 +454,10 @@ export default function WorkoutSession() {
         completionNotes,
         completionData
       );
+
+      // 🚀 Invalidate cache for affected pages so fresh data loads
+      invalidateMultiple(INVALIDATION_RULES.WORKOUT_COMPLETED);
+      console.log('✅ Cache invalidated for:', INVALIDATION_RULES.WORKOUT_COMPLETED);
 
       console.log("✅ [Background] Workout completed and saved successfully");
     } catch (error) {

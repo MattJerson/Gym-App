@@ -4,6 +4,7 @@
  */
 
 import { supabase } from './supabase.js';
+import { getLocalDateString, getLocalStartOfDay, getLocalEndOfDay, getLocalDayOfWeek, getISOString } from '../utils/dateUtils.js';
 
 export const TrainingDataServiceNew = {
   /**
@@ -287,7 +288,7 @@ export const TrainingDataServiceNew = {
    */
   async fetchWorkoutProgress(userId) {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateString(); // Use local timezone
       
       // Direct query instead of RPC
       const { data, error } = await supabase
@@ -407,7 +408,7 @@ export const TrainingDataServiceNew = {
   async updateWorkoutProgress(userId, workoutId, exerciseData) {
     return {
       success: true,
-      updatedAt: new Date().toISOString(),
+      updatedAt: getISOString(), // Use local timezone aware ISO string
       progress: exerciseData.progress
     };
   },
@@ -418,7 +419,7 @@ export const TrainingDataServiceNew = {
   async fetchTodaysWorkout(userId) {
     try {
       const today = new Date();
-      const dayOfWeek = today.getDay();
+      const dayOfWeek = getLocalDayOfWeek(today); // Use local timezone
       // Clean up orphaned entries in multiple ways:
       
       // 1. Remove entries with null template_id
@@ -519,6 +520,27 @@ export const TrainingDataServiceNew = {
 
       const workout = validWorkouts[0];
       const template = workout.workout_templates;
+      
+      // Check if this workout was already completed today (using local timezone)
+      const todayStart = getLocalStartOfDay();
+      const todayEnd = getLocalEndOfDay();
+      
+      const { data: completedToday, error: completedError } = await supabase
+        .from('workout_sessions')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('workout_template_id', template.id)
+        .eq('status', 'completed')
+        .gte('completed_at', todayStart.toISOString())
+        .lte('completed_at', todayEnd.toISOString())
+        .limit(1);
+      
+      // If workout was already completed today, don't show it
+      if (completedToday && completedToday.length > 0) {
+        console.log(`Today's workout already completed - hiding card`);
+        return null;
+      }
+      
       // Get exercise count
       const { count: exerciseCount } = await supabase
         .from('workout_template_exercises')

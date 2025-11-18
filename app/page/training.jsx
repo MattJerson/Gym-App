@@ -20,9 +20,12 @@ import { WorkoutSessionServiceV2 } from "../../services/WorkoutSessionServiceV2"
 import WorkoutProgressBar from "../../components/training/WorkoutProgressBar";
 import ContinueWorkoutCard from "../../components/training/ContinueWorkoutCard";
 import { TrainingPageSkeleton } from "../../components/skeletons/TrainingPageSkeleton";
+import { usePageCache } from "../../contexts/PageCacheContext";
+import { INVALIDATION_RULES } from "../../utils/cacheInvalidation";
 
 export default function Training() {
   const router = useRouter();
+  const { getCachedData, setCachedData, invalidateCache } = usePageCache();
 
   // 🔄 Data-driven state management
   const [workoutProgress, setWorkoutProgress] = useState(null);
@@ -62,11 +65,28 @@ export default function Training() {
     }
   }, [userId]);
 
-  // Reload data when screen comes into focus (after saving workout)
+  // 🚀 OPTIMIZED: Check cache before reloading data
   useFocusEffect(
     useCallback(() => {
       if (userId) {
-        loadTrainingData();
+        const cached = getCachedData('training');
+        
+        if (cached) {
+          // Use cached data - no reload needed!
+          console.log('[Training] Using cached data');
+          setNotifications(cached.notifications);
+          setWorkoutProgress(cached.workoutProgress);
+          setContinueWorkout(cached.continueWorkout);
+          setTodaysWorkout(cached.todaysWorkout);
+          setHasTodaysWorkout(cached.hasTodaysWorkout);
+          setWorkoutCategories(cached.workoutCategories);
+          setRecentWorkouts(cached.recentWorkouts);
+          setIsLoading(false);
+        } else {
+          // No cache - load fresh data
+          console.log('[Training] Loading fresh data');
+          loadTrainingData();
+        }
       }
     }, [userId])
   );
@@ -138,6 +158,18 @@ export default function Training() {
         TrainingDataServiceNew.fetchRecentWorkouts(userId),
       ]);
 
+      // 🚀 CACHE THE DATA
+      const dataToCache = {
+        notifications: notificationsData.count,
+        workoutProgress: progressData,
+        continueWorkout: continueData,
+        todaysWorkout: todaysData,
+        hasTodaysWorkout: todaysData !== null,
+        workoutCategories: categoriesWithTemplates,
+        recentWorkouts: recentData,
+      };
+      setCachedData('training', 'default', dataToCache);
+
       // Update state with fetched data
       setNotifications(notificationsData.count);
       setWorkoutProgress(progressData);
@@ -186,6 +218,11 @@ export default function Training() {
 
   const handleStartWorkout = async (workoutId) => {
     try {
+      // 🚀 Invalidate cache when starting workout
+      INVALIDATION_RULES.WORKOUT_STARTED.forEach(page => {
+        invalidateCache(page);
+      });
+      
       // Check if there's an existing active session
       const existingSession = await WorkoutSessionServiceV2.getActiveSession(userId);
       if (existingSession) {

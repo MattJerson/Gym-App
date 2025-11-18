@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { FoodDataService } from "./FoodDataService";
+import { getLocalDateString, getLocalTimeString, getLocalStartOfDay, getLocalEndOfDay, getLocalWeekStart, getISOString } from '../utils/dateUtils.js';
 
 // 🔄 Meal Plan Data Service - Hybrid approach using Supabase + FoodData API
 export const MealPlanDataService = {
@@ -117,7 +118,7 @@ export const MealPlanDataService = {
     // Replace with: const response = await fetch(`/api/users/${userId}/macro-goals`, { method: 'PUT', body: JSON.stringify(macroGoals) });
     return {
       success: true,
-      updatedAt: new Date().toISOString(),
+      updatedAt: getISOString(), // Use local timezone aware ISO string
       goals: macroGoals
     };
   },
@@ -686,8 +687,8 @@ export const MealPlanDataService = {
         user_id: userId,
         food_id: foodId,
         meal_type: mealType,
-        meal_date: date.toISOString().split('T')[0],
-        meal_time: new Date().toTimeString().split(' ')[0],
+        meal_date: getLocalDateString(date), // Use local timezone
+        meal_time: getLocalTimeString(), // Use local timezone
         quantity: quantity,
         serving_size: servingSize,
         serving_unit: food.serving_unit,
@@ -726,7 +727,7 @@ export const MealPlanDataService = {
    */
   async getMealLogsForDate(userId, date = new Date()) {
     try {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = getLocalDateString(date); // Use local timezone
 
       const { data, error } = await supabase
         .from('user_meal_logs')
@@ -812,7 +813,7 @@ export const MealPlanDataService = {
    */
   async getDailyMacroTotals(userId, date = new Date()) {
     try {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = getLocalDateString(date); // Use local timezone
 
       const { data, error } = await supabase
         .from('user_meal_logs')
@@ -1112,7 +1113,7 @@ export const MealPlanDataService = {
       totalCarbs: Math.round(foodData.food.carbs * foodData.quantity * 10) / 10,
       totalFats: Math.round(foodData.food.fats * foodData.quantity * 10) / 10,
       totalFiber: Math.round(foodData.food.fiber * foodData.quantity * 10) / 10,
-      addedAt: new Date().toISOString()
+      addedAt: getISOString() // Use local timezone aware ISO string
     };
   },
 
@@ -1284,7 +1285,7 @@ export const MealPlanDataService = {
       const enrollment = {
         user_id: userId,
         plan_id: planId,
-        start_date: new Date().toISOString().split('T')[0],
+        start_date: getLocalDateString(), // Use local timezone
         is_active: true
       };
 
@@ -1337,7 +1338,7 @@ export const MealPlanDataService = {
     try {
       const { error } = await supabase
         .from('user_meal_plans')
-        .update({ is_active: false, completed_at: new Date().toISOString() })
+        .update({ is_active: false, completed_at: getISOString() }) // Use local timezone aware ISO string
         .eq('id', userPlanId)
         .eq('user_id', userId);
 
@@ -1354,7 +1355,7 @@ export const MealPlanDataService = {
    */
   async getDailyTracking(userId, date = new Date()) {
     try {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = getLocalDateString(date); // Use local timezone
 
       const { data, error } = await supabase
         .from('daily_meal_tracking')
@@ -1383,15 +1384,12 @@ export const MealPlanDataService = {
    */
   async getWeeklyAnalytics(userId, weekStartDate = null) {
     try {
-      // If no date provided, get current week
+      // If no date provided, get current week (using local timezone)
       if (!weekStartDate) {
-        const today = new Date();
-        const dayOfWeek = today.getDay();
-        const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust when day is Sunday
-        weekStartDate = new Date(today.setDate(diff));
+        weekStartDate = getLocalWeekStart();
       }
 
-      const weekStartStr = weekStartDate.toISOString().split('T')[0];
+      const weekStartStr = getLocalDateString(weekStartDate);
 
       const { data, error } = await supabase
         .from('meal_plan_analytics')

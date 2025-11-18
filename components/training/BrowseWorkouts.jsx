@@ -118,10 +118,12 @@ const CategoryCardItem = ({ item, onPress }) => {
       onPress={isEmpty ? null : onPress}
       disabled={isEmpty}
     >
-      <View style={styles.cardInner}>
-        {/* Color accent stripe at top */}
-        <View style={[styles.colorAccent, { backgroundColor: item.color }]} />
-        
+      <View style={[
+        styles.cardInner,
+        { 
+          borderColor: `${item.color}80`,
+        }
+      ]}>
         {/* Workout image - background layer */}
         <Image 
           source={getImageSource(item.image_url)}
@@ -132,8 +134,8 @@ const CategoryCardItem = ({ item, onPress }) => {
         {/* Gradient overlay for readability */}
         <LinearGradient
           colors={[
-            'rgba(0, 0, 0, 0.5)',   // 50% at top
-            'rgba(0, 0, 0, 0.3)',   // 30% in middle
+            'rgba(0, 0, 0, 0.2)',   // 20% at top
+            'rgba(0, 0, 0, 0.1)',   // 10% in middle
             'rgba(0, 0, 0, 0)',     // 0% at bottom
           ]}
           style={styles.gradientOverlay}
@@ -142,11 +144,6 @@ const CategoryCardItem = ({ item, onPress }) => {
         
         {/* Content */}
         <View style={styles.content}>
-          {/* Icon badge with emoji */}
-          <View style={[styles.iconBadge, { backgroundColor: `${item.color}20` }]}>
-            <Text style={styles.emoji}>{item.emoji}</Text>
-          </View>
-          
           {/* Category info */}
           <View style={styles.infoContainer}>
             <Text style={styles.categoryName} numberOfLines={1}>
@@ -162,14 +159,10 @@ const CategoryCardItem = ({ item, onPress }) => {
             )}
           </View>
 
-          {/* Arrow button or lock icon */}
-          {isEmpty ? (
+          {/* Lock icon for empty categories */}
+          {isEmpty && (
             <View style={[styles.lockButton, { backgroundColor: `${item.color}30` }]}>
               <Ionicons name="lock-closed" size={16} color="rgba(255, 255, 255, 0.5)" />
-            </View>
-          ) : (
-            <View style={[styles.arrowButton, { backgroundColor: `${item.color}30` }]}>
-              <Ionicons name="arrow-forward" size={18} color="#fff" />
             </View>
           )}
         </View>
@@ -261,27 +254,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: 20,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  colorAccent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 4,
-    zIndex: 3,
+    borderWidth: 2,
   },
   workoutImage: {
     ...StyleSheet.absoluteFillObject,
     width: "100%",
     height: "100%",
-    opacity: 0.4,
+    opacity: 0.9,
   },
   gradientOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -289,56 +268,32 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     zIndex: 2,
-  },
-  iconBadge: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  emoji: {
-    fontSize: 32,
-    lineHeight: 36,
   },
   infoContainer: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     paddingVertical: 8,
   },
   categoryName: {
-    fontSize: 20,
+    fontSize: 13,
     fontWeight: "800",
     color: "#FFFFFF",
     letterSpacing: 0.3,
     marginBottom: 4,
-    textShadowColor: "rgba(0, 0, 0, 0.5)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    textShadowColor: "rgba(0, 0, 0, 0.8)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
   },
   workoutCount: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.8)",
+    color: "rgba(255, 255, 255, 0.95)",
     letterSpacing: 0.2,
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowColor: "rgba(0, 0, 0, 0.7)",
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  arrowButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    alignSelf: 'flex-end',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    textShadowRadius: 4,
   },
   // Empty state styles
   cardDisabled: {
