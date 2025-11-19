@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getLocalDateString } from '../utils/dateUtils';
 
 /**
  * Workout Session Service V2
@@ -563,7 +564,7 @@ export const WorkoutSessionServiceV2 = {
         .eq('user_id', userId)
         .maybeSingle();
 
-      const todayDate = now.toISOString().split('T')[0];
+      const todayDate = getLocalDateString(now);
       const lastWorkoutDate = currentStats?.last_workout_date;
       
       // Calculate streak
@@ -698,7 +699,7 @@ export const WorkoutSessionServiceV2 = {
       }
 
       // ✅ UPDATE DAILY ACTIVITY TRACKING
-      const today = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const today = getLocalDateString(now);
       
       // Check if tracking record exists for today
       const { data: existingTracking } = await supabase

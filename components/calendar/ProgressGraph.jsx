@@ -88,8 +88,10 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
   const loadDailyBalance = async () => {
     try {
       setIsLoadingBalance(true);
-      const today = new Date().toISOString().split('T')[0];
-      const balance = await WeightProgressService.getDailyCalorieBalance(userId, today);
+      // Use local date to ensure we get today's data in user's timezone
+      const today = new Date();
+      const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const balance = await WeightProgressService.getDailyCalorieBalance(userId, todayString);
       
       // Calculate net balance: consumed - burned
       // Positive = surplus, Negative = deficit

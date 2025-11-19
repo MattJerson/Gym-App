@@ -77,7 +77,9 @@ export default function Calendar() {
           router.replace('/page/signin');
         }
       } catch (error) {
-        console.error("Error fetching user:", error);
+        if (error.name !== 'AuthSessionMissingError') {
+          console.error("Error fetching user:", error);
+        }
       }
     };
     getUser();

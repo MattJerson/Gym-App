@@ -5,6 +5,7 @@ import { TrainingProgressService } from "../../services/TrainingProgressService"
 import StepsSyncService from "../../services/StepsSyncService";
 import HealthKitService from "../../services/HealthKitService";
 import { supabase } from "../../services/supabase";
+import { getLocalDateString } from "../../utils/dateUtils";
 
 export default function WorkoutProgressBar() {
   const [userId, setUserId] = useState(null);
@@ -23,7 +24,9 @@ export default function WorkoutProgressBar() {
           setUserId(user.id);
         }
       } catch (error) {
-        console.error('Error fetching user:', error);
+        if (error.name !== 'AuthSessionMissingError') {
+          console.error('Error fetching user:', error);
+        }
       }
     };
     getUser();
@@ -42,7 +45,7 @@ export default function WorkoutProgressBar() {
       });
 
       // Set up real-time subscription to auto-refresh when steps are updated
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateString();
       const subscription = supabase
         .channel('workout_progress_updates')
         .on(

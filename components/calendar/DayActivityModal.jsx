@@ -9,6 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { getLocalDateString } from '../../utils/dateUtils';
 import { ActivityLogDataService } from '../../services/ActivityLogDataService';
 import { supabase } from '../../services/supabase';
 
@@ -41,7 +42,7 @@ export default function DayActivityModal({ visible, onClose, date }) {
       
       // Filter activities for the selected date
       const dayActivities = allActivities.filter(activity => {
-        const activityDate = new Date(activity.timestamp).toISOString().split('T')[0];
+        const activityDate = getLocalDateString(new Date(activity.timestamp));
         return activityDate === date;
       });
       setActivities(dayActivities);

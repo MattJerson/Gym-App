@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getLocalDateString } from '../utils/dateUtils';
 
 /**
  * HomeDataService - Provides data for the Home page
@@ -10,7 +11,7 @@ export const HomeDataService = {
    */
   async fetchUserDailyStats(userId, date = new Date()) {
     try {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = getLocalDateString(date);
 
       // Get meal plan data for today
       const { data: mealData } = await supabase

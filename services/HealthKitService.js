@@ -6,6 +6,7 @@
 
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getLocalDateString } from '../utils/dateUtils';
 
 // Dynamically import health libraries - they may not be available in Expo Go
 let AppleHealthKit = null;
@@ -253,7 +254,7 @@ class HealthKitService {
       const steps = await this.getDailySteps(date);
       
       stepsData.unshift({
-        date: date.toISOString().split('T')[0], // YYYY-MM-DD format
+        date: getLocalDateString(date),
         steps: steps,
         day: date.toLocaleDateString('en-US', { weekday: 'short' }),
       });

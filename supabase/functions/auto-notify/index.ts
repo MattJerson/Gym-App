@@ -275,11 +275,12 @@ serve(async (req) => {
 
         case 'no_workout_logged': {
           // Only send to users who:
-          // 1. Haven't logged a workout TODAY
+          // 1. Haven't logged a workout in the last 24 hours
           // 2. Have logged at least one workout before (so they know how)
           // 3. Are registered >48 hours (grace period for new users)
-          const today = new Date().toISOString().split('T')[0];
-          const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+          const now = new Date();
+          const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+          const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString();
           
           // Get users registered >48h ago
           const { data: eligibleUsers } = await supabase
@@ -307,12 +308,11 @@ serve(async (req) => {
           
           const usersWithWorkoutHistory = new Set(usersWithHistory.map((w: any) => w.user_id));
           
-          // Get users who logged a workout today
+          // Get users who logged a workout in the last 24 hours
           const { data: workoutsToday } = await supabase
             .from('completed_workouts')
             .select('user_id')
-            .gte('created_at', `${today}T00:00:00`)
-            .lt('created_at', `${today}T23:59:59`)
+            .gte('created_at', twentyFourHoursAgo)
             .in('user_id', Array.from(usersWithWorkoutHistory));
           
           const usersWithWorkoutToday = new Set((workoutsToday || []).map((w: any) => w.user_id));
@@ -328,11 +328,12 @@ serve(async (req) => {
 
         case 'no_meal_logged': {
           // Only send to users who:
-          // 1. Haven't logged a meal TODAY
+          // 1. Haven't logged a meal in the last 24 hours
           // 2. Have logged at least one meal before (so they know how)
           // 3. Are registered >48 hours (grace period for new users)
-          const today = new Date().toISOString().split('T')[0];
-          const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+          const now = new Date();
+          const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+          const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString();
           
           // Get users registered >48h ago
           const { data: eligibleUsers } = await supabase
@@ -360,12 +361,11 @@ serve(async (req) => {
           
           const usersWithMealHistory = new Set(usersWithHistory.map((m: any) => m.user_id));
           
-          // Get users who logged a meal today
+          // Get users who logged a meal in the last 24 hours
           const { data: mealsToday } = await supabase
             .from('daily_intake')
             .select('user_id')
-            .gte('created_at', `${today}T00:00:00`)
-            .lt('created_at', `${today}T23:59:59`)
+            .gte('created_at', twentyFourHoursAgo)
             .in('user_id', Array.from(usersWithMealHistory));
           
           const usersWithMealToday = new Set((mealsToday || []).map((m: any) => m.user_id));

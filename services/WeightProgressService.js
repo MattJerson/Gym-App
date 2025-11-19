@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getLocalDateString } from '../utils/dateUtils';
 
 /**
  * Weight Progress Service
@@ -166,7 +167,7 @@ export const WeightProgressService = {
     try {
       const { data, error } = await supabase.rpc('calculate_projected_weight', {
         p_user_id: userId,
-        p_target_date: new Date().toISOString().split('T')[0]
+        p_target_date: getLocalDateString()
       });
 
       if (error) throw error;
@@ -224,7 +225,12 @@ export const WeightProgressService = {
    */
   async getDailyCalorieBalance(userId, date = null) {
     try {
-      const targetDate = date || new Date().toISOString().split('T')[0];
+      // Use local date to ensure we get today's data in user's timezone
+      let targetDate = date;
+      if (!date) {
+        const today = new Date();
+        targetDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      }
       const { data, error } = await supabase.rpc('calculate_daily_calorie_balance', {
         p_user_id: userId,
         p_date: targetDate
@@ -287,7 +293,12 @@ export const WeightProgressService = {
    */
   async getDailyCalorieSummary(userId, date = null) {
     try {
-      const targetDate = date || new Date().toISOString().split('T')[0];
+      // Use local date to ensure we get today's data in user's timezone
+      let targetDate = date;
+      if (!date) {
+        const today = new Date();
+        targetDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      }
 
       const { data, error } = await supabase
         .from('daily_calorie_summary')
@@ -366,7 +377,7 @@ export const WeightProgressService = {
       const { data, error } = await supabase.rpc('get_weight_measurements_only', {
         p_user_id: userId,
         p_start_date: startDate,
-        p_end_date: endDate || new Date().toISOString().split('T')[0],
+        p_end_date: endDate || getLocalDateString(),
         p_limit: limit
       });
 
@@ -424,7 +435,7 @@ export const WeightProgressService = {
       const { data, error } = await supabase.rpc('get_weight_progress_stats', {
         p_user_id: userId,
         p_start_date: startDate,
-        p_end_date: endDate || new Date().toISOString().split('T')[0]
+        p_end_date: endDate || getLocalDateString()
       });
 
       if (error) throw error;

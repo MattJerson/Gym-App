@@ -8,6 +8,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import HealthKitService from './HealthKitService';
 import { supabase } from './supabase';
+import { getLocalDateString } from '../utils/dateUtils';
 
 const LAST_SYNC_KEY = '@steps_last_sync';
 const SYNC_INTERVAL_MS = 3600000; // 1 hour in milliseconds
@@ -76,7 +77,7 @@ class StepsSyncService {
       }
 
       // Get today's date for comparison
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = getLocalDateString();
 
       // Sync to database (only non-zero step days to reduce database writes)
       const syncPromises = stepsArray

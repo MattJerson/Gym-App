@@ -504,5 +504,48 @@ export const NotificationService = {
         }
       }
     };
+  },
+
+  /**
+   * Create a chat notification for a user
+   * @param {string} recipientUserId - User who will receive the notification
+   * @param {string} senderUsername - Username of the sender
+   * @param {string} messagePreview - Preview of the message (first ~50 chars)
+   * @param {string} chatType - 'dm' or 'channel'
+   * @param {string} chatId - Conversation ID or channel ID
+   */
+  async createChatNotification(recipientUserId, senderUsername, messagePreview, chatType = 'dm', chatId = null) {
+    try {
+      const title = chatType === 'dm' 
+        ? `New message from @${senderUsername}`
+        : `New message in #${chatId}`;
+      
+      const { data, error } = await supabase
+        .from('notification_logs')
+        .insert({
+          user_id: recipientUserId,
+          title: title,
+          message: messagePreview.length > 100 ? messagePreview.substring(0, 100) + '...' : messagePreview,
+          type: 'info',
+          sent_at: new Date().toISOString(),
+          metadata: {
+            chat_type: chatType,
+            chat_id: chatId,
+            sender: senderUsername
+          }
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[NotificationService] Error creating chat notification:', error);
+        return { success: false, error };
+      }
+
+      return { success: true, data };
+    } catch (err) {
+      console.error('[NotificationService] Unexpected error creating chat notification:', err);
+      return { success: false, error: err };
+    }
   }
 };

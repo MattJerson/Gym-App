@@ -18,6 +18,8 @@ import { useState, useRef, useEffect } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { CommunityChatSkeleton } from "../../components/skeletons/CommunityChatSkeleton";
+import * as Notifications from "expo-notifications";
+import { NotificationService } from "../../services/NotificationService";
 import {
   fetchChannels,
   sendDirectMessage,
@@ -66,19 +68,47 @@ export default function CommunityChat() {
   const unreadSubscription = useRef(null);
   const flatListRef = useRef(null); // Add ref for FlatList to control scrolling
 
-  // Get current user on mount
+  // Get current user on mount and listen for auth changes
   useEffect(() => {
     getCurrentUser();
     loadChannels();
+    
+    // Listen for auth state changes (login/logout)
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[CommunityChat] Auth state changed:', event);
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        console.log('[CommunityChat] User signed in, reloading user data');
+        await getCurrentUser();
+      } else if (event === 'SIGNED_OUT') {
+        console.log('[CommunityChat] User signed out, clearing state');
+        setCurrentUser(null);
+        setDmList([]);
+        setChannelMessages([]);
+        setDmMessages([]);
+        setUnreadCounts({ channels: [], dms: [], totalUnread: 0 });
+      } else if (event === 'USER_UPDATED' && session?.user) {
+        console.log('[CommunityChat] User updated, reloading data');
+        await getCurrentUser();
+      }
+    });
+    
+    return () => {
+      authListener?.subscription?.unsubscribe();
+    };
   }, []);
 
-  // Load unread counts when user is available
+  // Load unread counts and DM list when user is available
   useEffect(() => {
     if (currentUser) {
       loadUnreadCounts();
+      loadUserConversations(currentUser.id);
       
-      // Set up real-time unread count updates
-      const interval = setInterval(loadUnreadCounts, 30000); // Every 30 seconds
+      // Set up periodic refreshes for unread counts and DM list
+      const interval = setInterval(() => {
+        loadUnreadCounts();
+        loadUserConversations(currentUser.id);
+      }, 15000); // Every 15 seconds
       
       return () => clearInterval(interval);
     }
@@ -150,10 +180,18 @@ export default function CommunityChat() {
   }, [currentUser]);
 
   const getCurrentUser = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
+    try {
+      const {
+        data: { user },
+        error: userError
+      } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.log('⚠️ Auth error:', userError.message);
+        return;
+      }
+      
+      if (user) {
       // Check if user is admin
       const { data: adminCheck } = await supabase
         .from("registration_profiles")
@@ -225,10 +263,17 @@ export default function CommunityChat() {
       }
 
       loadUserConversations(user.id);
-    } else {
-      // Redirect to login if not authenticated
-      Alert.alert("Not authenticated", "Please log in first");
-      router.back();
+      } else {
+        // Redirect to login if not authenticated
+        Alert.alert("Not authenticated", "Please log in first");
+        router.back();
+      }
+    } catch (error) {
+      if (error.name === 'AuthSessionMissingError') {
+        console.log('⚠️ User logged out, session missing');
+        return;
+      }
+      console.error('Error getting current user:', error);
     }
   };
 
@@ -294,31 +339,53 @@ export default function CommunityChat() {
   };
 
   const loadUserConversations = async (userId) => {
-    const { data, error } = await fetchUserConversations(userId);
-    if (data) {
+    if (!userId) {
+      console.warn('[CommunityChat] loadUserConversations called without userId');
+      return;
+    }
+
+    console.log(`[CommunityChat] Loading conversations for user: ${userId}`);
+
+    try {
+      const { data, error } = await fetchUserConversations(userId);
+      
+      if (error) {
+        console.error('[CommunityChat] Error loading conversations:', error);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        console.log('[CommunityChat] No conversations found for user');
+        setDmList([]);
+        return;
+      }
+
+      console.log(`[CommunityChat] Fetched ${data.length} conversations from database`);
+      
+      // Format the conversations for display
       const formattedDMs = data.map((conv) => {
         // Determine which user is the other person
         const otherUser = conv.user1_id === userId ? conv.user2 : conv.user1;
-        const messages = conv.direct_messages || [];
-        const lastMsg = messages[messages.length - 1];
+        const lastMsg = conv.latest_message;
 
-        // Count unread messages
-        const unreadCount = messages.filter(
-          (m) => !m.is_read && m.sender_id !== userId
-        ).length;
-
-        return {
+        const formatted = {
           id: conv.id,
-          userId: otherUser.id,
-          user: otherUser.username,
-          avatar: otherUser.avatar,
+          userId: otherUser?.id,
+          user: otherUser?.username || 'Unknown',
+          avatar: otherUser?.avatar || '👤',
           lastMessage: lastMsg?.content || "Start chatting...",
           timestamp: lastMsg ? formatTimestamp(lastMsg.created_at) : "Just now",
-          isOnline: otherUser.is_online,
-          unread: unreadCount,
+          isOnline: otherUser?.is_online || false,
+          unread: 0, // Will be updated by unread count system
         };
+
+        return formatted;
       });
+
+      console.log(`[CommunityChat] Successfully loaded ${formattedDMs.length} conversations`);
       setDmList(formattedDMs);
+    } catch (err) {
+      console.error('[CommunityChat] Unexpected error loading conversations:', err);
     }
   };
 
@@ -346,7 +413,7 @@ export default function CommunityChat() {
 
     messageSubscription.current = subscribeToChannelMessages(
       activeChannel,
-      (payload) => {
+      async (payload) => {
         try {
           const data = payload.new;
           const newMessage = {
@@ -361,6 +428,21 @@ export default function CommunityChat() {
             reactions: data.message_reactions || [],
           };
           setChannelMessages((prev) => [...prev, newMessage]);
+          
+          // Create database notification if message is from another user
+          if (!newMessage.isMe && currentUser?.id) {
+            try {
+              await NotificationService.createChatNotification(
+                currentUser.id,
+                newMessage.user,
+                newMessage.text,
+                'channel',
+                activeChannel
+              );
+            } catch (notifErr) {
+              console.warn('[CommunityChat] Failed to create channel notification:', notifErr);
+            }
+          }
           
           // Reload unread counts for real-time badge updates
           loadUnreadCounts();
@@ -381,7 +463,7 @@ export default function CommunityChat() {
 
     messageSubscription.current = subscribeToDirectMessages(
       activeConversationId,
-      (payload) => {
+      async (payload) => {
         try {
           const data = payload.new;
           const newMessage = {
@@ -398,6 +480,45 @@ export default function CommunityChat() {
           
           // Reload unread counts for real-time badge updates
           loadUnreadCounts();
+          
+          // Reload DM list to update last message preview in sidebar
+          if (currentUser?.id) {
+            loadUserConversations(currentUser.id);
+          }
+          
+          // Show local notification and create database notification if message is from another user
+          if (!newMessage.isMe && currentUser?.id) {
+            try {
+              // Local notification (immediate)
+              await Notifications.scheduleNotificationAsync({
+                content: {
+                  title: `@${newMessage.user}`,
+                  body: newMessage.text,
+                  data: { 
+                    type: 'dm',
+                    conversationId: activeConversationId,
+                    userId: newMessage.userId
+                  },
+                },
+                trigger: null, // Show immediately
+              });
+            } catch (notifErr) {
+              console.warn('[CommunityChat] Failed to show local notification:', notifErr);
+            }
+            
+            try {
+              // Database notification (for notification bar)
+              await NotificationService.createChatNotification(
+                currentUser.id,
+                newMessage.user,
+                newMessage.text,
+                'dm',
+                activeConversationId
+              );
+            } catch (notifErr) {
+              console.warn('[CommunityChat] Failed to create DM notification:', notifErr);
+            }
+          }
         } catch (err) {
           console.warn(
             "[CommunityChat] failed to handle DM realtime payload",
@@ -505,6 +626,10 @@ export default function CommunityChat() {
         } else {
           setMessage("");
           setCharacterCount(0);
+          // Reload DM list to update last message preview
+          if (currentUser?.id) {
+            loadUserConversations(currentUser.id);
+          }
         }
       } else {
         console.warn("[CommunityChat] no active target to send message to");
@@ -528,36 +653,36 @@ export default function CommunityChat() {
   };
 
   const startDMWithUser = async (username, userId, avatar, isOnline) => {
+    if (!currentUser?.id) {
+      Alert.alert("Error", "User not loaded. Please try again.");
+      return;
+    }
+
     // Check if conversation already exists
     const existingDM = dmList.find((dm) => dm.userId === userId);
 
     if (existingDM) {
       openDM(existingDM.id);
-    } else {
-      // Create new conversation
-      const { data, error } = await getOrCreateConversation(
-        currentUser.id,
-        userId
-      );
-
-      if (data) {
-        const newDM = {
-          id: data.id,
-          userId: userId,
-          user: username,
-          avatar: avatar,
-          lastMessage: "Start chatting...",
-          timestamp: "Just now",
-          isOnline: isOnline,
-          unread: 0,
-        };
-
-        setDmList((prev) => [newDM, ...prev]);
-        openDM(data.id);
-      } else {
-        Alert.alert("Error", "Failed to create conversation");
-      }
+      return;
     }
+
+    // Create new conversation
+    const { data, error } = await getOrCreateConversation(
+      currentUser.id,
+      userId
+    );
+
+    if (error || !data) {
+      Alert.alert("Error", "Failed to create conversation");
+      console.error("[CommunityChat] Error creating conversation:", error);
+      return;
+    }
+
+    // Reload the conversation list to get the new conversation
+    await loadUserConversations(currentUser.id);
+    
+    // Open the new conversation
+    openDM(data.id);
   };
 
   const openDM = async (conversationId) => {

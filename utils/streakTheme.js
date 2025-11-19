@@ -9,7 +9,7 @@ export const getStreakTheme = (streakDays) => {
     // 30+ days: LEGENDARY (Purple/Gold Cosmic)
     return {
       level: 'legendary',
-      name: '🔥 Legendary Streak',
+      name: null,
       progressGradient: ['#FFD700', '#FF6B35', '#9333EA', '#EC4899'],
       progressGradientLocations: [0, 0.3, 0.7, 1],
       cardGradient: ['rgba(147, 51, 234, 0.15)', 'rgba(236, 72, 153, 0.15)'],
@@ -26,7 +26,7 @@ export const getStreakTheme = (streakDays) => {
     // 20-29 days: MASTER (Rainbow Gradient)
     return {
       level: 'master',
-      name: '⚡ Master Streak',
+      name: null,
       progressGradient: ['#10B981', '#3B82F6', '#8B5CF6', '#EC4899'],
       progressGradientLocations: [0, 0.33, 0.66, 1],
       cardGradient: ['rgba(139, 92, 246, 0.12)', 'rgba(59, 130, 246, 0.12)'],
@@ -43,7 +43,7 @@ export const getStreakTheme = (streakDays) => {
     // 15-19 days: EXPERT (Blue/Purple)
     return {
       level: 'expert',
-      name: '💎 Expert Streak',
+      name: null,
       progressGradient: ['#3B82F6', '#8B5CF6', '#EC4899'],
       progressGradientLocations: [0, 0.5, 1],
       cardGradient: ['rgba(59, 130, 246, 0.1)', 'rgba(139, 92, 246, 0.1)'],
@@ -60,7 +60,7 @@ export const getStreakTheme = (streakDays) => {
     // 10-14 days: ADVANCED (Cyan/Blue)
     return {
       level: 'advanced',
-      name: '🌟 Advanced Streak',
+      name: null,
       progressGradient: ['#06B6D4', '#3B82F6'],
       progressGradientLocations: [0, 1],
       cardGradient: ['rgba(6, 182, 212, 0.08)', 'rgba(59, 130, 246, 0.08)'],
@@ -77,7 +77,7 @@ export const getStreakTheme = (streakDays) => {
     // 8-9 days: COMMITTED (Teal gradient)
     return {
       level: 'committed',
-      name: '✨ Committed Streak',
+      name: null,
       progressGradient: ['#14B8A6', '#06B6D4'],
       progressGradientLocations: [0, 1],
       cardGradient: ['rgba(20, 184, 166, 0.06)', 'rgba(6, 182, 212, 0.06)'],
@@ -111,7 +111,7 @@ export const getStreakTheme = (streakDays) => {
     // 4-5 days: BUILDING (Green)
     return {
       level: 'building',
-      name: '💪 Building Streak',
+      name: null,
       progressGradient: ['#22C55E', '#10B981'],
       progressGradientLocations: [0, 1],
       cardGradient: ['rgba(34, 197, 94, 0.04)', 'rgba(16, 185, 129, 0.04)'],
@@ -128,7 +128,7 @@ export const getStreakTheme = (streakDays) => {
     // 2-3 days: STARTING (Light Green)
     return {
       level: 'starting',
-      name: '🌱 Starting Streak',
+      name: null,
       progressGradient: ['#4ADE80', '#22C55E'],
       progressGradientLocations: [0, 1],
       cardGradient: ['rgba(74, 222, 128, 0.03)', 'rgba(34, 197, 94, 0.03)'],

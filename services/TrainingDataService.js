@@ -1,6 +1,7 @@
 // 🔄 Training Data Service - Database-driven workout tracking
 import { supabase } from './supabase';
 import { CalorieCalculator } from './CalorieCalculator';
+import { getLocalDateString } from '../utils/dateUtils';
 
 export const TrainingDataService = {
   // User & Notifications
@@ -19,7 +20,7 @@ export const TrainingDataService = {
       const { data, error } = await supabase
         .rpc('get_user_daily_stats', { 
           p_user_id: userId,
-          p_date: new Date().toISOString().split('T')[0]
+          p_date: getLocalDateString()
         });
 
       if (error) throw error;

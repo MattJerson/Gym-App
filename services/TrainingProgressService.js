@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getLocalDateString } from '../utils/dateUtils';
 
 /**
  * Training Data Service
@@ -10,7 +11,7 @@ export const TrainingProgressService = {
    */
   async getTodayProgress(userId, date = new Date()) {
     try {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = getLocalDateString(date);
 
       // Fetch daily activity tracking
       const { data, error } = await supabase
@@ -126,7 +127,7 @@ export const TrainingProgressService = {
    */
   async updateSteps(userId, steps, date = new Date()) {
     try {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = getLocalDateString(date);
 
       const { error } = await supabase
         .rpc('update_steps_tracking', {

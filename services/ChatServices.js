@@ -547,20 +547,187 @@ export const subscribeToDirectMessages = (conversationId, callback) => {
 
 // Fetch user's DM conversations
 export const fetchUserConversations = async (userId) => {
-  const { data, error } = await supabase
-    .from("dm_conversations")
-    .select(
-      `
-      *,
-      user1:user1_id (id, username, avatar, is_online),
-      user2:user2_id (id, username, avatar, is_online),
-      direct_messages (content, created_at, is_read, sender_id)
-    `
-    )
-    .or(`user1_id.eq.${userId},user2_id.eq.${userId}`)
-    .order("created_at", { ascending: false });
+  try {
+    console.log(`[ChatServices] Fetching conversations for user: ${userId}`);
+    
+    // Step 1: Get all conversations for this user
+    const { data: conversations, error: convError } = await supabase
+      .from("dm_conversations")
+      .select(`
+        id,
+        user1_id,
+        user2_id,
+        created_at
+      `)
+      .or(`user1_id.eq.${userId},user2_id.eq.${userId}`);
 
-  return { data, error };
+    if (convError) {
+      console.error("[ChatServices] Error fetching conversations:", convError);
+      return { data: null, error: convError };
+    }
+
+    if (!conversations || conversations.length === 0) {
+      console.log("[ChatServices] No conversations found");
+      return { data: [], error: null };
+    }
+
+    console.log(`[ChatServices] Found ${conversations.length} conversations, fetching user profiles and latest messages...`);
+
+    // Step 2: Get all unique user IDs from conversations (filter out nulls)
+    const userIds = new Set();
+    conversations.forEach(conv => {
+      if (conv.user1_id) userIds.add(conv.user1_id);
+      if (conv.user2_id) userIds.add(conv.user2_id);
+    });
+
+    const userIdArray = Array.from(userIds).filter(id => id !== null && id !== undefined);
+    
+    if (userIdArray.length === 0) {
+      console.warn("[ChatServices] No valid user IDs found in conversations");
+      return { data: [], error: null };
+    }
+
+    console.log(`[ChatServices] Looking up ${userIdArray.length} user profiles for IDs:`, userIdArray.map(id => id.substring(0, 8)).join(', '));
+
+    // Fetch all user profiles at once
+    const { data: userProfiles, error: profileError } = await supabase
+      .from("chats")
+      .select("id, username, avatar, is_online")
+      .in("id", userIdArray);
+
+    if (profileError) {
+      console.warn("[ChatServices] Error fetching user profiles:", profileError);
+    }
+
+    // Create a map of user profiles for quick lookup
+    const profileMap = {};
+    if (userProfiles && userProfiles.length > 0) {
+      console.log(`[ChatServices] Successfully fetched ${userProfiles.length}/${userIdArray.length} user profiles from chats table`);
+      userProfiles.forEach(profile => {
+        console.log(`[ChatServices] Profile found: ${profile.id.substring(0, 8)} -> ${profile.username}`);
+        profileMap[profile.id] = profile;
+      });
+    } else {
+      console.warn("[ChatServices] No user profiles fetched from chats table");
+    }
+    
+    // For missing profiles, try to fetch from registration_profiles as fallback
+    const missingIds = userIdArray.filter(id => !profileMap[id]);
+    if (missingIds.length > 0) {
+      console.log(`[ChatServices] Fetching ${missingIds.length} missing profiles from registration_profiles...`);
+      
+      const { data: regProfiles, error: regError } = await supabase
+        .from("registration_profiles")
+        .select("user_id, nickname, email")
+        .in("user_id", missingIds);
+      
+      if (regProfiles && regProfiles.length > 0) {
+        console.log(`[ChatServices] Found ${regProfiles.length} profiles in registration_profiles`);
+        regProfiles.forEach(regProfile => {
+          const username = regProfile.nickname || regProfile.email?.split('@')[0] || 'User';
+          profileMap[regProfile.user_id] = {
+            id: regProfile.user_id,
+            username: username,
+            avatar: '👤',
+            is_online: false
+          };
+          console.log(`[ChatServices] Fallback profile created: ${regProfile.user_id.substring(0, 8)} -> ${username}`);
+        });
+      }
+      
+      // Final fallback: For still-missing profiles, try to get username from direct_messages sender info
+      const stillMissingIds = missingIds.filter(id => !profileMap[id] && id !== null);
+      if (stillMissingIds.length > 0) {
+        console.log(`[ChatServices] Attempting to fetch ${stillMissingIds.length} profiles from chats_public_with_id view...`);
+        
+        const { data: publicProfiles, error: publicError } = await supabase
+          .from("chats_public_with_id")
+          .select("id, username, avatar, is_online")
+          .in("id", stillMissingIds);
+        
+        if (publicProfiles && publicProfiles.length > 0) {
+          console.log(`[ChatServices] Found ${publicProfiles.length} profiles from public view`);
+          publicProfiles.forEach(profile => {
+            profileMap[profile.id] = profile;
+            console.log(`[ChatServices] Public profile found: ${profile.id.substring(0, 8)} -> ${profile.username}`);
+          });
+        } else {
+          console.warn(`[ChatServices] Could not find profiles anywhere for: ${stillMissingIds.map(id => id?.substring(0, 8)).join(', ')}`);
+        }
+      }
+    }
+
+    // Step 3: For each conversation, fetch the most recent message and attach user profiles
+    const conversationsWithMessages = await Promise.all(
+      conversations.map(async (conv) => {
+        // Get the most recent message for this conversation
+        const { data: messages, error: msgError } = await supabase
+          .from("direct_messages")
+          .select("id, content, created_at, is_read, sender_id")
+          .eq("conversation_id", conv.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (msgError) {
+          console.warn(`[ChatServices] Error fetching messages for conversation ${conv.id}:`, msgError);
+        }
+
+        // Attach the latest message (or null if no messages)
+        const latestMessage = messages && messages.length > 0 ? messages[0] : null;
+        
+        if (latestMessage) {
+          console.log(`[ChatServices] Conversation ${conv.id} - Latest message: "${latestMessage.content.substring(0, 30)}..." at ${latestMessage.created_at}`);
+        } else {
+          console.log(`[ChatServices] Conversation ${conv.id} - No messages yet`);
+        }
+        
+        // Attach user profiles
+        const user1Profile = profileMap[conv.user1_id];
+        const user2Profile = profileMap[conv.user2_id];
+        
+        if (!user1Profile) {
+          console.warn(`[ChatServices] No profile found for user1_id: ${conv.user1_id}`);
+        }
+        if (!user2Profile) {
+          console.warn(`[ChatServices] No profile found for user2_id: ${conv.user2_id}`);
+        }
+        
+        return {
+          ...conv,
+          user1: user1Profile || { id: conv.user1_id, username: 'Unknown', avatar: '👤', is_online: false },
+          user2: user2Profile || { id: conv.user2_id, username: 'Unknown', avatar: '👤', is_online: false },
+          latest_message: latestMessage,
+          _sortTime: latestMessage 
+            ? new Date(latestMessage.created_at).getTime() 
+            : new Date(conv.created_at).getTime()
+        };
+      })
+    );
+
+    // Step 4: Filter out conversations without messages (only show active conversations)
+    const activeConversations = conversationsWithMessages.filter(conv => conv.latest_message !== null);
+    
+    // Step 5: Sort conversations by most recent message
+    activeConversations.sort((a, b) => b._sortTime - a._sortTime);
+
+    console.log(`[ChatServices] Returning ${activeConversations.length} active conversations (filtered from ${conversationsWithMessages.length} total)`);
+    
+    // Log what we're actually returning
+    if (activeConversations.length > 0) {
+      console.log(`[ChatServices] Sample conversation data:`, {
+        id: activeConversations[0].id,
+        user1: activeConversations[0].user1,
+        user2: activeConversations[0].user2,
+        user1_id: activeConversations[0].user1_id,
+        user2_id: activeConversations[0].user2_id
+      });
+    }
+    
+    return { data: activeConversations, error: null };
+  } catch (err) {
+    console.error("[ChatServices] Unexpected error in fetchUserConversations:", err);
+    return { data: null, error: err };
+  }
 };
 
 // Update user online status

@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { getLocalDateString } from '../utils/dateUtils';
 
 /**
  * GamificationDataService
@@ -351,7 +352,7 @@ const GamificationDataService = {
       // Get current stats
       const stats = await this.getUserStats(userId);
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = getLocalDateString();
       const lastWorkout = stats.last_workout_date;
 
       let newStreak = stats.current_streak || 0;
@@ -361,7 +362,7 @@ const GamificationDataService = {
       if (lastWorkout) {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        const yesterdayStr = getLocalDateString(yesterday);
 
         if (lastWorkout === yesterdayStr) {
           // Consecutive day - increment streak
@@ -612,14 +613,14 @@ const GamificationDataService = {
       // 6) Compute current streak from unique workout dates FIRST (needed for points calculation)
       let current_streak = stats.current_streak || 0;
       if (allWorkouts && allWorkouts.length) {
-        const uniqueDates = Array.from(new Set(allWorkouts.map(w => w.completed_at ? new Date(w.completed_at).toISOString().split('T')[0] : null).filter(Boolean))).sort().reverse();
+        const uniqueDates = Array.from(new Set(allWorkouts.map(w => w.completed_at ? getLocalDateString(new Date(w.completed_at)) : null).filter(Boolean))).sort().reverse();
         let streak = 0;
         let ref = new Date();
         for (let i = 0; i < uniqueDates.length; i++) {
           const d = new Date(uniqueDates[i]);
           const expected = new Date(ref);
           expected.setDate(ref.getDate() - i);
-          if (d.toISOString().split('T')[0] === expected.toISOString().split('T')[0]) {
+          if (getLocalDateString(d) === getLocalDateString(expected)) {
             streak += 1;
           } else {
             break;
@@ -641,7 +642,7 @@ const GamificationDataService = {
         badges_earned,
         total_steps,
         total_points: computed_points,
-        last_workout_date: last_workout_date ? last_workout_date.toISOString().split('T')[0] : stats.last_workout_date,
+        last_workout_date: last_workout_date ? getLocalDateString(last_workout_date) : stats.last_workout_date,
         current_streak,
         updated_at: new Date().toISOString(),
       };

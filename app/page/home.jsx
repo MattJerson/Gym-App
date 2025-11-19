@@ -40,7 +40,9 @@ export default function Home() {
           setUserId(user.id);
         }
       } catch (error) {
-        console.error("Error fetching user:", error);
+        if (error.name !== 'AuthSessionMissingError') {
+          console.error("Error fetching user:", error);
+        }
       }
     };
     getUser();

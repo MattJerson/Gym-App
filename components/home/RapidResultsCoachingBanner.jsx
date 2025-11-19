@@ -25,55 +25,32 @@ export default function RapidResultsCoachingBanner() {
         end={{ x: 1, y: 1 }}
         style={styles.gradient}
       >
-        {/* Overlay for better text readability */}
         <View style={styles.overlay} />
 
         <View style={styles.content}>
           {/* Badge */}
           <View style={styles.badge}>
-            <Ionicons name="flash" size={14} color="#FF6B35" />
+            <Ionicons name="flash" size={10} color="#FF6B35" />
             <Text style={styles.badgeText}>COMING SOON</Text>
           </View>
 
-          {/* Icon */}
-          <View style={styles.iconContainer}>
-            <Ionicons name="flame" size={40} color="#FFFFFF" />
-          </View>
-
-          {/* Content */}
-          <View style={styles.textContent}>
-            <Text style={styles.title}>Rapid Results Coaching</Text>
-            <Text style={styles.subtitle}>
-              1-on-1 personalized coaching for accelerated transformation
-            </Text>
-
-            {/* Features */}
-            <View style={styles.features}>
-              <View style={styles.featureItem}>
-                <Ionicons name="checkmark-circle" size={16} color="#A3E635" />
-                <Text style={styles.featureText}>Custom workout & nutrition</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <Ionicons name="checkmark-circle" size={16} color="#A3E635" />
-                <Text style={styles.featureText}>Weekly progress check-ins</Text>
-              </View>
-              <View style={styles.featureItem}>
-                <Ionicons name="checkmark-circle" size={16} color="#A3E635" />
-                <Text style={styles.featureText}>Direct coach messaging</Text>
-              </View>
+          <View style={styles.mainContent}>
+            {/* Icon */}
+            <View style={styles.iconContainer}>
+              <Ionicons name="flame" size={24} color="#FFFFFF" />
             </View>
 
-            {/* Pricing Preview */}
-            <View style={styles.pricingPreview}>
-              <Text style={styles.pricingText}>Starting at</Text>
-              <Text style={styles.pricingAmount}>$125</Text>
-              <Text style={styles.pricingPeriod}>biweekly</Text>
+            {/* Text Content */}
+            <View style={styles.textContent}>
+              <Text style={styles.title}>Rapid Results Coaching</Text>
+              <Text style={styles.subtitle}>
+                1-on-1 coaching • Custom plans • $125/biweekly
+              </Text>
             </View>
 
-            {/* CTA */}
-            <View style={styles.ctaContainer}>
-              <Text style={styles.ctaText}>Learn More</Text>
-              <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
+            {/* Arrow */}
+            <View style={styles.arrowContainer}>
+              <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.8)" />
             </View>
           </View>
         </View>
@@ -88,23 +65,23 @@ export default function RapidResultsCoachingBanner() {
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 20,
-    borderRadius: 24,
+    marginBottom: 24,
+    borderRadius: 16,
     overflow: 'hidden',
-    elevation: 8,
+    elevation: 4,
     shadowColor: '#FF6B35',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   gradient: {
-    padding: 20,
-    minHeight: 280,
+    padding: 16,
+    minHeight: 110,
     position: 'relative',
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
   },
   content: {
     position: 'relative',
@@ -114,123 +91,79 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   badgeText: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '800',
     color: '#FF6B35',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
+  },
+  mainContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   iconContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   textContent: {
-    gap: 12,
+    flex: 1,
+    gap: 4,
   },
   title: {
-    fontSize: 26,
-    fontWeight: '900',
+    fontSize: 15,
+    fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: -0.5,
+    letterSpacing: -0.3,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.95)',
-    lineHeight: 20,
+    color: 'rgba(255, 255, 255, 0.9)',
+    lineHeight: 16,
   },
-  features: {
-    gap: 8,
-    marginTop: 8,
-  },
-  featureItem: {
-    flexDirection: 'row',
+  arrowContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     alignItems: 'center',
-    gap: 8,
-  },
-  featureText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  pricingPreview: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  pricingText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  pricingAmount: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    letterSpacing: -1,
-  },
-  pricingPeriod: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  ctaContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    alignSelf: 'flex-start',
-  },
-  ctaText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    justifyContent: 'center',
   },
   decorativeCircle1: {
     position: 'absolute',
-    top: -40,
-    right: -40,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    opacity: 0.5,
+    top: -30,
+    right: -30,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    opacity: 0.6,
   },
   decorativeCircle2: {
     position: 'absolute',
-    bottom: -30,
-    left: -30,
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    opacity: 0.5,
+    bottom: -20,
+    left: -20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.06)',
+    opacity: 0.6,
   },
 });

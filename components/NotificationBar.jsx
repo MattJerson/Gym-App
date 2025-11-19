@@ -41,7 +41,10 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
           setUserId(user.id);
         }
       } catch (error) {
-        console.error('NotificationBar: Exception getting user:', error.message);
+        // Silently handle auth session errors (expected during logout)
+        if (error.name !== 'AuthSessionMissingError') {
+          console.error('NotificationBar: Exception getting user:', error.message);
+        }
       }
     };
     getUser();
@@ -185,8 +188,14 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
     if (!userId) return;
     
     try {
-      // Clear UI immediately for better UX (all notifications disappear)
-      setNotifications([]);
+      // Mark notifications as read in UI immediately for better UX
+      setNotifications(prev => 
+        prev.map(n => ({
+          ...n,
+          is_read: true,
+          read_at: new Date().toISOString()
+        }))
+      );
       setUnreadCount(0);
       
       // Use the service method that marks manual as read and deletes automated
@@ -195,7 +204,7 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
       if (result && __DEV__) {
       }
       
-      // Reload to confirm (should be empty or only show new ones)
+      // Reload to confirm state with server
       await loadNotifications();
     } catch (error) {
       console.error('Error marking all as read:', error);
@@ -360,31 +369,17 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
                     ]}
                     onPress={() => handleMarkAsRead(notification.id, notification)}
                   >
-                    <View style={[
-                      styles.notificationIconContainer, 
-                      { backgroundColor: getNotificationColor(notification.type) }
-                    ]}>
-                      <Ionicons 
-                        name={getNotificationIcon(notification.type)} 
-                        size={18} 
-                        color="#fff" 
-                      />
-                    </View>
-                    
                     <View style={styles.notificationContent}>
-                      <View style={styles.notificationHeader}>
-                        <Text style={styles.notificationTitle} numberOfLines={1}>
-                          {notification.title}
-                        </Text>
-                        <Text style={styles.notificationTime}>
-                          {formatTime(notification.created_at)}
-                        </Text>
-                      </View>
-                      <Text style={styles.notificationMessage} numberOfLines={2}>
+                      <Text style={styles.notificationTitle} numberOfLines={2}>
+                        {notification.title}
+                      </Text>
+                      <Text style={styles.notificationTime}>
+                        {formatTime(notification.created_at)}
+                      </Text>
+                      <Text style={styles.notificationMessage}>
                         {notification.message}
                       </Text>
                     </View>
-
                     {!notification.is_read && <View style={styles.unreadDot} />}
                   </Pressable>
                 ))}
@@ -473,7 +468,7 @@ const styles = StyleSheet.create({
     top: 40,
     right: -10,
     width: 320,
-    maxHeight: 450, // Reduced from 600
+    maxHeight: 500,
     backgroundColor: "rgba(20, 20, 20, 0.98)",
     borderRadius: 16,
     shadowColor: "#000",
@@ -533,67 +528,56 @@ const styles = StyleSheet.create({
 
   // Notifications List Styles
   notificationsList: {
-    maxHeight: 360, // Reduced from 530 to make modal smaller
+    maxHeight: 400,
     paddingHorizontal: 4,
     paddingBottom: 8,
   },
   notificationItem: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    padding: 12,
+    alignItems: "stretch",
+    padding: 16,
     marginHorizontal: 8,
-    marginVertical: 2,
-    borderRadius: 10,
-    backgroundColor: "transparent",
+    marginVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    minHeight: 80,
   },
   unreadNotification: {
-    backgroundColor: "rgba(0, 122, 255, 0.15)", // More visible blue tint for unread
-    borderLeftWidth: 3,
-    borderLeftColor: "#007AFF",
+    backgroundColor: "rgba(0, 122, 255, 0.12)",
   },
-  notificationIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-    flexShrink: 0,
-  },
+  // Icon container removed - notifications no longer display icons
   notificationContent: {
     flex: 1,
     minWidth: 0,
-  },
-  notificationHeader: {
-    flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 2,
   },
+  // Header removed - title and time are now separate elements
   notificationTitle: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "700",
     color: "#fff",
-    flex: 1,
-    marginRight: 8,
+    lineHeight: 22,
+    marginBottom: 4,
   },
   notificationTime: {
-    fontSize: 11,
-    color: "#999",
-    flexShrink: 0,
+    fontSize: 12,
+    color: "#666",
+    fontWeight: "500",
+    marginBottom: 8,
   },
   notificationMessage: {
     fontSize: 13,
-    color: "#ccc",
-    lineHeight: 16,
+    color: "#999",
+    lineHeight: 18,
+    textAlign: "left",
   },
   unreadDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     backgroundColor: "#007AFF",
-    marginTop: 6,
-    marginLeft: 8,
+    marginLeft: 12,
+    alignSelf: "center",
     flexShrink: 0,
   },
   emptyState: {

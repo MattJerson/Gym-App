@@ -1,11 +1,43 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { supabase } from "../../services/supabase";
+import { getAllUnreadCounts } from "../../services/ChatServices";
 
 export default function QuickStart() {
   const router = useRouter();
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
+  const [currentUserId, setCurrentUserId] = useState(null);
+
+  useEffect(() => {
+    loadChatUnreadCount();
+    
+    // Set up real-time subscription for chat unread counts
+    const interval = setInterval(loadChatUnreadCount, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  const loadChatUnreadCount = async () => {
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) {
+        return; // Silently fail if not authenticated
+      }
+      if (user) {
+        setCurrentUserId(user.id);
+        const { data } = await getAllUnreadCounts(user.id);
+        if (data) {
+          const totalUnread = data.totalUnread || 0;
+          setChatUnreadCount(totalUnread);
+        }
+      }
+    } catch (error) {
+      // Silently fail - don't show errors for this
+    }
+  };
 
   const quickActions = [
     {
@@ -85,6 +117,15 @@ export default function QuickStart() {
                   <Text style={styles.title}>{action.title}</Text>
                   <Text style={styles.subtitle}>{action.subtitle}</Text>
                 </View>
+                
+                {/* Show unread badge for Chat */}
+                {action.title === "Chat" && chatUnreadCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+                    </Text>
+                  </View>
+                )}
               </View>
             </LinearGradient>
           </Pressable>
@@ -156,5 +197,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "rgba(255,255,255,0.85)",
     fontWeight: "500",
+  },
+  badge: {
+    position: "absolute",
+    top: -8,
+    right: -8,
+    backgroundColor: "#ef4444",
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    borderWidth: 2,
+    borderColor: "#0B0B0B",
+  },
+  badgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
   },
 });
