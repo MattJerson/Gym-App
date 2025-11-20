@@ -19,10 +19,13 @@ import logo from "../assets/logo.png";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { supabase } from '../lib/supabase';
+import { RoleBadge } from './common/PermissionGate';
+import { useUserRole } from '../middleware/adminAuth';
 
 const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
+  const { role, isAdmin, isManager } = useUserRole();
 
   const handleLogout = async () => {
     try {
@@ -35,17 +38,20 @@ const Sidebar = () => {
     }
   };
   
+  // Define which items can be edited by Community Managers
+  const editableByManager = ['meals', 'workouts', 'featured', 'chat'];
+  
   const sidebarItems = [
-    { label: "Dashboard", icon: Home, path: "/" },
-    { label: "Meal Plans", icon: UtensilsCrossed, path: "/meals" },
-    { label: "Workout Plans", icon: Dumbbell, path: "/workouts" },
-    { label: "Featured Content", icon: Star, path: "/featured" },
-    { label: "Notifications", icon: Bell, path: "/notifications" },
-    { label: "Community Chat", icon: MessageCircle, path: "/chat" },
-    { label: "Subscriptions", icon: CreditCard, path: "/subscriptions" },
-    { label: "User Management", icon: Users, path: "/users" },
-    { label: "Reports & Analytics", icon: BarChart3, path: "/analytics" },
-    { label: "Leadership & Badges", icon: Award, path: "/badges" },
+    { label: "Dashboard", icon: Home, path: "/", viewOnly: !isAdmin },
+    { label: "Meal Plans", icon: UtensilsCrossed, path: "/meals", viewOnly: false },
+    { label: "Workout Plans", icon: Dumbbell, path: "/workouts", viewOnly: false },
+    { label: "Featured Content", icon: Star, path: "/featured", viewOnly: false },
+    { label: "Notifications", icon: Bell, path: "/notifications", viewOnly: !isAdmin },
+    { label: "Community Chat", icon: MessageCircle, path: "/chat", viewOnly: false },
+    { label: "Subscriptions", icon: CreditCard, path: "/subscriptions", viewOnly: !isAdmin },
+    { label: "User Management", icon: Users, path: "/users", viewOnly: !isAdmin },
+    { label: "Reports & Analytics", icon: BarChart3, path: "/analytics", viewOnly: !isAdmin },
+    { label: "Leadership & Badges", icon: Award, path: "/badges", viewOnly: !isAdmin },
   ];
 
   return (
@@ -72,23 +78,24 @@ const Sidebar = () => {
           ${isOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0`}
       >
         {/* Logo */}
-        <div className="flex justify-center items-center p-4 border-b border-gray-100 flex-shrink-0">
+        <div className="flex flex-col items-center p-4 border-b border-gray-100 flex-shrink-0">
           <img
             src={logo}
             alt="Brick After Brick Logo"
-            className="h-32 object-contain"
+            className="h-32 object-contain mb-2"
           />
+          <RoleBadge />
         </div>
 
-        {/* Navigation - Removed overflow-y-auto */}
-        <nav className="flex-1 py-4 flex flex-col">
-          {sidebarItems.map(({ label, icon: Icon, path }) => (
+        {/* Navigation */}
+        <nav className="flex-1 py-4 flex flex-col overflow-y-auto">
+          {sidebarItems.map(({ label, icon: Icon, path, viewOnly }) => (
             <NavLink
               key={path}
               to={path}
               end={path === "/"}
               className={({ isActive }) =>
-                `w-full flex items-center gap-3 px-6 py-3 mb-1 text-left transition-all ${
+                `w-full flex items-center gap-3 px-6 py-3 mb-1 text-left transition-all relative ${
                   isActive
                     ? "bg-gradient-to-r from-blue-50 to-blue-100 text-blue-600 border-r-4 border-blue-600 font-semibold"
                     : "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
@@ -98,6 +105,9 @@ const Sidebar = () => {
             >
               <Icon className="h-5 w-5 flex-shrink-0" />
               <span className="text-sm">{label}</span>
+              {viewOnly && !isAdmin && (
+                <span className="ml-auto text-xs text-gray-400 italic">View Only</span>
+              )}
             </NavLink>
           ))}
         </nav>

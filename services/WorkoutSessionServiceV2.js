@@ -12,33 +12,58 @@ export const WorkoutSessionServiceV2 = {
    */
   async getWorkoutTemplate(templateId) {
     try {
+      // First get the workout template with exercises
       const { data: template, error: templateError } = await supabase
         .from('workout_templates')
         .select(`
           *,
           category:workout_categories(id, name, color, icon),
-          exercises:workout_template_exercises(
-            *,
-            exercise:exercises(
-              id,
-              name,
-              gif_url,
-              instructions,
-              met_value,
-              target_muscles:exercise_target_muscle_junction(
-                muscle:exercise_target_muscles(name)
-              )
-            )
+          exercises:workout_exercises(
+            id,
+            exercise_name,
+            sets,
+            reps,
+            rest_seconds,
+            order_index,
+            description,
+            calories_per_set
           )
         `)
         .eq('id', templateId)
         .single();
+        
       if (templateError) throw templateError;
       
-      // Sort exercises by order_index (not order)
+      // Then fetch exercise details (gif_url, etc.) from exercises table
+      if (template?.exercises && template.exercises.length > 0) {
+        const exerciseNames = template.exercises.map(ex => ex.exercise_name);
+        const { data: exerciseDetails, error: exerciseError } = await supabase
+          .from('exercises')
+          .select('name, gif_url, instructions, met_value')
+          .in('name', exerciseNames);
+        
+        if (exerciseError) {
+          console.error('Error fetching exercise details:', exerciseError);
+        }
+        
+        // Merge exercise details with workout exercises
+        template.exercises = template.exercises.map(ex => {
+          const exerciseDetail = exerciseDetails?.find(ed => ed.name === ex.exercise_name);
+          return {
+            ...ex,
+            exercise: exerciseDetail || {
+              name: ex.exercise_name,
+              gif_url: null,
+              instructions: [],
+              met_value: 5
+            }
+          };
+        });
+      }
+      
+      // Sort exercises by order_index
       if (template?.exercises) {
         template.exercises.sort((a, b) => a.order_index - b.order_index);
-      } else {
       }
       
       return template;

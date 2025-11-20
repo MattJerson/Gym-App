@@ -1965,3 +1965,16 @@ supabase/migrations/019_fix_create_custom_workout_notes.sql
 supabase/migrations/020_create_workout_session_from_template.sql
 supabase/migrations/DEBUG_check_session_exercises.sql
 supabase/migrations/20251118_update_subscription_packages.sql
+ASSIGN_WORKOUT_TO_USER.sql
+CHECK_PROFILE.sql
+COMMUNITY_MANAGER_SYSTEM.md
+DEPLOYMENT_INSTRUCTIONS.md
+DIAGNOSE_WORKOUT_ASSIGNMENTS.sql
+FIX_ADMIN_LOGIN_AND_NOTIFICATIONS.sql
+FIX_GET_USER_ASSIGNED_WORKOUTS.sql
+FIX_ONBOARDING_SKIP.sql
+FIX_REGISTRATION_TRIGGER.sql
+FIX_WORKOUT_EXERCISES_RLS.sql
+SCHEMA_ANALYSIS.md
+SPECIFIC_USER_ASSIGNMENT.md
+supabase/CHECK_EXERCISE_TABLES.sql

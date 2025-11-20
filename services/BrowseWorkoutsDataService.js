@@ -83,16 +83,16 @@ export const BrowseWorkoutsDataService = {
 
       // Fetch workout exercises from new table
       const { data: exercises, error: exercisesError } = await supabase
-        .from('workout_template_exercises')
+        .from('workout_exercises')
         .select(`
-          *,
-          exercise:exercises(
-            id,
-            name,
-            gif_url,
-            instructions,
-            met_value
-          )
+          id,
+          exercise_name,
+          sets,
+          reps,
+          rest_seconds,
+          order_index,
+          description,
+          calories_per_set
         `)
         .eq('template_id', workoutId)
         .order('order_index', { ascending: true });

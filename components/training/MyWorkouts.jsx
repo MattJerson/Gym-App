@@ -264,14 +264,11 @@ export default function MyWorkouts({
               color,
               icon
             ),
-            exercises:workout_template_exercises(
+            exercises:workout_exercises(
               id,
               sets,
               reps,
-              exercise:exercises(
-                name,
-                met_value
-              )
+              exercise_name
             )
           )
         `)

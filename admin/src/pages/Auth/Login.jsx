@@ -42,15 +42,14 @@ export default function Login() {
 
       console.log("✅ Auth successful, user:", user?.id);
 
-      // Check if user is admin
-      console.log("🔍 Checking admin status for user:", user.id);
-      const { data: profile, error: profileError } = await supabase
+      // Check if user is admin or community manager
+      console.log("🔍 Checking role for user:", user.id);
+      const { data: profiles, error: profileError } = await supabase
         .from("registration_profiles")
-        .select("is_admin")
-        .eq("user_id", user.id)
-        .single();
+        .select("is_admin, role")
+        .eq("user_id", user.id);
 
-      console.log("📋 Profile query result:", { profile, profileError });
+      console.log("📋 Profile query result:", { profiles, profileError });
 
       if (profileError) {
         console.error("❌ Profile fetch error:", profileError);
@@ -60,13 +59,22 @@ export default function Login() {
         );
       }
 
-      if (!profile?.is_admin) {
-        console.error("❌ User is not admin:", profile);
+      if (!profiles || profiles.length === 0) {
+        console.error("❌ No profile found for user");
         await supabase.auth.signOut();
-        throw new Error("Unauthorized: Admin access required");
+        throw new Error("Profile not found");
       }
 
-      console.log("✅ Admin verified, redirecting to dashboard");
+      const profile = profiles[0];
+      const hasAccess = profile?.is_admin || profile?.role === 'admin' || profile?.role === 'community_manager';
+      
+      if (!hasAccess) {
+        console.error("❌ User does not have admin/manager access:", profile);
+        await supabase.auth.signOut();
+        throw new Error("Unauthorized: Admin or Community Manager access required");
+      }
+
+      console.log("✅ Access verified, redirecting to dashboard");
       // Success - redirect to dashboard
       navigate("/dashboard");
     } catch (err) {

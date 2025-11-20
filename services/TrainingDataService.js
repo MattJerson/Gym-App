@@ -166,7 +166,7 @@ export const TrainingDataService = {
       }
       // Count exercises for this template
       const { count: exerciseCount, error: countError } = await supabase
-        .from('workout_template_exercises')
+        .from('workout_exercises')
         .select('*', { count: 'exact', head: true })
         .eq('template_id', workout.template_id);
 

@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback } from "react";
 import MyWorkouts from "../../components/training/MyWorkouts";
 import BrowseWorkouts from "../../components/training/BrowseWorkouts";
 import RecentWorkouts from "../../components/training/RecentWorkouts";
+import AssignedWorkouts from "../../components/training/AssignedWorkouts";
 import { TrainingDataServiceNew } from "../../services/TrainingDataServiceNew";
 import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
 import { WorkoutSessionService } from "../../services/WorkoutSessionService";
@@ -378,6 +379,14 @@ export default function Training() {
                 onContinue={handleStartTodaysWorkout}
               />
             )}
+
+            {/* Assigned Workouts by Community Manager */}
+            <AssignedWorkouts
+              userId={userId}
+              onSelectWorkout={(workoutId) => {
+                handleStartWorkout(workoutId);
+              }}
+            />
 
             {/* Browse Workout Categories */}
             <BrowseWorkouts

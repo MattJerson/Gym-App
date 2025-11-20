@@ -163,18 +163,20 @@ export default function Calendar() {
         .from('user_stats')
         .select('current_streak, longest_streak')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
-
-      if (data) {
-        setStreakData({
-          current: data.current_streak || 0,
-          longest: data.longest_streak || 0,
-        });
-      }
+      // Set default values if no data or error
+      setStreakData({
+        current: data?.current_streak || 0,
+        longest: data?.longest_streak || 0,
+      });
     } catch (error) {
       console.error("Error loading streak data:", error);
+      // Set safe defaults on error
+      setStreakData({
+        current: 0,
+        longest: 0,
+      });
     }
   };
 

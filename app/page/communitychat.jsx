@@ -104,13 +104,55 @@ export default function CommunityChat() {
       loadUnreadCounts();
       loadUserConversations(currentUser.id);
       
-      // Set up periodic refreshes for unread counts and DM list
-      const interval = setInterval(() => {
-        loadUnreadCounts();
-        loadUserConversations(currentUser.id);
-      }, 15000); // Every 15 seconds
+      // Set up realtime subscriptions for conversation updates (instead of polling)
+      // Subscribe to direct_messages table to detect new messages
+      const conversationSubscription = supabase
+        .channel('conversation-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'direct_messages',
+            filter: `sender_id=eq.${currentUser.id}`
+          },
+          (payload) => {
+            console.log('[CommunityChat] New message detected, refreshing conversations');
+            loadUserConversations(currentUser.id);
+            loadUnreadCounts();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'dm_conversations',
+            filter: `user1_id=eq.${currentUser.id}`
+          },
+          (payload) => {
+            console.log('[CommunityChat] Conversation change detected (user1)');
+            loadUserConversations(currentUser.id);
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'dm_conversations',
+            filter: `user2_id=eq.${currentUser.id}`
+          },
+          (payload) => {
+            console.log('[CommunityChat] Conversation change detected (user2)');
+            loadUserConversations(currentUser.id);
+          }
+        )
+        .subscribe();
       
-      return () => clearInterval(interval);
+      return () => {
+        conversationSubscription.unsubscribe();
+      };
     }
   }, [currentUser]);
 

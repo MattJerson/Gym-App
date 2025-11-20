@@ -432,7 +432,7 @@ export default function SelectMealPlan() {
   };
 
   const handleSkip = async () => {
-    // Complete without meal plan selection
+    // Complete without meal plan selection - allow graceful skip
     setIsCompleting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -442,20 +442,13 @@ export default function SelectMealPlan() {
         return;
       }
 
-      // Check if workouts step is complete
-      const status = await OnboardingService.checkOnboardingStatus(user.id);
-      
-      if (status.hasWorkouts) {
-        // Workouts already selected - mark onboarding complete and go to home
-        await OnboardingService.markOnboardingComplete(user.id);
-        router.replace("/page/home");
-      } else {
-        // Navigate back to workout selection
-        router.push("/features/selectworkouts");
-      }
+      // Mark onboarding as complete and go to home (allow skipping meal plan)
+      await OnboardingService.markOnboardingComplete(user.id);
+      router.replace("/page/home");
     } catch (error) {
       console.error("Error in skip:", error);
-      Alert.alert("Error", "An unexpected error occurred");
+      // Even if there's an error, let them go to home
+      router.replace("/page/home");
     } finally {
       setIsCompleting(false);
     }

@@ -35,11 +35,76 @@ export const checkAdminRole = async () => {
   
   if (!user) return false;
 
-  const { data: profile } = await supabase
+  const { data: profiles } = await supabase
     .from('registration_profiles')
-    .select('is_admin')
-    .eq('user_id', user.id)
-    .single();
+    .select('is_admin, role')
+    .eq('user_id', user.id);
 
-  return profile?.is_admin === true;
+  if (!profiles || profiles.length === 0) return false;
+  const profile = profiles[0];
+  return profile?.is_admin === true || profile?.role === 'admin';
+};
+
+// Helper function to check if user is community manager
+export const checkCommunityManagerRole = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) return false;
+
+  const { data: profiles } = await supabase
+    .from('registration_profiles')
+    .select('role, is_admin')
+    .eq('user_id', user.id);
+
+  if (!profiles || profiles.length === 0) return false;
+  const profile = profiles[0];
+  return profile?.role === 'community_manager' || profile?.role === 'admin' || profile?.is_admin === true;
+};
+
+// Helper function to get user role
+export const getUserRole = async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user) return null;
+
+  const { data: profiles } = await supabase
+    .from('registration_profiles')
+    .select('role, is_admin')
+    .eq('user_id', user.id);
+
+  if (!profiles || profiles.length === 0) return null;
+  const profile = profiles[0];
+
+  // Backwards compatibility: if is_admin is true but role is not set, return 'admin'
+  if (profile?.is_admin && !profile?.role) {
+    return 'admin';
+  }
+
+  return profile?.role || 'user';
+};
+
+// Helper function to check if user has specific permission
+export const hasPermission = async (permission) => {
+  const role = await getUserRole();
+  
+  const permissions = {
+    admin: ['all'],
+    community_manager: [
+      'view_all',
+      'create_workouts',
+      'edit_own_workouts',
+      'assign_workouts',
+      'create_meals',
+      'edit_own_meals',
+      'assign_meals',
+      'create_featured_content',
+      'edit_own_featured_content',
+      'view_chat',
+      'moderate_chat'
+    ],
+    user: ['view_own']
+  };
+
+  const userPermissions = permissions[role] || [];
+  return userPermissions.includes('all') || userPermissions.includes(permission);
 };

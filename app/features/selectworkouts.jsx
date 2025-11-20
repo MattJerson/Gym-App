@@ -203,7 +203,7 @@ export default function SelectWorkouts() {
         router.replace("/page/home");
       } else {
         // Navigate to meal plan selection
-        router.push("/features/selectmealplan");
+        router.replace("/features/selectmealplan");
       }
     } catch (error) {
       console.error("Error saving selections:", error);
@@ -225,15 +225,15 @@ export default function SelectWorkouts() {
           await OnboardingService.markOnboardingComplete(user.id);
           router.replace("/page/home");
         } else {
-          // Navigate to meal plan selection
-          router.push("/features/selectmealplan");
+          // Navigate to meal plan selection (allow skipping)
+          router.replace("/features/selectmealplan");
         }
       } else {
-        router.push("/features/selectmealplan");
+        router.replace("/features/selectmealplan");
       }
     } catch (error) {
       console.error('Error in skip:', error);
-      router.push("/features/selectmealplan");
+      router.replace("/features/selectmealplan");
     }
   };
 

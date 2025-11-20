@@ -61,34 +61,15 @@ export const TrainingDataServiceNew = {
       .select(`
         *,
         category:workout_categories(name, color, icon),
-        exercises:workout_template_exercises(
+        exercises:workout_exercises(
           id,
+          exercise_name,
           sets,
           reps,
-          duration_seconds,
           rest_seconds,
           order_index,
-          is_warmup,
-          is_cooldown,
-          custom_notes,
-          exercise:exercises(
-            id,
-            exercise_id,
-            name,
-            gif_url,
-            instructions,
-            met_value,
-            target_muscles:exercise_target_muscle_junction(
-              is_primary,
-              muscle:exercise_target_muscles(name)
-            ),
-            body_parts:exercise_body_part_junction(
-              body_part:exercise_body_parts(name)
-            ),
-            equipment:exercise_equipment_junction(
-              equipment:exercise_equipments(name)
-            )
-          )
+          description,
+          calories_per_set
         )
       `)
       .eq('id', templateId)
@@ -543,7 +524,7 @@ export const TrainingDataServiceNew = {
       
       // Get exercise count
       const { count: exerciseCount } = await supabase
-        .from('workout_template_exercises')
+        .from('workout_exercises')
         .select('*', { count: 'exact', head: true })
         .eq('template_id', template.id);
 

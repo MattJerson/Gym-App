@@ -73,7 +73,7 @@ export default function CalendarStatsCard({ monthlyStats, currentDate }) {
 
         <View style={styles.statItem}>
           <MaterialCommunityIcons name="repeat" size={20} color="#0A84FF" />
-          <Text style={styles.statNumber}>{monthlyStats.workoutsPerWeek.toFixed(1)}x</Text>
+          <Text style={styles.statNumber}>{(monthlyStats?.workoutsPerWeek || 0).toFixed(1)}x</Text>
           <Text style={styles.statLabel}>Frequency</Text>
           <Text style={styles.statSubtext}>Workouts per week</Text>
         </View>

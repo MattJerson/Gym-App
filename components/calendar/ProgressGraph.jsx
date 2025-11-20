@@ -93,9 +93,13 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
       const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       const balance = await WeightProgressService.getDailyCalorieBalance(userId, todayString);
       
-      // Calculate net balance: consumed - burned
-      // Positive = surplus, Negative = deficit
-      const netBalance = balance.caloriesConsumed - balance.caloriesBurned;
+      // CORRECT LOGIC:
+      // To maintain weight, user needs to eat their maintenance calories (calorieGoal)
+      // Net balance = what they consumed - their maintenance requirement
+      // Positive net = surplus (will gain weight)
+      // Negative net = deficit (will lose weight)
+      const maintenanceCalories = balance.calorieGoal || 2000;
+      const netBalance = balance.caloriesConsumed - maintenanceCalories;
       
       setDailyBalance({
         consumed: balance.caloriesConsumed,
@@ -131,19 +135,18 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
         const today = new Date();
         const todayLabel = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
         
-        // CRITICAL LOGIC: Calculate actual net calories based on logging behavior
-        // If NO meals logged today → Assume maintenance (0 net calories, no weight change)
-        // If meals ARE logged → Calculate deficit/surplus: (consumed - burned) - maintenance
+        // CORRECT LOGIC: dailyBalance.net already contains the correct calculation
+        // dailyBalance.net = consumed - maintenance
+        // If user logged 100 cal broccoli with 2000 maintenance: net = 100 - 2000 = -1900 (deficit)
+        // If user logged 2500 cal with 2000 maintenance: net = 2500 - 2000 = +500 (surplus)
         let actualNetCalories;
         
         if (dailyBalance.mealsLogged === 0) {
           // No meals logged = assume user ate maintenance calories (no weight change)
           actualNetCalories = 0;
         } else {
-          // Meals logged = start from 0, calculate actual surplus/deficit
-          // Net = (consumed - burned) - maintenance_calories
-          const maintenanceCalories = dailyBalance.calorieGoal || 2000;
-          actualNetCalories = (dailyBalance.consumed - dailyBalance.burned) - maintenanceCalories;
+          // Use the correct net balance (already calculated as consumed - maintenance)
+          actualNetCalories = dailyBalance.net;
         }
         
         const todayWeightChange = actualNetCalories / 7700; // 7700 calories = 1kg
@@ -156,7 +159,7 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
           change: adjustedChange,
           lastActualWeight: projection.lastActualWeight,
           daysSince: projection.daysSinceMeasurement,
-          calorieBalance: projection.cumulativeCalorieBalance + dailyBalance.net
+          calorieBalance: projection.cumulativeCalorieBalance + actualNetCalories
         });
       } else if (projection.hasInitialWeight) {
         const today = new Date();
