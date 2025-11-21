@@ -15,10 +15,12 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import SaveWorkoutModal from "../../components/training/SaveWorkoutModal";
 import { BrowseWorkoutsDataService } from "../../services/BrowseWorkoutsDataService";
 import { WorkoutDetailPageSkeleton } from "../../components/skeletons/WorkoutDetailPageSkeleton";
+import { usePageCache } from "../../contexts/PageCacheContext";
 
 export default function WorkoutDetail() {
   const router = useRouter();
   const { workoutId } = useLocalSearchParams();
+  const { invalidateCache } = usePageCache();
   const [workout, setWorkout] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -53,9 +55,18 @@ export default function WorkoutDetail() {
   const loadWorkoutDetail = async () => {
     try {
       setIsLoading(true);
+      console.log('🔄 Loading workout detail for ID:', workoutId);
       const data = await BrowseWorkoutsDataService.fetchWorkoutDetail(
         workoutId
       );
+      console.log('✅ Workout data loaded:', {
+        name: data.name,
+        exerciseCount: data.exercises?.length || 0,
+        hasExercises: !!data.exercises && data.exercises.length > 0
+      });
+      if (data.exercises && data.exercises.length > 0) {
+        console.log('📝 First exercise:', data.exercises[0]);
+      }
       setWorkout(data);
     } catch (error) {
       console.error("Error loading workout detail:", error);
@@ -103,12 +114,15 @@ export default function WorkoutDetail() {
     // Called after animation completes
     setIsSaving(false);
 
+    // Invalidate training cache to force reload of My Workouts section
+    invalidateCache('training');
+
     if (startNow && data && data.length > 0) {
       // Navigate to workout session if starting now
       router.push(`/workout/${workoutId}`);
     } else {
-      // Go back to training page and trigger reload
-      router.back();
+      // Navigate back to training page - cache invalidation will trigger refresh
+      router.push('/page/training');
     }
   };
 
@@ -368,26 +382,11 @@ export default function WorkoutDetail() {
           </View>
         </View>
 
-        {/* Workout Structure */}
+        {/* Workout Structure - Only show main workout */}
         {workout.structure && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Workout Structure</Text>
             <View style={styles.structureCard}>
-              <View style={styles.structureItem}>
-                <View style={styles.structureIcon}>
-                  <Ionicons name="fitness-outline" size={18} color="#3B82F6" />
-                </View>
-                <View style={styles.structureContent}>
-                  <Text style={styles.structureTitle}>Warm-up</Text>
-                  <Text style={styles.structureTime}>
-                    {workout.structure.warmup.duration} minutes
-                  </Text>
-                  <Text style={styles.structureDescription}>
-                    {workout.structure.warmup.activities.join(", ")}
-                  </Text>
-                </View>
-              </View>
-
               <View style={styles.structureItem}>
                 <View style={styles.structureIcon}>
                   <Ionicons name="barbell-outline" size={18} color="#A3E635" />
@@ -399,21 +398,6 @@ export default function WorkoutDetail() {
                   </Text>
                   <Text style={styles.structureDescription}>
                     {workout.structure.mainWorkout.focus}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.structureItem}>
-                <View style={styles.structureIcon}>
-                  <Ionicons name="body-outline" size={18} color="#8B5CF6" />
-                </View>
-                <View style={styles.structureContent}>
-                  <Text style={styles.structureTitle}>Cool-down</Text>
-                  <Text style={styles.structureTime}>
-                    {workout.structure.cooldown.duration} minutes
-                  </Text>
-                  <Text style={styles.structureDescription}>
-                    {workout.structure.cooldown.activities.join(", ")}
                   </Text>
                 </View>
               </View>
@@ -467,156 +451,144 @@ const styles = StyleSheet.create({
     color: "#71717A",
   },
   header: {
-    gap: 16,
-    paddingTop: 60,
-    paddingBottom: 20,
+    gap: 12,
+    paddingTop: 56,
+    paddingBottom: 16,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     backgroundColor: "#0B0B0B",
-    borderBottomWidth: 2,
-    borderBottomColor: "rgba(30, 58, 95, 0.3)",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(30, 58, 95, 0.15)",
   },
   backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(30, 58, 95, 0.3)",
-    borderWidth: 2,
-    borderColor: "rgba(30, 58, 95, 0.4)",
+    backgroundColor: "rgba(30, 58, 95, 0.2)",
   },
   headerContent: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: 26,
-    lineHeight: 32,
+    fontSize: 22,
+    lineHeight: 28,
     color: "#FAFAFA",
     fontWeight: "800",
     letterSpacing: 0.3,
   },
   scrollContent: {
     paddingBottom: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   overviewCard: {
-    padding: 20,
-    borderWidth: 2,
-    borderRadius: 20,
-    marginBottom: 24,
+    padding: 14,
+    borderWidth: 1,
+    borderRadius: 16,
+    marginBottom: 16,
     backgroundColor: "#161616",
-    borderColor: "rgba(30, 58, 95, 0.4)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: "rgba(30, 58, 95, 0.2)",
   },
   overviewHeader: {
-    marginBottom: 16,
+    marginBottom: 10,
   },
   difficultyBadge: {
-    borderRadius: 10,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
+    borderRadius: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     alignSelf: "flex-start",
-    borderWidth: 1,
   },
   difficultyText: {
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 0.8,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.6,
   },
   description: {
-    fontSize: 15,
-    lineHeight: 24,
-    marginBottom: 20,
-    color: "#D4D4D8",
-    fontWeight: "500",
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 14,
+    color: "#A1A1AA",
+    fontWeight: "400",
   },
   statsGrid: {
-    gap: 12,
+    gap: 10,
     flexDirection: "row",
   },
   statBox: {
     flex: 1,
-    padding: 16,
-    borderWidth: 2,
-    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderRadius: 12,
     alignItems: "center",
-    borderColor: "rgba(30, 58, 95, 0.4)",
-    backgroundColor: "rgba(30, 58, 95, 0.2)",
+    borderColor: "rgba(30, 58, 95, 0.2)",
+    backgroundColor: "rgba(30, 58, 95, 0.15)",
   },
   statValue: {
-    fontSize: 24,
-    marginTop: 8,
+    fontSize: 20,
+    marginTop: 6,
     color: "#FAFAFA",
-    fontWeight: "800",
+    fontWeight: "700",
   },
   statLabel: {
-    fontSize: 11,
-    marginTop: 4,
-    color: "#A1A1AA",
-    fontWeight: "600",
+    fontSize: 10,
+    marginTop: 2,
+    color: "#71717A",
+    fontWeight: "500",
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   section: {
-    marginBottom: 28,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 16,
     color: "#FAFAFA",
-    marginBottom: 16,
-    fontWeight: "800",
-    letterSpacing: 0.3,
+    marginBottom: 10,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
   tagContainer: {
-    gap: 10,
+    gap: 8,
     flexWrap: "wrap",
     flexDirection: "row",
   },
   tag: {
-    gap: 8,
-    borderWidth: 2,
-    borderRadius: 12,
-    paddingVertical: 10,
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 6,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    borderColor: "rgba(30, 58, 95, 0.4)",
-    backgroundColor: "rgba(30, 58, 95, 0.2)",
+    paddingHorizontal: 10,
+    borderColor: "rgba(30, 58, 95, 0.2)",
+    backgroundColor: "rgba(30, 58, 95, 0.15)",
   },
   muscleTag: {
-    borderColor: "rgba(30, 58, 95, 0.5)",
-    backgroundColor: "rgba(30, 58, 95, 0.25)",
+    borderColor: "rgba(30, 58, 95, 0.25)",
+    backgroundColor: "rgba(30, 58, 95, 0.2)",
   },
   tagText: {
-    fontSize: 13,
-    color: "#FAFAFA",
-    fontWeight: "600",
+    fontSize: 11,
+    color: "#D4D4D8",
+    fontWeight: "500",
   },
   exercisesList: {
-    gap: 16,
+    gap: 10,
   },
   exerciseCard: {
-    borderWidth: 2,
-    borderRadius: 20,
+    borderWidth: 1,
+    borderRadius: 14,
     overflow: "hidden",
     marginBottom: 4,
     backgroundColor: "#161616",
-    borderColor: "rgba(30, 58, 95, 0.4)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: "rgba(30, 58, 95, 0.2)",
   },
   exerciseImageContainer: {
     width: "100%",
-    height: 180,
+    height: 140,
     position: "relative",
     backgroundColor: "#0B0B0B",
   },
@@ -629,199 +601,172 @@ const styles = StyleSheet.create({
     height: "100%",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(30, 58, 95, 0.2)",
+    backgroundColor: "rgba(30, 58, 95, 0.15)",
   },
   exerciseNumberBadge: {
     position: "absolute",
-    top: 12,
-    left: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    top: 8,
+    left: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#2d5890ff",
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: "#FAFAFA",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 5,
   },
   exerciseNumberText: {
-    fontSize: 16,
+    fontSize: 13,
     color: "#FAFAFA",
-    fontWeight: "800",
+    fontWeight: "700",
   },
   infoIconBadge: {
     position: "absolute",
-    top: 12,
-    right: 12,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(250, 250, 250, 0.98)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
+    backgroundColor: "rgba(250, 250, 250, 0.95)",
   },
   exerciseContent: {
-    padding: 18,
+    padding: 12,
   },
   exerciseName: {
-    fontSize: 19,
-    marginBottom: 14,
+    fontSize: 15,
+    marginBottom: 10,
     color: "#FAFAFA",
-    fontWeight: "800",
-    letterSpacing: 0.3,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
   exerciseStats: {
-    gap: 12,
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 12,
+    gap: 10,
+    padding: 10,
+    borderRadius: 10,
+    marginBottom: 8,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(30, 58, 95, 0.2)",
+    backgroundColor: "rgba(30, 58, 95, 0.15)",
     borderWidth: 1,
-    borderColor: "rgba(30, 58, 95, 0.3)",
+    borderColor: "rgba(30, 58, 95, 0.2)",
   },
   exerciseStat: {
     flex: 1,
-    gap: 6,
+    gap: 5,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
   },
   exerciseStatValue: {
-    fontSize: 14,
-    color: "#FAFAFA",
-    fontWeight: "700",
-  },
-  exerciseStatDivider: {
-    width: 1,
-    height: 18,
-    backgroundColor: "rgba(30, 58, 95, 0.5)",
-  },
-  metContainer: {
-    gap: 8,
-    marginBottom: 14,
-    padding: 10,
-    borderRadius: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(239, 68, 68, 0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.2)",
-  },
-  metText: {
     fontSize: 13,
     color: "#FAFAFA",
     fontWeight: "600",
   },
-  tapHint: {
+  exerciseStatDivider: {
+    width: 1,
+    height: 14,
+    backgroundColor: "rgba(30, 58, 95, 0.4)",
+  },
+  metContainer: {
     gap: 6,
+    marginBottom: 8,
+    padding: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(239, 68, 68, 0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.15)",
+  },
+  metText: {
+    fontSize: 11,
+    color: "#D4D4D8",
+    fontWeight: "500",
+  },
+  tapHint: {
+    gap: 4,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   tapHintText: {
-    fontSize: 12,
-    color: "#A1A1AA",
-    fontWeight: "600",
+    fontSize: 10,
+    color: "#71717A",
+    fontWeight: "500",
     fontStyle: "italic",
   },
   structureCard: {
-    gap: 20,
-    padding: 20,
-    borderWidth: 2,
-    borderRadius: 20,
+    gap: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderRadius: 14,
     backgroundColor: "#161616",
-    borderColor: "rgba(30, 58, 95, 0.4)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: "rgba(30, 58, 95, 0.2)",
   },
   structureItem: {
-    gap: 14,
+    gap: 12,
     flexDirection: "row",
   },
   structureIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(30, 58, 95, 0.3)",
-    borderWidth: 2,
-    borderColor: "rgba(30, 58, 95, 0.4)",
+    backgroundColor: "rgba(30, 58, 95, 0.2)",
+    borderWidth: 1,
+    borderColor: "rgba(30, 58, 95, 0.25)",
   },
   structureContent: {
     flex: 1,
   },
   structureTitle: {
-    fontSize: 16,
-    marginBottom: 4,
+    fontSize: 14,
+    marginBottom: 3,
     color: "#FAFAFA",
-    fontWeight: "800",
-  },
-  structureTime: {
-    fontSize: 13,
-    marginBottom: 6,
-    color: "#2b568eff",
     fontWeight: "700",
   },
+  structureTime: {
+    fontSize: 12,
+    marginBottom: 4,
+    color: "#3b82f6",
+    fontWeight: "600",
+  },
   structureDescription: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: "#D4D4D8",
-    fontWeight: "500",
+    fontSize: 12,
+    lineHeight: 18,
+    color: "#A1A1AA",
+    fontWeight: "400",
   },
   buttonContainer: {
     left: 0,
     right: 0,
     bottom: 0,
-    padding: 20,
-    paddingTop: 16,
-    borderTopWidth: 2,
+    padding: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
     position: "absolute",
     backgroundColor: "#0B0B0B",
-    borderTopColor: "rgba(30, 58, 95, 0.3)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
+    borderTopColor: "rgba(30, 58, 95, 0.2)",
   },
   startButton: {
-    gap: 10,
-    elevation: 8,
-    shadowRadius: 8,
-    borderRadius: 18,
-    shadowOpacity: 0.4,
-    paddingVertical: 18,
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 14,
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#2e5b95ff",
     justifyContent: "center",
     backgroundColor: "#305d97ff",
-    shadowOffset: { width: 0, height: 4 },
-    borderWidth: 2,
-    borderColor: "rgba(38, 72, 117, 0.6)",
   },
   startButtonText: {
-    fontSize: 17,
+    fontSize: 15,
     color: "#FAFAFA",
-    fontWeight: "800",
-    letterSpacing: 0.5,
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
 });
 

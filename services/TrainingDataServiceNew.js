@@ -61,15 +61,16 @@ export const TrainingDataServiceNew = {
       .select(`
         *,
         category:workout_categories(name, color, icon),
-        exercises:workout_exercises(
+        exercises:workout_template_exercises(
           id,
-          exercise_name,
           sets,
           reps,
           rest_seconds,
           order_index,
-          description,
-          calories_per_set
+          custom_notes,
+          exercise:exercises(
+            name
+          )
         )
       `)
       .eq('id', templateId)
@@ -524,7 +525,7 @@ export const TrainingDataServiceNew = {
       
       // Get exercise count
       const { count: exerciseCount } = await supabase
-        .from('workout_exercises')
+        .from('workout_template_exercises')
         .select('*', { count: 'exact', head: true })
         .eq('template_id', template.id);
 

@@ -13,7 +13,6 @@ import { useState, useEffect, useCallback } from "react";
 import MyWorkouts from "../../components/training/MyWorkouts";
 import BrowseWorkouts from "../../components/training/BrowseWorkouts";
 import RecentWorkouts from "../../components/training/RecentWorkouts";
-import AssignedWorkouts from "../../components/training/AssignedWorkouts";
 import { TrainingDataServiceNew } from "../../services/TrainingDataServiceNew";
 import TodaysWorkoutCard from "../../components/training/TodaysWorkoutCard";
 import { WorkoutSessionService } from "../../services/WorkoutSessionService";
@@ -119,7 +118,7 @@ export default function Training() {
         throw categoriesError;
       }
 
-      // For each category, count only pre-made (non-custom) templates
+      // For each category, count only admin/official templates (created_by_user_id IS NULL)
       const categoriesWithCounts = await Promise.all(
         (categoriesData || []).map(async (category) => {
           const { count, error: countError } = await supabase
@@ -127,7 +126,7 @@ export default function Training() {
             .select("*", { count: "exact", head: true })
             .eq("category_id", category.id)
             .eq("is_active", true)
-            .or("is_custom.is.null,is_custom.eq.false"); // Only pre-made templates
+            .is("created_by_user_id", null); // Only official templates, not user-created
 
           if (countError) {
             console.error(`Error counting templates for category ${category.id}:`, countError);
@@ -141,8 +140,19 @@ export default function Training() {
         })
       );
 
-      // Keep ALL categories (don't filter out empty ones - show "Under Construction" instead)
-      const categoriesWithTemplates = categoriesWithCounts;
+      // Sort categories: Active ones (with workouts) first, then "Coming Soon" (empty) at the end
+      const categoriesWithTemplates = categoriesWithCounts.sort((a, b) => {
+        const aHasWorkouts = (a.workout_count || 0) > 0;
+        const bHasWorkouts = (b.workout_count || 0) > 0;
+        
+        // If both have workouts or both are empty, maintain display_order
+        if (aHasWorkouts === bHasWorkouts) {
+          return a.display_order - b.display_order;
+        }
+        
+        // Otherwise, categories with workouts come first
+        return bHasWorkouts ? 1 : -1;
+      });
 
       // Load other training data in parallel
       const [
@@ -379,14 +389,6 @@ export default function Training() {
                 onContinue={handleStartTodaysWorkout}
               />
             )}
-
-            {/* Assigned Workouts by Community Manager */}
-            <AssignedWorkouts
-              userId={userId}
-              onSelectWorkout={(workoutId) => {
-                handleStartWorkout(workoutId);
-              }}
-            />
 
             {/* Browse Workout Categories */}
             <BrowseWorkouts

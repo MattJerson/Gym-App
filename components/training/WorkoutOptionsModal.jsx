@@ -136,14 +136,31 @@ export default function WorkoutOptionsModal({
               const { data: { user } } = await supabase.auth.getUser();
               if (!user) throw new Error("User not authenticated");
 
-              // Delete from user_saved_workouts
-              const { error: deleteError } = await supabase
-                .from('user_saved_workouts')
-                .delete()
-                .eq('id', workout.schedule_id)
-                .eq('user_id', user.id);
+              // Check if this is an assigned workout (has 'assigned_' prefix)
+              const isAssigned = workout.schedule_id?.startsWith('assigned_');
+              
+              if (isAssigned) {
+                // Extract the actual template_id from 'assigned_UUID'
+                const templateId = workout.schedule_id.replace('assigned_', '');
+                
+                // Delete from user_assigned_workouts table
+                const { error: deleteError } = await supabase
+                  .from('user_assigned_workouts')
+                  .delete()
+                  .eq('workout_template_id', templateId)
+                  .eq('user_id', user.id);
 
-              if (deleteError) throw deleteError;
+                if (deleteError) throw deleteError;
+              } else {
+                // Delete from user_saved_workouts
+                const { error: deleteError } = await supabase
+                  .from('user_saved_workouts')
+                  .delete()
+                  .eq('id', workout.schedule_id)
+                  .eq('user_id', user.id);
+
+                if (deleteError) throw deleteError;
+              }
 
               Alert.alert(
                 "Deleted",

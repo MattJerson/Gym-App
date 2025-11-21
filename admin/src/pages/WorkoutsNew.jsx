@@ -115,9 +115,16 @@ const Workouts = () => {
       .select(`
         *,
         category:workout_categories(name, emoji),
-        exercises:workout_exercises(id, exercise_name, sets, reps)
+        exercises:workout_template_exercises(
+          id,
+          sets,
+          reps,
+          order_index,
+          exercise:exercises(name)
+        )
       `)
       .eq('is_active', true)
+      .is('created_by_user_id', null) // Only show templates not created by regular users
       .order('created_at', { ascending: false });
     
     if (!error && data) {
@@ -127,6 +134,8 @@ const Workouts = () => {
         exercise_count: template.exercises?.length || 0
       }));
       setTemplates(templatesWithCount);
+    } else if (error) {
+      console.error('Error loading templates:', error);
     }
   };
   
@@ -162,16 +171,69 @@ const Workouts = () => {
   
   const loadUserWorkouts = async (userId) => {
     try {
-      // Load workouts with source_type differentiation
-      const { data, error } = await supabase.rpc('get_user_assigned_workouts', { p_user_id: userId });
+      // Fetch both assigned workouts and saved/custom workouts
+      const [assignedResult, savedResult] = await Promise.all([
+        supabase.rpc('get_user_assigned_workouts', { p_user_id: userId }),
+        supabase
+          .from('user_saved_workouts')
+          .select(`
+            id,
+            user_id,
+            template_id,
+            workout_name,
+            workout_type,
+            is_scheduled,
+            scheduled_day_of_week,
+            times_completed,
+            template:workout_templates(
+              id,
+              name,
+              description,
+              difficulty,
+              duration_minutes,
+              category:workout_categories(name)
+            )
+          `)
+          .eq('user_id', userId)
+      ]);
       
-      if (error) {
-        console.error('Error loading user workouts:', error);
-        return;
+      if (assignedResult.error) {
+        console.error('Error loading assigned workouts:', assignedResult.error);
       }
       
-      // source_type can be: 'assigned', 'public', 'self_created'
-      setUserWorkouts(data || []);
+      if (savedResult.error) {
+        console.error('Error loading saved workouts:', savedResult.error);
+      }
+      
+      // Transform assigned workouts to match display format
+      const assignedWorkouts = (assignedResult.data || []).map(w => ({
+        workout_id: w.workout_id,
+        workout_name: w.workout_name,
+        workout_description: w.workout_description,
+        difficulty: w.difficulty,
+        duration_minutes: w.duration_minutes,
+        category_name: w.category_name,
+        source_type: 'assigned',
+        workout_type: 'Assigned by Coach'
+      }));
+      
+      // Transform saved/custom workouts to match display format
+      const savedWorkouts = (savedResult.data || []).map(w => ({
+        workout_id: w.template_id,
+        workout_name: w.workout_name || w.template?.name,
+        workout_description: w.template?.description || '',
+        difficulty: w.template?.difficulty || 'Intermediate',
+        duration_minutes: w.template?.duration_minutes || 30,
+        category_name: w.template?.category?.name || null,
+        source_type: w.workout_type === 'Custom' ? 'self_created' : 'public',
+        workout_type: w.workout_type || 'Pre-Made',
+        times_completed: w.times_completed || 0,
+        is_scheduled: w.is_scheduled || false,
+        scheduled_day_of_week: w.scheduled_day_of_week
+      }));
+      
+      // Combine and set all workouts
+      setUserWorkouts([...assignedWorkouts, ...savedWorkouts]);
     } catch (error) {
       console.error('Error loading user workouts:', error);
     }
@@ -201,15 +263,31 @@ const Workouts = () => {
   
   const loadTemplateExercises = async (templateId) => {
     const { data, error } = await supabase
-      .from('workout_exercises')
-      .select('*')
+      .from('workout_template_exercises')
+      .select(`
+        *,
+        exercise:exercises(id, name, gif_url, met_value)
+      `)
       .eq('template_id', templateId)
       .order('order_index');
     
     if (!error && data) {
+      // Map the data to match the expected format
+      const mappedExercises = data.map(ex => ({
+        exercise_id: ex.exercise_id,
+        exercise_name: ex.exercise?.name || 'Unknown Exercise',
+        sets: ex.sets,
+        reps: ex.reps,
+        rest_seconds: ex.rest_seconds,
+        order_index: ex.order_index,
+        notes: ex.custom_notes || '',
+        gif_url: ex.exercise?.gif_url || '',
+        met_value: ex.exercise?.met_value || 3.5
+      }));
+      
       setWorkoutForm(prev => ({
         ...prev,
-        exercises: data
+        exercises: mappedExercises
       }));
     }
   };
@@ -289,11 +367,12 @@ const Workouts = () => {
         category_id: workoutForm.category_id || null,
         custom_category_id: null,
         estimated_calories: estimatedCalories,
-        is_custom: workoutForm.assignment_type !== 'public',
+        is_custom: false, // Admin templates are NOT custom (custom = user-created)
         is_manager_created: true,
         assigned_by_manager_id: user.id,
         assignment_type: workoutForm.assignment_type,
-        is_active: true
+        is_active: true,
+        created_by_user_id: null // NULL = official template, not user-created
       };
       
       let templateId;
@@ -312,7 +391,7 @@ const Workouts = () => {
         
         // Delete old exercises
         await supabase
-          .from('workout_exercises')
+          .from('workout_template_exercises')
           .delete()
           .eq('template_id', templateId);
       } else {
@@ -331,17 +410,16 @@ const Workouts = () => {
       if (workoutForm.exercises.length > 0) {
         const exercisesData = workoutForm.exercises.map(ex => ({
           template_id: templateId,
-          exercise_name: ex.exercise_name,
-          description: ex.notes || null, // Use description instead of custom_notes
+          exercise_id: ex.exercise_id,
           sets: ex.sets,
           reps: ex.reps,
           rest_seconds: ex.rest_seconds,
           order_index: ex.order_index,
-          calories_per_set: Math.round((ex.met_value || 3.5) * 3)
+          custom_notes: ex.notes || null
         }));
         
         const { error: exercisesError } = await supabase
-          .from('workout_exercises')
+          .from('workout_template_exercises')
           .insert(exercisesData);
         
         if (exercisesError) throw exercisesError;
@@ -383,16 +461,21 @@ const Workouts = () => {
       }
       
       // Log activity
-      await supabase.rpc('log_community_manager_action', {
-        p_action_type: editingTemplate ? 'workout_edited' : 'workout_created',
-        p_target_resource_id: templateId,
-        p_target_resource_type: 'workout_template',
-        p_details: { 
-          workout_name: workoutForm.name,
-          assignment_type: workoutForm.assignment_type,
-          exercises_count: workoutForm.exercises.length
-        }
-      });
+      try {
+        await supabase.rpc('log_community_manager_action', {
+          p_action_type: editingTemplate ? 'workout_edited' : 'workout_created',
+          p_target_resource_id: templateId,
+          p_target_resource_type: 'workout_template',
+          p_details: { 
+            workout_name: workoutForm.name,
+            assignment_type: workoutForm.assignment_type,
+            exercises_count: workoutForm.exercises.length
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log activity:', logError);
+        // Don't fail the save operation if logging fails
+      }
       
       alert(editingTemplate ? 'Workout updated successfully!' : 'Workout created successfully!');
       setShowTemplateModal(false);
@@ -421,6 +504,18 @@ const Workouts = () => {
       
       if (error) throw error;
       
+      // Log the deletion
+      try {
+        await supabase.rpc('log_community_manager_action', {
+          p_action_type: 'workout_deleted',
+          p_target_resource_id: templateId,
+          p_target_resource_type: 'workout_template',
+          p_details: { workout_name: templateName }
+        });
+      } catch (logError) {
+        console.error('Failed to log activity:', logError);
+      }
+      
       alert('Workout deleted successfully. User copies remain intact.');
       loadTemplates();
       
@@ -446,6 +541,19 @@ const Workouts = () => {
         .eq('workout_template_id', workoutId);
       
       if (error) throw error;
+      
+      // Log the unassignment
+      try {
+        await supabase.rpc('log_community_manager_action', {
+          p_action_type: 'workout_unassigned',
+          p_target_user_id: userId,
+          p_target_resource_id: workoutId,
+          p_target_resource_type: 'workout_template',
+          p_details: { workout_name: workoutName }
+        });
+      } catch (logError) {
+        console.error('Failed to log activity:', logError);
+      }
       
       alert('Workout unassigned successfully');
       loadUserWorkouts(userId);

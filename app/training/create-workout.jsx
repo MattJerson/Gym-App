@@ -19,7 +19,7 @@ import {
   FontAwesome5,
   MaterialCommunityIcons,
 } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { supabase } from "../../services/supabase";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { LinearGradient } from "expo-linear-gradient";
@@ -29,8 +29,10 @@ import { CalorieCalculator } from "../../services/CalorieCalculator";
 
 export default function CreateWorkout() {
   const router = useRouter();
+  const { templateId } = useLocalSearchParams(); // For edit mode
 
-  // 🔄 Workout creation state
+  // 🔄 Workout creation/editing state
+  const isEditMode = !!templateId;
   const [userId, setUserId] = useState(null);
   const [userWeight, setUserWeight] = useState(null); // User's weight for calorie calculation
   const [workoutName, setWorkoutName] = useState("");
@@ -43,7 +45,7 @@ export default function CreateWorkout() {
   const [showExerciseModal, setShowExerciseModal] = useState(false);
   const [exerciseLibrary, setExerciseLibrary] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(isEditMode); // Loading if in edit mode
   const [expandedExerciseId, setExpandedExerciseId] = useState(null);
   
   // Filter state
@@ -115,6 +117,13 @@ export default function CreateWorkout() {
     }).start();
   }, []);
 
+  // Load workout data if in edit mode
+  useEffect(() => {
+    if (userId && isEditMode && templateId) {
+      loadWorkoutData();
+    }
+  }, [userId, isEditMode, templateId]);
+
   const getUser = async () => {
     try {
       const {
@@ -142,6 +151,105 @@ export default function CreateWorkout() {
       console.error("Error getting user:", error);
       Alert.alert("Error", "Failed to get user session");
       router.back();
+    }
+  };
+
+  const loadWorkoutData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // First, try to find in user_saved_workouts (user's personal copy)
+      const { data: savedWorkout, error: savedError } = await supabase
+        .from('user_saved_workouts')
+        .select(`
+          *,
+          template:workout_templates(
+            *,
+            exercises:workout_template_exercises(
+              *,
+              exercise:exercises(
+                name
+              )
+            )
+          )
+        `)
+        .eq('id', templateId)
+        .maybeSingle();
+      
+      let template = null;
+      let workoutName = '';
+      
+      if (savedWorkout?.template) {
+        // Found in user_saved_workouts
+        template = savedWorkout.template;
+        workoutName = savedWorkout.workout_name || template.name || '';
+      } else {
+        // Not in user_saved_workouts, try direct workout_templates lookup
+        // This handles cases where templateId is actually a template_id
+        const { data: templateData, error: templateError } = await supabase
+          .from('workout_templates')
+          .select(`
+            *,
+            exercises:workout_template_exercises(
+              *,
+              exercise:exercises(
+                name
+              )
+            )
+          `)
+          .eq('id', templateId)
+          .single();
+        
+        if (templateError) {
+          throw new Error('Workout not found');
+        }
+        
+        template = templateData;
+        workoutName = template.name || '';
+      }
+      
+      if (template) {
+        // Pre-fill form fields
+        setWorkoutName(workoutName);
+        setWorkoutDescription(template.description || '');
+        setEstimatedDuration((template.duration_minutes || 45).toString());
+        setDifficulty(template.difficulty || 'intermediate');
+        
+        if (template.is_custom) {
+          setSelectedColor(template.custom_color || '#3B82F6');
+          setSelectedEmoji(template.custom_emoji || '💪');
+        }
+        
+        // Load exercises with proper data structure
+        if (template.exercises && template.exercises.length > 0) {
+          const loadedExercises = template.exercises.map((ex, idx) => ({
+            id: `${ex.id || ex.exercise_id}_${Date.now()}_${idx}`,
+            original_exercise_id: ex.exercise_id,
+            exercise_id: ex.exercise_id,
+            name: ex.exercise?.name || ex.name,
+            description: ex.description || '',
+            gif_url: ex.gif_url || '',
+            target_muscle: ex.target_muscle || '',
+            body_part: ex.body_part || '',
+            equipment: ex.equipment || [],
+            muscle_groups: ex.muscle_groups || [],
+            met_value: ex.met_value || 6.0,
+            sets: ex.sets || 3,
+            reps: ex.reps || '10-12',
+            weight: ex.weight || '',
+            restTime: ex.rest_time?.toString() || '60',
+          }));
+          setExercises(loadedExercises);
+        }
+      } else {
+        throw new Error('Workout template not found');
+      }
+    } catch (error) {
+      console.error('Error loading workout data:', error);
+      Alert.alert('Error', 'Failed to load workout data');
+      router.back();
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -250,13 +358,12 @@ export default function CreateWorkout() {
       const workoutData = {
         name: workoutName.trim(),
         description: workoutDescription.trim(),
-        category: "custom", // All custom workouts use 'custom' category
         duration: parseInt(estimatedDuration),
         difficulty: difficulty,
         color: selectedColor, // Save the custom color
         emoji: selectedEmoji, // Save the custom emoji
         exercises: exercises.map((ex) => ({
-          exercise_id: ex.original_exercise_id || ex.id.split('_')[0], // Use original_exercise_id or fallback to split
+          exercise_id: ex.original_exercise_id || ex.exercise_id || ex.id.split('_')[0],
           name: ex.name,
           description: ex.description || "",
           sets: ex.sets,
@@ -264,25 +371,49 @@ export default function CreateWorkout() {
           restTime: ex.restTime,
           muscle_groups: ex.muscle_groups || [],
           equipment: ex.equipment || [],
+          met_value: ex.met_value || 6.0,
         })),
         isCustom: true,
       };
 
       // Save using TrainingDataService with real user ID
-      const savedWorkout = await TrainingDataService.createCustomWorkout(
-        userId,
-        workoutData
-      );
-      Alert.alert(
-        "Workout Created! 🎉",
-        `${workoutName} has been saved to My Workouts`,
-        [
-          {
-            text: "View Workouts",
-            onPress: () => router.push("/page/training"),
-          },
-        ]
-      );
+      if (isEditMode && templateId) {
+        // Update existing workout
+        await TrainingDataService.updateCustomWorkout(userId, templateId, workoutData);
+        Alert.alert(
+          "Workout Updated! ✅",
+          `${workoutName} has been updated successfully`,
+          [
+            {
+              text: "Done",
+              onPress: () => router.back(),
+            },
+          ]
+        );
+      } else {
+        // Create new workout
+        const savedWorkout = await TrainingDataService.createCustomWorkout(
+          userId,
+          workoutData
+        );
+        
+        console.log('✅ Workout created successfully:', {
+          workoutId: savedWorkout.id,
+          exerciseCount: workoutData.exercises.length,
+          workoutName: workoutData.name
+        });
+        
+        Alert.alert(
+          "Workout Created! 🎉",
+          `${workoutName} has been saved to My Workouts`,
+          [
+            {
+              text: "View Workouts",
+              onPress: () => router.push("/page/training"),
+            },
+          ]
+        );
+      }
     } catch (error) {
       console.error("Error saving workout:", error);
       Alert.alert(
@@ -310,8 +441,8 @@ export default function CreateWorkout() {
           <Ionicons name="arrow-back" size={24} color="#FAFAFA" />
         </Pressable>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Create Workout</Text>
-          <Text style={styles.headerSubtitle}>Build your custom routine</Text>
+          <Text style={styles.headerTitle}>{isEditMode ? 'Edit Workout' : 'Create Workout'}</Text>
+          <Text style={styles.headerSubtitle}>{isEditMode ? 'Update your routine' : 'Build your custom routine'}</Text>
         </View>
         <View style={styles.headerRight}>
           {exercises.length > 0 && (
@@ -675,9 +806,11 @@ export default function CreateWorkout() {
                   styles.saveButtonText,
                   exercises.length === 0 && styles.saveButtonTextDisabled
                 ]}>
-                  {exercises.length > 0 
-                    ? "Save Custom Workout" 
-                    : "Add exercises to save"}
+                  {exercises.length === 0
+                    ? "Add exercises to save"
+                    : isEditMode
+                    ? "Update Workout"
+                    : "Save Custom Workout"}
                 </Text>
               </>
             )}

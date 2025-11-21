@@ -12,13 +12,23 @@ export class OnboardingService {
   static async checkOnboardingStatus(userId) {
     try {
       // Check if user has any saved workouts (templates or custom)
-      const { data: workouts, error: workoutError } = await supabase
+      const { data: savedWorkouts, error: savedWorkoutError } = await supabase
         .from('user_saved_workouts')
         .select('id')
         .eq('user_id', userId)
         .limit(1);
 
-      if (workoutError) throw workoutError;
+      if (savedWorkoutError) throw savedWorkoutError;
+
+      // Check if user has any assigned workouts
+      const { data: assignedWorkouts, error: assignedWorkoutError } = await supabase
+        .from('user_assigned_workouts')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .limit(1);
+
+      if (assignedWorkoutError) throw assignedWorkoutError;
 
       // Check if user has a meal plan
       const { data: mealPlans, error: mealPlanError } = await supabase
@@ -29,7 +39,8 @@ export class OnboardingService {
 
       if (mealPlanError) throw mealPlanError;
 
-      const hasWorkouts = workouts && workouts.length > 0;
+      // User has workouts if they have EITHER saved workouts OR assigned workouts
+      const hasWorkouts = (savedWorkouts && savedWorkouts.length > 0) || (assignedWorkouts && assignedWorkouts.length > 0);
       const hasMealPlan = mealPlans && mealPlans.length > 0;
 
       // Calculate progress

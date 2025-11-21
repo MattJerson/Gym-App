@@ -171,6 +171,8 @@ export default function SelectWorkouts() {
       // Get workout details for the selected workouts
       const selectedWorkoutData = workouts.filter(w => selectedWorkouts.includes(w.id));
       
+      // Save all selected workouts (including public/template workouts)
+      // Users get their own copy that persists even if template is deleted
       const workoutInserts = selectedWorkoutData.map(workout => ({
         user_id: user.id,
         template_id: workout.id,

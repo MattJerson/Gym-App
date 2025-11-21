@@ -19,10 +19,15 @@ export default function WorkoutCategory() {
     try {
       setIsLoading(true);
 
-      // Fetch ONLY pre-made workouts (not custom user workouts)
+      // Fetch ONLY pre-made workouts with exercise counts
       const { data, error } = await supabase
         .from("workout_templates")
-        .select("*")
+        .select(`
+          *,
+          workout_template_exercises (
+            id
+          )
+        `)
         .eq("category_id", categoryId)
         .eq("is_active", true)
         .or("is_custom.is.null,is_custom.eq.false") // Only admin/pre-made templates
@@ -33,7 +38,13 @@ export default function WorkoutCategory() {
         throw error;
       }
 
-      setWorkouts(data || []);
+      // Add exercise count to each workout
+      const workoutsWithCounts = (data || []).map(workout => ({
+        ...workout,
+        exercise_count: workout.workout_template_exercises?.length || 0
+      }));
+
+      setWorkouts(workoutsWithCounts);
     } catch (error) {
       console.error("Error loading workouts:", error);
     } finally {
@@ -128,12 +139,12 @@ export default function WorkoutCategory() {
                     </View>
                     <View style={styles.statItem}>
                       <Ionicons
-                        name="barbell-outline"
+                        name="fitness-outline"
                         size={16}
                         color="#8BA3C4"
                       />
                       <Text style={styles.statText}>
-                        {workout.muscle_groups?.length || 0} muscle groups
+                        {workout.exercise_count || 0} exercises
                       </Text>
                     </View>
                   </View>
@@ -174,44 +185,43 @@ const styles = StyleSheet.create({
     backgroundColor: "#0B0B0B",
   },
   header: {
-    gap: 16,
-    paddingTop: 60,
-    paddingBottom: 20,
+    gap: 12,
+    paddingTop: 56,
+    paddingBottom: 16,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     backgroundColor: "#0B0B0B",
-    borderBottomWidth: 2,
-    borderBottomColor: "rgba(100, 130, 165, 0.2)",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(100, 130, 165, 0.15)",
   },
   backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(100, 130, 165, 0.2)",
-    borderWidth: 2,
-    borderColor: "rgba(100, 130, 165, 0.3)",
+    backgroundColor: "rgba(100, 130, 165, 0.15)",
   },
   headerContent: {
     flex: 1,
   },
   headerTitle: {
-    fontSize: 28,
-    marginBottom: 4,
+    fontSize: 24,
+    marginBottom: 2,
     color: "#FAFAFA",
     fontWeight: "800",
     letterSpacing: 0.3,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: "#D4D4D8",
-    fontWeight: "600",
+    fontSize: 12,
+    color: "#71717A",
+    fontWeight: "500",
   },
   scrollContent: {
-    paddingBottom: 40,
-    paddingHorizontal: 20,
+    paddingBottom: 24,
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
   loadingContainer: {
     paddingVertical: 60,
@@ -223,66 +233,60 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   workoutGrid: {
-    gap: 16,
+    gap: 12,
   },
   workoutCard: {
     marginBottom: 0,
   },
   cardInner: {
-    padding: 18,
-    borderWidth: 2,
-    borderRadius: 20,
-    borderLeftWidth: 4,
+    padding: 14,
+    borderWidth: 1,
+    borderRadius: 16,
+    borderLeftWidth: 3,
     backgroundColor: "#161616",
-    borderColor: "rgba(100, 130, 165, 0.3)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: "rgba(100, 130, 165, 0.2)",
   },
   difficultyBadge: {
-    borderRadius: 10,
-    marginBottom: 12,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    borderRadius: 6,
+    marginBottom: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     alignSelf: "flex-start",
-    borderWidth: 1,
   },
   difficultyText: {
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.8,
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.6,
   },
   workoutName: {
-    fontSize: 20,
-    lineHeight: 26,
-    marginBottom: 8,
+    fontSize: 17,
+    lineHeight: 22,
+    marginBottom: 6,
     color: "#FAFAFA",
-    fontWeight: "800",
-    letterSpacing: 0.3,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
   workoutDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 16,
-    color: "#D4D4D8",
-    fontWeight: "500",
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 12,
+    color: "#A1A1AA",
+    fontWeight: "400",
   },
   statsRow: {
-    gap: 16,
-    marginBottom: 16,
+    gap: 14,
+    marginBottom: 12,
     flexDirection: "row",
   },
   statItem: {
-    gap: 6,
+    gap: 5,
     flexDirection: "row",
     alignItems: "center",
   },
   statText: {
-    fontSize: 13,
-    color: "#D4D4D8",
-    fontWeight: "600",
+    fontSize: 12,
+    color: "#A1A1AA",
+    fontWeight: "500",
   },
   bottomRow: {
     flexDirection: "row",
@@ -290,22 +294,16 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   startButton: {
-    gap: 8,
-    elevation: 5,
-    shadowRadius: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    shadowOpacity: 0.4,
-    shadowColor: "#000",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    shadowOffset: { width: 0, height: 3 },
-    borderWidth: 2,
   },
   startButtonText: {
-    fontSize: 14,
+    fontSize: 13,
     color: "#0B0B0B",
     fontWeight: "700",
     letterSpacing: 0.3,

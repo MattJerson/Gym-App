@@ -18,15 +18,16 @@ export const WorkoutSessionServiceV2 = {
         .select(`
           *,
           category:workout_categories(id, name, color, icon),
-          exercises:workout_exercises(
+          exercises:workout_template_exercises(
             id,
-            exercise_name,
             sets,
             reps,
             rest_seconds,
             order_index,
-            description,
-            calories_per_set
+            custom_notes,
+            exercise:exercises(
+              name
+            )
           )
         `)
         .eq('id', templateId)
@@ -34,9 +35,9 @@ export const WorkoutSessionServiceV2 = {
         
       if (templateError) throw templateError;
       
-      // Then fetch exercise details (gif_url, etc.) from exercises table
+      // Exercise details are already loaded via join, just need gif_url and instructions
       if (template?.exercises && template.exercises.length > 0) {
-        const exerciseNames = template.exercises.map(ex => ex.exercise_name);
+        const exerciseNames = template.exercises.map(ex => ex.exercise?.name).filter(Boolean);
         const { data: exerciseDetails, error: exerciseError } = await supabase
           .from('exercises')
           .select('name, gif_url, instructions, met_value')
@@ -46,16 +47,18 @@ export const WorkoutSessionServiceV2 = {
           console.error('Error fetching exercise details:', exerciseError);
         }
         
-        // Merge exercise details with workout exercises
+        // Merge exercise details with workout exercises (case-insensitive matching)
         template.exercises = template.exercises.map(ex => {
-          const exerciseDetail = exerciseDetails?.find(ed => ed.name === ex.exercise_name);
+          const exerciseName = ex.exercise?.name || '';
+          const exerciseDetail = exerciseDetails?.find(ed => 
+            ed.name.toLowerCase() === exerciseName.toLowerCase()
+          );
           return {
             ...ex,
-            exercise: exerciseDetail || {
-              name: ex.exercise_name,
-              gif_url: null,
-              instructions: [],
-              met_value: 5
+            exercise: {
+              ...(ex.exercise || {}),
+              ...(exerciseDetail || {}),
+              name: exerciseName
             }
           };
         });
