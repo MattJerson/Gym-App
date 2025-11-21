@@ -44,7 +44,7 @@ export const BrowseWorkoutsDataService = {
 
       if (error) throw error;
 
-      return (data || []).map(workout => ({
+      const workoutsWithCounts = (data || []).map(workout => ({
         id: workout.id,
         name: workout.name,
         description: workout.description,
@@ -60,6 +60,33 @@ export const BrowseWorkoutsDataService = {
         categoryName: workout.workout_categories?.name,
         categoryColor: workout.workout_categories?.color
       }));
+
+      // For workouts with 0 exercises, check workout_exercises table (for assigned/custom workouts)
+      const workoutsWithNoExercises = workoutsWithCounts.filter(w => w.exercises === 0);
+      if (workoutsWithNoExercises.length > 0) {
+        const templateIds = workoutsWithNoExercises.map(w => w.id);
+        const { data: customExercises } = await supabase
+          .from('workout_exercises')
+          .select('template_id, id')
+          .in('template_id', templateIds);
+        
+        if (customExercises && customExercises.length > 0) {
+          // Count exercises per template
+          const exerciseCounts = {};
+          customExercises.forEach(ex => {
+            exerciseCounts[ex.template_id] = (exerciseCounts[ex.template_id] || 0) + 1;
+          });
+          
+          // Update exercise counts
+          workoutsWithCounts.forEach(workout => {
+            if (workout.exercises === 0 && exerciseCounts[workout.id]) {
+              workout.exercises = exerciseCounts[workout.id];
+            }
+          });
+        }
+      }
+
+      return workoutsWithCounts;
     } catch (error) {
       console.error('Error fetching category workouts:', error);
       return [];

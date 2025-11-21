@@ -9,10 +9,11 @@ export const WorkoutSessionServiceV2 = {
   
   /**
    * Get workout template with exercises by ID
+   * Handles both pre-made templates (workout_template_exercises) and assigned/custom workouts (workout_exercises)
    */
   async getWorkoutTemplate(templateId) {
     try {
-      // First get the workout template with exercises
+      // First get the workout template with exercises from workout_template_exercises (for pre-made templates)
       const { data: template, error: templateError } = await supabase
         .from('workout_templates')
         .select(`
@@ -35,7 +36,59 @@ export const WorkoutSessionServiceV2 = {
         
       if (templateError) throw templateError;
       
-      // Exercise details are already loaded via join, just need gif_url and instructions
+      // If no exercises found in workout_template_exercises, check workout_exercises table
+      // (This is used for assigned workouts and custom workouts)
+      if (!template?.exercises || template.exercises.length === 0) {
+        console.log('⚠️ No exercises in workout_template_exercises, checking workout_exercises table...');
+        
+        // workout_exercises table doesn't have exercise_id FK, only exercise_name VARCHAR
+        // So we fetch the exercises and manually join with exercises table by name
+        const { data: customExercises, error: customError } = await supabase
+          .from('workout_exercises')
+          .select('id, sets, reps, rest_seconds, order_index, custom_notes, exercise_name, duration_seconds')
+          .eq('template_id', templateId)
+          .order('order_index', { ascending: true });
+
+        if (customError) {
+          console.error('❌ Error fetching custom exercises:', customError);
+        } else if (customExercises && customExercises.length > 0) {
+          console.log('✅ Found exercises in workout_exercises table:', customExercises.length);
+          
+          // Now fetch exercise details by matching exercise names
+          const exerciseNames = customExercises.map(ex => ex.exercise_name).filter(Boolean);
+          if (exerciseNames.length > 0) {
+            const { data: exerciseDetails, error: detailsError } = await supabase
+              .from('exercises')
+              .select('name, gif_url, instructions, met_value')
+              .in('name', exerciseNames);
+            
+            if (detailsError) {
+              console.error('❌ Error fetching exercise details:', detailsError);
+            } else {
+              // Merge exercise details with workout exercises (case-insensitive matching)
+              template.exercises = customExercises.map(ex => {
+                const exerciseDetail = exerciseDetails?.find(ed => 
+                  ed.name.toLowerCase() === ex.exercise_name.toLowerCase()
+                );
+                return {
+                  ...ex,
+                  exercise: exerciseDetail ? {
+                    name: exerciseDetail.name,
+                    gif_url: exerciseDetail.gif_url,
+                    instructions: exerciseDetail.instructions,
+                    met_value: exerciseDetail.met_value
+                  } : {
+                    name: ex.exercise_name
+                  }
+                };
+              });
+              console.log('✅ Merged exercise details for assigned workout');
+            }
+          }
+        }
+      }
+      
+      // Exercise details are already loaded via join, just need gif_url and instructions for template exercises
       if (template?.exercises && template.exercises.length > 0) {
         const exerciseNames = template.exercises.map(ex => ex.exercise?.name).filter(Boolean);
         const { data: exerciseDetails, error: exerciseError } = await supabase

@@ -206,20 +206,26 @@ const Dashboard = () => {
         console.log('Could not calculate churn risk:', err.message);
       }
 
-      // Fetch top users by points (with error handling)
+      // Fetch weekly leaderboard top performers (with error handling)
       let topUsers = [];
       try {
         const { data } = await supabase
-          .from('user_stats')
-          .select(`
-            *,
-            profiles(full_name)
-          `)
-          .order('total_points', { ascending: false })
+          .from('weekly_challenge_leaderboard')
+          .select('*')
+          .order('challenge_score', { ascending: false })
           .limit(5);
-        topUsers = data || [];
+        
+        // Map to expected format
+        topUsers = (data || []).map(user => ({
+          user_id: user.user_id,
+          total_points: user.challenge_score || 0,
+          current_streak: user.current_streak || 0,
+          profiles: {
+            full_name: user.full_name || user.nickname || 'Unknown User'
+          }
+        }));
       } catch (err) {
-        console.log('Could not fetch top users:', err.message);
+        console.log('Could not fetch weekly leaderboard:', err.message);
       }
 
       // Fetch most popular workouts (with error handling)
@@ -532,7 +538,8 @@ const Dashboard = () => {
         {/* Top Items Grid - Compact */}
         <div className="admin-grid-2 mb-4">
           <TopItemsCard
-            title="🏆 Top Users by Points"
+            title="🏆 Weekly Leaderboard"
+            subtitle="Top performers this week"
             items={dashboardData.topUsers}
             type="users"
             loading={loading}

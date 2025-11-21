@@ -28,7 +28,15 @@ export default function MealPlans({
         <View style={styles.header}>
           <View style={[styles.planDot, { backgroundColor: planColor }]} />
           <View style={styles.headerContent}>
-            <Text style={styles.planName} numberOfLines={1}>{activePlan.plan_name}</Text>
+            <View style={styles.planNameRow}>
+              <Text style={styles.planName} numberOfLines={1}>{activePlan.plan_name}</Text>
+              {activePlan.is_admin_assigned && (
+                <View style={styles.adminBadge}>
+                  <Ionicons name="shield-checkmark" size={12} color="#FFB300" />
+                  <Text style={styles.adminBadgeText}>Admin</Text>
+                </View>
+              )}
+            </View>
             <Text style={[styles.planType, { color: planColor }]}>
               {formatPlanType(activePlan.plan_type)}
             </Text>
@@ -145,12 +153,35 @@ const styles = StyleSheet.create({
   headerContent: {
     flex: 1,
   },
+  planNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 2,
+  },
   planName: {
     fontSize: 14,
     fontWeight: "700",
     color: "#fff",
     letterSpacing: -0.2,
-    marginBottom: 2,
+  },
+  adminBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: "rgba(255, 179, 0, 0.15)",
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: "rgba(255, 179, 0, 0.3)",
+  },
+  adminBadgeText: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#FFB300",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   planType: {
     fontSize: 10,

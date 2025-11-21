@@ -21,6 +21,7 @@ import {
   ListOrdered
 } from "lucide-react";
 import { createClient } from '@supabase/supabase-js';
+import { usePermissions } from '../hooks/usePermissions';
 import PageHeader from '../components/common/PageHeader';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
@@ -35,6 +36,7 @@ const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.S
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const Notifications = () => {
+  const { hasPermission } = usePermissions();
   const [notifications, setNotifications] = useState([]);
   const [triggerTemplates, setTriggerTemplates] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -430,8 +432,11 @@ const Notifications = () => {
         return '📅 Daily (every 24h)';
       case 'weekly':
         return '📆 Weekly (every 7 days)';
+      case 'periodic':
       case 'custom':
-        return `🔧 Every ${trigger.frequency_value} ${trigger.frequency_unit}`;
+        const value = trigger.frequency_value || 1;
+        const unit = trigger.frequency_unit || 'days';
+        return `🔧 Every ${value} ${unit}`;
       default:
         return trigger.frequency_type;
     }
@@ -686,13 +691,15 @@ const Notifications = () => {
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
-                    <button
-                      onClick={() => handleDelete(notification)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {hasPermission('notifications', 'delete') && (
+                      <button
+                        onClick={() => handleDelete(notification)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))
@@ -792,13 +799,15 @@ const Notifications = () => {
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
-                      <button
-                        onClick={() => handleDeleteTrigger(trigger)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {hasPermission('notifications', 'delete') && (
+                        <button
+                          onClick={() => handleDeleteTrigger(trigger)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

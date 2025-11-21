@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Send, Trash2 } from 'lucide-react';
+import { usePermissions } from '../hooks/usePermissions';
 
 export default function ChatMonitoring() {
+  const { hasPermission } = usePermissions();
+  
   const [activeTab, setActiveTab] = useState('general');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -176,16 +179,18 @@ export default function ChatMonitoring() {
           >
             💬 General
           </button>
-          <button
-            onClick={() => setActiveTab('announcements')}
-            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'announcements'
-                ? 'border-orange-500 text-orange-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            📢 ANNOUNCEMENTS
-          </button>
+          {hasPermission('community_chat', 'all_channels') && (
+            <button
+              onClick={() => setActiveTab('announcements')}
+              className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'announcements'
+                  ? 'border-orange-500 text-orange-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              📢 ANNOUNCEMENTS
+            </button>
+          )}
         </div>
       </div>
 

@@ -23,8 +23,11 @@ import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 import Input from '../components/common/Input';
 import Select from '../components/common/Select';
+import { usePermissions } from '../hooks/usePermissions';
 
 const Badges = () => {
+  const { hasPermission } = usePermissions();
+  
   const [badges, setbadges] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
   const [challenges, setChallenges] = useState([]);
@@ -592,17 +595,19 @@ const Badges = () => {
                   Create Samples
                 </Button>
               )}
-              <Button
-                variant="primary"
-                onClick={() => {
-                  setEditingBadge(null);
-                  resetForm();
-                  setShowModal(true);
-                }}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Create Badge
-              </Button>
+              {hasPermission('leadership', 'edit_badges') && (
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    setEditingBadge(null);
+                    resetForm();
+                    setShowModal(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Badge
+                </Button>
+              )}
             </div>
           </div>
 
@@ -796,22 +801,24 @@ const Badges = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleEdit(badge)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Edit badge"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(badge)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete badge"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
+                          {hasPermission('leadership', 'edit_badges') && (
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => handleEdit(badge)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Edit badge"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(badge)}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete badge"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );

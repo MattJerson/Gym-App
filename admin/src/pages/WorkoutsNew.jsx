@@ -128,10 +128,34 @@ const Workouts = () => {
       .order('created_at', { ascending: false });
     
     if (!error && data) {
+      // Check workout_exercises table for templates with 0 exercises
+      const templatesWithNoExercises = data.filter(t => !t.exercises || t.exercises.length === 0);
+      
+      if (templatesWithNoExercises.length > 0) {
+        const templateIds = templatesWithNoExercises.map(t => t.id);
+        const { data: customExercises } = await supabase
+          .from('workout_exercises')
+          .select('template_id, id, exercise_name')
+          .in('template_id', templateIds);
+        
+        // Count exercises per template
+        const exerciseCounts = {};
+        customExercises?.forEach(ex => {
+          exerciseCounts[ex.template_id] = (exerciseCounts[ex.template_id] || 0) + 1;
+        });
+        
+        // Update templates with exercise counts from workout_exercises
+        data.forEach(template => {
+          if (exerciseCounts[template.id]) {
+            template.exercise_count = exerciseCounts[template.id];
+          }
+        });
+      }
+      
       // Add exercise count to each template
       const templatesWithCount = data.map(template => ({
         ...template,
-        exercise_count: template.exercises?.length || 0
+        exercise_count: template.exercise_count || template.exercises?.length || 0
       }));
       setTemplates(templatesWithCount);
     } else if (error) {
@@ -254,10 +278,23 @@ const Workouts = () => {
     setShowTemplateModal(true);
   };
   
-  const handleEditTemplate = (template) => {
+  const handleEditTemplate = async (template) => {
     setEditingTemplate(template);
+    
+    // Set form data with template values
+    setWorkoutForm({
+      name: template.name || '',
+      description: template.description || '',
+      difficulty: template.difficulty || 'Beginner',
+      duration_minutes: template.duration_minutes || 30,
+      category_id: template.category_id || '',
+      assignment_type: template.assignment_type || 'public',
+      assigned_user_ids: template.assigned_user_ids || [],
+      exercises: [] // Will be loaded by loadTemplateExercises
+    });
+    
     // Load template exercises
-    loadTemplateExercises(template.id);
+    await loadTemplateExercises(template.id);
     setShowTemplateModal(true);
   };
   

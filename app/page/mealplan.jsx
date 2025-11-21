@@ -491,6 +491,7 @@ export default function Mealplan() {
         onViewDetails={handleViewDetails}
         onRemovePlan={handleRemovePlan}
         planName={currentPlan?.plan_name || "Current Plan"}
+        isAdminAssigned={currentPlan?.is_admin_assigned || false}
       />
     </View>
   );

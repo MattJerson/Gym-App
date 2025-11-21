@@ -19,6 +19,7 @@ export default function PlanActionSheet({
   onViewDetails,
   onRemovePlan,
   planName = "Current Plan",
+  isAdminAssigned = false,
 }) {
   const slideAnim = React.useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
@@ -133,27 +134,44 @@ export default function PlanActionSheet({
             <Ionicons name="chevron-forward" size={20} color="#666" />
           </Pressable>
 
-          {/* Remove Plan */}
-          <Pressable
-            style={({ pressed }) => [
-              styles.actionButton,
-              pressed && styles.actionButtonPressed,
-            ]}
-            onPress={() => handleAction(onRemovePlan)}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: "#EF444420" }]}>
-              <Ionicons name="trash-outline" size={22} color="#EF4444" />
+          {/* Remove Plan - Hidden if admin assigned */}
+          {!isAdminAssigned ? (
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionButton,
+                pressed && styles.actionButtonPressed,
+              ]}
+              onPress={() => handleAction(onRemovePlan)}
+            >
+              <View style={[styles.actionIcon, { backgroundColor: "#EF444420" }]}>
+                <Ionicons name="trash-outline" size={22} color="#EF4444" />
+              </View>
+              <View style={styles.actionContent}>
+                <Text style={[styles.actionTitle, { color: "#EF4444" }]}>
+                  Remove Plan
+                </Text>
+                <Text style={styles.actionSubtitle}>
+                  Deactivate your current meal plan
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#666" />
+            </Pressable>
+          ) : (
+            <View style={[styles.actionButton, styles.actionButtonDisabled]}>
+              <View style={[styles.actionIcon, { backgroundColor: "#FFB30020" }]}>
+                <Ionicons name="shield-checkmark" size={22} color="#FFB300" />
+              </View>
+              <View style={styles.actionContent}>
+                <Text style={[styles.actionTitle, { color: "#888" }]}>
+                  Admin Assigned Plan
+                </Text>
+                <Text style={styles.actionSubtitle}>
+                  This plan was assigned by an admin and cannot be removed
+                </Text>
+              </View>
+              <Ionicons name="lock-closed" size={20} color="#888" />
             </View>
-            <View style={styles.actionContent}>
-              <Text style={[styles.actionTitle, { color: "#EF4444" }]}>
-                Remove Plan
-              </Text>
-              <Text style={styles.actionSubtitle}>
-                Deactivate your current meal plan
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#666" />
-          </Pressable>
+          )}
         </View>
 
         {/* Cancel Button */}
@@ -236,6 +254,10 @@ const styles = StyleSheet.create({
   actionButtonPressed: {
     opacity: 0.7,
     transform: [{ scale: 0.98 }],
+  },
+  actionButtonDisabled: {
+    opacity: 0.6,
+    borderColor: "rgba(255, 179, 0, 0.2)",
   },
   actionIcon: {
     width: 44,

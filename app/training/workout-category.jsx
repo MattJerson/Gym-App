@@ -44,6 +44,31 @@ export default function WorkoutCategory() {
         exercise_count: workout.workout_template_exercises?.length || 0
       }));
 
+      // For workouts with 0 exercises, check workout_exercises table (for assigned/custom workouts)
+      const workoutsWithNoExercises = workoutsWithCounts.filter(w => w.exercise_count === 0);
+      if (workoutsWithNoExercises.length > 0) {
+        const templateIds = workoutsWithNoExercises.map(w => w.id);
+        const { data: customExercises } = await supabase
+          .from('workout_exercises')
+          .select('template_id, id')
+          .in('template_id', templateIds);
+        
+        if (customExercises && customExercises.length > 0) {
+          // Count exercises per template
+          const exerciseCounts = {};
+          customExercises.forEach(ex => {
+            exerciseCounts[ex.template_id] = (exerciseCounts[ex.template_id] || 0) + 1;
+          });
+          
+          // Update exercise counts
+          workoutsWithCounts.forEach(workout => {
+            if (workout.exercise_count === 0 && exerciseCounts[workout.id]) {
+              workout.exercise_count = exerciseCounts[workout.id];
+            }
+          });
+        }
+      }
+
       setWorkouts(workoutsWithCounts);
     } catch (error) {
       console.error("Error loading workouts:", error);

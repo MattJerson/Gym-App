@@ -27,6 +27,7 @@ import Input from '../components/common/Input';
 import Select from '../components/common/Select';
 import Badge from '../components/common/Badge';
 import StatsCard from '../components/common/StatsCard';
+import { usePermissions } from '../hooks/usePermissions';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -34,6 +35,8 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const Subscriptions = () => {
+  const { hasPermission } = usePermissions();
+  
   const [packages, setPackages] = useState([]);
   const [subscribedUsers, setSubscribedUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -376,7 +379,7 @@ const Subscriptions = () => {
           subtitle="Manage subscription packages and user subscriptions"
           breadcrumbs={['Admin', 'Subscriptions']}
           actions={
-            currentView === 'packages' && (
+            currentView === 'packages' && hasPermission('subscriptions', 'create') && (
               <Button
                 variant="primary"
                 icon={Plus}
@@ -753,20 +756,24 @@ const Subscriptions = () => {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => handleEdit(pkg)}
-                            className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Edit package"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(pkg)}
-                            className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Delete package"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {hasPermission('subscriptions', 'edit') && (
+                            <button
+                              onClick={() => handleEdit(pkg)}
+                              className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Edit package"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )}
+                          {hasPermission('subscriptions', 'delete') && (
+                            <button
+                              onClick={() => handleDelete(pkg)}
+                              className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete package"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

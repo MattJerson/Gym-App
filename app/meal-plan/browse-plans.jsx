@@ -34,13 +34,15 @@ export default function BrowsePlans() {
   }, []);
 
   useEffect(() => {
-    loadPlans();
-  }, []);
+    if (userId) {
+      loadPlans();
+    }
+  }, [userId]);
 
   const loadPlans = async () => {
     try {
       setIsLoading(true);
-      const templates = await MealPlanDataService.getMealPlanTemplates();
+      const templates = await MealPlanDataService.getMealPlanTemplates(userId);
       setPlans(templates);
     } catch (error) {
       console.error("Error loading meal plans:", error);

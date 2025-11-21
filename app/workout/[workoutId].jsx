@@ -1289,6 +1289,10 @@ function ExerciseCard({
   const completedSets = sets.filter((s) => s.is_completed).length;
   const targetReps = exercise.reps || '10-12';
   const restSeconds = exercise.rest_seconds || 60;
+  
+  // Check if this is a time-based exercise (has duration_seconds instead of reps)
+  const isTimeBased = exercise.duration_seconds && exercise.duration_seconds > 0;
+  const targetDuration = exercise.duration_seconds || 60; // Default 60 seconds
 
   // Load previous workout data when exercise is expanded
   useEffect(() => {
@@ -1324,30 +1328,40 @@ function ExerciseCard({
         }
         setCurrentSetData(prefilledData);
       } else {
-        // No previous data, use target reps from template
-        const targetRepsStr = exercise.reps || "10";
-        const targetReps = targetRepsStr.includes("-")
-          ? targetRepsStr.split("-")[0]
-          : targetRepsStr;
+        // No previous data, use target reps/duration from template
+        let defaultValue;
+        if (isTimeBased) {
+          defaultValue = targetDuration.toString();
+        } else {
+          const targetRepsStr = exercise.reps || "10";
+          defaultValue = targetRepsStr.includes("-")
+            ? targetRepsStr.split("-")[0]
+            : targetRepsStr;
+        }
 
         const prefilledData = {};
         for (let i = 1; i <= targetSets; i++) {
-          prefilledData[`${i}_reps`] = targetReps;
+          prefilledData[`${i}_reps`] = defaultValue;
           prefilledData[`${i}_weight`] = "";
         }
         setCurrentSetData(prefilledData);
       }
     } catch (error) {
       console.error("Error loading previous workout data:", error);
-      // Still pre-fill with target reps on error
-      const targetRepsStr = exercise.reps || "10";
-      const targetReps = targetRepsStr.includes("-")
-        ? targetRepsStr.split("-")[0]
-        : targetRepsStr;
+      // Still pre-fill with target reps/duration on error
+      let defaultValue;
+      if (isTimeBased) {
+        defaultValue = targetDuration.toString();
+      } else {
+        const targetRepsStr = exercise.reps || "10";
+        defaultValue = targetRepsStr.includes("-")
+          ? targetRepsStr.split("-")[0]
+          : targetRepsStr;
+      }
 
       const prefilledData = {};
       for (let i = 1; i <= targetSets; i++) {
-        prefilledData[`${i}_reps`] = targetReps;
+        prefilledData[`${i}_reps`] = defaultValue;
         prefilledData[`${i}_weight`] = "";
       }
       setCurrentSetData(prefilledData);
@@ -1368,7 +1382,7 @@ function ExerciseCard({
     const weight = parseFloat(currentSetData[`${setNumber}_weight`]) || 0;
 
     if (reps === 0) {
-      Alert.alert("Invalid Input", "Please enter number of reps");
+      Alert.alert("Invalid Input", isTimeBased ? "Please enter duration in seconds" : "Please enter number of reps");
       return;
     }
 
@@ -1488,7 +1502,7 @@ function ExerciseCard({
             </Text>
           )}
           <Text style={exerciseCardStyles.descriptionText}>
-            {targetSets} sets × {maxReps} reps • {restSeconds}s rest
+            {targetSets} sets × {isTimeBased ? `${targetDuration}s` : `${maxReps} reps`} • {restSeconds}s rest
           </Text>
         </View>
 
@@ -1556,7 +1570,10 @@ function ExerciseCard({
             <View style={exerciseCardStyles.previousDataBanner}>
               <Ionicons name="trending-up" size={14} color="#74B9FF" />
               <Text style={exerciseCardStyles.previousDataText}>
-                Last: {previousSetData.reps} reps × {previousSetData.weight}kg
+                Last: {isTimeBased 
+                  ? `${previousSetData.reps}s` 
+                  : `${previousSetData.reps} reps × ${previousSetData.weight}kg`
+                }
               </Text>
             </View>
           )}
@@ -1575,7 +1592,10 @@ function ExerciseCard({
                 {isSetCompleted ? (
                   <View style={exerciseCardStyles.setCompleted}>
                     <Text style={exerciseCardStyles.setCompletedText}>
-                      {existingSet.actual_reps} reps × {existingSet.weight_kg}kg
+                      {isTimeBased 
+                        ? `${existingSet.actual_reps}s` 
+                        : `${existingSet.actual_reps} reps × ${existingSet.weight_kg}kg`
+                      }
                     </Text>
                     <TouchableOpacity
                       style={exerciseCardStyles.editSetButton}
@@ -1596,20 +1616,21 @@ function ExerciseCard({
                 ) : (
                   <>
                     <View style={exerciseCardStyles.setInputsCompact}>
-                      {/* Reps */}
-                      <View style={exerciseCardStyles.inputGroup}>
-                        <Text style={exerciseCardStyles.inputLabel}>Reps</Text>
+                      {/* Reps or Time */}
+                      <View style={[exerciseCardStyles.inputGroup, isTimeBased && { flex: 2 }]}>
+                        <Text style={exerciseCardStyles.inputLabel}>{isTimeBased ? 'Time' : 'Reps'}</Text>
                         <View style={exerciseCardStyles.repsControl}>
                           <TouchableOpacity
                             style={exerciseCardStyles.repsButton}
                             onPress={() => {
                               const currentValue =
                                 parseInt(currentSetData[`${setNumber}_reps`]) ||
-                                parseInt(targetReps.toString().split('-')[0]) || 0;
+                                (isTimeBased ? targetDuration : parseInt(targetReps.toString().split('-')[0])) || 0;
+                              const decrement = isTimeBased ? 5 : 1; // Decrease by 5 seconds for time-based
                               handleSetInput(
                                 setNumber,
                                 "reps",
-                                Math.max(0, currentValue - 1).toString()
+                                Math.max(0, currentValue - decrement).toString()
                               );
                             }}
                           >
@@ -1617,7 +1638,7 @@ function ExerciseCard({
                           </TouchableOpacity>
                           
                           <Text style={exerciseCardStyles.repsDisplay}>
-                            {currentSetData[`${setNumber}_reps`] || maxReps}
+                            {currentSetData[`${setNumber}_reps`] || (isTimeBased ? targetDuration : maxReps)}{isTimeBased ? 's' : ''}
                           </Text>
                           
                           <TouchableOpacity
@@ -1625,11 +1646,12 @@ function ExerciseCard({
                             onPress={() => {
                               const currentValue =
                                 parseInt(currentSetData[`${setNumber}_reps`]) ||
-                                parseInt(targetReps.toString().split('-')[0]) || 0;
+                                (isTimeBased ? targetDuration : parseInt(targetReps.toString().split('-')[0])) || 0;
+                              const increment = isTimeBased ? 5 : 1; // Increase by 5 seconds for time-based
                               handleSetInput(
                                 setNumber,
                                 "reps",
-                                (currentValue + 1).toString()
+                                (currentValue + increment).toString()
                               );
                             }}
                           >
@@ -1638,23 +1660,25 @@ function ExerciseCard({
                         </View>
                       </View>
 
-                      {/* Weight */}
-                      <View style={exerciseCardStyles.inputGroup}>
-                        <Text style={exerciseCardStyles.inputLabel}>Weight</Text>
-                        <View style={exerciseCardStyles.weightControl}>
-                          <TextInput
-                            style={exerciseCardStyles.weightInput}
-                            placeholder="0"
-                            placeholderTextColor="#52525B"
-                            keyboardType="decimal-pad"
-                            value={currentSetData[`${setNumber}_weight`] || ""}
-                            onChangeText={(value) =>
-                              handleSetInput(setNumber, "weight", value)
-                            }
-                          />
-                          <Text style={exerciseCardStyles.weightUnit}>kg</Text>
+                      {/* Weight - Hide for time-based exercises */}
+                      {!isTimeBased && (
+                        <View style={exerciseCardStyles.inputGroup}>
+                          <Text style={exerciseCardStyles.inputLabel}>Weight</Text>
+                          <View style={exerciseCardStyles.weightControl}>
+                            <TextInput
+                              style={exerciseCardStyles.weightInput}
+                              placeholder="0"
+                              placeholderTextColor="#52525B"
+                              keyboardType="decimal-pad"
+                              value={currentSetData[`${setNumber}_weight`] || ""}
+                              onChangeText={(value) =>
+                                handleSetInput(setNumber, "weight", value)
+                              }
+                            />
+                            <Text style={exerciseCardStyles.weightUnit}>kg</Text>
+                          </View>
                         </View>
-                      </View>
+                      )}
                     </View>
                     
                     <TouchableOpacity

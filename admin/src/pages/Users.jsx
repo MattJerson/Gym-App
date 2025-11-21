@@ -13,7 +13,7 @@ import {
   CreditCard
 } from "lucide-react";
 import { useState, useEffect } from "react";
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseAdmin } from '../lib/supabase';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
 
@@ -50,64 +50,63 @@ const Users = () => {
       setLoading(true);
       setError(null);
 
-      // Use the admin function to get user overview with status
-      const { data, error: fetchError } = await supabase.rpc('get_admin_user_overview');
+      // Check if supabaseAdmin is available
+      if (!supabaseAdmin) {
+        throw new Error('Admin client not configured. Service role key is missing. Please restart the dev server after adding VITE_SUPABASE_SERVICE_ROLE_KEY to .env file.');
+      }
+
+      // Fetch users from auth.users with their profiles using admin client
+      const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers();
       
-      if (fetchError) {
-        console.error('RPC Error:', fetchError);
-        throw fetchError;
+      if (authError) {
+        console.error('Auth Error:', authError);
+        // Provide more helpful error message
+        if (authError.message?.includes('not allowed') || authError.message?.includes('Unauthorized')) {
+          throw new Error('Authentication failed. Please ensure you are logged in as an admin and have the correct permissions.');
+        }
+        throw authError;
       }
 
-      console.log('Raw RPC data:', data);
+      // Get all user IDs
+      const userIds = authUsers.users.map(u => u.id);
 
-      // Fetch subscriptions for all users
-      const { data: subscriptionsData, error: subError } = await supabase
-        .from('subscriptions')
-        .select(`
-          user_id,
-          status,
-          start_date,
-          end_date,
-          subscription_packages (
-            name,
-            slug,
-            price,
-            billing_period
-          )
-        `)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false });
+      // Fetch registration profiles for role and subscription_tier
+      const { data: profiles, error: profilesError } = await supabase
+        .from('registration_profiles')
+        .select('user_id, role, subscription_tier, account_status, suspended_at, suspended_reason, onboarding_completed')
+        .in('user_id', userIds);
 
-      if (subError) {
-        console.error('Subscriptions Error:', subError);
+      if (profilesError) {
+        console.error('Profiles Error:', profilesError);
       }
 
-      // Create a map of user subscriptions
-      const subscriptionsMap = {};
-      if (subscriptionsData) {
-        subscriptionsData.forEach(sub => {
-          if (!subscriptionsMap[sub.user_id]) {
-            subscriptionsMap[sub.user_id] = sub;
-          }
+      // Create profiles map
+      const profilesMap = {};
+      if (profiles) {
+        profiles.forEach(p => {
+          profilesMap[p.user_id] = p;
         });
       }
 
-      // Map the RPC function results to user rows with subscription info
-      const rows = (data || []).map(u => ({
-        uid: u.id,
-        email: u.email,
-        phone: u.phone || null,
-        display_name: u.email?.split('@')[0] || 'User',
-        created_at: u.created_at,
-        last_sign_in_at: u.last_sign_in_at,
-        account_status: u.account_status || 'active',
-        suspended_at: u.suspended_at,
-        suspended_reason: u.suspended_reason,
-        is_admin: u.is_admin || false,
-        onboarding_completed: u.onboarding_completed || false,
-        subscription: subscriptionsMap[u.id] || null,
-        raw: u,
-      }));
+      // Map auth users with profile data
+      const rows = authUsers.users.map(u => {
+        const profile = profilesMap[u.id] || {};
+        return {
+          uid: u.id,
+          email: u.email,
+          phone: u.phone || null,
+          display_name: u.email?.split('@')[0] || 'User',
+          created_at: u.created_at,
+          last_sign_in_at: u.last_sign_in_at,
+          account_status: profile.account_status || 'active',
+          suspended_at: profile.suspended_at,
+          suspended_reason: profile.suspended_reason,
+          role: profile.role || 'user',
+          subscription_tier: profile.subscription_tier || 'free',
+          onboarding_completed: profile.onboarding_completed || false,
+          raw: u,
+        };
+      });
 
       console.log('Mapped users with subscriptions:', rows);
       setUsers(rows);
@@ -447,6 +446,9 @@ const Users = () => {
                       User
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      Role
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
@@ -472,20 +474,31 @@ const Users = () => {
                             {user.display_name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || 'U'}
                           </div>
                           <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="font-semibold text-sm text-gray-900 truncate">
-                                {user.display_name}
-                              </p>
-                              {user.is_admin && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-purple-100 text-purple-800">
-                                  <Shield className="h-3 w-3 mr-1" />
-                                  Admin
-                                </span>
-                              )}
-                            </div>
+                            <p className="font-semibold text-sm text-gray-900 truncate">
+                              {user.display_name}
+                            </p>
                             <p className="text-xs text-gray-500 truncate">{user.email}</p>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {user.role === 'admin' && (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
+                            <Shield className="h-3 w-3 mr-1" />
+                            Admin
+                          </span>
+                        )}
+                        {user.role === 'community_manager' && (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                            <UsersIcon className="h-3 w-3 mr-1" />
+                            Community Manager
+                          </span>
+                        )}
+                        {user.role === 'user' && (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+                            User
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         {user.account_status === 'active' && (
@@ -526,29 +539,22 @@ const Users = () => {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        {user.subscription ? (
+                        {user.subscription_tier && user.subscription_tier !== 'free' ? (
                           <div>
                             <div className="flex items-center gap-2">
                               <CreditCard className="h-4 w-4 text-blue-600" />
-                              <span className="font-semibold text-sm text-gray-900">
-                                {user.subscription.subscription_packages?.name || 'Unknown'}
+                              <span className={`font-semibold text-sm px-2 py-1 rounded-md ${
+                                user.subscription_tier === 'rapid_results' ? 'bg-purple-100 text-purple-800' :
+                                user.subscription_tier === 'standard' ? 'bg-blue-100 text-blue-800' :
+                                user.subscription_tier === 'basic' ? 'bg-green-100 text-green-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {user.subscription_tier === 'rapid_results' ? 'Rapid Results' :
+                                 user.subscription_tier === 'standard' ? 'Standard' :
+                                 user.subscription_tier === 'basic' ? 'Basic' :
+                                 user.subscription_tier}
                               </span>
                             </div>
-                            <div className="mt-1 text-xs text-gray-600">
-                              {user.subscription.subscription_packages?.price === 0 ? (
-                                <span className="text-green-600 font-medium">Free</span>
-                              ) : (
-                                <span>
-                                  ${user.subscription.subscription_packages?.price}/
-                                  {user.subscription.subscription_packages?.billing_period}
-                                </span>
-                              )}
-                            </div>
-                            {user.subscription.end_date && (
-                              <div className="text-xs text-gray-500 mt-1">
-                                {user.subscription.status === 'trialing' ? 'Trial ends' : 'Expires'}: {new Date(user.subscription.end_date).toLocaleDateString()}
-                              </div>
-                            )}
                           </div>
                         ) : (
                           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">

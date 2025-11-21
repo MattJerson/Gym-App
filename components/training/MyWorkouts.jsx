@@ -269,6 +269,37 @@ export default function MyWorkouts({
       // Day of week names
       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       
+      // For saved workouts with 0 exercises in workout_template_exercises,
+      // check if they have exercises in workout_exercises table (for assigned/custom workouts)
+      const workoutsWithNoExercises = (savedData || []).filter(w => 
+        !w.template?.exercises || w.template.exercises.length === 0
+      );
+      
+      if (workoutsWithNoExercises.length > 0) {
+        const templateIds = workoutsWithNoExercises.map(w => w.template_id);
+        const { data: customExercises } = await supabase
+          .from('workout_exercises')
+          .select('template_id, id, sets, reps, rest_seconds, order_index, exercise_name')
+          .in('template_id', templateIds);
+        
+        // Merge custom exercises into the templates
+        if (customExercises && customExercises.length > 0) {
+          workoutsWithNoExercises.forEach(workout => {
+            const exercises = customExercises.filter(ex => ex.template_id === workout.template_id);
+            if (exercises.length > 0 && workout.template) {
+              workout.template.exercises = exercises.map(ex => ({
+                id: ex.id,
+                sets: ex.sets,
+                reps: ex.reps,
+                rest_seconds: ex.rest_seconds,
+                order_index: ex.order_index,
+                exercise: { name: ex.exercise_name }
+              }));
+            }
+          });
+        }
+      }
+      
       // Transform saved workouts (includes all saved workouts: custom, public/template)
       const transformedSavedWorkouts = (savedData || []).map(workout => {
         const template = workout.template;

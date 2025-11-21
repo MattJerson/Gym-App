@@ -32,6 +32,7 @@ import {
   X,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { usePermissions } from '../hooks/usePermissions';
 import PageHeader from "../components/common/PageHeader";
 import Modal from "../components/common/Modal";
 import Button from "../components/common/Button";
@@ -50,6 +51,7 @@ console.log(
 console.log("API Key value:", YOUTUBE_API_KEY?.substring(0, 10) + "...");
 
 const FeaturedContent = () => {
+  const { hasPermission } = usePermissions();
   const [contents, setContents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -1136,13 +1138,15 @@ const FeaturedContent = () => {
                             >
                               <Pencil className="h-4 w-4" />
                             </button>
-                            <button
-                              onClick={() => handleDelete(content)}
-                              className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete content"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {hasPermission('featured_content', 'delete') && (
+                              <button
+                                onClick={() => handleDelete(content)}
+                                className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete content"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

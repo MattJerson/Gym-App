@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { usePermissions } from '../hooks/usePermissions';
 import PageHeader from '../components/common/PageHeader';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
@@ -29,6 +30,7 @@ import Badge from '../components/common/Badge';
 import StatsCard from '../components/common/StatsCard';
 
 const Meals = () => {
+  const { hasPermission } = usePermissions();
   const [mealPlans, setMealPlans] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -39,6 +41,14 @@ const Meals = () => {
   const [filterType, setFilterType] = useState("all");
   const [filterDifficulty, setFilterDifficulty] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  
+  // Assignment modal state
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [assigningPlan, setAssigningPlan] = useState(null);
+  const [standardPlanUsers, setStandardPlanUsers] = useState([]);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [assignmentNote, setAssignmentNote] = useState("");
+  const [userSearchQuery, setUserSearchQuery] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -56,10 +66,12 @@ const Meals = () => {
     calorie_adjustment_percent: -0.20,
     protein_percent: 40,
     carbs_percent: 35,
-    fat_percent: 25,
-  });
-
-  useEffect(() => {
+      fat_percent: 25,
+      // Assignment settings
+      assignment_type: "none", // "none", "all", "subscription", "specific"
+      selected_subscription: "standard", // "free", "standard", "premium"
+      selected_user_ids: [],
+    });  useEffect(() => {
     fetchMealPlans();
   }, []);
 
@@ -130,12 +142,16 @@ const Meals = () => {
         meals_per_day: parseInt(formData.meals_per_day) || 3,
         is_active: formData.is_active,
         is_dynamic: formData.is_dynamic,
+        is_premium: formData.required_tier !== 'free',
+        required_tier: formData.required_tier || 'free',
         calorie_adjustment_percent: parseFloat(formData.calorie_adjustment_percent) || 0,
         protein_percent: parseInt(formData.protein_percent) || 30,
         carbs_percent: parseInt(formData.carbs_percent) || 40,
         fat_percent: parseInt(formData.fat_percent) || 30,
       };
 
+      let planId;
+      
       if (editingPlan) {
         const { error } = await supabase
           .from('meal_plan_templates')
@@ -143,12 +159,21 @@ const Meals = () => {
           .eq('id', editingPlan.id);
 
         if (error) throw error;
+        planId = editingPlan.id;
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('meal_plan_templates')
-          .insert([payload]);
+          .insert([payload])
+          .select()
+          .single();
 
         if (error) throw error;
+        planId = data.id;
+        
+        // Handle assignments for new plans
+        if (formData.assignment_type !== "none") {
+          await handleAutoAssignment(planId);
+        }
       }
 
       setIsModalOpen(false);
@@ -177,6 +202,191 @@ const Meals = () => {
     }
   };
 
+  // Load standard plan users for assignment
+  const loadStandardPlanUsers = async () => {
+    try {
+      // Use RPC function to load ALL users (includes username from auth.users email or details)
+      const { data, error } = await supabase.rpc('get_all_users_for_assignment');
+      
+      if (error) {
+        console.error('Error loading users:', error);
+        return;
+      }
+      
+      if (data) {
+        // Fetch active meal plans for all users
+        const userIds = data.map(u => u.user_id);
+        const { data: activePlans, error: plansError } = await supabase
+          .from('user_meal_plan_calculations')
+          .select('user_id, plan_name, is_active')
+          .in('user_id', userIds)
+          .eq('is_active', true);
+        
+        if (!plansError && activePlans) {
+          // Map active plans to users
+          const usersWithPlans = data.map(user => {
+            const activePlan = activePlans.find(p => p.user_id === user.user_id);
+            return {
+              ...user,
+              current_plan: activePlan ? activePlan.plan_name : null
+            };
+          });
+          setStandardPlanUsers(usersWithPlans);
+        } else {
+          setStandardPlanUsers(data);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading users:', error);
+    }
+  };
+
+  // Open assignment modal
+  const handleAssignPlan = async (plan) => {
+    setAssigningPlan(plan);
+    setSelectedUsers([]);
+    setAssignmentNote("");
+    setUserSearchQuery("");
+    await loadStandardPlanUsers();
+    setIsAssignModalOpen(true);
+  };
+
+  // Assign meal plan to selected users
+  const handleConfirmAssignment = async () => {
+    if (selectedUsers.length === 0) {
+      alert('Please select at least one user');
+      return;
+    }
+
+    try {
+      // Get current admin user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Deactivate existing active meal plans for these users (but don't delete them)
+      const { error: deactivateError } = await supabase
+        .from('user_meal_plans')
+        .update({ is_active: false })
+        .in('user_id', selectedUsers)
+        .eq('is_active', true);
+
+      if (deactivateError) {
+        console.error('Error deactivating existing plans:', deactivateError);
+        // Continue anyway - don't fail the assignment
+      }
+
+      // Create user_meal_plans entries for each selected user
+      const assignments = selectedUsers.map(userId => ({
+        user_id: userId,
+        plan_id: assigningPlan.id,
+        is_admin_assigned: true,
+        assigned_by: user.id,
+        assignment_note: assignmentNote || null,
+        start_date: new Date().toISOString().split('T')[0],
+        is_active: true
+      }));
+
+      const { error } = await supabase
+        .from('user_meal_plans')
+        .insert(assignments);
+
+      if (error) throw error;
+
+      alert(`Meal plan assigned to ${selectedUsers.length} user(s)`);
+      setIsAssignModalOpen(false);
+      setAssigningPlan(null);
+      setSelectedUsers([]);
+      setAssignmentNote("");
+    } catch (err) {
+      alert('Error assigning meal plan: ' + err.message);
+    }
+  };
+
+  const handleAutoAssignment = async (planId) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      let targetUsers = [];
+      let assignmentNote = '';
+
+      // Get users based on assignment type
+      if (formData.assignment_type === "all") {
+        const { data, error } = await supabase
+          .from('registration_profiles')
+          .select('user_id')
+          .eq('role', 'user');
+        
+        if (error) throw error;
+        targetUsers = data.map(u => u.user_id);
+        assignmentNote = 'Auto-assigned to all users on creation';
+      } else if (formData.assignment_type === "subscription") {
+        const { data, error } = await supabase
+          .from('registration_profiles')
+          .select('user_id')
+          .eq('role', 'user')
+          .eq('subscription_tier', formData.selected_subscription);
+        
+        if (error) throw error;
+        targetUsers = data.map(u => u.user_id);
+        assignmentNote = `Auto-assigned to ${formData.selected_subscription} tier users on creation`;
+      } else if (formData.assignment_type === "specific") {
+        // For specific users, open the assignment modal instead
+        const { data: planData } = await supabase
+          .from('meal_plan_templates')
+          .select('*')
+          .eq('id', planId)
+          .single();
+        
+        if (planData) {
+          // Open assignment modal for manual selection
+          setTimeout(() => handleAssignPlan(planData), 500);
+        }
+        return;
+      }
+
+      if (targetUsers.length === 0) {
+        console.log('No users to assign');
+        return;
+      }
+
+      // Deactivate existing active meal plans for these users (but don't delete them)
+      // This way if the assigned plan is removed, their previous plan can be reactivated
+      const { error: deactivateError } = await supabase
+        .from('user_meal_plans')
+        .update({ is_active: false })
+        .in('user_id', targetUsers)
+        .eq('is_active', true);
+
+      if (deactivateError) {
+        console.error('Error deactivating existing plans:', deactivateError);
+        // Continue anyway - don't fail the assignment
+      }
+
+      // Create assignments
+      const assignments = targetUsers.map(userId => ({
+        user_id: userId,
+        plan_id: planId,
+        is_admin_assigned: true,
+        assigned_by: user.id,
+        assignment_note: assignmentNote,
+        start_date: new Date().toISOString().split('T')[0],
+        is_active: true
+      }));
+
+      const { error } = await supabase
+        .from('user_meal_plans')
+        .insert(assignments);
+
+      if (error) throw error;
+
+      alert(`Meal plan automatically assigned to ${targetUsers.length} user(s)!`);
+    } catch (err) {
+      console.error('Error auto-assigning meal plan:', err);
+      alert('Plan created but assignment failed: ' + err.message);
+    }
+  };
+
   const handleEdit = (plan) => {
     setEditingPlan(plan);
     setFormData({
@@ -192,6 +402,7 @@ const Meals = () => {
       meals_per_day: plan.meals_per_day || 3,
       is_active: plan.is_active !== false,
       is_dynamic: plan.is_dynamic !== false,
+      required_tier: plan.required_tier || 'free',
       calorie_adjustment_percent: plan.calorie_adjustment_percent || -0.20,
       protein_percent: plan.protein_percent || 40,
       carbs_percent: plan.carbs_percent || 35,
@@ -214,10 +425,15 @@ const Meals = () => {
       meals_per_day: 3,
       is_active: true,
       is_dynamic: true,
+      required_tier: "free",
       calorie_adjustment_percent: -0.20,
       protein_percent: 40,
       carbs_percent: 35,
       fat_percent: 25,
+      // Assignment settings
+      assignment_type: "none",
+      selected_subscription: "standard",
+      selected_user_ids: [],
     });
   };
 
@@ -804,19 +1020,28 @@ const Meals = () => {
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1">
                             <button
+                              onClick={() => handleAssignPlan(plan)}
+                              className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Assign to users"
+                            >
+                              <Users className="h-4 w-4" />
+                            </button>
+                            <button
                               onClick={() => handleEdit(plan)}
                               className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
                               title="Edit meal plan"
                             >
                               <Pencil className="h-4 w-4" />
                             </button>
-                            <button
-                              onClick={() => handleDelete(plan)}
-                              className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Delete meal plan"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {hasPermission('meals', 'delete') && (
+                              <button
+                                onClick={() => handleDelete(plan)}
+                                className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete meal plan"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -962,6 +1187,25 @@ const Meals = () => {
                       <option value="intermediate">Intermediate</option>
                       <option value="advanced">Advanced</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-1.5">
+                      <Users className="h-3.5 w-3.5 text-blue-500" />
+                      Required Subscription Tier
+                    </label>
+                    <select
+                      value={formData.required_tier}
+                      onChange={(e) => setFormData({ ...formData, required_tier: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      required
+                    >
+                      <option value="free">Free (Everyone)</option>
+                      <option value="basic">Basic Tier & Above</option>
+                      <option value="standard">Standard Tier & Above</option>
+                      <option value="rapid_results">Rapid Results Only</option>
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">Only users with this tier or higher can see and enroll in this plan</p>
                   </div>
 
                   <div>
@@ -1217,6 +1461,105 @@ const Meals = () => {
                 )}
               </div>
 
+              {/* Assignment Options (only for new plans) */}
+              {!editingPlan && (
+                <div className="pt-4 border-t">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Users className="h-4 w-4 text-blue-500" />
+                    Auto-Assign to Users (Optional)
+                  </h4>
+                  
+                  <div className="space-y-3">
+                    {/* Assignment Type Radio Buttons */}
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="assignment_type"
+                          value="none"
+                          checked={formData.assignment_type === "none"}
+                          onChange={(e) => setFormData({ ...formData, assignment_type: e.target.value })}
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">Don't auto-assign</span>
+                      </label>
+                      
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="assignment_type"
+                          value="all"
+                          checked={formData.assignment_type === "all"}
+                          onChange={(e) => setFormData({ ...formData, assignment_type: e.target.value })}
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">Assign to all users</span>
+                      </label>
+                      
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="assignment_type"
+                          value="subscription"
+                          checked={formData.assignment_type === "subscription"}
+                          onChange={(e) => setFormData({ ...formData, assignment_type: e.target.value })}
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">Assign by subscription package</span>
+                      </label>
+                      
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="assignment_type"
+                          value="specific"
+                          checked={formData.assignment_type === "specific"}
+                          onChange={(e) => setFormData({ ...formData, assignment_type: e.target.value })}
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">Assign to specific users</span>
+                      </label>
+                    </div>
+
+                    {/* Subscription Selector (if assignment_type is "subscription") */}
+                    {formData.assignment_type === "subscription" && (
+                      <div className="ml-6 pt-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Select Subscription Tier
+                        </label>
+                        <select
+                          value={formData.selected_subscription}
+                          onChange={(e) => setFormData({ ...formData, selected_subscription: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        >
+                          <option value="free">Free Tier</option>
+                          <option value="standard">Standard Tier</option>
+                          <option value="premium">Premium Tier</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {/* User Selection Note (if assignment_type is "specific") */}
+                    {formData.assignment_type === "specific" && (
+                      <div className="ml-6 pt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-sm text-yellow-800">
+                          <strong>Note:</strong> User selection for specific assignment will be available after creating the plan. The plan will be created first, then you can select specific users to assign it to.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Info message for all/subscription */}
+                    {(formData.assignment_type === "all" || formData.assignment_type === "subscription") && (
+                      <div className="ml-6 pt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-sm text-blue-900">
+                          This plan will be automatically assigned to {formData.assignment_type === "all" ? "all users" : `users with ${formData.selected_subscription} subscription`} when created. Users cannot remove admin-assigned plans.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Status Toggle */}
               <div className="pt-3 border-t">
                 <label className="flex items-center gap-3 cursor-pointer group">
@@ -1239,6 +1582,147 @@ const Meals = () => {
               </div>
             </div>
           </form>
+        </Modal>
+
+        {/* Assignment Modal */}
+        <Modal
+          isOpen={isAssignModalOpen}
+          onClose={() => {
+            setIsAssignModalOpen(false);
+            setAssigningPlan(null);
+            setSelectedUsers([]);
+            setAssignmentNote("");
+          }}
+          title={`Assign "${assigningPlan?.name}" to Users`}
+          size="md"
+        >
+          <div className="space-y-4">
+            {/* Description */}
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-900">
+                <strong>Note:</strong> Users cannot remove admin-assigned meal plans. Only admins can unassign them.
+              </p>
+            </div>
+
+            {/* User Search */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <Users className="inline h-4 w-4 mr-1" />
+                Select Users
+              </label>
+              <input
+                type="text"
+                placeholder="Search users..."
+                value={userSearchQuery}
+                onChange={(e) => setUserSearchQuery(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+              />
+              
+              {/* User List */}
+              <div className="border border-gray-300 rounded-lg max-h-64 overflow-y-auto">
+                {standardPlanUsers
+                  .filter(user => 
+                    user.username?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                    user.email?.toLowerCase().includes(userSearchQuery.toLowerCase())
+                  )
+                  .map(user => (
+                    <label
+                      key={user.user_id}
+                      className="flex items-center gap-3 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-0"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedUsers.includes(user.user_id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedUsers([...selectedUsers, user.user_id]);
+                          } else {
+                            setSelectedUsers(selectedUsers.filter(id => id !== user.user_id));
+                          }
+                        }}
+                        className="rounded text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                          {user.username || 'No name'}
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            user.subscription_tier === 'rapid_results' ? 'bg-purple-100 text-purple-700' :
+                            user.subscription_tier === 'standard' ? 'bg-blue-100 text-blue-700' :
+                            user.subscription_tier === 'basic' ? 'bg-green-100 text-green-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {user.subscription_tier === 'rapid_results' ? 'Rapid' :
+                             user.subscription_tier === 'standard' ? 'Standard' :
+                             user.subscription_tier === 'basic' ? 'Basic' : 'Free'}
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-500">{user.email}</div>
+                        {user.current_plan && (
+                          <div className="text-xs text-orange-600 mt-0.5 flex items-center gap-1">
+                            <span>📋</span>
+                            <span>Active: {user.current_plan}</span>
+                          </div>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                
+                {standardPlanUsers.filter(user => 
+                  user.username?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                  user.email?.toLowerCase().includes(userSearchQuery.toLowerCase())
+                ).length === 0 && (
+                  <div className="px-4 py-8 text-center text-gray-500 text-sm">
+                    {standardPlanUsers.length === 0 ? 'No users found. Loading...' : 'No matching users found'}
+                  </div>
+                )}
+              </div>
+
+              {/* Selected count */}
+              {selectedUsers.length > 0 && (
+                <div className="mt-2 text-sm text-gray-600">
+                  <strong>{selectedUsers.length}</strong> user(s) selected
+                </div>
+              )}
+            </div>
+
+            {/* Assignment Note */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Assignment Note (Optional)
+              </label>
+              <textarea
+                value={assignmentNote}
+                onChange={(e) => setAssignmentNote(e.target.value)}
+                placeholder="Add a note explaining why you're assigning this plan..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 pt-4">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setIsAssignModalOpen(false);
+                  setAssigningPlan(null);
+                  setSelectedUsers([]);
+                  setAssignmentNote("");
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleConfirmAssignment}
+                disabled={selectedUsers.length === 0}
+                className="flex-1"
+              >
+                Assign to {selectedUsers.length} User(s)
+              </Button>
+            </div>
+          </div>
         </Modal>
       </div>
     </div>

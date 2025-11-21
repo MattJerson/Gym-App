@@ -1221,9 +1221,9 @@ export const MealPlanDataService = {
   // ============================================================
 
   /**
-   * Get all available meal plan templates
+   * Get all available meal plan templates (filtered by user's subscription tier)
    */
-  async getMealPlanTemplates() {
+  async getMealPlanTemplates(userId = null) {
     try {
       const { data, error } = await supabase
         .from('meal_plan_templates')
@@ -1232,6 +1232,28 @@ export const MealPlanDataService = {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+
+      // If userId provided, filter by user's subscription tier
+      if (userId) {
+        const { data: profile, error: profileError } = await supabase
+          .from('registration_profiles')
+          .select('subscription_tier')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (!profileError && profile) {
+          const userTier = profile.subscription_tier || 'free';
+          const tierHierarchy = ['free', 'basic', 'standard', 'rapid_results'];
+          const userTierIndex = tierHierarchy.indexOf(userTier);
+
+          // Filter plans - user can access plans at or below their tier level
+          return (data || []).filter(plan => {
+            const requiredTier = plan.required_tier || 'free';
+            const requiredTierIndex = tierHierarchy.indexOf(requiredTier);
+            return requiredTierIndex <= userTierIndex;
+          });
+        }
+      }
 
       return data || [];
     } catch (error) {
@@ -1258,7 +1280,22 @@ export const MealPlanDataService = {
         return null;
       }
 
+      // If we have a plan, also fetch assignment status from user_meal_plans table
       if (data) {
+        const { data: assignmentData, error: assignmentError } = await supabase
+          .from('user_meal_plans')
+          .select('is_admin_assigned, assigned_by, assignment_note')
+          .eq('user_id', userId)
+          .eq('plan_id', data.plan_id)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (!assignmentError && assignmentData) {
+          // Merge assignment data into the plan
+          data.is_admin_assigned = assignmentData.is_admin_assigned;
+          data.assigned_by = assignmentData.assigned_by;
+          data.assignment_note = assignmentData.assignment_note;
+        }
       } else {
       }
 

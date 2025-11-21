@@ -344,7 +344,7 @@ export default function WorkoutDetail() {
                           color="#315e98ff"
                         />
                         <Text style={styles.exerciseStatValue}>
-                          {exercise.reps} reps
+                          {exercise.duration_seconds > 0 ? `${exercise.duration_seconds}s` : `${exercise.reps} reps`}
                         </Text>
                       </View>
                       <View style={styles.exerciseStatDivider} />
