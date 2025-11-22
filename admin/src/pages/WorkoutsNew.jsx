@@ -617,11 +617,11 @@ const Workouts = () => {
           trendLabel="from last month"
         />
         <StatsCard
-          title="Active Users"
+          title="Total Users"
           value={standardPlanUsers.length}
           icon={UserGroupIcon}
           trend="+8%"
-          trendLabel="this week"
+          trendLabel="registered"
         />
         <StatsCard
           title="Exercises Library"

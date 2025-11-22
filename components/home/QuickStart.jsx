@@ -14,10 +14,86 @@ export default function QuickStart() {
   useEffect(() => {
     loadChatUnreadCount();
     
-    // Set up real-time subscription for chat unread counts
-    const interval = setInterval(loadChatUnreadCount, 30000); // Check every 30 seconds
+    // Get current user for realtime subscriptions
+    const setupRealtimeSubscriptions = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      // Subscribe to read receipt changes (more efficient than polling)
+      const unreadSubscription = supabase
+        .channel('quickstart-unread-updates')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'channel_read_receipts',
+            filter: `user_id=eq.${user.id}`
+          },
+          () => {
+            console.log('[QuickStart] Channel read receipt changed, reloading unread counts');
+            loadChatUnreadCount();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'dm_read_receipts',
+            filter: `user_id=eq.${user.id}`
+          },
+          () => {
+            console.log('[QuickStart] DM read receipt changed, reloading unread counts');
+            loadChatUnreadCount();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'direct_messages'
+          },
+          (payload) => {
+            // Reload if message involves current user
+            if (payload.new.receiver_id === user.id || payload.new.sender_id === user.id) {
+              console.log('[QuickStart] New DM received, reloading unread counts');
+              loadChatUnreadCount();
+            }
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'channel_messages'
+          },
+          () => {
+            console.log('[QuickStart] New channel message, reloading unread counts');
+            loadChatUnreadCount();
+          }
+        )
+        .subscribe();
+      
+      return unreadSubscription;
+    };
     
-    return () => clearInterval(interval);
+    // Also keep polling as fallback (but less frequent - every 2 minutes instead of 30 seconds)
+    const interval = setInterval(loadChatUnreadCount, 120000);
+    let subscription;
+    
+    setupRealtimeSubscriptions().then(sub => {
+      subscription = sub;
+    });
+    
+    return () => {
+      clearInterval(interval);
+      if (subscription) {
+        subscription.unsubscribe();
+      }
+    };
   }, []);
 
   const loadChatUnreadCount = async () => {

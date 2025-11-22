@@ -108,6 +108,8 @@ export default function Calendar() {
         loadCalendarData();
         loadStreakData();
         loadMonthlyAnalytics();
+        // Force reload to get latest calorie/weight data
+        setProgressChart(prev => prev ? { ...prev, reload: Date.now() } : null);
       }
     }, [userId, currentDate])
   );

@@ -244,9 +244,86 @@ export default function SubscriptionPackages() {
         return;
       }
 
-      // TESTING MODE: Bypass Stripe and directly update subscription
-      console.log(`[TEST MODE] Subscribing user to: ${subscription.name}`);
+      // Get user profile for name
+      const { data: profile } = await supabase
+        .from('registration_profiles')
+        .select('nickname')
+        .eq('user_id', user.id)
+        .single();
+
+      const userName = profile?.nickname || user.email?.split('@')[0] || 'User';
+
+      // Handle free trial (no payment required)
+      if (subscription.slug === 'free-trial' || subscription.price === 0) {
+        console.log(`Activating free trial for: ${userName}`);
+        await activateSubscription(user.id, subscription);
+        return;
+      }
+
+      // Initialize Stripe payment sheet for paid subscriptions
+      console.log(`Initializing Stripe payment for: ${subscription.name}`);
       
+      // Call backend to create payment intent
+      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+      const response = await fetch(`${backendUrl}/create-payment-intent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          slug: subscription.slug,
+          price: subscription.price,
+          userId: user.id,
+          userName: userName,
+        }),
+      });
+
+      const { paymentIntent, ephemeralKey, customer, error } = await response.json();
+
+      if (error) {
+        throw new Error(error);
+      }
+
+      // Initialize payment sheet
+      const { error: initError } = await initPaymentSheet({
+        merchantDisplayName: 'Gym App',
+        customerId: customer,
+        customerEphemeralKeySecret: ephemeralKey,
+        paymentIntentClientSecret: paymentIntent,
+        allowsDelayedPaymentMethods: false,
+        defaultBillingDetails: {
+          name: userName,
+        },
+      });
+
+      if (initError) {
+        console.error('Payment sheet init error:', initError);
+        Alert.alert('Error', 'Failed to initialize payment');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Present payment sheet
+      const { error: presentError } = await presentPaymentSheet();
+
+      if (presentError) {
+        // User cancelled
+        console.log('Payment cancelled:', presentError);
+        setIsProcessing(false);
+        return;
+      }
+
+      // Payment successful! Activate subscription
+      await activateSubscription(user.id, subscription);
+    } catch (err) {
+      console.error("Subscription error:", err);
+      Alert.alert("Error", err.message || "An unexpected error occurred. Please try again.");
+      setIsProcessing(false);
+    }
+  };
+
+  const activateSubscription = async (userId, subscription) => {
+    try {
       // Get the subscription package ID
       const { data: packageData, error: packageError } = await supabase
         .from("subscription_packages")
@@ -268,6 +345,8 @@ export default function SubscriptionPackages() {
       // Calculate expiration based on billing interval
       if (subscription.billing_interval === 'month') {
         endDate.setMonth(endDate.getMonth() + 1);
+      } else if (subscription.billing_interval === 'six_month') {
+        endDate.setMonth(endDate.getMonth() + 6);
       } else if (subscription.billing_interval === 'year') {
         endDate.setFullYear(endDate.getFullYear() + 1);
       } else if (subscription.billing_interval === 'one_time') {
@@ -278,7 +357,7 @@ export default function SubscriptionPackages() {
       const { data: existingSubscription } = await supabase
         .from("user_subscriptions")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("status", "active")
         .single();
 
@@ -304,7 +383,7 @@ export default function SubscriptionPackages() {
         const { error: insertError } = await supabase
           .from("user_subscriptions")
           .insert({
-            user_id: user.id,
+            user_id: userId,
             package_id: packageData.id,
             status: "active",
             started_at: startDate.toISOString(),
@@ -319,9 +398,11 @@ export default function SubscriptionPackages() {
         }
       }
 
+      // Success!
+      setIsProcessing(false);
       Alert.alert(
         "Success! 🎉",
-        `You've been subscribed to ${subscription.name}. This is test mode - no payment processed.`,
+        `You've been subscribed to ${subscription.name}!`,
         [
           {
             text: "Continue",
@@ -330,16 +411,15 @@ export default function SubscriptionPackages() {
               if (router.canGoBack()) {
                 router.back(); // Go back to settings
               } else {
-                router.push("/features/selectworkouts"); // Continue onboarding
+                router.replace("/features/selectworkouts"); // Continue onboarding
               }
             },
           },
         ]
       );
     } catch (err) {
-      console.error("Subscription error:", err);
-      Alert.alert("Error", "An unexpected error occurred. Please try again.");
-    } finally {
+      console.error("Activation error:", err);
+      Alert.alert("Error", "Payment processed but failed to activate subscription. Please contact support.");
       setIsProcessing(false);
     }
   };

@@ -1,11 +1,13 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Backend services for Gym App (Stripe payments, Gemini AI)",
   "type": "module",
-  "main": "gemini.js",
+  "main": "stripe.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "stripe": "node stripe.js",
+    "gemini": "node gemini.js"
   },
   "keywords": [],
   "author": "",

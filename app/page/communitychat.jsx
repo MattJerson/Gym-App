@@ -104,35 +104,34 @@ export default function CommunityChat() {
       loadUnreadCounts();
       loadUserConversations(currentUser.id);
       
+      // Debounce conversation reload to prevent excessive API calls
+      let conversationReloadTimeout = null;
+      const debouncedReloadConversations = () => {
+        if (conversationReloadTimeout) {
+          clearTimeout(conversationReloadTimeout);
+        }
+        conversationReloadTimeout = setTimeout(() => {
+          console.log('[CommunityChat] Debounced conversation reload');
+          loadUserConversations(currentUser.id);
+          loadUnreadCounts();
+        }, 2000); // Only reload once every 2 seconds max
+      };
+      
       // Set up realtime subscriptions for conversation updates (instead of polling)
-      // Subscribe to direct_messages table to detect new messages
+      // Subscribe ONLY to dm_conversations table changes (more efficient than monitoring all messages)
       const conversationSubscription = supabase
         .channel('conversation-updates')
         .on(
           'postgres_changes',
           {
-            event: '*',
-            schema: 'public',
-            table: 'direct_messages',
-            filter: `sender_id=eq.${currentUser.id}`
-          },
-          (payload) => {
-            console.log('[CommunityChat] New message detected, refreshing conversations');
-            loadUserConversations(currentUser.id);
-            loadUnreadCounts();
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
+            event: '*', // INSERT, UPDATE, DELETE
             schema: 'public',
             table: 'dm_conversations',
             filter: `user1_id=eq.${currentUser.id}`
           },
           (payload) => {
             console.log('[CommunityChat] Conversation change detected (user1)');
-            loadUserConversations(currentUser.id);
+            debouncedReloadConversations();
           }
         )
         .on(
@@ -145,12 +144,15 @@ export default function CommunityChat() {
           },
           (payload) => {
             console.log('[CommunityChat] Conversation change detected (user2)');
-            loadUserConversations(currentUser.id);
+            debouncedReloadConversations();
           }
         )
         .subscribe();
       
       return () => {
+        if (conversationReloadTimeout) {
+          clearTimeout(conversationReloadTimeout);
+        }
         conversationSubscription.unsubscribe();
       };
     }
@@ -523,10 +525,8 @@ export default function CommunityChat() {
           // Reload unread counts for real-time badge updates
           loadUnreadCounts();
           
-          // Reload DM list to update last message preview in sidebar
-          if (currentUser?.id) {
-            loadUserConversations(currentUser.id);
-          }
+          // Note: Don't reload conversations here - the dm_conversations subscription will handle it
+          // This prevents duplicate API calls
           
           // Show local notification and create database notification if message is from another user
           if (!newMessage.isMe && currentUser?.id) {

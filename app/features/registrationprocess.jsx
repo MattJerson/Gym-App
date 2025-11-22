@@ -411,6 +411,7 @@ export default function BasicInfo() {
 
   // Input refs for navigation
   const inputRefs = useRef({});
+  const scrollViewRef = useRef(null);
 
   // Auto-calculate daily calories when relevant fields change
   useEffect(() => {
@@ -831,6 +832,8 @@ export default function BasicInfo() {
       // Move to next step
       const nextStep = step + 1;
       setStep(nextStep);
+      // Scroll to top when changing steps
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       // Persist step advance eagerly for crash safety
       AsyncStorage.setItem(
         "onboarding:registration:step",

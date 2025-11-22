@@ -229,8 +229,19 @@ const Dashboard = () => {
       }
 
       // Fetch most popular workouts (with error handling)
+      // FIXED: Only show public workout templates, not custom/assigned workouts
       let topWorkouts = [];
       try {
+        // First, get all public workout template names
+        const { data: publicTemplates } = await supabase
+          .from('workout_templates')
+          .select('name')
+          .is('created_by_user_id', null) // Only public templates
+          .eq('is_active', true);
+        
+        const publicTemplateNames = new Set(publicTemplates?.map(t => t.name) || []);
+        
+        // Then get workout logs for these templates only
         const { data: popularWorkouts } = await supabase
           .from('workout_logs')
           .select('workout_name')
@@ -238,7 +249,10 @@ const Dashboard = () => {
 
         const workoutCounts = {};
         popularWorkouts?.forEach(w => {
-          workoutCounts[w.workout_name] = (workoutCounts[w.workout_name] || 0) + 1;
+          // Only count workouts that match public templates
+          if (publicTemplateNames.has(w.workout_name)) {
+            workoutCounts[w.workout_name] = (workoutCounts[w.workout_name] || 0) + 1;
+          }
         });
         topWorkouts = Object.entries(workoutCounts)
           .sort((a, b) => b[1] - a[1])

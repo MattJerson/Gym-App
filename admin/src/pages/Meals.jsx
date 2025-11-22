@@ -94,7 +94,7 @@ const Meals = () => {
           const { count, error: countError } = await supabase
             .from('user_meal_plans')
             .select('*', { count: 'exact', head: true })
-            .eq('meal_plan_id', plan.id);
+            .eq('plan_id', plan.id); // FIXED: Changed from meal_plan_id to plan_id
 
           plansWithStats.push({
             ...plan,

@@ -39,17 +39,17 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
 
   // Reload daily balance and projection when chart data changes (new food/workout logged)
   useEffect(() => {
-    if (userId && chart) {
+    if (userId && chart?.values) {
       loadDailyBalance();
     }
-  }, [chart?.values, chart?.labels]);
+  }, [chart?.values, chart?.labels, chart?.reload]);
 
   // Reload projection when daily balance changes (after food/workout logged)
   useEffect(() => {
-    if (userId && dailyBalance) {
+    if (userId && dailyBalance !== null) {
       loadProjectedWeightToday();
     }
-  }, [dailyBalance]);
+  }, [dailyBalance, userId]);
 
   const handleRefresh = async () => {
     if (isRefreshing) return;
@@ -94,12 +94,14 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
       const balance = await WeightProgressService.getDailyCalorieBalance(userId, todayString);
       
       // CORRECT LOGIC:
-      // To maintain weight, user needs to eat their maintenance calories (calorieGoal)
-      // Net balance = what they consumed - their maintenance requirement
-      // Positive net = surplus (will gain weight)
-      // Negative net = deficit (will lose weight)
+      // Net balance = (Consumed - Maintenance) - Workout calories burned
+      // Workout calories ADD to the deficit (or reduce the surplus)
+      // Example: Consumed 0, Burned 350, Maintenance 2000
+      //   Net = (0 - 2000) - 350 = -2000 - 350 = -2350 (bigger deficit!)
+      // Example: Consumed 1800, Burned 350, Maintenance 2000
+      //   Net = (1800 - 2000) - 350 = -200 - 350 = -550 (deficit)
       const maintenanceCalories = balance.calorieGoal || 2000;
-      const netBalance = balance.caloriesConsumed - maintenanceCalories;
+      const netBalance = (balance.caloriesConsumed - maintenanceCalories) - balance.caloriesBurned;
       
       setDailyBalance({
         consumed: balance.caloriesConsumed,
@@ -135,17 +137,19 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
         const today = new Date();
         const todayLabel = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
         
-        // CORRECT LOGIC: dailyBalance.net already contains the correct calculation
-        // dailyBalance.net = consumed - maintenance
-        // If user logged 100 cal broccoli with 2000 maintenance: net = 100 - 2000 = -1900 (deficit)
-        // If user logged 2500 cal with 2000 maintenance: net = 2500 - 2000 = +500 (surplus)
+        // TRICK: User sees today's date, but we calculate using tomorrow's projection
+        // This allows real-time weight updates throughout the day
+        // dailyBalance.net already includes workout calories
+        // Example: No meals, 350 cal workout, 2000 maintenance:
+        //   net = (0 - 2000) - 350 = -2350 cal deficit
+        //   weight change = -2350 / 7700 = -0.305 kg (shows immediately)
         let actualNetCalories;
         
-        if (dailyBalance.mealsLogged === 0) {
-          // No meals logged = assume user ate maintenance calories (no weight change)
+        if (dailyBalance.mealsLogged === 0 && dailyBalance.burned === 0) {
+          // No meals AND no workouts logged = assume maintenance (no weight change)
           actualNetCalories = 0;
         } else {
-          // Use the correct net balance (already calculated as consumed - maintenance)
+          // Use the net balance (includes both meals and workouts)
           actualNetCalories = dailyBalance.net;
         }
         
@@ -154,8 +158,8 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
         const adjustedChange = projection.expectedWeightChange + todayWeightChange;
         
         setProjectedWeightToday({
-          date: todayLabel,
-          weight: adjustedProjectedWeight,
+          date: todayLabel, // User sees TODAY's date
+          weight: adjustedProjectedWeight, // But weight is calculated from tomorrow's projection
           change: adjustedChange,
           lastActualWeight: projection.lastActualWeight,
           daysSince: projection.daysSinceMeasurement,
@@ -213,17 +217,19 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
       };
     }).filter(d => !isNaN(d.value) && isFinite(d.value) && d.value > 0);
 
-    // Add tomorrow's projected weight if available (for graph line, but hide the date label)
+    // TRICK: Add tomorrow's projected weight but display it as today's date
+    // This is HIDDEN from the user - they think they're seeing today's weight
+    // But we're actually showing tomorrow's projection for real-time updates
     if (projectedWeightToday && projectedWeightToday.weight > 0) {
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
       const tomorrowLabel = `${String(tomorrow.getMonth() + 1).padStart(2, '0')}/${String(tomorrow.getDate()).padStart(2, '0')}`;
       
-      // Add tomorrow's projection to extend the graph line
+      // Add tomorrow's projection (user will see it as today's date later)
       allData.push({
         value: projectedWeightToday.weight,
-        label: tomorrowLabel,
-        date: tomorrow,
+        label: tomorrowLabel, // Tomorrow's actual date (will be hidden)
+        date: tomorrow, // Tomorrow's actual date
         index: allData.length,
         isProjected: true,
         hideLabel: true // Flag to hide this date on X-axis
@@ -299,7 +305,7 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
     // Show 4 dates consistently across all time ranges
     const targetSummaryPoints = 4;
     
-    // Check if last point is projected (future date)
+    // Check if last point is projected (future date that we'll hide)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const hasProjectedPoint = validData.length > 0 && validData[validData.length - 1].date > today;
@@ -343,22 +349,25 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
       }
     }
     
-    // If we have projected weight, include it with the last historical date
-    // This makes the user assume current day includes today's progress
+    // TRICK: Replace last historical point with projected weight but keep today's date
+    // User sees today's date, but the weight value is from tomorrow's projection
+    // This allows real-time updates throughout the day
     if (projectedData) {
       // Replace the last summary point with projected weight, keeping its date label
       if (summarizedData.length > 0) {
         summarizedData[summarizedData.length - 1] = {
-          value: projectedData.value,
-          label: summarizedData[summarizedData.length - 1].label, // Keep historical date label
-          date: summarizedData[summarizedData.length - 1].date
+          value: projectedData.value, // Tomorrow's projected weight (HIDDEN TRICK)
+          label: summarizedData[summarizedData.length - 1].label, // Keep today's date
+          date: summarizedData[summarizedData.length - 1].date // Keep today's date
         };
       } else {
         // Edge case: only projected data
+        const today = new Date();
+        const todayLabel = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
         summarizedData.push({
           value: projectedData.value,
-          label: projectedData.label,
-          date: projectedData.date
+          label: todayLabel, // Show as today even though it's tomorrow's projection
+          date: today
         });
       }
     }

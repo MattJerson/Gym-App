@@ -176,8 +176,8 @@ export default function SelectWorkouts() {
       const workoutInserts = selectedWorkoutData.map(workout => ({
         user_id: user.id,
         template_id: workout.id,
-        workout_name: workout.name,
-        workout_type: 'Pre-Made',
+        workout_name: workout.name, // Use the actual template name
+        workout_type: workout.category?.name || 'Pre-Made',
       }));
 
       const { error: insertError } = await supabase
