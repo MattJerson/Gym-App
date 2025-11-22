@@ -361,9 +361,6 @@ export default function CommunityChat() {
   const loadChannelMessages = async () => {
     const { data, error } = await fetchChannelMessages(activeChannel);
     if (data) {
-      console.log('[CommunityChat] Raw message data sample:', data[0]); // DEBUG
-      console.log('[CommunityChat] Current user ID:', currentUser?.id); // DEBUG
-      
       const formattedMessages = data.map((msg) => {
         const isMe = currentUser?.id && msg.user_id === currentUser.id;
         return {

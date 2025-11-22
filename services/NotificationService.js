@@ -366,7 +366,7 @@ export const NotificationService = {
     // Track connection attempts and errors
     let errorCount = 0;
     let errorTimeout = null;
-    const MAX_RETRY_WAIT = 10000; // 10 seconds
+    const MAX_RETRY_WAIT = 120000; // 2 minutes (120 seconds)
     
     const channel = supabase
       .channel(channelName)
