@@ -73,6 +73,7 @@ serve(async (req) => {
     const message = String(body?.body || '').slice(0, 1000);
     const meta = body?.data && typeof body.data === 'object' ? body.data : {};
     const userId: string | null = body?.user_id ? String(body.user_id) : null;
+    const notificationId = body?.notification_id || null; // Optional notification_id from admin panel
 
     if (!title || !message) {
       return new Response('Invalid payload', { 
@@ -81,22 +82,81 @@ serve(async (req) => {
       });
     }
 
-    // Resolve target tokens
+    // Resolve target tokens AND user IDs
     let tokens: string[] = [];
+    let targetUserIds: string[] = [];
     const adminClient = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+    
     if (userId) {
-      const { data } = await adminClient.from('device_tokens').select('expo_token').eq('user_id', userId);
+      // Single user target
+      const { data } = await adminClient.from('device_tokens').select('expo_token, user_id').eq('user_id', userId);
       tokens = (data || []).map((r: any) => r.expo_token);
+      targetUserIds = [userId];
     } else {
-      const { data } = await adminClient.from('device_tokens').select('expo_token');
+      // Broadcast to all users
+      const { data } = await adminClient.from('device_tokens').select('expo_token, user_id');
       tokens = (data || []).map((r: any) => r.expo_token);
+      
+      // Get all unique user IDs for notification_logs from auth.users
+      const { data: allUsers, error: usersError } = await adminClient
+        .from('profiles')
+        .select('id');
+      
+      if (usersError) {
+        console.error('Error fetching users for broadcast:', usersError.message);
+      }
+      
+      targetUserIds = (allUsers || []).map((u: any) => u.id);
+      console.log(`Broadcast: Found ${targetUserIds.length} users to notify`);
     }
 
-    if (tokens.length === 0) {
-      return new Response(JSON.stringify({ sent: 0, results: [] }), { 
+    if (tokens.length === 0 && targetUserIds.length === 0) {
+      return new Response(JSON.stringify({ sent: 0, results: [], logged: 0 }), { 
         status: 200,
         headers: { ...corsHeaders, 'content-type': 'application/json' }
       });
+    }
+
+    // Create notification_logs entries for each target user (so they can see in inbox)
+    let loggedCount = 0;
+    if (targetUserIds.length > 0) {
+      console.log(`Creating notification_logs for ${targetUserIds.length} users`);
+      
+      const notificationLogs = targetUserIds.map((uid: string) => ({
+        user_id: uid,
+        title: title,
+        message: message,
+        type: meta.type || 'info',
+        sent_at: new Date().toISOString(),
+        metadata: {
+          notification_id: notificationId, // Link to original notification if available
+          sent_from: 'admin_panel'
+        }
+      }));
+
+      const { data: insertedLogs, error: logError } = await adminClient
+        .from('notification_logs')
+        .insert(notificationLogs)
+        .select('id');
+
+      if (logError) {
+        console.error('Error creating notification_logs:', logError.message, logError);
+        // Return error details so admin can see what went wrong
+        return new Response(JSON.stringify({ 
+          sent: 0, 
+          logged: 0, 
+          error: `Failed to create notification_logs: ${logError.message}`,
+          details: logError
+        }), { 
+          status: 200, // Still return 200 to avoid breaking admin UI
+          headers: { ...corsHeaders, 'content-type': 'application/json' }
+        });
+      } else {
+        loggedCount = insertedLogs?.length || 0;
+        console.log(`Successfully created ${loggedCount} notification_logs`);
+      }
+    } else {
+      console.log('No target users found - targetUserIds.length is 0');
     }
 
     // Chunk tokens per Expo recommendations (up to ~100 per request)
@@ -114,7 +174,7 @@ serve(async (req) => {
       results.push(json);
     }
 
-    return new Response(JSON.stringify({ sent: tokens.length, results }), { 
+    return new Response(JSON.stringify({ sent: tokens.length, results, logged: loggedCount }), { 
       status: 200,
       headers: { ...corsHeaders, 'content-type': 'application/json' }
     });

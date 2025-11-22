@@ -95,8 +95,14 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
         }
       );
 
+      // Polling fallback: Check for new notifications every 30 seconds
+      const pollingInterval = setInterval(() => {
+        loadNotifications();
+      }, 30000); // 30 seconds
+
       return () => {
         subscription.unsubscribe();
+        clearInterval(pollingInterval);
       };
     }
   }, [userId]);

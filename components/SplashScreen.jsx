@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
   },
   video: {
     width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+    height: SCREEN_HEIGHT * 0.8,
   },
   skipButton: {
     position: 'absolute',

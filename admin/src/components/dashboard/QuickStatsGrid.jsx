@@ -34,7 +34,7 @@ const QuickStatsGrid = ({ stats, loading }) => {
               <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
                 {stat.label}
               </p>
-              {stat.trend !== undefined && (
+              {stat.trend !== undefined && stat.trend !== 0 && (
                 <div className="flex items-center gap-1">
                   {stat.trend >= 0 ? (
                     <TrendingUp className="h-3 w-3 text-green-600" />

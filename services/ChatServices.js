@@ -136,10 +136,17 @@ export const getChannelUnreadCount = async (userId, channelId) => {
       p_channel_id: channelId
     });
     
-    if (error) throw error;
+    if (error) {
+      if (error.message?.includes('<!DOCTYPE html>') || error.code === 'PGRST301') {
+        return 0; // Server temporarily unavailable
+      }
+      throw error;
+    }
     return data || 0;
   } catch (err) {
-    console.error('[ChatServices] Failed to get channel unread count:', err);
+    if (!err.message?.includes('<!DOCTYPE html>')) {
+      console.error('[ChatServices] Failed to get channel unread count:', err.message || err);
+    }
     return 0;
   }
 };
@@ -152,10 +159,17 @@ export const markChannelRead = async (userId, channelId, lastMessageId = null) =
       p_last_message_id: lastMessageId
     });
     
-    if (error) throw error;
+    if (error) {
+      if (error.message?.includes('<!DOCTYPE html>') || error.code === 'PGRST301') {
+        return { success: false, error: 'Server temporarily unavailable' };
+      }
+      throw error;
+    }
     return { success: true };
   } catch (err) {
-    console.error('[ChatServices] Failed to mark channel read:', err);
+    if (!err.message?.includes('<!DOCTYPE html>')) {
+      console.error('[ChatServices] Failed to mark channel read:', err.message || err);
+    }
     return { success: false, error: err };
   }
 };
@@ -167,10 +181,20 @@ export const getDMUnreadCount = async (userId, conversationId) => {
       p_conversation_id: conversationId
     });
     
-    if (error) throw error;
+    if (error) {
+      // Check if it's a server error (5xx) or network error
+      if (error.message?.includes('<!DOCTYPE html>') || error.code === 'PGRST301') {
+        console.warn('[ChatServices] Supabase server temporarily unavailable, returning 0 unread count');
+        return 0;
+      }
+      throw error;
+    }
     return data || 0;
   } catch (err) {
-    console.error('[ChatServices] Failed to get DM unread count:', err);
+    // Silently handle server errors, only log actual application errors
+    if (!err.message?.includes('<!DOCTYPE html>')) {
+      console.error('[ChatServices] Failed to get DM unread count:', err.message || err);
+    }
     return 0;
   }
 };
@@ -183,10 +207,17 @@ export const markDMRead = async (userId, conversationId, lastMessageId = null) =
       p_last_message_id: lastMessageId
     });
     
-    if (error) throw error;
+    if (error) {
+      if (error.message?.includes('<!DOCTYPE html>') || error.code === 'PGRST301') {
+        return { success: false, error: 'Server temporarily unavailable' };
+      }
+      throw error;
+    }
     return { success: true };
   } catch (err) {
-    console.error('[ChatServices] Failed to mark DM read:', err);
+    if (!err.message?.includes('<!DOCTYPE html>')) {
+      console.error('[ChatServices] Failed to mark DM read:', err.message || err);
+    }
     return { success: false, error: err };
   }
 };

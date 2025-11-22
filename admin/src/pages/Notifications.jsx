@@ -91,7 +91,29 @@ const Notifications = () => {
         console.error('Error fetching notifications:', error);
         throw error;
       }
-      setNotifications(data || []);
+      
+      // Deduplicate by keeping only the most recent version of each notification
+      // Group by title+message+type combination
+      const uniqueNotifications = [];
+      const seen = new Map();
+      
+      for (const notif of data || []) {
+        const key = `${notif.title}|${notif.message}|${notif.type}`;
+        
+        // If draft, always show it
+        if (notif.status === 'draft') {
+          uniqueNotifications.push(notif);
+          continue;
+        }
+        
+        // For sent notifications, only keep the most recent one
+        if (!seen.has(key)) {
+          seen.set(key, true);
+          uniqueNotifications.push(notif);
+        }
+      }
+      
+      setNotifications(uniqueNotifications);
     } catch (err) {
       console.error('Error fetching notifications:', err.message || err);
     } finally {
@@ -261,19 +283,23 @@ const Notifications = () => {
           ? notification.user_id 
           : null;
         
-        await fetch(`${SUPABASE_URL}/functions/v1/notify`, {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/deploy-for-notify`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${accessToken}`
           },
           body: JSON.stringify({
+            notification_id: notificationId, // Pass notification ID for tracking
             user_id: targetUserId,
             title: notification.title,
             body: notification.message,
             data: { type: notification.type }
           })
         });
+
+        const result = await response.json();
+        console.log('Notification sent:', result);
       } catch (pushErr) {
         console.warn('Push notification failed (non-fatal):', pushErr.message);
       }
