@@ -11,11 +11,22 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 export default function SplashScreenVideo({ onFinish }) {
   const videoRef = useRef(null);
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     // Hide native splash once component mounts
     SplashScreen.hideAsync();
-  }, []);
+
+    // Auto-skip after 5 seconds if video hasn't loaded (for large files)
+    const timeout = setTimeout(() => {
+      if (!isVideoLoaded) {
+        console.log('Video taking too long to load, skipping...');
+        onFinish();
+      }
+    }, 5000);
+
+    return () => clearTimeout(timeout);
+  }, [isVideoLoaded, onFinish]);
 
   const handleVideoEnd = () => {
     onFinish();
@@ -32,11 +43,18 @@ export default function SplashScreenVideo({ onFinish }) {
     setIsVideoLoaded(true);
   };
 
+  const handleError = (error) => {
+    console.error('Video load error:', error);
+    setLoadError(true);
+    // Skip to app if video fails to load
+    setTimeout(() => onFinish(), 500);
+  };
+
   return (
     <View style={styles.container}>
       <Video
         ref={videoRef}
-        source={require('../assets/BAB Logo Animation.mp4')}
+        source={require('../assets/BAB Logo Animation_compressed.mp4')}
         style={styles.video}
         resizeMode={ResizeMode.COVER}
         shouldPlay
@@ -45,8 +63,12 @@ export default function SplashScreenVideo({ onFinish }) {
           if (status.didJustFinish) {
             handleVideoEnd();
           }
+          if (status.error) {
+            handleError(status.error);
+          }
         }}
         onLoad={handleLoad}
+        onError={handleError}
       />
       
       {/* Skip Button */}
