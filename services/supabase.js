@@ -12,6 +12,11 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     autoRefreshToken: true,
     debug: false,
   },
+  global: {
+    headers: {
+      'X-Client-Info': 'supabase-js-react-native',
+    },
+  },
 });
 
 // Dev visibility: confirm envs are wired
@@ -38,6 +43,22 @@ export async function pingSupabase(timeoutMs = 5000) {
     clearTimeout(to);
   }
 }
+
+// Suppress invalid refresh token errors globally
+const originalConsoleError = console.error;
+console.error = (...args) => {
+  // Suppress Supabase refresh token errors
+  const errorString = args.join(' ');
+  if (
+    errorString.includes('Invalid Refresh Token') ||
+    errorString.includes('Refresh Token Not Found') ||
+    errorString.includes('AuthApiError')
+  ) {
+    // Silently ignore - this is expected when token expires or user logs out
+    return;
+  }
+  originalConsoleError(...args);
+};
 
 // Handle auth errors globally
 supabase.auth.onAuthStateChange((event, session) => {

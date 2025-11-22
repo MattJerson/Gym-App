@@ -16,17 +16,7 @@ export default function SplashScreenVideo({ onFinish }) {
   useEffect(() => {
     // Hide native splash once component mounts
     SplashScreen.hideAsync();
-
-    // Auto-skip after 5 seconds if video hasn't loaded (for large files)
-    const timeout = setTimeout(() => {
-      if (!isVideoLoaded) {
-        console.log('Video taking too long to load, skipping...');
-        onFinish();
-      }
-    }, 5000);
-
-    return () => clearTimeout(timeout);
-  }, [isVideoLoaded, onFinish]);
+  }, []);
 
   const handleVideoEnd = () => {
     onFinish();

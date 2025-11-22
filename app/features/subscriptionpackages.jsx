@@ -253,67 +253,8 @@ export default function SubscriptionPackages() {
 
       const userName = profile?.nickname || user.email?.split('@')[0] || 'User';
 
-      // Handle free trial (no payment required)
-      if (subscription.slug === 'free-trial' || subscription.price === 0) {
-        console.log(`Activating free trial for: ${userName}`);
-        await activateSubscription(user.id, subscription);
-        return;
-      }
-
-      // Initialize Stripe payment sheet for paid subscriptions
-      console.log(`Initializing Stripe payment for: ${subscription.name}`);
-      
-      // Call backend to create payment intent
-      const backendUrl = process.env.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:3000';
-      const response = await fetch(`${backendUrl}/create-payment-intent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          slug: subscription.slug,
-          price: subscription.price,
-          userId: user.id,
-          userName: userName,
-        }),
-      });
-
-      const { paymentIntent, ephemeralKey, customer, error } = await response.json();
-
-      if (error) {
-        throw new Error(error);
-      }
-
-      // Initialize payment sheet
-      const { error: initError } = await initPaymentSheet({
-        merchantDisplayName: 'Gym App',
-        customerId: customer,
-        customerEphemeralKeySecret: ephemeralKey,
-        paymentIntentClientSecret: paymentIntent,
-        allowsDelayedPaymentMethods: false,
-        defaultBillingDetails: {
-          name: userName,
-        },
-      });
-
-      if (initError) {
-        console.error('Payment sheet init error:', initError);
-        Alert.alert('Error', 'Failed to initialize payment');
-        setIsProcessing(false);
-        return;
-      }
-
-      // Present payment sheet
-      const { error: presentError } = await presentPaymentSheet();
-
-      if (presentError) {
-        // User cancelled
-        console.log('Payment cancelled:', presentError);
-        setIsProcessing(false);
-        return;
-      }
-
-      // Payment successful! Activate subscription
+      // STRIPE PAYMENTS DISABLED - All subscriptions activated directly
+      console.log(`Activating ${subscription.name} for: ${userName}`);
       await activateSubscription(user.id, subscription);
     } catch (err) {
       console.error("Subscription error:", err);
