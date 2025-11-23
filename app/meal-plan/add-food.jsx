@@ -104,21 +104,21 @@ export default function AddFood() {
       const protein = food.protein || 0;
       const carbs = food.carbs || 0;
       const fats = food.fats || 0;
+      const calories = food.calories || 0;
       
-      // Exclude if all macros are zero (incomplete data)
-      if (protein === 0 && carbs === 0 && fats === 0) {
+      // Exclude if all macros are zero AND no calories (incomplete data)
+      if (protein === 0 && carbs === 0 && fats === 0 && calories === 0) {
         return false;
       }
       
-      // Exclude if 2 or more macros are less than 1g (not substantial food like broth)
-      const macrosLessThanOne = [protein < 1, carbs < 1, fats < 1].filter(Boolean).length;
-      if (macrosLessThanOne >= 2) {
+      // Exclude if all macros are zero but has calories (suspicious data)
+      if (protein === 0 && carbs === 0 && fats === 0 && calories > 0) {
         return false;
       }
       
-      // Exclude if only one or two macros have values (suspicious/incomplete)
-      const nonZeroCount = [protein > 0, carbs > 0, fats > 0].filter(Boolean).length;
-      if (nonZeroCount < 2) {
+      // Only exclude if ALL THREE macros are less than 0.5g (basically water/broth)
+      const allMacrosVeryLow = protein < 0.5 && carbs < 0.5 && fats < 0.5;
+      if (allMacrosVeryLow) {
         return false;
       }
 
@@ -356,15 +356,43 @@ export default function AddFood() {
 
       const result = await MealPlanDataService.searchFoodsAPI(
         searchQuery.trim(),
-        15, // Fetch 15 items per page
+        20, // Fetch 20 items per page to get more results
         page
       );
 
       const newFoods = result.foods || [];
       const allFoods = page === 1 ? newFoods : [...accumulatedResults, ...newFoods];
       
+      // Sort results to prioritize exact matches
+      const searchTerm = searchQuery.trim().toLowerCase();
+      const sortedFoods = allFoods.sort((a, b) => {
+        const aName = a.name?.toLowerCase() || '';
+        const bName = b.name?.toLowerCase() || '';
+        
+        // Exact match gets highest priority
+        const aExactMatch = aName === searchTerm;
+        const bExactMatch = bName === searchTerm;
+        if (aExactMatch && !bExactMatch) return -1;
+        if (!aExactMatch && bExactMatch) return 1;
+        
+        // Starts with search term gets second priority
+        const aStartsWith = aName.startsWith(searchTerm);
+        const bStartsWith = bName.startsWith(searchTerm);
+        if (aStartsWith && !bStartsWith) return -1;
+        if (!aStartsWith && bStartsWith) return 1;
+        
+        // Contains search term as whole word gets third priority
+        const aWholeWord = new RegExp(`\\b${searchTerm}\\b`).test(aName);
+        const bWholeWord = new RegExp(`\\b${searchTerm}\\b`).test(bName);
+        if (aWholeWord && !bWholeWord) return -1;
+        if (!aWholeWord && bWholeWord) return 1;
+        
+        // Shorter names (more specific) come before longer names
+        return aName.length - bName.length;
+      });
+      
       // Apply filters to see how many valid results we have
-      const filtered = filterFoods(allFoods);
+      const filtered = filterFoods(sortedFoods);
       const finalFiltered = filterFoodsByRestrictions(
         filtered,
         userRestrictions,
@@ -376,13 +404,21 @@ export default function AddFood() {
       setCurrentPage(result.currentPage || page);
       setTotalPages(result.totalPages || 1);
 
-      // If we have less than 15 valid results and there are more pages, fetch next page
-      const hasMorePages = (result.currentPage || page) < (result.totalPages || 1);
-      if (finalFiltered.length < 15 && hasMorePages && page < 5) { // Limit to 5 pages max to avoid infinite loop
+      console.log(`📦 Page ${page}: Got ${newFoods.length} new foods, ${allFoods.length} total, ${finalFiltered.length} after filters`);
+
+      // Continue fetching if we don't have enough results
+      // Check if API returned foods and we haven't hit the page limit
+      const hasMoreResults = newFoods.length > 0; // If API returned results, there might be more
+      const needsMoreResults = finalFiltered.length < 15;
+      const withinPageLimit = page < 10; // Increased limit to 10 pages
+      
+      if (needsMoreResults && hasMoreResults && withinPageLimit) {
         console.log(`📦 Only ${finalFiltered.length} valid results, fetching page ${page + 1}...`);
         await searchFoodsFromAPI(page + 1, allFoods);
         return;
       }
+
+      console.log(`✅ Search complete: ${finalFiltered.length} results after filtering`);
 
     } catch (error) {
       console.error("❌ Error searching foods:", error);
@@ -691,7 +727,7 @@ export default function AddFood() {
                           { color: currentMeal.color },
                         ]}
                       >
-                        Load 15 More Results
+                        Load More Results
                       </Text>
                       <Text style={styles.loadMoreSubtext}>
                         Page {currentPage} of {totalPages}

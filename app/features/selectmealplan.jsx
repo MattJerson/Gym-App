@@ -393,12 +393,22 @@ export default function SelectMealPlan() {
         console.error("Failed to assign meal plan:", mealError);
       } // Assign selected workout templates to user (if any)
       if (selectedWorkouts.length > 0) {
-        const workoutAssignments = selectedWorkouts.map((templateId) => ({
-          user_id: user.id,
-          template_id: templateId,
-          workout_name: "Onboarding Workout", // This will be updated when they view the template
-          is_favorite: true,
-        }));
+        // Fetch the actual workout names from the templates
+        const { data: workoutTemplates } = await supabase
+          .from("workout_templates")
+          .select("id, name, workout_categories(name)")
+          .in("id", selectedWorkouts);
+
+        const workoutAssignments = selectedWorkouts.map((templateId) => {
+          const template = workoutTemplates?.find(t => t.id === templateId);
+          return {
+            user_id: user.id,
+            template_id: templateId,
+            workout_name: template?.name || "Workout",
+            workout_type: template?.workout_categories?.name || "Pre-Made",
+            is_favorite: true,
+          };
+        });
 
         // Use upsert to handle existing entries gracefully
         const { error: workoutError } = await supabase

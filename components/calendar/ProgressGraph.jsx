@@ -94,19 +94,21 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
       const balance = await WeightProgressService.getDailyCalorieBalance(userId, todayString);
       
       // CORRECT LOGIC:
-      // Net balance = (Consumed - Maintenance) - Workout calories burned
-      // Workout calories ADD to the deficit (or reduce the surplus)
-      // Example: Consumed 0, Burned 350, Maintenance 2000
-      //   Net = (0 - 2000) - 350 = -2000 - 350 = -2350 (bigger deficit!)
-      // Example: Consumed 1800, Burned 350, Maintenance 2000
-      //   Net = (1800 - 2000) - 350 = -200 - 350 = -550 (deficit)
+      // Net balance = Consumed - (Maintenance + Workout calories burned)
+      // Positive = Surplus (gain weight), Negative = Deficit (lose weight)
+      // Example: Consumed 2500, Maintenance 2000, Burned 500
+      //   Net = 2500 - (2000 + 500) = 2500 - 2500 = 0 (balanced)
+      // Example: Consumed 3000, Maintenance 2000, Burned 0
+      //   Net = 3000 - 2000 = +1000 (surplus, gain weight)
+      // Example: Consumed 1500, Maintenance 2000, Burned 500
+      //   Net = 1500 - (2000 + 500) = 1500 - 2500 = -1000 (deficit, lose weight)
       const maintenanceCalories = balance.calorieGoal || 2000;
-      const netBalance = (balance.caloriesConsumed - maintenanceCalories) - balance.caloriesBurned;
+      const netBalance = balance.caloriesConsumed - (maintenanceCalories + balance.caloriesBurned);
       
       setDailyBalance({
         consumed: balance.caloriesConsumed,
         burned: balance.caloriesBurned,
-        net: netBalance,
+        net: Math.round(netBalance), // Round to whole number
         isDeficit: netBalance < 0,
         isSurplus: netBalance > 0,
         mealsLogged: balance.mealsLogged,
@@ -137,12 +139,11 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
         const today = new Date();
         const todayLabel = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`;
         
-        // TRICK: User sees today's date, but we calculate using tomorrow's projection
-        // This allows real-time weight updates throughout the day
-        // dailyBalance.net already includes workout calories
-        // Example: No meals, 350 cal workout, 2000 maintenance:
-        //   net = (0 - 2000) - 350 = -2350 cal deficit
-        //   weight change = -2350 / 7700 = -0.305 kg (shows immediately)
+        // REALISTIC WEIGHT PROJECTION:
+        // Weight change is gradual and based on cumulative calorie balance over time
+        // 7700 calories deficit = 1kg fat loss (scientifically accurate)
+        // But we only show TODAY'S contribution to the weekly/monthly trend
+        // This prevents unrealistic weight swings from single-day activities
         let actualNetCalories;
         
         if (dailyBalance.mealsLogged === 0 && dailyBalance.burned === 0) {
@@ -153,7 +154,12 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
           actualNetCalories = dailyBalance.net;
         }
         
-        const todayWeightChange = actualNetCalories / 7700; // 7700 calories = 1kg
+        // More realistic weight change calculation:
+        // Positive surplus = weight gain, Negative deficit = weight loss
+        // 7700 calories = 1kg of body weight
+        // +500 surplus = gain weight, -500 deficit = lose weight
+        // We dampen the immediate visual impact to show realistic trends
+        const todayWeightChange = (actualNetCalories / 7700) * 0.3; // Dampen to 30% for realistic visualization
         const adjustedProjectedWeight = projection.projectedWeight + todayWeightChange;
         const adjustedChange = projection.expectedWeightChange + todayWeightChange;
         

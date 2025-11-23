@@ -42,17 +42,31 @@ export const NotificationService = {
       if (__DEV__) {
       }
 
+      // Get user's registration date to filter notifications
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('created_at')
+        .eq('id', userId)
+        .single();
+
+      if (userError) {
+        console.error('Error fetching user registration date:', userError.message);
+      }
+
+      const userRegistrationDate = userData?.created_at;
+
       // Fetch both manual broadcasts AND automated notifications in parallel
       const [manualResult, automatedResult] = await Promise.all([
-        // Manual broadcasts (sent to all users)
+        // Manual broadcasts (sent to all users) - only show notifications sent AFTER user registered
         supabase
           .from('notifications')
           .select('*')
           .eq('status', 'sent')
+          .gte('sent_at', userRegistrationDate || new Date(0).toISOString()) // Only notifications sent after registration
           .order('sent_at', { ascending: false })
           .limit(limit * 2), // Fetch more to account for dismissed ones
         
-        // Automated notifications (personalized, user-specific)
+        // Automated notifications (personalized, user-specific) - these are already user-specific
         supabase
           .from('notification_logs')
           .select('*')
@@ -186,11 +200,25 @@ export const NotificationService = {
           .map(d => d.notification_id)
       );
 
-      // Get all sent manual notifications (broadcast to all)
+      // Get user's registration date to filter notifications
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('created_at')
+        .eq('id', userId)
+        .single();
+
+      if (userError) {
+        console.error('Error fetching user registration date for count:', userError.message);
+      }
+
+      const userRegistrationDate = userData?.created_at;
+
+      // Get all sent manual notifications (broadcast to all) - only those sent AFTER user registered
       const { data: notifications, error: notifError } = await supabase
         .from('notifications')
         .select('id')
-        .eq('status', 'sent');
+        .eq('status', 'sent')
+        .gte('sent_at', userRegistrationDate || new Date(0).toISOString());
 
       if (notifError) {
         console.error('Error fetching notifications for count:', notifError.message || 'Unknown error');
