@@ -239,40 +239,19 @@ const Notifications = () => {
     if (!confirm(`${action === 'resend' ? 'Resend' : 'Send'} notification "${notification.title}"?`)) return;
     
     try {
-      let notificationId = notification.id;
+      const notificationId = notification.id;
       
-      // If resending, create a NEW notification (duplicate) with fresh ID
-      // This allows users to see it again even if they marked the original as read
-      if (action === 'resend') {
-        const { data: newNotification, error: insertError } = await supabase
-          .from('notifications')
-          .insert({
-            title: notification.title,
-            message: notification.message,
-            type: notification.type,
-            target_audience: notification.target_audience,
-            user_id: notification.user_id,
-            status: 'sent',
-            sent_at: new Date().toISOString()
-          })
-          .select()
-          .single();
-        
-        if (insertError) throw insertError;
-        notificationId = newNotification.id;
-        
-        console.log('Created duplicate notification with new ID:', notificationId);
-      } else {
-        // First send: just update status
-        const { error } = await supabase
-          .from('notifications')
-          .update({ 
-            status: 'sent', 
-            sent_at: new Date().toISOString() 
-          })
-          .eq('id', notification.id);
-        if (error) throw error;
-      }
+      // Update the sent_at timestamp (for both first send and resend)
+      // No need to create duplicates - just update the timestamp
+      const { error } = await supabase
+        .from('notifications')
+        .update({ 
+          status: 'sent', 
+          sent_at: new Date().toISOString() 
+        })
+        .eq('id', notification.id);
+      
+      if (error) throw error;
 
       // Call Edge Function for push (best effort)
       try {

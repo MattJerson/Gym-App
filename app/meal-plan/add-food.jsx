@@ -47,6 +47,7 @@ export default function AddFood() {
   const [totalPages, setTotalPages] = useState(1);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Filter state
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -456,7 +457,7 @@ export default function AddFood() {
     // Blur the background content (faster)
     Animated.timing(blurOpacity, {
       toValue: 0.3,
-      duration: 150,
+      duration: 100,
       useNativeDriver: true,
     }).start();
 
@@ -464,21 +465,21 @@ export default function AddFood() {
     Animated.parallel([
       Animated.spring(successScale, {
         toValue: 1,
-        tension: 80,
-        friction: 6,
+        tension: 100,
+        friction: 5,
         useNativeDriver: true,
       }),
       Animated.timing(successOpacity, {
         toValue: 1,
-        duration: 150,
+        duration: 100,
         useNativeDriver: true,
       }),
     ]).start(() => {
       // After circle appears, animate checkmark (faster)
       Animated.spring(checkmarkScale, {
         toValue: 1,
-        tension: 150,
-        friction: 5,
+        tension: 180,
+        friction: 4,
         useNativeDriver: true,
       }).start(() => {
         // Close modal after a shorter delay
@@ -492,7 +493,7 @@ export default function AddFood() {
           blurOpacity.setValue(1);
           // Navigate back
           router.back();
-        }, 300);
+        }, 200);
       });
     });
   };
@@ -501,12 +502,16 @@ export default function AddFood() {
    * Add food with custom quantity
    */
   const handleAddFood = async () => {
+    // Prevent duplicate submissions
+    if (isSubmitting) return;
+    
     try {
       if (!selectedFood || !quantity) {
         Alert.alert("Invalid Quantity", "Please enter a quantity.");
         return;
       }
 
+      setIsSubmitting(true);
       const quantityValue = parseFloat(quantity);
 
       // If in edit mode, update or delete the existing log
@@ -574,6 +579,7 @@ export default function AddFood() {
     } catch (error) {
       console.error("❌ Error adding food:", error);
       Alert.alert("Error", "Failed to add food. Please try again.");
+      setIsSubmitting(false);
     }
   };
 
@@ -1283,13 +1289,19 @@ export default function AddFood() {
                     style={[
                       styles.addButton,
                       { backgroundColor: currentMeal.color },
+                      isSubmitting && { opacity: 0.6 },
                     ]}
                     onPress={handleAddFood}
                     activeOpacity={0.8}
+                    disabled={isSubmitting}
                   >
-                    <Text style={styles.addButtonText}>
-                      {editMode ? "Update Food" : `Add to ${currentMeal.name}`}
-                    </Text>
+                    {isSubmitting ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={styles.addButtonText}>
+                        {editMode ? "Update Food" : `Add to ${currentMeal.name}`}
+                      </Text>
+                    )}
                   </TouchableOpacity>
                 </Animated.View>
 

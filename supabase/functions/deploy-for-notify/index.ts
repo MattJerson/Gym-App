@@ -78,11 +78,11 @@ serve(async (req)=>{
     });
     if (userId) {
       const { data } = await adminClient.from('device_tokens').select('expo_token').eq('user_id', userId);
-      tokens = (data || []).map((r)=>r.expo_token);
+      tokens = [...new Set((data || []).map((r)=>r.expo_token))]; // Deduplicate tokens
       targetUserIds = [userId];
     } else {
       const { data } = await adminClient.from('device_tokens').select('expo_token');
-      tokens = (data || []).map((r)=>r.expo_token);
+      tokens = [...new Set((data || []).map((r)=>r.expo_token))]; // Deduplicate tokens
       // Get all user IDs from auth.users (no RLS issues)
       const { data: authData, error: authError } = await adminClient.auth.admin.listUsers({ perPage: 1000 });
       if (authError) {

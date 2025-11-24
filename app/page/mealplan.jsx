@@ -172,6 +172,7 @@ export default function Mealplan() {
     return mealLogs.map((log) => ({
       id: log.id,
       meal: capitalizeFirst(log.meal_type), // "breakfast" -> "Breakfast"
+      mealType: log.meal_type.toLowerCase(), // Store original meal type for edit
       name: log.food.name,
       calories: Math.round(log.calories),
       protein: Math.round(log.protein * 10) / 10,
@@ -182,6 +183,12 @@ export default function Mealplan() {
       icon: getCategoryIcon(log.food.category),
       isCompleted: true,
       brand: log.food.brand,
+      // Additional fields needed for editing
+      foodId: log.food_id,
+      fdcId: log.food.fdc_id,
+      quantity: log.quantity,
+      servingSize: log.serving_size,
+      servingUnit: log.serving_unit,
     }));
   };
 

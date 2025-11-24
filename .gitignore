@@ -2033,3 +2033,8 @@ FIX_MARK_ALL_AS_READ_DELETION.sql
 MEAL_PLAN_ASSIGNMENT_CREATION.md
 TIME_BASED_EXERCISES_GUIDE.md
 UPDATE_INACTIVITY_NOTIFICATION_FREQUENCY.sql
+supabase/schema/auth.sql
+supabase/schema/cron.sql
+supabase/schema/public.sql
+supabase/schema/realtime.sql
+supabase/schema/storage.sql

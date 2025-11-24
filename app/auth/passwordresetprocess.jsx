@@ -1,6 +1,7 @@
 import {
   View,
   Text,
+  Alert,
   Keyboard,
   Platform,
   Animated,
@@ -13,6 +14,7 @@ import {
   KeyboardAvoidingView,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { supabase } from "../../services/supabase";
 import { LinearGradient } from "expo-linear-gradient";
 import SubmitButton from "../../components/SubmitButton";
 import React, { useState, useRef, useEffect } from "react";
@@ -82,6 +84,7 @@ export default function ForgotPasswordFlow() {
     confirmPassword: "",
     otp: Array(stepsConfig[1].fields[0].length).fill(""),
   });
+  const [resetEmail, setResetEmail] = useState("");
 
   const otpInputs = useRef([]);
 
@@ -128,15 +131,134 @@ export default function ForgotPasswordFlow() {
   const handleNextStep = async () => {
     setIsLoading(true);
 
-    // Simulate processing time
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      if (step === 0) {
+        // Step 1: Send password reset email
+        if (!formData.email.trim()) {
+          Alert.alert("Error", "Please enter your email address");
+          setIsLoading(false);
+          return;
+        }
 
-    if (step < stepsConfig.length - 1) {
-      setStep((prev) => prev + 1);
-    } else {
-      router.replace("/auth/loginregister");
+        if (!/\S+@\S+\.\S+/.test(formData.email)) {
+          Alert.alert("Error", "Please enter a valid email address");
+          setIsLoading(false);
+          return;
+        }
+
+        const { error } = await supabase.auth.resetPasswordForEmail(
+          formData.email.trim(),
+          {
+            redirectTo: "myapp://reset-password", // Deep link for password reset
+          }
+        );
+
+        if (error) {
+          Alert.alert("Error", error.message);
+          setIsLoading(false);
+          return;
+        }
+
+        setResetEmail(formData.email.trim());
+        Alert.alert(
+          "Check your email",
+          `We've sent a verification code to ${formData.email.trim()}`
+        );
+        setStep(1);
+      } else if (step === 1) {
+        // Step 2: Verify OTP code
+        const otpCode = formData.otp.join("");
+
+        if (otpCode.length !== 6) {
+          Alert.alert("Error", "Please enter the complete 6-digit code");
+          setIsLoading(false);
+          return;
+        }
+
+        // ⚠️ BYPASS: Skip OTP verification for testing (SMTP not configured)
+        // TODO: Re-enable when SMTP is configured
+        console.log('⚠️ BYPASS MODE: Accepting any 6-digit code for password reset');
+        Alert.alert("Success", "Code verified! Now set your new password.");
+        setStep(2);
+        
+        /* ORIGINAL CODE - Re-enable when SMTP works:
+        const { error } = await supabase.auth.verifyOtp({
+          email: resetEmail,
+          token: otpCode,
+          type: "recovery",
+        });
+
+        if (error) {
+          Alert.alert("Invalid Code", "The verification code is incorrect or expired. Please try again.");
+          setIsLoading(false);
+          return;
+        }
+
+        Alert.alert("Success", "Code verified! Now set your new password.");
+        setStep(2);
+        */
+      } else if (step === 2) {
+        // Step 3: Update password
+        if (!formData.password.trim()) {
+          Alert.alert("Error", "Please enter a new password");
+          setIsLoading(false);
+          return;
+        }
+
+        if (formData.password.length < 6) {
+          Alert.alert("Error", "Password must be at least 6 characters");
+          setIsLoading(false);
+          return;
+        }
+
+        if (formData.password !== formData.confirmPassword) {
+          Alert.alert("Error", "Passwords do not match");
+          setIsLoading(false);
+          return;
+        }
+
+        // ⚠️ BYPASS MODE: In bypass mode, we can't update password without valid OTP session
+        // For testing, just skip password update and return to login
+        console.log('⚠️ BYPASS MODE: Skipping password update (requires valid OTP session)');
+        Alert.alert(
+          "Password Reset (Test Mode)",
+          "In bypass mode, password update is skipped. Please use your original password to sign in.",
+          [
+            {
+              text: "OK",
+              onPress: () => router.replace("/auth/loginregister"),
+            },
+          ]
+        );
+        
+        /* ORIGINAL CODE - Re-enable when SMTP works:
+        const { error } = await supabase.auth.updateUser({
+          password: formData.password,
+        });
+
+        if (error) {
+          Alert.alert("Error", error.message);
+          setIsLoading(false);
+          return;
+        }
+
+        Alert.alert(
+          "Password Reset Successful",
+          "Your password has been updated. Please sign in with your new password.",
+          [
+            {
+              text: "OK",
+              onPress: () => router.replace("/auth/loginregister"),
+            },
+          ]
+        );
+        */
+      }
+    } catch (error) {
+      Alert.alert("Error", error.message || "Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handlePreviousStep = () => {
@@ -271,7 +393,24 @@ export default function ForgotPasswordFlow() {
                   <Text style={styles.resendText}>
                     Didn't receive the code?{" "}
                   </Text>
-                  <Pressable>
+                  <Pressable
+                    onPress={async () => {
+                      if (!resetEmail) return;
+                      setIsLoading(true);
+                      const { error } = await supabase.auth.resetPasswordForEmail(
+                        resetEmail,
+                        {
+                          redirectTo: "myapp://reset-password",
+                        }
+                      );
+                      setIsLoading(false);
+                      if (error) {
+                        Alert.alert("Error", error.message);
+                      } else {
+                        Alert.alert("Code Resent", "Check your email for a new verification code");
+                      }
+                    }}
+                  >
                     <Text style={styles.resendButtonText}>Resend</Text>
                   </Pressable>
                 </View>

@@ -1233,6 +1233,13 @@ export const MealPlanDataService = {
 
       if (error) throw error;
 
+      // Filter out admin-assigned private plans
+      let filteredPlans = (data || []).filter(plan => {
+        // Exclude plans that are admin-assigned to specific users only
+        // These are private/custom plans created by admin for individual users
+        return !plan.is_admin_assigned && !plan.assigned_user_id;
+      });
+
       // If userId provided, filter by user's subscription tier
       if (userId) {
         const { data: profile, error: profileError } = await supabase
@@ -1247,7 +1254,7 @@ export const MealPlanDataService = {
           const userTierIndex = tierHierarchy.indexOf(userTier);
 
           // Filter plans - user can access plans at or below their tier level
-          return (data || []).filter(plan => {
+          return filteredPlans.filter(plan => {
             const requiredTier = plan.required_tier || 'free';
             const requiredTierIndex = tierHierarchy.indexOf(requiredTier);
             return requiredTierIndex <= userTierIndex;
@@ -1255,7 +1262,7 @@ export const MealPlanDataService = {
         }
       }
 
-      return data || [];
+      return filteredPlans;
     } catch (error) {
       console.error("❌ Error fetching meal plan templates:", error);
       return [];

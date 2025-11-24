@@ -19,6 +19,7 @@ import SubmitButton from "../../components/SubmitButton";
 import React, { useState, useRef, useEffect } from "react";
 import { supabase, pingSupabase } from "../../services/supabase";
 import { logger } from "../../services/logger";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { registerDeviceToken } from "../../services/notifications";
 import { validateMessage } from "../../services/ChatServices";
 
@@ -412,31 +413,12 @@ export default function Register() {
                 dlog("creating:profile:rpc:exception", rpcErr.message);
               }
 
-              // Sign in the user immediately after successful signup
+              // Store email for verification screen
               try {
-                dlog("signup:post:signin:start");
-                const { data: signInData, error: signInError } = await withTimeout(
-                  supabase.auth.signInWithPassword({ email, password }),
-                  8000,
-                  "Auto sign-in after signup"
-                );
-                if (signInError) {
-                  dlog("signup:post:signin:error", signInError.message);
-                } else {
-                  dlog("signup:post:signin:success");
-                  
-                  // Register device token for push notifications
-                  try {
-                    const token = await registerDeviceToken(supabase, signInData.user.id);
-                    if (__DEV__ && token) {
-                    }
-                  } catch (tokenErr) {
-                    if (__DEV__) {
-                    }
-                  }
-                }
-              } catch (signInErr) {
-                dlog("signup:post:signin:exception", signInErr.message);
+                await AsyncStorage.setItem("pendingVerificationEmail", email);
+                dlog("signup:post:email-stored", email);
+              } catch (storageErr) {
+                dlog("signup:post:storage-error", storageErr.message);
               }
             }
           } catch (innerErr) {
@@ -451,7 +433,20 @@ export default function Register() {
           console.warn("Failed to update user metadata:", upErr);
         }
 
-        router.push("/features/registrationprocess");
+        // Redirect to email verification
+        Alert.alert(
+          "Check Your Email",
+          `We've sent a verification code to ${email}. Please verify your email to continue.`,
+          [
+            {
+              text: "Verify Email",
+              onPress: () => router.push({
+                pathname: "/auth/emailverification",
+                params: { email }
+              })
+            }
+          ]
+        );
       } else {
         // SDK sign-in with timeout
         const { data, error: sdkErr } = await withTimeout(

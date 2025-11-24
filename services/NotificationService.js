@@ -44,9 +44,9 @@ export const NotificationService = {
 
       // Get user's registration date to filter notifications
       const { data: userData, error: userError } = await supabase
-        .from('users')
+        .from('registration_profiles')
         .select('created_at')
-        .eq('id', userId)
+        .eq('user_id', userId)
         .single();
 
       if (userError) {
@@ -66,11 +66,13 @@ export const NotificationService = {
           .order('sent_at', { ascending: false })
           .limit(limit * 2), // Fetch more to account for dismissed ones
         
-        // Automated notifications (personalized, user-specific) - these are already user-specific
+        // Automated notifications ONLY (trigger-based, not manual broadcasts)
+        // Manual broadcasts are already in notifications table, so only get notifications WITH a trigger_id
         supabase
           .from('notification_logs')
           .select('*')
           .eq('user_id', userId)
+          .not('trigger_id', 'is', null) // Only get automated notifications (those with a trigger)
           .order('sent_at', { ascending: false })
           .limit(limit * 2) // Fetch more to account for dismissed ones
       ]);
@@ -202,9 +204,9 @@ export const NotificationService = {
 
       // Get user's registration date to filter notifications
       const { data: userData, error: userError } = await supabase
-        .from('users')
+        .from('registration_profiles')
         .select('created_at')
-        .eq('id', userId)
+        .eq('user_id', userId)
         .single();
 
       if (userError) {

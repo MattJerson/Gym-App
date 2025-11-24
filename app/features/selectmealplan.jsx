@@ -94,9 +94,15 @@ export default function SelectMealPlan() {
         console.error("Supabase error:", error);
         throw error;
       }
+
+      // 🔥 Filter out admin-assigned private plans (only show public templates)
+      const publicPlans = (data || []).filter(plan => {
+        // Exclude plans that are admin-assigned to specific users only
+        return !plan.is_admin_assigned && !plan.assigned_user_id;
+      });
       // 🔥 Calculate personalized values for each plan using the dynamic function
       const plansWithPersonalization = await Promise.all(
-        (data || []).map(async (plan) => {
+        publicPlans.map(async (plan) => {
           let personalizedPlan = { ...plan };
           
           // If user is logged in and plan is dynamic, get personalized values
