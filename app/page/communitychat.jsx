@@ -61,6 +61,7 @@ export default function CommunityChat() {
   const [characterCount, setCharacterCount] = useState(0);
   const [rateLimitError, setRateLimitError] = useState(null);
   const [profanityError, setProfanityError] = useState(false);
+  const lastMessageTime = useRef(0);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(-280)).current;
@@ -575,6 +576,19 @@ export default function CommunityChat() {
       return;
     }
 
+    // Client-side cooldown: 1 second between messages
+    const now = Date.now();
+    const timeSinceLastMessage = now - lastMessageTime.current;
+    const COOLDOWN_MS = 1000;
+    
+    if (timeSinceLastMessage < COOLDOWN_MS) {
+      const waitTime = Math.ceil((COOLDOWN_MS - timeSinceLastMessage) / 1000);
+      setRateLimitError(`Please wait ${waitTime} second${waitTime > 1 ? 's' : ''} between messages`);
+      setTimeout(() => setRateLimitError(null), COOLDOWN_MS - timeSinceLastMessage);
+      return;
+    }
+    
+    lastMessageTime.current = now;
     setSending(true);
     setRateLimitError(null);
     setProfanityError(false);
@@ -626,11 +640,6 @@ export default function CommunityChat() {
           if (error.message?.includes('inappropriate language') || error.message?.includes('profanity')) {
             setProfanityError(true);
             setTimeout(() => setProfanityError(false), 5000);
-          }
-          // Handle rate limit error
-          else if (error.code === 'RATE_LIMIT') {
-            setRateLimitError(`Too many messages. Please wait ${error.waitSeconds} seconds.`);
-            setTimeout(() => setRateLimitError(null), error.waitSeconds * 1000);
           } else {
             // Actual unexpected errors
             console.error("[CommunityChat] Unexpected error sending message:", error);
@@ -652,11 +661,6 @@ export default function CommunityChat() {
           if (error.message?.includes('inappropriate language') || error.message?.includes('profanity')) {
             setProfanityError(true);
             setTimeout(() => setProfanityError(false), 5000);
-          }
-          // Handle rate limit error
-          else if (error.code === 'RATE_LIMIT') {
-            setRateLimitError(`Too many messages. Please wait ${error.waitSeconds} seconds.`);
-            setTimeout(() => setRateLimitError(null), error.waitSeconds * 1000);
           } else {
             // Actual unexpected errors
             console.error("[CommunityChat] Unexpected error sending DM:", error);

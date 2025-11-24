@@ -5,8 +5,6 @@ import { supabase } from "./supabase";
 // ============================================
 
 export const MAX_MESSAGE_LENGTH = 500;
-const RATE_LIMIT_MAX = 10; // messages per window
-const RATE_LIMIT_WINDOW = 1; // minutes
 
 // Client-side profanity check with robust pattern matching
 const profanityPatterns = [
@@ -98,31 +96,6 @@ export const validateMessage = (content) => {
     hasProfanity: foundProfanity.length > 0,
     flaggedWords: foundProfanity
   };
-};
-
-// Check rate limit before sending
-export const checkRateLimit = async (userId) => {
-  try {
-    const { data, error } = await supabase.rpc('check_rate_limit', {
-      p_user_id: userId,
-      p_max_messages: RATE_LIMIT_MAX,
-      p_window_minutes: RATE_LIMIT_WINDOW
-    });
-    
-    if (error) {
-      console.error('[ChatServices] Rate limit check failed:', error);
-      return { allowed: true, waitSeconds: 0 }; // Fail open for UX
-    }
-    
-    return {
-      allowed: data[0]?.allowed || false,
-      currentCount: data[0]?.current_count || 0,
-      waitSeconds: data[0]?.wait_seconds || 0
-    };
-  } catch (err) {
-    console.error('[ChatServices] Rate limit error:', err);
-    return { allowed: true, waitSeconds: 0 };
-  }
 };
 
 // ============================================
@@ -327,18 +300,6 @@ export const sendChannelMessage = async (channelId, content, userId) => {
       };
     }
     
-    // Check rate limit
-    const rateLimit = await checkRateLimit(userId);
-    if (!rateLimit.allowed) {
-      return {
-        data: null,
-        error: { 
-          message: `Too many messages. Please wait ${rateLimit.waitSeconds} seconds.`,
-          code: 'RATE_LIMIT',
-          waitSeconds: rateLimit.waitSeconds
-        }
-      };
-    }
     const { data, error } = await supabase
       .from("channel_messages")
       .insert({
@@ -491,18 +452,6 @@ export const sendDirectMessage = async (conversationId, senderId, content) => {
       };
     }
     
-    // Check rate limit
-    const rateLimit = await checkRateLimit(senderId);
-    if (!rateLimit.allowed) {
-      return {
-        data: null,
-        error: { 
-          message: `Too many messages. Please wait ${rateLimit.waitSeconds} seconds.`,
-          code: 'RATE_LIMIT',
-          waitSeconds: rateLimit.waitSeconds
-        }
-      };
-    }
     const { data, error } = await supabase
       .from("direct_messages")
       .insert({
