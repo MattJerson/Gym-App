@@ -230,6 +230,24 @@ export default function EditProfile() {
 
       if (authError) throw authError;
 
+      // Update profiles table (for display in profile page)
+      const { error: profilesError } = await supabase
+        .from("profiles")
+        .upsert(
+          {
+            id: userId,
+            full_name: name,
+            nickname: name,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "id" }
+        );
+
+      if (profilesError) {
+        console.warn("Failed to update profiles table:", profilesError);
+        // Don't throw - this is non-critical
+      }
+
       // Prepare profile data payload
       const payload = {
         user_id: userId,
@@ -324,15 +342,23 @@ export default function EditProfile() {
             </Text>
             <Pressable
               style={[styles.editButton, isEditing && styles.editButtonActive]}
-              onPress={() => setIsEditing(!isEditing)}
+              onPress={() => {
+                if (!isEditing) {
+                  setIsEditing(true);
+                } else {
+                  // Cancel editing - just exit edit mode without saving
+                  setIsEditing(false);
+                  fetchUserData(); // Reload original data
+                }
+              }}
             >
               <Ionicons
-                name={isEditing ? "checkmark-circle" : "create-outline"}
+                name={isEditing ? "close-circle" : "create-outline"}
                 size={20}
                 color="#fff"
               />
               <Text style={styles.editButtonText}>
-                {isEditing ? "Done" : "Edit"}
+                {isEditing ? "Cancel" : "Edit"}
               </Text>
             </Pressable>
           </View>

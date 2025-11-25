@@ -89,8 +89,8 @@ export default function CommunityChat() {
         setDmMessages([]);
         setUnreadCounts({ channels: [], dms: [], totalUnread: 0 });
       } else if (event === 'USER_UPDATED' && session?.user) {
-        console.log('[CommunityChat] User updated, reloading data');
-        await getCurrentUser();
+        // Ignore USER_UPDATED to prevent reload loops during login
+        console.log('[CommunityChat] User metadata updated (ignored)');
       }
     });
     

@@ -334,6 +334,30 @@ export default function EmailVerification() {
                 <Text style={styles.resendButtonText}>Resend</Text>
               </Pressable>
             </View>
+
+            {/* Temporary Skip Option */}
+            <Pressable
+              onPress={async () => {
+                Alert.alert(
+                  "Skip Verification?",
+                  "Email verification is recommended for account security. Are you sure you want to skip?",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Skip for Now",
+                      style: "destructive",
+                      onPress: async () => {
+                        await AsyncStorage.removeItem("pendingVerificationEmail");
+                        router.replace("/features/registrationprocess");
+                      },
+                    },
+                  ]
+                );
+              }}
+              style={styles.skipButton}
+            >
+              <Text style={styles.skipButtonText}>Skip for Now</Text>
+            </Pressable>
           </KeyboardAvoidingView>
 
           {/* Bottom Section */}
