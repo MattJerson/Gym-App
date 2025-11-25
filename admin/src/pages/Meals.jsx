@@ -87,32 +87,28 @@ const Meals = () => {
 
       if (plansError) throw plansError;
 
-      // Fetch subscriber counts separately to avoid RLS issues
-      const plansWithStats = [];
-      for (const plan of (plans || [])) {
-        try {
-          const { count, error: countError } = await supabase
-            .from('user_meal_plans')
-            .select('*', { count: 'exact', head: true })
-            .eq('plan_id', plan.id); // FIXED: Changed from meal_plan_id to plan_id
+      // Fetch ALL subscriber counts in ONE query instead of per-plan
+      const { data: allSubscribers, error: subsError } = await supabase
+        .from('user_meal_plans')
+        .select('plan_id');
 
-          plansWithStats.push({
-            ...plan,
-            subscriber_count: countError ? 0 : (count || 0)
-          });
-        } catch (err) {
-          // If count fails, just set to 0
-          plansWithStats.push({
-            ...plan,
-            subscriber_count: 0
-          });
-        }
+      // Count subscribers per plan
+      const subscriberCounts = {};
+      if (!subsError && allSubscribers) {
+        allSubscribers.forEach(sub => {
+          subscriberCounts[sub.plan_id] = (subscriberCounts[sub.plan_id] || 0) + 1;
+        });
       }
+
+      // Add subscriber counts to plans
+      const plansWithStats = (plans || []).map(plan => ({
+        ...plan,
+        subscriber_count: subscriberCounts[plan.id] || 0
+      }));
 
       setMealPlans(plansWithStats);
     } catch (error) {
       console.error('Error fetching meal plans:', error);
-      // Even if there's an error, try to set whatever data we have
       setMealPlans([]);
     } finally {
       setIsLoading(false);
