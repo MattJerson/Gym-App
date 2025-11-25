@@ -343,22 +343,27 @@ const Dashboard = () => {
         // Admin activity logs
         ...(adminActivities?.map(a => {
           if (a.activity_type === 'user_registered') {
-            const userEmail = emailMap[a.target_id] || 'No email';
+            const userEmail = emailMap[a.target_id] || null;
             const profile = profilesMap[a.target_id];
             const displayName = profile?.nickname || 
                               profile?.full_name || 
                               usernameMap[a.target_id] || 
                               a.metadata?.nickname || 
-                              'Unknown User';
+                              null;
             const shortUID = (a.target_id || '').substring(0, 8) + '...';
+            
+            // Skip entries where both name and email are missing/unknown
+            if ((!displayName || displayName === 'Unknown User') && !userEmail) {
+              return null; // Will be filtered out below
+            }
             
             return {
               id: a.id,
               type: 'user',
               activityType: 'user_registered',
               name: 'New User Registered',
-              action: `Name: ${displayName}`,
-              email: userEmail,
+              action: `Name: ${displayName || 'Unknown User'}`,
+              email: userEmail || 'No email',
               metadata: `UID: ${shortUID}`,
               time: formatTimeAgo(a.created_at),
               timestamp: a.created_at
@@ -375,25 +380,30 @@ const Dashboard = () => {
             time: formatTimeAgo(a.created_at),
             timestamp: a.created_at
           };
-        }) || []),
+        }).filter(activity => activity !== null) || []),
         // Recent user registrations (if no admin logs)
         ...((!adminActivities || adminActivities.length === 0) ? recentNewUsers.map(u => {
-          const displayName = u.nickname || u.full_name || usernameMap[u.id] || 'Unknown User';
+          const displayName = u.nickname || u.full_name || usernameMap[u.id] || null;
           const shortUID = u.id.substring(0, 8) + '...';
-          const userEmail = emailMap[u.id] || 'No email';
+          const userEmail = emailMap[u.id] || null;
+          
+          // Skip entries where both name and email are missing/unknown
+          if ((!displayName || displayName === 'Unknown User') && !userEmail) {
+            return null; // Will be filtered out below
+          }
           
           return {
             id: u.id,
             type: 'user',
             activityType: 'user_registered',
             name: 'New User Registered',
-            action: `Name: ${displayName}`,
-            email: userEmail,
+            action: `Name: ${displayName || 'Unknown User'}`,
+            email: userEmail || 'No email',
             metadata: `UID: ${shortUID}`,
             time: formatTimeAgo(u.created_at),
             timestamp: u.created_at
           };
-        }) : []),
+        }).filter(activity => activity !== null) : []),
         // Workout completions
         ...recentWorkoutsActivity.map(w => ({
           id: w.user_id + w.created_at,
