@@ -154,7 +154,24 @@ export default function ForgotPasswordFlow() {
         );
 
         if (error) {
-          Alert.alert("Error", error.message);
+          let errorTitle = "Reset Failed";
+          let errorMessage = error.message || "Failed to send reset email";
+          
+          if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
+            errorTitle = "Rate Limit Reached";
+            errorMessage = "Too many reset attempts. Please wait a few minutes before trying again.";
+          } else if (error.message?.includes('email')) {
+            errorTitle = "Email Error";
+            errorMessage = "Unable to send reset email. Please check your email address.";
+          } else if (error.message?.includes('network') || error.message?.includes('timeout')) {
+            errorTitle = "Connection Error";
+            errorMessage = "Unable to connect. Please check your internet connection.";
+          } else if (error.status === 429) {
+            errorTitle = "Too Many Requests";
+            errorMessage = "Rate limit exceeded. Please wait before requesting another reset email.";
+          }
+          
+          Alert.alert(errorTitle, errorMessage);
           setIsLoading(false);
           return;
         }
@@ -183,7 +200,21 @@ export default function ForgotPasswordFlow() {
         });
 
         if (error) {
-          Alert.alert("Invalid Code", "The verification code is incorrect or expired. Please try again.");
+          let errorTitle = "Verification Failed";
+          let errorMessage = "The verification code is incorrect or expired. Please try again.";
+          
+          if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
+            errorTitle = "Rate Limit Reached";
+            errorMessage = "Too many verification attempts. Please wait a few minutes.";
+          } else if (error.message?.includes('expired') || error.message?.includes('invalid')) {
+            errorTitle = "Code Expired";
+            errorMessage = "This code has expired. Please request a new reset email.";
+          } else if (error.status === 422) {
+            errorTitle = "Invalid Code";
+            errorMessage = "The code you entered is incorrect. Please check and try again.";
+          }
+          
+          Alert.alert(errorTitle, errorMessage);
           setIsLoading(false);
           return;
         }
@@ -216,7 +247,21 @@ export default function ForgotPasswordFlow() {
         });
 
         if (error) {
-          Alert.alert("Error", error.message);
+          let errorTitle = "Password Update Failed";
+          let errorMessage = error.message || "Failed to update password";
+          
+          if (error.message?.includes('weak') || error.message?.includes('short')) {
+            errorTitle = "Weak Password";
+            errorMessage = "Password must be at least 6 characters long.";
+          } else if (error.message?.includes('session')) {
+            errorTitle = "Session Expired";
+            errorMessage = "Your session has expired. Please request a new reset email.";
+          } else if (error.message?.includes('network')) {
+            errorTitle = "Connection Error";
+            errorMessage = "Unable to update password. Please check your connection.";
+          }
+          
+          Alert.alert(errorTitle, errorMessage);
           setIsLoading(false);
           return;
         }

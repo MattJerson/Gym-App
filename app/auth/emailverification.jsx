@@ -131,10 +131,25 @@ export default function EmailVerification() {
       });
 
       if (error) {
-        Alert.alert(
-          "Invalid Code",
-          "The verification code is incorrect or expired. Please try again."
-        );
+        let errorTitle = "Verification Failed";
+        let errorMessage = "The verification code is incorrect or expired. Please try again.";
+        
+        // Handle specific error cases
+        if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
+          errorTitle = "Rate Limit Reached";
+          errorMessage = "Too many verification attempts. Please wait a few minutes and try again.";
+        } else if (error.message?.includes('expired') || error.message?.includes('invalid')) {
+          errorTitle = "Code Expired";
+          errorMessage = "This verification code has expired. Please request a new code.";
+        } else if (error.message?.includes('network') || error.message?.includes('timeout')) {
+          errorTitle = "Connection Error";
+          errorMessage = "Unable to verify code. Please check your internet connection and try again.";
+        } else if (error.status === 422) {
+          errorTitle = "Invalid Code";
+          errorMessage = "The code you entered is incorrect. Please check and try again.";
+        }
+        
+        Alert.alert(errorTitle, errorMessage);
         setIsLoading(false);
         return;
       }
@@ -155,7 +170,16 @@ export default function EmailVerification() {
       );
     } catch (error) {
       console.error("OTP verification error:", error);
-      Alert.alert("Error", error.message || "Failed to verify code");
+      
+      let errorMessage = "Failed to verify code. Please try again.";
+      
+      if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        errorMessage = "Network error. Please check your internet connection and try again.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert("Verification Error", errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -174,9 +198,27 @@ export default function EmailVerification() {
       });
 
       if (error) {
-        Alert.alert("Error", error.message);
+        let errorTitle = "Resend Failed";
+        let errorMessage = error.message || "Failed to resend verification code";
+        
+        // Handle specific error cases
+        if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
+          errorTitle = "Rate Limit Reached";
+          errorMessage = "You've requested too many codes. Please wait 60 seconds before trying again.";
+        } else if (error.message?.includes('email')) {
+          errorTitle = "Email Error";
+          errorMessage = "Unable to send email. Please check your email address and try again.";
+        } else if (error.message?.includes('network') || error.message?.includes('timeout')) {
+          errorTitle = "Connection Error";
+          errorMessage = "Unable to send code. Please check your internet connection.";
+        } else if (error.status === 429) {
+          errorTitle = "Too Many Requests";
+          errorMessage = "Rate limit exceeded. Please wait a few minutes before requesting another code.";
+        }
+        
+        Alert.alert(errorTitle, errorMessage);
       } else {
-        Alert.alert("Code Resent", "Check your email for a new verification code");
+        Alert.alert("Code Resent", "Check your email for a new verification code. It may take a minute to arrive.");
         // Clear OTP inputs
         setOtp(Array(6).fill(""));
         if (otpInputs.current[0]) {
@@ -185,7 +227,16 @@ export default function EmailVerification() {
       }
     } catch (error) {
       console.error("Resend error:", error);
-      Alert.alert("Error", "Failed to resend code");
+      
+      let errorMessage = "Failed to resend code. Please try again later.";
+      
+      if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        errorMessage = "Network error. Please check your internet connection.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert("Resend Error", errorMessage);
     } finally {
       setIsLoading(false);
     }
