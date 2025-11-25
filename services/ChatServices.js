@@ -265,7 +265,7 @@ export const fetchChannelMessages = async (channelId, limit = 50) => {
   let profilesById = {};
   if (userIds.length) {
     const { data: profiles, error: profileErr } = await supabase
-      .from("chats_public_with_id")
+      .from("chats")
       .select("id, username, avatar, is_online")
       .in("id", userIds);
 
@@ -320,7 +320,7 @@ export const sendChannelMessage = async (channelId, content, userId) => {
     // Enrich with public profile
     try {
       const { data: profile } = await supabase
-        .from("chats_public_with_id")
+        .from("chats")
         .select("id, username, avatar, is_online")
         .eq("id", userId)
         .single();
@@ -359,7 +359,7 @@ export const subscribeToChannelMessages = (channelId, callback) => {
             .single();
 
           const { data: profile } = await supabase
-            .from("chats_public_with_id")
+            .from("chats")
             .select("id, username, avatar, is_online")
             .eq("id", row.user_id)
             .single();
@@ -418,7 +418,7 @@ export const fetchDirectMessages = async (conversationId, limit = 50) => {
   let profilesById = {};
   if (userIds.length) {
     const { data: profiles, error: profileErr } = await supabase
-      .from("chats_public_with_id")
+      .from("chats")
       .select("id, username, avatar, is_online")
       .in("id", userIds);
 
@@ -443,6 +443,8 @@ export const fetchDirectMessages = async (conversationId, limit = 50) => {
 // Send direct message (with validation and rate limiting)
 export const sendDirectMessage = async (conversationId, senderId, content) => {
   try {
+    console.log('[ChatServices] sendDirectMessage START:', { conversationId, senderId, contentLength: content?.length });
+    
     // Validate message
     const validation = validateMessage(content);
     if (!validation.isValid) {
@@ -452,6 +454,7 @@ export const sendDirectMessage = async (conversationId, senderId, content) => {
       };
     }
     
+    console.log('[ChatServices] Inserting message into direct_messages...');
     const { data, error } = await supabase
       .from("direct_messages")
       .insert({
@@ -467,11 +470,14 @@ export const sendDirectMessage = async (conversationId, senderId, content) => {
 
     if (error) {
       console.error("[ChatServices] sendDirectMessage error:", error);
+      console.error('[ChatServices] Insert failed - conversationId:', conversationId, 'senderId:', senderId);
+      console.error('[ChatServices] This is likely an RLS policy issue. Check if dm_read_receipts policies are configured.');
       return { data: null, error };
     }
+    console.log('[ChatServices] Message inserted successfully, ID:', data?.id);
     try {
       const { data: profile } = await supabase
-        .from("chats_public_with_id")
+        .from("chats")
         .select("id, username, avatar, is_online")
         .eq("id", senderId)
         .single();
@@ -509,7 +515,7 @@ export const subscribeToDirectMessages = (conversationId, callback) => {
             .single();
 
           const { data: profile } = await supabase
-            .from("chats_public_with_id")
+            .from("chats")
             .select("id, username, avatar, is_online")
             .eq("id", row.sender_id)
             .single();
@@ -615,24 +621,32 @@ export const fetchUserConversations = async (userId) => {
         });
       }
       
-      // Final fallback: For still-missing profiles, try to get username from direct_messages sender info
+      // Final fallback: For still-missing profiles, try to get username from profiles table
       const stillMissingIds = missingIds.filter(id => !profileMap[id] && id !== null);
       if (stillMissingIds.length > 0) {
-        console.log(`[ChatServices] Attempting to fetch ${stillMissingIds.length} profiles from chats_public_with_id view...`);
+        console.log(`[ChatServices] Attempting to fetch ${stillMissingIds.length} profiles from chats table...`);
+        console.log('[ChatServices] Missing user IDs (full):', stillMissingIds);
         
         const { data: publicProfiles, error: publicError } = await supabase
-          .from("chats_public_with_id")
+          .from("chats")
           .select("id, username, avatar, is_online")
           .in("id", stillMissingIds);
         
+        if (publicError) {
+          console.error('[ChatServices] Error fetching from chats table (fallback):', publicError);
+        } else {
+          console.log(`[ChatServices] Chats fallback query returned ${publicProfiles?.length || 0} profiles:`, publicProfiles);
+        }
+        
         if (publicProfiles && publicProfiles.length > 0) {
-          console.log(`[ChatServices] Found ${publicProfiles.length} profiles from public view`);
+          console.log(`[ChatServices] Found ${publicProfiles.length} profiles from chats table`);
           publicProfiles.forEach(profile => {
             profileMap[profile.id] = profile;
-            console.log(`[ChatServices] Public profile found: ${profile.id.substring(0, 8)} -> ${profile.username}`);
+            console.log(`[ChatServices] Profile found: ${profile.id.substring(0, 8)} -> ${profile.username}`);
           });
         } else {
           console.warn(`[ChatServices] Could not find profiles anywhere for: ${stillMissingIds.map(id => id?.substring(0, 8)).join(', ')}`);
+          console.warn('[ChatServices] These users may not have entries in the chats table. Run SQL sync script.');
         }
       }
     }

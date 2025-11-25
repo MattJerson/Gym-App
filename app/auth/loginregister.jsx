@@ -581,54 +581,54 @@ export default function Register() {
         }
 
         // After login, if display name is missing, set it from registration_profiles or fallback to email
+        // This is non-blocking - if it fails, login still succeeds
         dlog("login:post:updateUser:step");
-        try {
-          dlog("login:post:updateUser:start");
-          // Try to get nickname from registration_profiles
-          let nickname = null;
-          try {
-            const { data: profile } = await supabase
-              .from("registration_profiles")
-              .select("nickname")
-              .eq("user_id", data.user.id)
-              .maybeSingle();
+        supabase
+          .from("registration_profiles")
+          .select("nickname")
+          .eq("user_id", data.user.id)
+          .maybeSingle()
+          .then(({ data: profile }) => {
+            const nickname = profile?.nickname || data.user.email?.split("@")[0] || "User";
             dlog("login:post:updateUser:profile", { profile });
-            nickname =
-              profile?.nickname || data.user.email?.split("@")[0] || "User";
-          } catch (e) {
-            dlog(
-              "login:post:updateUser:profile:error",
-              String(e?.message || e)
-            );
-            nickname = data.user.email?.split("@")[0] || "User";
-          }
-          await withTimeout(
-            supabase.auth.updateUser({
+            return supabase.auth.updateUser({
               data: { full_name: nickname, nickname, display_name: nickname },
-            }),
-            8000,
-            "Profile update (login)"
-          );
-          dlog("login:post:updateUser:done", { nickname });
-        } catch (updateErr) {
-          if (__DEV__) {
-            console.error("[AUTH] Profile update error:", updateErr.message);
-          }
-        }
+            });
+          })
+          .then(() => {
+            dlog("login:post:updateUser:done");
+          })
+          .catch((updateErr) => {
+            if (__DEV__) {
+              console.warn("[AUTH] Profile update skipped:", updateErr.message);
+            }
+          });
 
         // Check if onboarding is complete - DYNAMIC routing based on missing data
         try {
           // Ensure profile exists
-          await supabase.rpc("create_profile_for_user", {
-            user_id_param: data.user.id,
-          });
+          await withTimeout(
+            supabase.rpc("create_profile_for_user", {
+              user_id_param: data.user.id,
+            }),
+            10000,
+            "Profile creation"
+          );
           
           // Check onboarding status and missing data
-          const { data: profile } = await supabase
-            .from("registration_profiles")
-            .select("*")
-            .eq("user_id", data.user.id)
-            .maybeSingle();
+          const { data: profile, error: profileError } = await withTimeout(
+            supabase
+              .from("registration_profiles")
+              .select("*")
+              .eq("user_id", data.user.id)
+              .maybeSingle(),
+            10000,
+            "Profile fetch"
+          );
+          
+          if (profileError) {
+            throw profileError;
+          }
             
           // Always check what's missing, regardless of onboarding_completed flag
           // This ensures users who partially completed onboarding are routed correctly
@@ -645,7 +645,34 @@ export default function Register() {
           if (__DEV__) {
             console.error("[AUTH] Onboarding check error:", err.message);
           }
-          // Fallback to home
+          
+          // If it's a timeout or critical error, show alert and stop loading
+          if (err.message?.includes("timed out") || err.message?.includes("Profile")) {
+            Alert.alert(
+              "Connection Issue",
+              "We're having trouble loading your profile. Please check your connection and try again.",
+              [
+                {
+                  text: "Sign Out",
+                  style: "cancel",
+                  onPress: async () => {
+                    await supabase.auth.signOut();
+                    setIsLoading(false);
+                  }
+                },
+                {
+                  text: "Retry",
+                  onPress: () => {
+                    setIsLoading(false);
+                    // User can try logging in again
+                  }
+                }
+              ]
+            );
+            return; // Stop here, don't navigate
+          }
+          
+          // For other errors, fallback to home
           router.replace("/page/home");
         }
       }

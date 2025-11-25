@@ -87,6 +87,7 @@ export default function SelectMealPlan() {
         .from("meal_plan_templates")
         .select("*")
         .eq("is_active", true)
+        .is("created_by", null) // Only system-created plans
         .order("plan_type", { ascending: true })
         .order("name", { ascending: true });
 
@@ -95,10 +96,12 @@ export default function SelectMealPlan() {
         throw error;
       }
 
-      // 🔥 Filter out admin-assigned private plans (only show public templates)
+      // 🔥 Filter to only show free tier plans for onboarding
       const publicPlans = (data || []).filter(plan => {
-        // Exclude plans that are admin-assigned to specific users only
-        return !plan.is_admin_assigned && !plan.assigned_user_id;
+        // Show only free tier plans (not premium)
+        return !plan.is_premium && 
+               !plan.created_by &&
+               (plan.required_tier === 'free' || !plan.required_tier);
       });
       // 🔥 Calculate personalized values for each plan using the dynamic function
       const plansWithPersonalization = await Promise.all(

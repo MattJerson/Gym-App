@@ -2038,3 +2038,5 @@ supabase/schema/cron.sql
 supabase/schema/public.sql
 supabase/schema/realtime.sql
 supabase/schema/storage.sql
+supabase/check_username_issue.sql
+supabase/dm_read_receipts_rls_fix.sql

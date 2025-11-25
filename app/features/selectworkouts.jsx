@@ -83,7 +83,7 @@ export default function SelectWorkouts() {
 
       if (catError) throw catError;
 
-      // Load workout templates (admin-created only, not user-created)
+      // Load workout templates (only public templates for onboarding)
       const { data: workoutsData, error: workError } = await supabase
         .from("workout_templates")
         .select(
@@ -93,29 +93,37 @@ export default function SelectWorkouts() {
         `
         )
         .eq("is_active", true)
-        .is("created_by_user_id", null) // Only show admin templates (not user-created)
+        .eq("assignment_type", "public") // Only public templates
+        .is("created_by_user_id", null) // Not user-created
+        .is("assigned_by_manager_id", null) // Not manager-assigned
         .order("name");
 
-      if (workError) throw workError;
+    if (workError) throw workError;
 
-      // Map images to categories
-      const categoriesWithImages = categoriesData.map((cat, index) => ({
-        ...cat,
-        localImage: WORKOUT_IMAGES[`image${(index % 5) + 1}`],
-      }));
+    // Additional client-side filtering for safety
+    const publicOnlyWorkouts = (workoutsData || []).filter(workout => {
+      return workout.assignment_type === 'public' && 
+             !workout.created_by_user_id && 
+             !workout.assigned_by_manager_id &&
+             !workout.is_manager_created;
+    });
 
-      // Group workouts by category
-      const workoutsWithImages = workoutsData.map((workout) => {
-        const categoryIndex = categoriesWithImages.findIndex(
-          (c) => c.id === workout.category_id
-        );
-        return {
-          ...workout,
-          localImage: WORKOUT_IMAGES[`image${(categoryIndex % 5) + 1}`],
-        };
-      });
+    console.log(`[SelectWorkouts] Loaded ${publicOnlyWorkouts.length} public workouts for onboarding`);
 
-      setCategories(categoriesWithImages);
+    // Map images to categories
+    const categoriesWithImages = categoriesData.map((cat, index) => ({
+      ...cat,
+      localImage: WORKOUT_IMAGES[`image${(index % 5) + 1}`],
+    }));    // Group workouts by category
+    const workoutsWithImages = publicOnlyWorkouts.map((workout) => {
+      const categoryIndex = categoriesWithImages.findIndex(
+        (c) => c.id === workout.category_id
+      );
+      return {
+        ...workout,
+        localImage: WORKOUT_IMAGES[`image${(categoryIndex % 5) + 1}`],
+      };
+    });      setCategories(categoriesWithImages);
       setWorkouts(workoutsWithImages);
       setFilteredWorkouts(workoutsWithImages); // Initially show all
     } catch (error) {

@@ -1287,11 +1287,11 @@ export const MealPlanDataService = {
         return null;
       }
 
-      // If we have a plan, also fetch assignment status from user_meal_plans table
+      // If we have a plan, also fetch assignment status and ID from user_meal_plans table
       if (data) {
         const { data: assignmentData, error: assignmentError } = await supabase
           .from('user_meal_plans')
-          .select('is_admin_assigned, assigned_by, assignment_note')
+          .select('id, is_admin_assigned, assigned_by, assignment_note')
           .eq('user_id', userId)
           .eq('plan_id', data.plan_id)
           .eq('is_active', true)
@@ -1299,6 +1299,7 @@ export const MealPlanDataService = {
 
         if (!assignmentError && assignmentData) {
           // Merge assignment data into the plan
+          data.user_plan_id = assignmentData.id; // Add user_plan_id for delete operations
           data.is_admin_assigned = assignmentData.is_admin_assigned;
           data.assigned_by = assignmentData.assigned_by;
           data.assignment_note = assignmentData.assignment_note;
