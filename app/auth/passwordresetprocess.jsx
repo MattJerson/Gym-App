@@ -175,13 +175,7 @@ export default function ForgotPasswordFlow() {
           return;
         }
 
-        // ⚠️ BYPASS: Skip OTP verification for testing (SMTP not configured)
-        // TODO: Re-enable when SMTP is configured
-        console.log('⚠️ BYPASS MODE: Accepting any 6-digit code for password reset');
-        Alert.alert("Success", "Code verified! Now set your new password.");
-        setStep(2);
-        
-        /* ORIGINAL CODE - Re-enable when SMTP works:
+        // Verify OTP code with Supabase
         const { error } = await supabase.auth.verifyOtp({
           email: resetEmail,
           token: otpCode,
@@ -196,7 +190,6 @@ export default function ForgotPasswordFlow() {
 
         Alert.alert("Success", "Code verified! Now set your new password.");
         setStep(2);
-        */
       } else if (step === 2) {
         // Step 3: Update password
         if (!formData.password.trim()) {
@@ -217,21 +210,7 @@ export default function ForgotPasswordFlow() {
           return;
         }
 
-        // ⚠️ BYPASS MODE: In bypass mode, we can't update password without valid OTP session
-        // For testing, just skip password update and return to login
-        console.log('⚠️ BYPASS MODE: Skipping password update (requires valid OTP session)');
-        Alert.alert(
-          "Password Reset (Test Mode)",
-          "In bypass mode, password update is skipped. Please use your original password to sign in.",
-          [
-            {
-              text: "OK",
-              onPress: () => router.replace("/auth/loginregister"),
-            },
-          ]
-        );
-        
-        /* ORIGINAL CODE - Re-enable when SMTP works:
+        // Update password with Supabase
         const { error } = await supabase.auth.updateUser({
           password: formData.password,
         });
@@ -252,7 +231,6 @@ export default function ForgotPasswordFlow() {
             },
           ]
         );
-        */
       }
     } catch (error) {
       Alert.alert("Error", error.message || "Something went wrong. Please try again.");

@@ -47,7 +47,7 @@ export const NotificationService = {
         .from('registration_profiles')
         .select('created_at')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (userError) {
         console.error('Error fetching user registration date:', userError.message);
@@ -207,7 +207,7 @@ export const NotificationService = {
         .from('registration_profiles')
         .select('created_at')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (userError) {
         console.error('Error fetching user registration date for count:', userError.message);

@@ -302,14 +302,28 @@ const GamificationDataService = {
         .single();
 
       if (error && error.code === 'PGRST116') {
-        // Create user_stats if doesn't exist
+        // Create user_stats if doesn't exist using upsert to avoid duplicate key errors
         const { data: newData, error: createError } = await supabase
           .from('user_stats')
-          .insert([{ user_id: userId }])
+          .upsert({ user_id: userId }, {
+            onConflict: 'user_id',
+            ignoreDuplicates: false
+          })
           .select()
           .single();
 
-        if (createError) throw createError;
+        if (createError && createError.code !== '23505') throw createError;
+        
+        // If still duplicate, just fetch the existing record
+        if (createError && createError.code === '23505') {
+          const { data: existingData } = await supabase
+            .from('user_stats')
+            .select('*')
+            .eq('user_id', userId)
+            .single();
+          return existingData;
+        }
+        
         return newData;
       }
 

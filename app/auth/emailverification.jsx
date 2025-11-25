@@ -123,22 +123,7 @@ export default function EmailVerification() {
         return;
       }
 
-      // ⚠️ BYPASS: Skip OTP verification for testing (SMTP not configured)
-      // TODO: Re-enable when SMTP is configured
-      console.log('⚠️ BYPASS MODE: Accepting any 6-digit code for testing');
-      
-      // Simulate successful verification by signing in the user
-      // The user was already created during signup, just need to sign them in
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: 'bypass-mode' // Won't work but we'll handle it
-      });
-      
-      // If auto sign-in fails (expected), that's okay - just proceed
-      // The user exists and we'll let them through
-      console.log('Email verification bypassed - proceeding to registration');
-      
-      /* ORIGINAL CODE - Re-enable when SMTP works:
+      // Verify the OTP code with Supabase
       const { data, error } = await supabase.auth.verifyOtp({
         email: email,
         token: otpCode,
@@ -153,7 +138,6 @@ export default function EmailVerification() {
         setIsLoading(false);
         return;
       }
-      */
 
       // Clear pending email from storage
       await AsyncStorage.removeItem("pendingVerificationEmail");

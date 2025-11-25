@@ -181,6 +181,21 @@ export default function Register() {
   const passwordStrength = getPasswordStrength(password);
 
   useEffect(() => {
+    // Check for invalid session on mount
+    const checkSession = async () => {
+      try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error && error.message.includes('JWT does not exist')) {
+          // Clear invalid session
+          await supabase.auth.signOut();
+        }
+      } catch (err) {
+        // Ignore errors during session check
+      }
+    };
+    
+    checkSession();
+    
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -329,7 +344,10 @@ export default function Register() {
               supabase.auth.signUp({
                 email,
                 password,
-                options: { data: { nickname } },
+                options: { 
+                  data: { nickname },
+                  emailRedirectTo: undefined, // Disable magic link, force OTP
+                },
               }),
               8000,
               "Sign up"
@@ -341,6 +359,75 @@ export default function Register() {
             });
             if (error) {
               dlog("signup:sdk:error", error.message);
+              
+              // Handle "User already registered" error
+              if (error.message?.includes("already registered") || error.message?.includes("already exists")) {
+                dlog("signup:user-exists", email);
+                
+                // Check if email is unconfirmed
+                try {
+                  const { data: userData, error: checkError } = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                  });
+                  
+                  if (checkError && checkError.message?.includes("Email not confirmed")) {
+                    // User exists but email not verified - redirect to verification
+                    await AsyncStorage.setItem("pendingVerificationEmail", email);
+                    Alert.alert(
+                      "Email Not Verified",
+                      "You've already registered but haven't verified your email. Please verify to continue.",
+                      [
+                        {
+                          text: "Verify Now",
+                          onPress: () => router.push({
+                            pathname: "/auth/emailverification",
+                            params: { email }
+                          })
+                        }
+                      ]
+                    );
+                    setIsLoading(false);
+                    return;
+                  } else if (!checkError && userData?.user && !userData.user.email_confirmed_at) {
+                    // Successfully logged in but email not confirmed
+                    await supabase.auth.signOut();
+                    await AsyncStorage.setItem("pendingVerificationEmail", email);
+                    Alert.alert(
+                      "Email Not Verified",
+                      "Please verify your email to continue.",
+                      [
+                        {
+                          text: "Verify Now",
+                          onPress: () => router.push({
+                            pathname: "/auth/emailverification",
+                            params: { email }
+                          })
+                        }
+                      ]
+                    );
+                    setIsLoading(false);
+                    return;
+                  } else if (!checkError) {
+                    // Email already verified - they should just login
+                    Alert.alert(
+                      "Account Already Exists",
+                      "This email is already registered. Please sign in instead.",
+                      [
+                        {
+                          text: "OK",
+                          onPress: () => setIsRegistering(false)
+                        }
+                      ]
+                    );
+                    setIsLoading(false);
+                    return;
+                  }
+                } catch (checkErr) {
+                  dlog("signup:check-exists:error", checkErr.message);
+                }
+              }
+              
               if (
                 error instanceof Error &&
                 error.message?.includes("Password should be at least")
@@ -457,6 +544,27 @@ export default function Register() {
         if (sdkErr) {
           throw sdkErr;
         }
+
+        // Check if email is confirmed
+        if (data?.user && !data.user.email_confirmed_at) {
+          // User exists but email not verified
+          await supabase.auth.signOut(); // Sign them out
+          Alert.alert(
+            "Email Not Verified",
+            "Please verify your email before signing in. Check your inbox for the verification code.",
+            [
+              {
+                text: "Verify Now",
+                onPress: () => router.push({
+                  pathname: "/auth/emailverification",
+                  params: { email }
+                })
+              }
+            ]
+          );
+          setIsLoading(false);
+          return;
+        }
         
         if (__DEV__) {
         }
@@ -545,7 +653,34 @@ export default function Register() {
       if (__DEV__) {
         console.error("[AUTH] Authentication error:", error.message);
       }
-      Alert.alert("Authentication error", error.message || "An error occurred");
+      
+      // Better error messages for common cases
+      let errorMessage = error.message || "An error occurred";
+      
+      if (error.message?.includes("Invalid login credentials")) {
+        errorMessage = isRegistering 
+          ? "Unable to create account. Please check your details and try again."
+          : "Invalid email or password. Please check your credentials.";
+      } else if (error.message?.includes("Email not confirmed")) {
+        // This should be caught earlier, but just in case
+        Alert.alert(
+          "Email Not Verified",
+          "Please verify your email before signing in.",
+          [
+            {
+              text: "Verify Now",
+              onPress: () => router.push({
+                pathname: "/auth/emailverification",
+                params: { email }
+              })
+            }
+          ]
+        );
+        setIsLoading(false);
+        return;
+      }
+      
+      Alert.alert("Authentication error", errorMessage);
     } finally {
       setIsLoading(false);
     }
