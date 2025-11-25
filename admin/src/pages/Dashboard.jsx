@@ -302,6 +302,25 @@ const Dashboard = () => {
         }
       }
 
+      // Create a map from allProfiles for easy lookup
+      const profilesMap = {};
+      allProfiles?.forEach(p => {
+        profilesMap[p.id] = {
+          nickname: p.nickname,
+          full_name: p.full_name
+        };
+      });
+
+      // Fetch usernames from chats table as fallback
+      const { data: chatProfiles } = await supabase
+        .from('chats')
+        .select('id, username');
+
+      const usernameMap = {};
+      chatProfiles?.forEach(p => {
+        usernameMap[p.id] = p.username;
+      });
+
       // Fetch recent workouts (last 10)
       const recentWorkoutsActivity = allWorkouts
         ?.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -325,7 +344,12 @@ const Dashboard = () => {
         ...(adminActivities?.map(a => {
           if (a.activity_type === 'user_registered') {
             const userEmail = emailMap[a.target_id] || 'No email';
-            const displayName = a.metadata?.nickname || 'Unknown User';
+            const profile = profilesMap[a.target_id];
+            const displayName = profile?.nickname || 
+                              profile?.full_name || 
+                              usernameMap[a.target_id] || 
+                              a.metadata?.nickname || 
+                              'Unknown User';
             const shortUID = (a.target_id || '').substring(0, 8) + '...';
             
             return {
@@ -354,7 +378,7 @@ const Dashboard = () => {
         }) || []),
         // Recent user registrations (if no admin logs)
         ...((!adminActivities || adminActivities.length === 0) ? recentNewUsers.map(u => {
-          const displayName = u.full_name || u.nickname || 'Unknown User';
+          const displayName = u.nickname || u.full_name || usernameMap[u.id] || 'Unknown User';
           const shortUID = u.id.substring(0, 8) + '...';
           const userEmail = emailMap[u.id] || 'No email';
           
