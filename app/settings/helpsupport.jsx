@@ -119,7 +119,12 @@ export default function HelpSupport() {
               <View style={styles.divider} />
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Build</Text>
-                <Text style={styles.infoValue}>2024.10.23</Text>
+                <Text style={styles.infoValue}>{new Date().toISOString().split('T')[0].replace(/-/g, '.')}</Text>
+              </View>
+              <View style={styles.divider} />
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Environment</Text>
+                <Text style={styles.infoValue}>{__DEV__ ? 'Development' : 'Production'}</Text>
               </View>
             </View>
           </View>

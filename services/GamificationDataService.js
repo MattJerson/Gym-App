@@ -426,6 +426,8 @@ const GamificationDataService = {
       const { data, error } = await supabase
         .from('safe_weekly_challenge_leaderboard')
         .select('*')
+        .order('challenge_score', { ascending: false })
+        .order('current_streak', { ascending: false })
         .limit(limit);
 
       if (error) {

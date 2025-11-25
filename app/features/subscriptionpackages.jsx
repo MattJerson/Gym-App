@@ -348,12 +348,9 @@ export default function SubscriptionPackages() {
           {
             text: "Continue",
             onPress: () => {
-              // Check if coming from settings (upgrade flow) or onboarding
-              if (router.canGoBack()) {
-                router.back(); // Go back to settings
-              } else {
-                router.replace("/features/selectworkouts"); // Continue onboarding
-              }
+              // Always go to workout selection after subscription
+              // (whether from onboarding or settings upgrade flow)
+              router.replace("/features/selectworkouts");
             },
           },
         ]

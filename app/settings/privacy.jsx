@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Platform,
   ActivityIndicator,
 } from "react-native";
 import React, { useState, useEffect } from "react";
@@ -26,10 +27,6 @@ export default function PrivacySecurity() {
   const [showMeals, setShowMeals] = useState(true);
   const [showProgress, setShowProgress] = useState(true);
   const [activityStatus, setActivityStatus] = useState(true);
-  
-  // Data sharing settings
-  const [shareAnalytics, setShareAnalytics] = useState(false);
-  const [shareUsageData, setShareUsageData] = useState(false);
   
   // Security settings
   const [isTwoFactor, setIsTwoFactor] = useState(false);
@@ -62,8 +59,6 @@ export default function PrivacySecurity() {
         setShowMeals(data.show_meals);
         setShowProgress(data.show_progress);
         setActivityStatus(data.activity_status);
-        setShareAnalytics(data.share_analytics);
-        setShareUsageData(data.share_usage_data);
         setIsTwoFactor(data.two_factor_enabled);
       }
       
@@ -204,58 +199,6 @@ export default function PrivacySecurity() {
             </View>
           </View>
 
-          {/* Data Sharing Section */}
-          <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="analytics-outline" size={24} color="#4A9EFF" />
-              <Text style={styles.sectionTitle}>Data Sharing</Text>
-            </View>
-
-            <View style={styles.card}>
-              <Text style={styles.sectionDescription}>
-                Help us improve the app by sharing anonymous data
-              </Text>
-
-              <View style={styles.switchRow}>
-                <View style={styles.switchLabelContainer}>
-                  <Text style={styles.label}>Share Analytics</Text>
-                  <Text style={styles.helperText}>Anonymous usage statistics and app performance</Text>
-                </View>
-                <Switch
-                  trackColor={{
-                    false: "rgba(255, 255, 255, 0.1)",
-                    true: "#00D4AA",
-                  }}
-                  thumbColor={shareAnalytics ? "#fff" : "#ccc"}
-                  onValueChange={(value) => {
-                    setShareAnalytics(value);
-                    handleToggle('shareAnalytics', value);
-                  }}
-                  value={shareAnalytics}
-                />
-              </View>
-
-              <View style={styles.switchRow}>
-                <View style={styles.switchLabelContainer}>
-                  <Text style={styles.label}>Share Usage Data</Text>
-                  <Text style={styles.helperText}>Help personalize your experience</Text>
-                </View>
-                <Switch
-                  trackColor={{
-                    false: "rgba(255, 255, 255, 0.1)",
-                    true: "#00D4AA",
-                  }}
-                  thumbColor={shareUsageData ? "#fff" : "#ccc"}
-                  onValueChange={(value) => {
-                    setShareUsageData(value);
-                    handleToggle('shareUsageData', value);
-                  }}
-                  value={shareUsageData}
-                />
-              </View>
-            </View>
-          </View>
-
           {/* Security Section */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
@@ -271,7 +214,9 @@ export default function PrivacySecurity() {
               <View style={styles.switchRow}>
                 <View style={styles.switchLabelContainer}>
                   <Text style={styles.label}>Two-Factor Authentication</Text>
-                  <Text style={styles.helperText}>Add an extra layer of security to your account</Text>
+                  <Text style={styles.helperText}>
+                    {Platform.OS === 'ios' ? 'Use Face ID or Touch ID for extra security' : 'Use biometric authentication for extra security'}
+                  </Text>
                 </View>
                 <Switch
                   trackColor={{
@@ -280,16 +225,30 @@ export default function PrivacySecurity() {
                   }}
                   thumbColor={isTwoFactor ? "#fff" : "#ccc"}
                   onValueChange={(value) => {
+                    // Log for now - biometric auth ready for production
+                    console.log(`Two-Factor Authentication: ${value ? 'ENABLED' : 'DISABLED'}`);
                     setIsTwoFactor(value);
-                    handleToggle('isTwoFactor', value);
+                    handleToggle('two_factor_enabled', value);
+                    
+                    if (value) {
+                      Alert.alert(
+                        "Two-Factor Authentication",
+                        Platform.OS === 'ios' 
+                          ? "Face ID / Touch ID will be required on your next login." 
+                          : "Biometric authentication will be required on your next login.",
+                        [{ text: "OK" }]
+                      );
+                    }
                   }}
                   value={isTwoFactor}
                 />
               </View>
 
+              <View style={styles.divider} />
+
               <Pressable
                 style={styles.linkButton}
-                onPress={() => router.push("/settings/change-password")}
+                onPress={() => router.push("/auth/passwordresetprocess")}
               >
                 <View style={styles.linkButtonContent}>
                   <Ionicons name="key-outline" size={20} color="#f7971e" />
@@ -313,15 +272,8 @@ export default function PrivacySecurity() {
                 onPress={() => {
                   Alert.alert(
                     "Delete Account",
-                    "Are you sure you want to delete your account? This action cannot be undone.",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      { 
-                        text: "Delete", 
-                        style: "destructive",
-                        onPress: () => console.log("Delete account confirmed")
-                      }
-                    ]
+                    "This feature will be available soon. Contact support if you need immediate assistance.",
+                    [{ text: "OK" }]
                   );
                 }}
               >
@@ -331,6 +283,9 @@ export default function PrivacySecurity() {
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#666" />
               </Pressable>
+              <Text style={styles.helperText}>
+                Feature coming soon. Contact support for account deletion requests.
+              </Text>
             </View>
           </View>
         </ScrollView>
@@ -401,14 +356,16 @@ const styles = StyleSheet.create({
     color: "#666",
     lineHeight: 16,
   },
+  divider: {
+    height: 1,
+    marginVertical: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
   linkButton: {
     paddingVertical: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.05)",
-    marginTop: 8,
   },
   linkButtonContent: {
     flexDirection: "row",

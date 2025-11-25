@@ -22,17 +22,53 @@ export default function LeaderboardCard({
     return map[metricType] || metricType;
   };
 
-  // If leaderboard is empty, create placeholder with current user at 0 points
-  const displayLeaderboard = leaderboard.length > 0 
-    ? leaderboard 
-    : [{
-        position: 1,
+  // Show top 3, then current user if they're not in top 3
+  const displayLeaderboard = React.useMemo(() => {
+    const topThree = leaderboard.slice(0, 3);
+    const minEntries = 3;
+    
+    // Pad top 3 with placeholders if needed
+    while (topThree.length < minEntries) {
+      const position = topThree.length + 1;
+      topThree.push({
+        position: position,
+        user_id: null,
+        display_name: `User ${position}`,
+        total_points: 0,
+        current_streak: 0,
+        progress_value: 0,
+        target_value: 0,
+        anon_id: `placeholder-${position}`,
+        is_placeholder: true
+      });
+    }
+    
+    // Check if current user is in top 3
+    const userInTopThree = topThree.some(user => user.user_id === currentUserId);
+    
+    // If user is not in top 3 and exists in leaderboard, add them as 4th entry
+    if (!userInTopThree && currentUserId) {
+      const currentUserEntry = leaderboard.find(user => user.user_id === currentUserId);
+      if (currentUserEntry) {
+        return [...topThree, currentUserEntry];
+      }
+      
+      // If user not in leaderboard at all, add them at position 4 with 0 points
+      return [...topThree, {
+        position: 4,
         user_id: currentUserId,
         display_name: currentUserNickname || 'You',
         total_points: 0,
         current_streak: 0,
-        progress_value: 0
+        progress_value: 0,
+        target_value: 0,
+        anon_id: `current-user`,
+        is_placeholder: false
       }];
+    }
+    
+    return topThree;
+  }, [leaderboard, currentUserId, currentUserNickname]);
 
   return (
     <View style={styles.card}>
@@ -59,8 +95,8 @@ export default function LeaderboardCard({
       <View style={styles.leaderboardContainer}>
         {displayLeaderboard.slice(0, 10).map((leaderUser, index) => {
           const leaderKey = leaderUser.anon_id || leaderUser.user_id || `pos-${leaderUser.position || index}`;
-          const isCurrentUser = (currentUserPosition && leaderUser.position === currentUserPosition) || 
-                                (leaderboard.length === 0 && leaderUser.user_id === currentUserId);
+          const isCurrentUser = leaderUser.user_id === currentUserId && !leaderUser.is_placeholder;
+          const isPlaceholder = leaderUser.is_placeholder || (leaderUser.total_points === 0 && !leaderUser.user_id);
           
           // Use the display_name from the database (already includes nickname logic from GamificationDataService)
           let displayName = leaderUser.display_name || leaderUser.user_name || `User ${leaderUser.position || index + 1}`;
@@ -73,7 +109,8 @@ export default function LeaderboardCard({
           return (
             <View key={leaderKey} style={[
               styles.leaderboardRow,
-              isCurrentUser && styles.currentUserRow
+              isCurrentUser && styles.currentUserRow,
+              isPlaceholder && styles.placeholderRow
             ]}>
               <View style={styles.leaderboardLeft}>
                 <View
@@ -216,6 +253,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(247, 151, 30, 0.1)",
     borderColor: "rgba(247, 151, 30, 0.3)",
     borderWidth: 1.5,
+  },
+  placeholderRow: {
+    opacity: 0.4,
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
   },
   leaderboardLeft: {
     flexDirection: "row",

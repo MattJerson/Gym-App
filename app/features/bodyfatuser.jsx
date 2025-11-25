@@ -35,6 +35,7 @@ export default function BodyFatUser() {
   const [isLoading, setIsLoading] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [currentStep, setCurrentStep] = useState(0); // 0 = current body fat, 1 = goal body fat
+  const [hasCompletedBothSteps, setHasCompletedBothSteps] = useState(false);
 
   const modalScale = useRef(new Animated.Value(0.9)).current;
   const modalOpacity = useRef(new Animated.Value(0)).current;
@@ -57,13 +58,38 @@ export default function BodyFatUser() {
           if (cancelled) return;
 
           if (existingProfile) {
-            if (existingProfile.current_body_fat != null) {
+            // If both body fat values are already saved, user has completed this step
+            // Check if they also have a subscription - if so, skip to workout selection
+            if (existingProfile.current_body_fat != null && existingProfile.goal_body_fat != null) {
+              const { data: existingSubscription } = await supabase
+                .from("user_subscriptions")
+                .select("id, status")
+                .eq("user_id", userId)
+                .eq("status", "active")
+                .single();
+
+              if (existingSubscription) {
+                // User has completed body fat AND has subscription - skip to workouts
+                logger.info("Body fat already saved and subscription exists, skipping to workout selection");
+                router.replace("../features/selectworkouts");
+                return;
+              }
+
+              // Load existing values
               setCurrentBodyFat(existingProfile.current_body_fat);
-              logger.info("Loaded current body fat from database:", existingProfile.current_body_fat);
-            }
-            if (existingProfile.goal_body_fat != null) {
               setGoalBodyFat(existingProfile.goal_body_fat);
-              logger.info("Loaded goal body fat from database:", existingProfile.goal_body_fat);
+              setHasCompletedBothSteps(true);
+              logger.info("Loaded body fat data from database");
+            } else {
+              // Only load what exists
+              if (existingProfile.current_body_fat != null) {
+                setCurrentBodyFat(existingProfile.current_body_fat);
+                logger.info("Loaded current body fat from database:", existingProfile.current_body_fat);
+              }
+              if (existingProfile.goal_body_fat != null) {
+                setGoalBodyFat(existingProfile.goal_body_fat);
+                logger.info("Loaded goal body fat from database:", existingProfile.goal_body_fat);
+              }
             }
           }
         }
@@ -147,6 +173,8 @@ export default function BodyFatUser() {
     if (currentStep === 0) {
       setCurrentStep(1);
     } else {
+      // Mark that user has completed both steps
+      setHasCompletedBothSteps(true);
       // Show confirmation dialog instead of immediately submitting
       setShowConfirmation(true);
     }

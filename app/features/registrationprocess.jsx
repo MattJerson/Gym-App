@@ -696,6 +696,10 @@ export default function BasicInfo() {
     // Validate current step
     if (!validateCurrentStep()) {
       setIsLoading(false);
+      // Scroll to top to show validation errors
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }, 100);
       return;
     }
 
@@ -847,6 +851,10 @@ export default function BasicInfo() {
     if (step > 0) {
       lightHaptic();
       setStep((prev) => prev - 1);
+      // Scroll to top when going back
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }, 100);
     } else {
       router.back();
     }
@@ -888,6 +896,7 @@ export default function BasicInfo() {
               )}
 
               <ScrollView
+                ref={scrollViewRef}
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
