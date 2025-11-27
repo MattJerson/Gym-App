@@ -124,10 +124,24 @@ export default function EmailVerification() {
       }
 
       // Verify the OTP code with Supabase
+      console.log('[EMAIL] Verifying OTP:', {
+        email: email,
+        codeLength: otpCode.length,
+        type: 'signup'
+      });
+      
       const { data, error } = await supabase.auth.verifyOtp({
         email: email,
         token: otpCode,
         type: "signup",
+      });
+
+      console.log('[EMAIL] Verification response:', {
+        success: !error,
+        error: error?.message,
+        errorStatus: error?.status,
+        verified: !!data?.user,
+        timestamp: new Date().toISOString()
       });
 
       if (error) {
@@ -192,9 +206,18 @@ export default function EmailVerification() {
 
     try {
       // Resend signup confirmation email
-      const { error } = await supabase.auth.resend({
+      console.log('[EMAIL] Attempting to resend verification email to:', email);
+      
+      const { data, error } = await supabase.auth.resend({
         type: "signup",
         email: email,
+      });
+
+      console.log('[EMAIL] Resend response:', {
+        success: !error,
+        error: error?.message,
+        data: data,
+        timestamp: new Date().toISOString()
       });
 
       if (error) {
@@ -218,6 +241,7 @@ export default function EmailVerification() {
         
         Alert.alert(errorTitle, errorMessage);
       } else {
+        console.log('[EMAIL] ✅ Verification email resent successfully to:', email);
         Alert.alert("Code Resent", "Check your email for a new verification code. It may take a minute to arrive.");
         // Clear OTP inputs
         setOtp(Array(6).fill(""));

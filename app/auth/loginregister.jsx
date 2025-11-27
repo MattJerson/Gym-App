@@ -463,6 +463,15 @@ export default function Register() {
             }
             console.timeEnd("auth:signup");
 
+            // Log email sending status
+            console.log("[EMAIL] Signup response:", {
+              userId: data?.user?.id,
+              email: data?.user?.email,
+              emailConfirmedAt: data?.user?.email_confirmed_at,
+              identities: data?.user?.identities?.length,
+              message: "Supabase should have sent verification email"
+            });
+
             dlog("signup:post:metadata", { hasUser: !!data?.user });
             if (data?.user) {
               try {
