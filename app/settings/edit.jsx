@@ -31,6 +31,7 @@ export default function EditProfile() {
 
   // Profile Data (from registration_profiles)
   const [profileData, setProfileData] = useState({
+    avatarEmoji: "😊",
     gender: "",
     age: "",
     height_cm: "",
@@ -99,6 +100,7 @@ export default function EditProfile() {
 
       if (profileData) {
         setProfileData({
+          avatarEmoji: profileData.avatar_emoji || "😊",
           gender: profileData.gender || "",
           age: profileData.age?.toString() || "",
           height_cm: profileData.height_cm?.toString() || "",
@@ -251,6 +253,7 @@ export default function EditProfile() {
       // Prepare profile data payload
       const payload = {
         user_id: userId,
+        avatar_emoji: profileData.avatarEmoji || "😊",
         gender: profileData.gender || null,
         age: profileData.age ? parseInt(profileData.age, 10) : null,
         height_cm: profileData.height_cm
@@ -397,6 +400,73 @@ export default function EditProfile() {
                 />
                 <Text style={styles.helperText}>Email cannot be changed</Text>
               </View>
+            </View>
+          </View>
+
+          {/* Profile Avatar Section */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Ionicons
+                name="happy-outline"
+                size={24}
+                color="#f7971e"
+              />
+              <Text style={styles.sectionTitle}>Profile Avatar</Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.label}>Select Your Emoji Avatar</Text>
+              <Text style={styles.helperText}>
+                Choose an emoji that represents you. This will appear throughout
+                the app.
+              </Text>
+
+              {/* Current Emoji Display */}
+              <View style={styles.currentEmojiContainer}>
+                <Text style={styles.currentEmojiLabel}>Current Avatar:</Text>
+                <View style={styles.currentEmojiDisplay}>
+                  <Text style={styles.currentEmojiText}>
+                    {profileData.avatarEmoji}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Emoji Grid */}
+              {isEditing && (
+                <View style={styles.emojiGrid}>
+                  {[
+                    "😊", "😎", "🔥", "💪", "⚡", "🚀", "🎯", "👑", "💯", "🏆",
+                    "⭐", "🌟", "🎮", "🎨", "🎵", "❤️", "💙", "💚", "💛", "🧡",
+                    "💜", "🖤", "🤍", "🤎", "🦄", "🦁", "🐯", "🐻", "🐼", "🐨",
+                    "🐸", "🦊", "🐱", "🐶", "🐷",
+                  ].map((emoji, index) => (
+                    <Pressable
+                      key={index}
+                      onPress={() =>
+                        setProfileData({ ...profileData, avatarEmoji: emoji })
+                      }
+                      style={[
+                        styles.emojiButton,
+                        profileData.avatarEmoji === emoji &&
+                          styles.emojiButtonSelected,
+                      ]}
+                    >
+                      <Text style={styles.emojiButtonText}>{emoji}</Text>
+                      {profileData.avatarEmoji === emoji && (
+                        <View style={styles.selectedIndicator}>
+                          <Text style={styles.checkmark}>✓</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+
+              {!isEditing && (
+                <Text style={styles.disabledText}>
+                  Enable edit mode to change your avatar
+                </Text>
+              )}
             </View>
           </View>
 
@@ -1212,6 +1282,86 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
+  },
+  currentEmojiContainer: {
+    marginTop: 12,
+    marginBottom: 16,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    backgroundColor: "rgba(247, 151, 30, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(247, 151, 30, 0.3)",
+  },
+  currentEmojiLabel: {
+    fontSize: 12,
+    color: "#f7971e",
+    fontWeight: "600",
+    marginBottom: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  currentEmojiDisplay: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(247, 151, 30, 0.2)",
+    borderWidth: 3,
+    borderColor: "#f7971e",
+  },
+  currentEmojiText: {
+    fontSize: 48,
+  },
+  emojiGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginTop: 16,
+    justifyContent: "flex-start",
+  },
+  emojiButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  emojiButtonSelected: {
+    backgroundColor: "rgba(247, 151, 30, 0.25)",
+    borderColor: "#f7971e",
+    borderWidth: 3,
+  },
+  emojiButtonText: {
+    fontSize: 28,
+  },
+  selectedIndicator: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#f7971e",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkmark: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  disabledText: {
+    fontSize: 13,
+    color: "#888",
+    textAlign: "center",
+    marginTop: 12,
+    fontStyle: "italic",
   },
   multiButton: {
     paddingHorizontal: 14,

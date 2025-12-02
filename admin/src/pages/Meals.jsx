@@ -403,7 +403,9 @@ const Meals = () => {
       protein_percent: plan.protein_percent || 40,
       carbs_percent: plan.carbs_percent || 35,
       fat_percent: plan.fat_percent || 25,
+      selected_user_ids: [], // Initialize empty for editing
     });
+    loadStandardPlanUsers();
     setIsModalOpen(true);
   };
 
@@ -590,6 +592,7 @@ const Meals = () => {
               onClick={() => {
                 setEditingPlan(null);
                 resetForm();
+                loadStandardPlanUsers();
                 setIsModalOpen(true);
               }}
             >
@@ -864,18 +867,25 @@ const Meals = () => {
                       }
                     };
 
+                    // Determine background color based on assignment type
+                    const getRowBackgroundColor = () => {
+                      if (plan.assignment_type === 'all_users' || plan.required_tier === 'free') {
+                        return 'bg-green-50 border-l-4 border-green-400'; // Light green for everyone
+                      } else if (plan.assignment_type === 'tier' || ['basic', 'standard', 'rapid_results'].includes(plan.required_tier)) {
+                        return 'bg-blue-50 border-l-4 border-blue-400'; // Light blue for tier-based
+                      } else if (plan.assignment_type === 'specific_users') {
+                        return 'bg-purple-50 border-l-4 border-purple-400'; // Light purple for specific users
+                      }
+                      return 'bg-white border-l-4 border-gray-200'; // Default white
+                    };
+
                     return (
-                      <tr key={plan.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={plan.id} className={`hover:brightness-95 transition-all ${getRowBackgroundColor()}`}>
                         {/* Meal Plan Name & Description */}
                         <td className="px-4 py-3">
-                          <div className="flex items-start gap-2.5">
-                            <div className={`h-9 w-9 rounded-lg ${getTypeColor()} flex items-center justify-center flex-shrink-0 shadow-sm mt-0.5`}>
-                              <ChefHat className="h-4 w-4 text-white" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="font-semibold text-sm text-gray-900 truncate">{plan.name}</p>
-                              <p className="text-xs text-gray-500 leading-snug">{plan.description}</p>
-                            </div>
+                          <div>
+                            <p className="font-semibold text-sm text-gray-900">{plan.name}</p>
+                            <p className="text-xs text-gray-500 leading-snug mt-0.5">{plan.description}</p>
                           </div>
                         </td>
 
@@ -1535,11 +1545,78 @@ const Meals = () => {
                       </div>
                     )}
 
-                    {/* User Selection Note (if assignment_type is "specific") */}
+                    {/* User Selection (if assignment_type is "specific") */}
                     {formData.assignment_type === "specific" && (
-                      <div className="ml-6 pt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <p className="text-sm text-yellow-800">
-                          <strong>Note:</strong> User selection for specific assignment will be available after creating the plan. The plan will be created first, then you can select specific users to assign it to.
+                      <div className="ml-6 pt-2">
+                        <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                          Select Users ({formData.selected_user_ids?.length || 0} selected)
+                        </label>
+                        
+                        {/* Search Users */}
+                        <input
+                          type="text"
+                          placeholder="Search users..."
+                          value={userSearchQuery}
+                          onChange={(e) => setUserSearchQuery(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-sm border rounded-md mb-2"
+                        />
+                        
+                        {/* User List with Checkboxes */}
+                        <div className="max-h-48 overflow-y-auto space-y-1.5 border rounded-md p-2 bg-white">
+                          {standardPlanUsers
+                            .filter(user => 
+                              user.username?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                              user.user_id.includes(userSearchQuery)
+                            )
+                            .map(user => (
+                              <label
+                                key={user.user_id}
+                                className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors text-sm ${
+                                  formData.selected_user_ids?.includes(user.user_id)
+                                    ? 'bg-blue-50 border border-blue-300'
+                                    : 'bg-gray-50 border border-gray-200 hover:border-blue-200'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={formData.selected_user_ids?.includes(user.user_id) || false}
+                                  onChange={(e) => {
+                                    const currentIds = formData.selected_user_ids || [];
+                                    if (e.target.checked) {
+                                      setFormData({
+                                        ...formData,
+                                        selected_user_ids: [...currentIds, user.user_id]
+                                      });
+                                    } else {
+                                      setFormData({
+                                        ...formData,
+                                        selected_user_ids: currentIds.filter(id => id !== user.user_id)
+                                      });
+                                    }
+                                  }}
+                                  className="w-3.5 h-3.5 text-blue-600"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium text-gray-900 truncate">{user.username || 'Unknown'}</div>
+                                  <div className="text-xs text-gray-500">{user.subscription_tier || 'free'}</div>
+                                </div>
+                              </label>
+                            ))}
+                          {standardPlanUsers.filter(user => 
+                            user.username?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+                            user.user_id.includes(userSearchQuery)
+                          ).length === 0 && (
+                            <div className="text-center text-gray-500 text-sm py-4">No users found</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Show Standard Plan Users (if assignment_type is "subscription") */}
+                    {formData.assignment_type === "subscription" && formData.selected_subscription && (
+                      <div className="ml-6 pt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p className="text-xs text-blue-800">
+                          Will be assigned to all users with <strong>{formData.selected_subscription}</strong> tier or higher
                         </p>
                       </div>
                     )}

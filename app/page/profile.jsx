@@ -58,10 +58,10 @@ export default function Profile() {
       }
       setCurrentUserId(authUser.id);
 
-      // Get user's profile for nickname
+      // Get user's profile for nickname and avatar
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("nickname, full_name")
+        .select("nickname, full_name, avatar_emoji")
         .eq("id", authUser.id)
         .single();
 
@@ -73,6 +73,17 @@ export default function Profile() {
         "User";
 
       setCurrentUserNickname(userNickname);
+
+      // Get avatar emoji from registration_profiles if not in profiles
+      let avatarEmoji = profileData?.avatar_emoji;
+      if (!avatarEmoji) {
+        const { data: regProfile } = await supabase
+          .from("registration_profiles")
+          .select("avatar_emoji")
+          .eq("user_id", authUser.id)
+          .single();
+        avatarEmoji = regProfile?.avatar_emoji || "😊";
+      }
 
       // Set user basic info
       setUser({
@@ -86,6 +97,7 @@ export default function Profile() {
           "en-US",
           { month: "long", year: "numeric" }
         )}`,
+        avatarEmoji: avatarEmoji,
       });
 
       // Ensure server-side stats are up-to-date from activity (workouts, steps, sets, badges)

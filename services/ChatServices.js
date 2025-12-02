@@ -248,12 +248,11 @@ export const fetchChannels = async () => {
 
 // Fetch channel messages
 export const fetchChannelMessages = async (channelId, limit = 50) => {
-  // Fetch raw messages (exclude deleted)
+  // Fetch raw messages (include deleted to show [DELETED] placeholders)
   const { data: messages, error: msgErr } = await supabase
     .from("channel_messages")
     .select(`*, message_reactions (emoji, user_id)`)
     .eq("channel_id", channelId)
-    .eq("is_deleted", false)
     .order("created_at", { ascending: true })
     .limit(limit);
 
@@ -338,41 +337,77 @@ export const sendChannelMessage = async (channelId, content, userId) => {
 };
 
 // Subscribe to channel messages
-export const subscribeToChannelMessages = (channelId, callback) => {
-  return supabase
-    .channel(`channel:${channelId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "channel_messages",
-        filter: `channel_id=eq.${channelId}`,
-      },
-      async (payload) => {
-        try {
-          // Fetch the inserted row and its public profile
-          const { data: row } = await supabase
-            .from("channel_messages")
-            .select("*")
-            .eq("id", payload.new.id)
-            .single();
+export const subscribeToChannelMessages = (channelId, callback, onDelete = null) => {
+  const channel = supabase.channel(`channel:${channelId}`);
+  
+  // Listen for INSERT events (new messages)
+  channel.on(
+    "postgres_changes",
+    {
+      event: "INSERT",
+      schema: "public",
+      table: "channel_messages",
+      filter: `channel_id=eq.${channelId}`,
+    },
+    async (payload) => {
+      try {
+        // Fetch the inserted row and its public profile
+        const { data: row } = await supabase
+          .from("channel_messages")
+          .select("*")
+          .eq("id", payload.new.id)
+          .single();
 
-          const { data: profile } = await supabase
-            .from("chats")
-            .select("id, username, avatar, is_online")
-            .eq("id", row.user_id)
-            .single();
+        const { data: profile } = await supabase
+          .from("chats")
+          .select("id, username, avatar, is_online")
+          .eq("id", row.user_id)
+          .single();
 
-          const enriched = { new: { ...row, chats: profile || { username: 'unknown', avatar: '?', is_online: false } } };
-          callback(enriched);
-        } catch (err) {
-          console.warn("[ChatServices] realtime enrichment failed:", err);
-          callback(payload);
-        }
+        const enriched = { new: { ...row, chats: profile || { username: 'unknown', avatar: '?', is_online: false } } };
+        callback(enriched);
+      } catch (err) {
+        console.warn("[ChatServices] realtime enrichment failed:", err);
+        callback(payload);
       }
-    )
-    .subscribe();
+    }
+  );
+  
+  // Listen for UPDATE events (message edits or deletions via is_deleted flag)
+  channel.on(
+    "postgres_changes",
+    {
+      event: "UPDATE",
+      schema: "public",
+      table: "channel_messages",
+      filter: `channel_id=eq.${channelId}`,
+    },
+    (payload) => {
+      // If message was marked as deleted, notify via onDelete callback
+      if (payload.new.is_deleted && onDelete) {
+        onDelete(payload.new.id);
+      }
+    }
+  );
+  
+  // Listen for DELETE events (hard deletes from database)
+  channel.on(
+    "postgres_changes",
+    {
+      event: "DELETE",
+      schema: "public",
+      table: "channel_messages",
+      filter: `channel_id=eq.${channelId}`,
+    },
+    (payload) => {
+      // Notify via onDelete callback
+      if (onDelete) {
+        onDelete(payload.old.id);
+      }
+    }
+  );
+  
+  return channel.subscribe();
 };
 
 // Fetch or create DM conversation
@@ -407,7 +442,6 @@ export const fetchDirectMessages = async (conversationId, limit = 50) => {
     .from("direct_messages")
     .select(`*`)
     .eq("conversation_id", conversationId)
-    .eq("is_deleted", false)
     .order("created_at", { ascending: true })
     .limit(limit);
 
@@ -495,40 +529,76 @@ export const sendDirectMessage = async (conversationId, senderId, content) => {
 };
 
 // Subscribe to DM messages
-export const subscribeToDirectMessages = (conversationId, callback) => {
-  return supabase
-    .channel(`dm:${conversationId}`)
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "direct_messages",
-        filter: `conversation_id=eq.${conversationId}`,
-      },
-      async (payload) => {
-        try {
-          const { data: row } = await supabase
-            .from("direct_messages")
-            .select("*")
-            .eq("id", payload.new.id)
-            .single();
+export const subscribeToDirectMessages = (conversationId, callback, onDelete = null) => {
+  const channel = supabase.channel(`dm:${conversationId}`);
+  
+  // Listen for INSERT events (new messages)
+  channel.on(
+    "postgres_changes",
+    {
+      event: "INSERT",
+      schema: "public",
+      table: "direct_messages",
+      filter: `conversation_id=eq.${conversationId}`,
+    },
+    async (payload) => {
+      try {
+        const { data: row } = await supabase
+          .from("direct_messages")
+          .select("*")
+          .eq("id", payload.new.id)
+          .single();
 
-          const { data: profile } = await supabase
-            .from("chats")
-            .select("id, username, avatar, is_online")
-            .eq("id", row.sender_id)
-            .single();
+        const { data: profile } = await supabase
+          .from("chats")
+          .select("id, username, avatar, is_online")
+          .eq("id", row.sender_id)
+          .single();
 
-          const enriched = { new: { ...row, chats: profile || { username: 'unknown', avatar: '?', is_online: false } } };
-          callback(enriched);
-        } catch (err) {
-          console.warn("[ChatServices] realtime enrichment failed:", err);
-          callback(payload);
-        }
+        const enriched = { new: { ...row, chats: profile || { username: 'unknown', avatar: '?', is_online: false } } };
+        callback(enriched);
+      } catch (err) {
+        console.warn("[ChatServices] realtime enrichment failed:", err);
+        callback(payload);
       }
-    )
-    .subscribe();
+    }
+  );
+  
+  // Listen for UPDATE events (message edits or deletions via is_deleted flag)
+  channel.on(
+    "postgres_changes",
+    {
+      event: "UPDATE",
+      schema: "public",
+      table: "direct_messages",
+      filter: `conversation_id=eq.${conversationId}`,
+    },
+    (payload) => {
+      // If message was marked as deleted, notify via onDelete callback
+      if (payload.new.is_deleted && onDelete) {
+        onDelete(payload.new.id);
+      }
+    }
+  );
+  
+  // Listen for DELETE events (hard deletes from database)
+  channel.on(
+    "postgres_changes",
+    {
+      event: "DELETE",
+      schema: "public",
+      table: "direct_messages",
+      filter: `conversation_id=eq.${conversationId}`,
+    },
+    (payload) => {
+      // Notify via onDelete callback
+      if (onDelete) {
+        onDelete(payload.old.id);
+      }
+    }
+  );
+  
+  return channel.subscribe();
 };
 
 // Fetch user's DM conversations

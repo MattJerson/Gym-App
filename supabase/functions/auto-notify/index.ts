@@ -106,7 +106,6 @@ async function shouldSendToUser(supabase: any, userId: string, trigger: any): Pr
   const { data, error } = await supabase.rpc('should_send_notification', {
     p_user_id: userId,
     p_trigger_id: trigger.id,
-    p_frequency_type: trigger.frequency_type || 'daily',
     p_frequency_value: trigger.frequency_value || 1,
     p_frequency_unit: trigger.frequency_unit || 'days'
   });
@@ -470,6 +469,17 @@ serve(async (req) => {
           
           targetUsers = Array.from(activeUserIds).map(user_id => ({ user_id }));
           console.log(`   👥 Found ${targetUsers.length} users with activity this week for progress report`);
+          break;
+        }
+
+        case 'test_simple': {
+          // TESTING ONLY - Send to ALL users, no prerequisites
+          const { data: users } = await supabase
+            .from('registration_profiles')
+            .select('user_id');
+          
+          targetUsers = users || [];
+          console.log(`   🧪 TEST MODE: Found ${targetUsers.length} total users (no filters applied)`);
           break;
         }
 

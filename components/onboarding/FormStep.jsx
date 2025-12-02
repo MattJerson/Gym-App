@@ -5,6 +5,7 @@ import DropdownField from "./fields/DropdownField";
 import SwitchField from "./fields/SwitchField";
 import MultiButtonField from "./fields/MultiButtonField";
 import CalculatedField from "./fields/CalculatedField";
+import EmojiPicker from "./EmojiPicker";
 
 export default function FormStep({
   step,
@@ -76,6 +77,15 @@ export default function FormStep({
             {...commonProps}
             onChange={(value) => handleInputChange(field.key, value)}
             onPress={onHapticFeedback}
+          />
+        );
+
+      case "emoji-picker":
+        return (
+          <EmojiPicker
+            {...commonProps}
+            emojis={field.emojis || ["😊", "😎", "🔥", "💪", "⚡", "🚀"]}
+            onSelect={(emoji) => handleInputChange(field.key, emoji)}
           />
         );
 

@@ -66,13 +66,12 @@ export const NotificationService = {
           .order('sent_at', { ascending: false })
           .limit(limit * 2), // Fetch more to account for dismissed ones
         
-        // Automated notifications ONLY (trigger-based, not manual broadcasts)
-        // Manual broadcasts are already in notifications table, so only get notifications WITH a trigger_id
+        // Automated notifications (all notification_logs for this user)
+        // This includes both trigger-based and any other user-specific notifications
         supabase
           .from('notification_logs')
           .select('*')
           .eq('user_id', userId)
-          .not('trigger_id', 'is', null) // Only get automated notifications (those with a trigger)
           .order('sent_at', { ascending: false })
           .limit(limit * 2) // Fetch more to account for dismissed ones
       ]);

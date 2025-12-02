@@ -9,7 +9,11 @@ export default function ProfileHeader({ user }) {
     <View style={styles.profileHeader}>
       <View style={styles.avatarContainer}>
         <View style={styles.avatarIcon}>
-          <MaterialCommunityIcons name="account" size={60} color="#fff" />
+          {user.avatarEmoji ? (
+            <Text style={styles.emojiAvatar}>{user.avatarEmoji}</Text>
+          ) : (
+            <MaterialCommunityIcons name="account" size={60} color="#fff" />
+          )}
         </View>
       </View>
       <Text style={styles.userName}>{user.name}</Text>
@@ -53,5 +57,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#777",
     marginTop: 8,
+  },
+  emojiAvatar: {
+    fontSize: 60,
   },
 });

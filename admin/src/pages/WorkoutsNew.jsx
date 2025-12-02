@@ -729,19 +729,27 @@ const Workouts = () => {
                     </td>
                   </tr>
                 ) : (
-                  templates.map((row) => (
-                    <tr key={row.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <Dumbbell className="h-6 w-6 text-blue-600" />
-                          </div>
-                          <div className="ml-4">
+                  templates.map((row) => {
+                    // Determine background color based on assignment type
+                    const getRowBackgroundColor = () => {
+                      if (row.assignment_type === 'public') {
+                        return 'bg-green-50 border-l-4 border-green-400'; // Light green for all users
+                      } else if (row.assignment_type === 'standard_plan') {
+                        return 'bg-blue-50 border-l-4 border-blue-400'; // Light blue for standard plan
+                      } else if (row.assignment_type === 'specific_user') {
+                        return 'bg-purple-50 border-l-4 border-purple-400'; // Light purple for specific users
+                      }
+                      return 'bg-white border-l-4 border-gray-200'; // Default white
+                    };
+
+                    return (
+                      <tr key={row.id} className={`hover:brightness-95 transition-all ${getRowBackgroundColor()}`}>
+                        <td className="px-6 py-4">
+                          <div>
                             <div className="text-sm font-semibold text-gray-900">{row.name}</div>
-                            <div className="text-xs text-gray-500">{row.description || 'No description'}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">{row.description || 'No description'}</div>
                           </div>
-                        </div>
-                      </td>
+                        </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {row.category ? (
                           <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
@@ -809,7 +817,8 @@ const Workouts = () => {
                         </div>
                       </td>
                     </tr>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -980,7 +989,7 @@ const Workouts = () => {
             {/* Basic Info */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold mb-2">Workout Name *</label>
+                <label className="block text-xs font-semibold mb-1.5">Workout Name *</label>
                 <input
                   type="text"
                   value={workoutForm.name}
@@ -991,11 +1000,11 @@ const Workouts = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-semibold mb-2">Category</label>
+                <label className="block text-xs font-semibold mb-1.5">Category</label>
                 <select
                   value={workoutForm.category_id}
                   onChange={(e) => setWorkoutForm(prev => ({ ...prev, category_id: e.target.value }))}
-                  className="w-full px-4 py-2 border rounded-lg"
+                  className="w-full px-3 py-1.5 text-sm border rounded-lg"
                 >
                   <option value="">Select Category</option>
                   {categories.map(cat => (
@@ -1007,11 +1016,11 @@ const Workouts = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-semibold mb-2">Difficulty *</label>
+                <label className="block text-xs font-semibold mb-1.5">Difficulty *</label>
                 <select
                   value={workoutForm.difficulty}
                   onChange={(e) => setWorkoutForm(prev => ({ ...prev, difficulty: e.target.value }))}
-                  className="w-full px-4 py-2 border rounded-lg"
+                  className="w-full px-3 py-1.5 text-sm border rounded-lg"
                 >
                   <option value="Beginner">Beginner</option>
                   <option value="Intermediate">Intermediate</option>
@@ -1020,12 +1029,12 @@ const Workouts = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-semibold mb-2">Duration (minutes) *</label>
+                <label className="block text-xs font-semibold mb-1.5">Duration (minutes) *</label>
                 <input
                   type="number"
                   value={workoutForm.duration_minutes}
                   onChange={(e) => setWorkoutForm(prev => ({ ...prev, duration_minutes: parseInt(e.target.value) }))}
-                  className="w-full px-4 py-2 border rounded-lg"
+                  className="w-full px-3 py-1.5 text-sm border rounded-lg"
                   min="5"
                   max="180"
                 />
@@ -1033,20 +1042,20 @@ const Workouts = () => {
             </div>
             
             <div>
-              <label className="block text-sm font-semibold mb-2">Description</label>
+              <label className="block text-xs font-semibold mb-1.5">Description</label>
               <textarea
                 value={workoutForm.description}
                 onChange={(e) => setWorkoutForm(prev => ({ ...prev, description: e.target.value }))}
-                className="w-full px-4 py-2 border rounded-lg"
-                rows="3"
+                className="w-full px-3 py-1.5 text-sm border rounded-lg"
+                rows="2"
                 placeholder="Describe the workout..."
               />
             </div>
             
             {/* Assignment Type */}
             <div>
-              <label className="block text-sm font-semibold mb-2">Assignment Type *</label>
-              <div className="flex gap-4">
+              <label className="block text-xs font-semibold mb-1.5">Assignment Type *</label>
+              <div className="flex gap-3 text-sm">
                 <label className="flex items-center">
                   <input
                     type="radio"
@@ -1074,7 +1083,7 @@ const Workouts = () => {
                     }))}
                     className="mr-2"
                   />
-                  <span>Standard Plan Users</span>
+                  <span>Standard Plan Users ({standardPlanUsers.filter(u => u.subscription_tier === 'standard').length})</span>
                 </label>
                 
                 <label className="flex items-center">
@@ -1092,9 +1101,33 @@ const Workouts = () => {
                 </label>
               </div>
               
+              {/* Standard Plan Users Info */}
+              {workoutForm.assignment_type === 'standard_plan' && (
+                <div className="mt-4 border rounded-lg p-3 bg-blue-50">
+                  <label className="block text-sm font-semibold mb-2 text-blue-900">
+                    Standard Plan Users ({standardPlanUsers.filter(u => u.subscription_tier === 'standard').length} users)
+                  </label>
+                  <div className="max-h-40 overflow-y-auto space-y-1.5">
+                    {standardPlanUsers
+                      .filter(u => u.subscription_tier === 'standard')
+                      .map(user => (
+                        <div key={user.user_id} className="flex items-center gap-2 p-2 rounded bg-white border border-blue-200 text-sm">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-gray-900 truncate">{user.username || 'Unknown'}</div>
+                            <div className="text-xs text-gray-500">Standard Plan</div>
+                          </div>
+                        </div>
+                      ))}
+                    {standardPlanUsers.filter(u => u.subscription_tier === 'standard').length === 0 && (
+                      <div className="text-center text-gray-500 text-sm py-4">No standard plan users found</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* User Selector - Shows when specific_user is selected */}
               {workoutForm.assignment_type === 'specific_user' && (
-                <div className="mt-4 border rounded-lg p-4 bg-gray-50">
+                <div className="mt-4 border rounded-lg p-3 bg-gray-50">
                   <label className="block text-sm font-semibold mb-2">
                     Select Users ({workoutForm.assigned_user_ids.length} selected)
                   </label>
@@ -1102,14 +1135,14 @@ const Workouts = () => {
                   {/* Search Users */}
                   <input
                     type="text"
-                    placeholder="Search users by username..."
+                    placeholder="Search users..."
                     value={userSearchQuery}
                     onChange={(e) => setUserSearchQuery(e.target.value)}
-                    className="w-full px-4 py-2 border rounded-lg mb-3"
+                    className="w-full px-2.5 py-1.5 text-sm border rounded-lg mb-2"
                   />
                   
                   {/* User List with Checkboxes */}
-                  <div className="max-h-60 overflow-y-auto space-y-2">
+                  <div className="max-h-48 overflow-y-auto space-y-1.5">
                     {standardPlanUsers
                       .filter(user => 
                         user.username?.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
@@ -1118,10 +1151,10 @@ const Workouts = () => {
                       .map(user => (
                         <label
                           key={user.user_id}
-                          className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                          className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors text-sm ${
                             workoutForm.assigned_user_ids.includes(user.user_id)
-                              ? 'bg-blue-50 border-2 border-blue-500'
-                              : 'bg-white border border-gray-200 hover:border-blue-300'
+                              ? 'bg-blue-50 border border-blue-300'
+                              : 'bg-white border border-gray-200 hover:border-blue-200'
                           }`}
                         >
                           <input

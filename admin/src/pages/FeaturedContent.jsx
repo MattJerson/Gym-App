@@ -322,10 +322,34 @@ const FeaturedContent = () => {
     try {
       setShuffling(true);
 
+      // Get count of all content before shuffle
+      const { data: beforeData, error: beforeError } = await supabase
+        .from("featured_content")
+        .select("id, title, display_order, is_active")
+        .order("display_order", { ascending: true });
+
+      if (beforeError) {
+        console.error("Error fetching before shuffle:", beforeError);
+      }
+
+      console.log("Before shuffle (all content):", beforeData);
+
       // Call the shuffle function
       const { data, error } = await supabase.rpc("shuffle_featured_content");
 
       if (error) throw error;
+
+      // Get content after shuffle to verify
+      const { data: afterData, error: afterError } = await supabase
+        .from("featured_content")
+        .select("id, title, display_order, is_active")
+        .order("display_order", { ascending: true });
+
+      if (afterError) {
+        console.error("Error fetching after shuffle:", afterError);
+      }
+
+      console.log("After shuffle:", afterData);
 
       // Log the shuffle activity
       await supabase.rpc('log_admin_activity', {
@@ -334,15 +358,16 @@ const FeaturedContent = () => {
         p_title: 'Featured Content Shuffled',
         p_description: 'Admin manually shuffled featured content display order',
         p_metadata: {
-          shuffle_count: data?.length || 0,
+          shuffle_count: afterData?.length || 0,
           timestamp: new Date().toISOString()
         }
       });
 
-      alert("Content shuffled successfully!");
+      alert(`Content shuffled successfully! ${afterData?.length || 0} items reordered.`);
       await fetchFeaturedContent();
       await fetchShuffleSettings();
     } catch (err) {
+      console.error("Shuffle error:", err);
       alert("Error shuffling content: " + err.message);
     } finally {
       setShuffling(false);

@@ -31,6 +31,14 @@ const formConfig = [
     subtitle: "Tell us about yourself",
     fields: [
       {
+        key: "avatarEmoji",
+        label: "Choose your profile emoji",
+        type: "emoji-picker",
+        placeholder: "Select Emoji",
+        required: true,
+        emojis: ["😊", "😎", "🔥", "💪", "⚡", "🚀", "🎯", "👑", "💯", "🏆", "⭐", "🌟", "🎮", "🎨", "🎵", "❤️", "💙", "💚", "💛", "🧡", "💜", "🖤", "🤍", "🤎", "🦄", "🦁", "🐯", "🐻", "🐼", "🐨", "🐸", "🦊", "🐱", "🐶", "🐷"],
+      },
+      {
         key: "gender",
         label: "Please select your gender",
         type: "dropdown",
@@ -326,6 +334,14 @@ const validateField = (field, value, useMetric = true) => {
   // Check if field is required (can be set at field level or in validation)
   const isRequired = field.required || field.validation?.required;
 
+  // Handle emoji picker
+  if (field.type === "emoji-picker") {
+    if (isRequired && !value) {
+      return "Please select an emoji";
+    }
+    return null;
+  }
+
   // Handle dropdown fields
   if (field.type === "dropdown") {
     if (isRequired && (!value || value === "")) {
@@ -380,6 +396,7 @@ const getInitialState = () => {
       if (field.type === "switch") initialState[field.key] = true;
       else if (field.multiple || field.type === "multi-button")
         initialState[field.key] = [];
+      else if (field.type === "emoji-picker") initialState[field.key] = "😊"; // Default emoji
       else initialState[field.key] = "";
     });
   });
@@ -458,6 +475,7 @@ export default function BasicInfo() {
             
             // Map database columns to form state
             const dbFormData = {
+              avatarEmoji: existingProfile.avatar_emoji || "😊",
               gender: existingProfile.gender || "",
               age: existingProfile.age?.toString() || "",
               height: existingProfile.height_cm?.toString() || "",
@@ -734,6 +752,7 @@ export default function BasicInfo() {
 
         const payload = {
           user_id: userId,
+          avatar_emoji: finalData.avatarEmoji || "😊",
           gender: finalData.gender || null,
           age: finalData.age ? parseInt(finalData.age, 10) : null,
           height_cm: finalData.height ? parseInt(finalData.height, 10) : null,

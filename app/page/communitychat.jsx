@@ -237,10 +237,10 @@ export default function CommunityChat() {
       }
       
       if (user) {
-      // Check if user is admin
+      // Check if user is admin and get avatar emoji
       const { data: adminCheck } = await supabase
         .from("registration_profiles")
-        .select("is_admin")
+        .select("is_admin, avatar_emoji")
         .eq("user_id", user.id)
         .single();
       
@@ -248,14 +248,21 @@ export default function CommunityChat() {
         setIsAdmin(true);
       }
 
-      // Fetch user profile
+      // Fetch user profile from chats table
       const { data: profile } = await supabase
         .from("chats")
         .select("*")
         .eq("id", user.id)
         .single();
+      
+      // Use avatar_emoji from registration_profiles if available, otherwise use chats avatar
+      const avatarEmoji = adminCheck?.avatar_emoji || profile?.avatar || "😊";
+      
       if (profile) {
-        setCurrentUser(profile);
+        setCurrentUser({
+          ...profile,
+          avatar: avatarEmoji
+        });
       } else {
         // Create minimal chats profile so joins and displays work correctly
         console.warn(
@@ -272,7 +279,7 @@ export default function CommunityChat() {
             .insert({
               id: user.id,
               username,
-              avatar: user.user_metadata?.avatar || "😊",
+              avatar: avatarEmoji,
               is_online: true,
             })
             .select("*")
@@ -368,12 +375,13 @@ export default function CommunityChat() {
           id: msg.id,
           user: msg.chats?.username || 'unknown',
           avatar: msg.chats?.avatar || '👤',
-          text: msg.content,
+          text: msg.is_deleted ? '[DELETED]' : msg.content,
           timestamp: formatTimestamp(msg.created_at),
           isOnline: msg.chats?.is_online || false,
           isMe: isMe,
-          userId: msg.user_id, // Add userId for DM functionality
+          userId: msg.user_id,
           reactions: groupReactions(msg.message_reactions || []),
+          isDeleted: msg.is_deleted || false,
         };
       });
       setChannelMessages(formattedMessages);
@@ -438,11 +446,12 @@ export default function CommunityChat() {
         id: msg.id,
         user: msg.chats?.username || 'unknown',
         avatar: msg.chats?.avatar || '👤',
-        text: msg.content,
+        text: msg.is_deleted ? '[DELETED]' : msg.content,
         timestamp: formatTimestamp(msg.created_at),
         isOnline: msg.chats?.is_online || false,
-        isMe: currentUser?.id && msg.sender_id === currentUser.id, // Ensure both IDs exist
-        userId: msg.sender_id, // Add userId for consistency
+        isMe: currentUser?.id && msg.sender_id === currentUser.id,
+        userId: msg.sender_id,
+        isDeleted: msg.is_deleted || false,
       }));
       setDmMessages(formattedMessages);
     }
@@ -462,12 +471,13 @@ export default function CommunityChat() {
             id: data.id,
             user: data.chats?.username || "unknown",
             avatar: data.chats?.avatar || "👤",
-            text: data.content,
+            text: data.is_deleted ? '[DELETED]' : data.content,
             timestamp: formatTimestamp(data.created_at),
             isOnline: data.chats?.is_online || false,
-            isMe: currentUser?.id && data.user_id === currentUser.id, // Fixed comparison
+            isMe: currentUser?.id && data.user_id === currentUser.id,
             userId: data.user_id,
             reactions: data.message_reactions || [],
+            isDeleted: data.is_deleted || false,
           };
           setChannelMessages((prev) => [...prev, newMessage]);
           
@@ -494,6 +504,17 @@ export default function CommunityChat() {
             err
           );
         }
+      },
+      // Handle message deletions in realtime (soft delete - show [DELETED])
+      (deletedMessageId) => {
+        console.log('[CommunityChat] Message deleted in realtime:', deletedMessageId);
+        setChannelMessages((prev) => 
+          prev.map((msg) => 
+            msg.id === deletedMessageId 
+              ? { ...msg, text: '[DELETED]', isDeleted: true }
+              : msg
+          )
+        );
       }
     );
   };
@@ -512,11 +533,12 @@ export default function CommunityChat() {
             id: data.id,
             user: data.chats?.username || "unknown",
             avatar: data.chats?.avatar || "👤",
-            text: data.content,
+            text: data.is_deleted ? '[DELETED]' : data.content,
             timestamp: formatTimestamp(data.created_at),
             isOnline: data.chats?.is_online || false,
-            isMe: currentUser?.id && data.sender_id === currentUser.id, // Fixed comparison
+            isMe: currentUser?.id && data.sender_id === currentUser.id,
             userId: data.sender_id,
+            isDeleted: data.is_deleted || false,
           };
           setDmMessages((prev) => [...prev, newMessage]);
           
@@ -565,6 +587,17 @@ export default function CommunityChat() {
             err
           );
         }
+      },
+      // Handle message deletions in realtime (soft delete - show [DELETED])
+      (deletedMessageId) => {
+        console.log('[CommunityChat] DM deleted in realtime:', deletedMessageId);
+        setDmMessages((prev) => 
+          prev.map((msg) => 
+            msg.id === deletedMessageId 
+              ? { ...msg, text: '[DELETED]', isDeleted: true }
+              : msg
+          )
+        );
       }
     );
   };
@@ -967,7 +1000,11 @@ export default function CommunityChat() {
             </Pressable>
           </View>
           <Text
-            style={[styles.messageText, isMyMessage && styles.myMessageText]}
+            style={[
+              styles.messageText, 
+              isMyMessage && styles.myMessageText,
+              item.isDeleted && styles.deletedMessageText
+            ]}
           >
             {item.text}
           </Text>
@@ -1734,5 +1771,10 @@ const styles = StyleSheet.create({
     color: '#991b1b',
     fontSize: 14,
     fontWeight: '500',
+  },
+  deletedMessageText: {
+    color: '#888',
+    fontStyle: 'italic',
+    opacity: 0.7,
   },
 });

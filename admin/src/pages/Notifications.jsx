@@ -427,6 +427,35 @@ const Notifications = () => {
     }
   };
 
+  const handleTestSendTrigger = async (trigger) => {
+    if (!confirm(`Manually send "${trigger.title}" to all eligible users right now? This will invoke the auto-notify function.`)) return;
+    
+    try {
+      // Invoke the auto-notify edge function
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/auto-notify`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({})
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Edge function error: ${errorText}`);
+      }
+
+      const result = await response.json();
+      alert(`✅ Auto-notify invoked successfully!\n\nResults:\n- Total Sent: ${result.totalSent || 0}\n- Skipped: ${result.totalSkipped || 0}\n\nCheck notification_logs table for details.`);
+      
+      await fetchStats();
+    } catch (err) {
+      console.error('Test send error:', err);
+      alert('Error invoking auto-notify: ' + err.message);
+    }
+  };
+
   const getFrequencyDisplay = (trigger) => {
     if (!trigger.frequency_type) return 'Not set';
     
@@ -798,6 +827,14 @@ const Notifications = () => {
                         {trigger.is_active ? 'Active' : 'Inactive'}
                       </button>
                       <button
+                        onClick={() => handleTestSendTrigger(trigger)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors flex items-center gap-1"
+                        title="Test Send Now"
+                      >
+                        <Send className="h-3 w-3" />
+                        Test
+                      </button>
+                      <button
                         onClick={() => handleEditTrigger(trigger)}
                         className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                         title="Edit Frequency"
@@ -981,19 +1018,195 @@ const Notifications = () => {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Trigger Type (Code Name)
+                When Should This Trigger? (Select a Condition)
               </label>
-              <input
-                type="text"
-                value={triggerFormData.trigger_type}
-                onChange={(e) => setTriggerFormData({ ...triggerFormData, trigger_type: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
-                placeholder="e.g., no_login_7_days, custom_reminder"
-                className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm"
-                required
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Unique identifier for this trigger (lowercase, use underscores). This determines WHEN the notification fires.
-              </p>
+              
+              {/* Pre-built Trigger Templates */}
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                {/* Inactivity Triggers */}
+                <button
+                  type="button"
+                  onClick={() => setTriggerFormData({ ...triggerFormData, trigger_type: 'no_login_today' })}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    triggerFormData.trigger_type === 'no_login_today'
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 bg-white hover:border-purple-300'
+                  }`}
+                >
+                  <div className="font-semibold text-sm text-gray-900">📅 No Login Today</div>
+                  <div className="text-xs text-gray-500 mt-0.5">User hasn't logged in today</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTriggerFormData({ ...triggerFormData, trigger_type: 'no_login_3_days' })}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    triggerFormData.trigger_type === 'no_login_3_days'
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 bg-white hover:border-purple-300'
+                  }`}
+                >
+                  <div className="font-semibold text-sm text-gray-900">😴 No Login 3 Days</div>
+                  <div className="text-xs text-gray-500 mt-0.5">User inactive for 3+ days</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTriggerFormData({ ...triggerFormData, trigger_type: 'no_login_7_days' })}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    triggerFormData.trigger_type === 'no_login_7_days'
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 bg-white hover:border-purple-300'
+                  }`}
+                >
+                  <div className="font-semibold text-sm text-gray-900">👋 We Miss You</div>
+                  <div className="text-xs text-gray-500 mt-0.5">User inactive for 7+ days</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTriggerFormData({ ...triggerFormData, trigger_type: 'no_workout_logged' })}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    triggerFormData.trigger_type === 'no_workout_logged'
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 bg-white hover:border-purple-300'
+                  }`}
+                >
+                  <div className="font-semibold text-sm text-gray-900">💪 No Workout</div>
+                  <div className="text-xs text-gray-500 mt-0.5">User hasn't logged workout today</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTriggerFormData({ ...triggerFormData, trigger_type: 'no_meal_logged' })}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    triggerFormData.trigger_type === 'no_meal_logged'
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 bg-white hover:border-purple-300'
+                  }`}
+                >
+                  <div className="font-semibold text-sm text-gray-900">🍽️ No Meal</div>
+                  <div className="text-xs text-gray-500 mt-0.5">User hasn't logged meal today</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTriggerFormData({ ...triggerFormData, trigger_type: 'monday_morning' })}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    triggerFormData.trigger_type === 'monday_morning'
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 bg-white hover:border-purple-300'
+                  }`}
+                >
+                  <div className="font-semibold text-sm text-gray-900">🌅 Monday Morning</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Every Monday at 8 AM</div>
+                </button>
+
+                {/* Milestone Triggers */}
+                <button
+                  type="button"
+                  onClick={() => setTriggerFormData({ ...triggerFormData, trigger_type: 'streak_milestone_3' })}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    triggerFormData.trigger_type === 'streak_milestone_3'
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 bg-white hover:border-purple-300'
+                  }`}
+                >
+                  <div className="font-semibold text-sm text-gray-900">🔥 3-Day Streak</div>
+                  <div className="text-xs text-gray-500 mt-0.5">User reaches 3-day streak</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTriggerFormData({ ...triggerFormData, trigger_type: 'streak_milestone_7' })}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    triggerFormData.trigger_type === 'streak_milestone_7'
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 bg-white hover:border-purple-300'
+                  }`}
+                >
+                  <div className="font-semibold text-sm text-gray-900">🎉 7-Day Streak</div>
+                  <div className="text-xs text-gray-500 mt-0.5">User reaches 7-day streak</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTriggerFormData({ ...triggerFormData, trigger_type: 'streak_milestone_30' })}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    triggerFormData.trigger_type === 'streak_milestone_30'
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 bg-white hover:border-purple-300'
+                  }`}
+                >
+                  <div className="font-semibold text-sm text-gray-900">🏆 30-Day Streak</div>
+                  <div className="text-xs text-gray-500 mt-0.5">User reaches 30-day streak</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTriggerFormData({ ...triggerFormData, trigger_type: 'weekly_progress' })}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    triggerFormData.trigger_type === 'weekly_progress'
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 bg-white hover:border-purple-300'
+                  }`}
+                >
+                  <div className="font-semibold text-sm text-gray-900">📊 Weekly Progress</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Every Sunday evening</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTriggerFormData({ ...triggerFormData, trigger_type: 'daily_reminder' })}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    triggerFormData.trigger_type === 'daily_reminder'
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 bg-white hover:border-purple-300'
+                  }`}
+                >
+                  <div className="font-semibold text-sm text-gray-900">⏰ Daily Reminder</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Every day at 9 AM</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setTriggerFormData({ ...triggerFormData, trigger_type: 'custom' })}
+                  className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    triggerFormData.trigger_type === 'custom' || (!['no_login_today', 'no_login_3_days', 'no_login_7_days', 'no_workout_logged', 'no_meal_logged', 'monday_morning', 'streak_milestone_3', 'streak_milestone_7', 'streak_milestone_30', 'weekly_progress', 'daily_reminder'].includes(triggerFormData.trigger_type))
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 bg-white hover:border-purple-300'
+                  }`}
+                >
+                  <div className="font-semibold text-sm text-gray-900">⚙️ Custom</div>
+                  <div className="text-xs text-gray-500 mt-0.5">Create your own trigger</div>
+                </button>
+              </div>
+
+              {/* Show custom input only if custom is selected */}
+              {(triggerFormData.trigger_type === 'custom' || !['no_login_today', 'no_login_3_days', 'no_login_7_days', 'no_workout_logged', 'no_meal_logged', 'monday_morning', 'streak_milestone_3', 'streak_milestone_7', 'streak_milestone_30', 'weekly_progress', 'daily_reminder'].includes(triggerFormData.trigger_type)) && (
+                <div className="mt-3">
+                  <input
+                    type="text"
+                    value={triggerFormData.trigger_type === 'custom' ? '' : triggerFormData.trigger_type}
+                    onChange={(e) => setTriggerFormData({ ...triggerFormData, trigger_type: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                    placeholder="Enter custom trigger name (e.g., hydration_reminder)"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    ⚠️ Custom triggers require developer setup in the backend
+                  </p>
+                </div>
+              )}
+
+              {/* Show selected trigger info */}
+              {triggerFormData.trigger_type && triggerFormData.trigger_type !== 'custom' && (
+                <div className="mt-3 p-2 bg-purple-50 border border-purple-200 rounded-lg">
+                  <p className="text-xs text-purple-800">
+                    <strong>Selected:</strong> <code className="bg-purple-100 px-1.5 py-0.5 rounded">{triggerFormData.trigger_type}</code>
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="border-t pt-4">

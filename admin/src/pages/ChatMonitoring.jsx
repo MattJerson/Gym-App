@@ -4,7 +4,7 @@ import { Send, Trash2 } from 'lucide-react';
 import { usePermissions } from '../hooks/usePermissions';
 
 export default function ChatMonitoring() {
-  const { hasPermission } = usePermissions();
+  const { hasPermission, userId: currentUserId } = usePermissions();
   
   const [activeTab, setActiveTab] = useState('general');
   const [messages, setMessages] = useState([]);
@@ -42,31 +42,74 @@ export default function ChatMonitoring() {
           user_id
         `)
         .eq('channel_id', activeTab)
-        .eq('is_deleted', false)
         .order('created_at', { ascending: true })
         .limit(100);
       
       if (error) throw error;
       
-      // Fetch user profiles
+      // Fetch user profiles - Use profiles table directly to get nickname
       if (data && data.length > 0) {
         const userIds = [...new Set(data.map(msg => msg.user_id))];
+        
+        // Get profiles with nickname and avatar emoji
         const { data: profiles } = await supabase
-          .from('chats_public_with_id')
-          .select('id, username, avatar')
+          .from('profiles')
+          .select('id, nickname, avatar_url, avatar_emoji')
           .in('id', userIds);
         
+        // Get chats table for avatar emoji fallback
+        const { data: chats } = await supabase
+          .from('chats')
+          .select('id, avatar')
+          .in('id', userIds);
+        
+        // Get registration profiles to check if user is admin and avatar emoji
+        const { data: regProfiles } = await supabase
+          .from('registration_profiles')
+          .select('user_id, role, avatar_emoji')
+          .in('user_id', userIds);
+        
         const profileMap = {};
+        const chatsMap = {};
+        const roleMap = {};
+        
         if (profiles) {
           profiles.forEach(profile => {
             profileMap[profile.id] = profile;
           });
         }
         
-        const enrichedMessages = data.map(msg => ({
-          ...msg,
-          chats: profileMap[msg.user_id] || { username: 'Unknown', avatar: '😊' }
-        }));
+        if (chats) {
+          chats.forEach(chat => {
+            chatsMap[chat.id] = chat;
+          });
+        }
+        
+        if (regProfiles) {
+          regProfiles.forEach(reg => {
+            roleMap[reg.user_id] = reg.role;
+          });
+        }
+        
+        const enrichedMessages = data.map(msg => {
+          const profile = profileMap[msg.user_id];
+          const chat = chatsMap[msg.user_id];
+          const regProfile = regProfiles?.find(rp => rp.user_id === msg.user_id);
+          
+          // Priority: profiles.avatar_emoji > registration_profiles.avatar_emoji > chats.avatar > default
+          const avatarEmoji = profile?.avatar_emoji || regProfile?.avatar_emoji || chat?.avatar || '😊';
+          
+          return {
+            ...msg,
+            user: {
+              id: msg.user_id,
+              username: profile?.nickname || 'User',
+              avatar: avatarEmoji,
+              isAdmin: regProfile?.role === 'admin' || regProfile?.role === 'community_manager'
+            },
+            isOwnMessage: msg.user_id === currentUserId
+          };
+        });
         
         setMessages(enrichedMessages);
       } else {
@@ -132,12 +175,17 @@ export default function ChatMonitoring() {
   };
 
   const handleDeleteMessage = async (messageId) => {
-    if (!confirm('Delete this message? This cannot be undone.')) return;
+    if (!confirm('Delete this message? This will replace the content with [DELETED].')) return;
     
     try {
-      const { error } = await supabase.rpc('admin_delete_message', { 
-        message_id_param: messageId 
-      });
+      const { error } = await supabase
+        .from('channel_messages')
+        .update({ 
+          is_deleted: true,
+          deleted_at: new Date().toISOString()
+        })
+        .eq('id', messageId);
+      
       if (error) throw error;
     } catch (error) {
       console.error('Error deleting message:', error);
@@ -214,49 +262,115 @@ export default function ChatMonitoring() {
           </div>
         ) : (
           <div className="space-y-4 max-w-4xl mx-auto">
-            {messages.map((message) => (
-              <div key={message.id} className="group">
-                <div className="flex items-start gap-3">
-                  {/* Avatar */}
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-xl">
-                      {message.chats?.avatar || '😊'}
-                    </div>
-                  </div>
-                  
-                  {/* Message Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-2 mb-1">
-                      <span className="font-semibold text-gray-900">
-                        {message.chats?.username || 'Unknown'}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {formatTime(message.created_at)}
-                      </span>
-                      {message.is_flagged && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
-                          Flagged
-                        </span>
-                      )}
-                    </div>
-                    <div className="bg-white rounded-lg px-4 py-2.5 shadow-sm border border-gray-200">
-                      <p className="text-gray-800 text-sm leading-relaxed break-words">
-                        {message.content}
-                      </p>
-                    </div>
-                  </div>
+            {messages.map((message) => {
+              const isOwnMessage = message.isOwnMessage;
+              const isAdmin = message.user?.isAdmin;
+              
+              return (
+                <div key={message.id} className={`group ${isOwnMessage ? 'flex justify-end' : ''}`}>
+                  {isOwnMessage ? (
+                    // Admin's own messages - right aligned
+                    <div className="flex items-start gap-3 max-w-[80%]">
+                      {/* Delete Button (left side for own messages) */}
+                      <button
+                        onClick={() => handleDeleteMessage(message.id)}
+                        className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-50 rounded-lg text-red-600"
+                        title="Delete message"
+                      >
+                        <Trash2 size={16} />
+                      </button>
 
-                  {/* Delete Button */}
-                  <button
-                    onClick={() => handleDeleteMessage(message.id)}
-                    className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-50 rounded-lg text-red-600"
-                    title="Delete message"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                      {/* Message Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2 mb-1 justify-end">
+                          {message.is_flagged && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                              Flagged
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-500">
+                            {formatTime(message.created_at)}
+                          </span>
+                          <span className="font-semibold text-gray-900">
+                            You
+                          </span>
+                        </div>
+                        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg px-4 py-2.5 shadow-sm">
+                          <p className="text-white text-sm leading-relaxed break-words">
+                            {message.is_deleted ? '[DELETED]' : message.content}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Avatar */}
+                      <div className="flex-shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-xl border-2 border-blue-300">
+                          {message.user?.avatar || '😊'}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    // Other users' messages - left aligned
+                    <div className="flex items-start gap-3 max-w-[80%]">
+                      {/* Avatar */}
+                      <div className="flex-shrink-0">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl ${
+                          isAdmin 
+                            ? 'bg-gradient-to-br from-orange-400 to-red-500 border-2 border-orange-300' 
+                            : 'bg-gradient-to-br from-gray-400 to-gray-500'
+                        }`}>
+                          {message.user?.avatar || '😊'}
+                        </div>
+                      </div>
+                      
+                      {/* Message Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2 mb-1">
+                          <span className={`font-semibold ${isAdmin ? 'text-orange-600' : 'text-gray-900'}`}>
+                            {message.user?.username || 'Unknown'}
+                          </span>
+                          {isAdmin && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                              Admin
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-500">
+                            {formatTime(message.created_at)}
+                          </span>
+                          {message.is_flagged && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                              Flagged
+                            </span>
+                          )}
+                        </div>
+                        <div className={`rounded-lg px-4 py-2.5 shadow-sm border ${
+                          message.is_deleted
+                            ? 'bg-gray-100 border-gray-300'
+                            : isAdmin 
+                              ? 'bg-orange-50 border-orange-200' 
+                              : 'bg-white border-gray-200'
+                        }`}>
+                          <p className={`text-sm leading-relaxed break-words ${
+                            message.is_deleted ? 'text-gray-500 italic' : 'text-gray-800'
+                          }`}>
+                            {message.is_deleted ? '[DELETED]' : message.content}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Delete Button */}
+                      <button
+                        onClick={() => handleDeleteMessage(message.id)}
+                        className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-50 rounded-lg text-red-600"
+                        title="Delete message"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
             <div ref={messagesEndRef} />
           </div>
         )}
