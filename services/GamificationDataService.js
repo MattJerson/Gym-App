@@ -45,6 +45,10 @@ const GamificationDataService = {
         .order('earned_at', { ascending: false });
 
       if (error) throw error;
+      
+      console.log(`📊 [GamificationDataService] User ${userId} has ${data?.length || 0} badges:`, 
+        data?.map(b => b.badges?.name).join(', ') || 'none');
+      
       return data;
     } catch (error) {
       console.error('Error fetching user badges:', error);

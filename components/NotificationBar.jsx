@@ -153,40 +153,40 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
   const handleMarkAsRead = async (notificationId, notification) => {
     if (!userId) return;
     
-    // Mark notification as read in UI
-    setNotifications(prev => 
-      prev.map(n => 
-        n.id === notificationId 
-          ? { ...n, is_read: true, read_at: new Date().toISOString() }
-          : n
-      )
-    );
+    // Optimistically remove from UI immediately
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
     
     // Decrement unread count if it was previously unread
     if (!notification.is_read) {
       setUnreadCount(prev => Math.max(0, prev - 1));
     }
     
-    // Update server based on source type
+    // Track dismissal in database (both manual and automated use notification_dismissals)
     try {
+      const { error } = await supabase
+        .from('notification_dismissals')
+        .insert({
+          user_id: userId,
+          notification_id: notificationId,
+          notification_source: notification?.source || 'automated',
+          dismissed_at: new Date().toISOString()
+        });
+      
+      if (error) {
+        console.error('NotificationBar: Error dismissing notification:', error);
+        // Reload on error to restore correct state
+        await loadNotifications();
+      } else if (__DEV__) {
+        console.log('✅ Dismissed notification:', notificationId, notification?.source);
+      }
+      
+      // For manual notifications, also mark as read
       if (notification?.source === 'manual') {
-        // For manual notifications, mark as read in database
         await NotificationService.markAsRead(userId, notificationId);
-      } else if (notification?.source === 'automated') {
-        // For automated notifications, DELETE them (they're user-specific)
-        const { error } = await supabase
-          .from('notification_logs')
-          .delete()
-          .eq('user_id', userId)
-          .eq('id', notificationId);
-        
-        if (error) {
-          console.error('NotificationBar: Error deleting automated notification:', error);
-        } else if (__DEV__) {
-        }
       }
     } catch (error) {
       console.error('NotificationBar: Error in handleMarkAsRead:', error);
+      await loadNotifications();
     }
   };
 
