@@ -35,25 +35,24 @@ export const MealPlanDataService = {
 
       try {
         // Try to fetch from the dynamic calculation view
-        const { data: planData, error: planError } = await supabase
+        const planData = await supabase
           .from('user_meal_plan_calculations')
           .select('daily_calories, daily_protein, daily_carbs, daily_fats, plan_name')
           .eq('user_id', userId)
           .eq('is_active', true)
           .maybeSingle();
 
-        if (planError) {
-          console.error('❌ Error fetching meal plan:', planError.message, planError.details);
-        } else if (planData) {
+        if (planData.error) {
+          console.warn('[MealPlan] Unable to fetch personalized goals:', planData.error.message);
+        } else if (planData.data) {
           // Use personalized values from the dynamic calculation
-          goals.calories = planData.daily_calories || goals.calories;
-          goals.protein = planData.daily_protein || goals.protein;
-          goals.carbs = planData.daily_carbs || goals.carbs;
-          goals.fats = planData.daily_fats || goals.fats;
-        } else {
+          goals.calories = planData.data.daily_calories || goals.calories;
+          goals.protein = planData.data.daily_protein || goals.protein;
+          goals.carbs = planData.data.daily_carbs || goals.carbs;
+          goals.fats = planData.data.daily_fats || goals.fats;
         }
       } catch (err) {
-        console.error('❌ Exception fetching personalized goals:', err);
+        console.warn('[MealPlan] Exception fetching personalized goals, using defaults:', err.message);
       }
 
       return {

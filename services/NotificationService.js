@@ -10,13 +10,11 @@ export const NotificationService = {
   async fetchUserNotifications(userId, limit = 20) {
     try {
       if (!userId) {
-        if (__DEV__) {
-        }
+        if (__DEV__) console.log('[Notifications] No userId provided');
         return [];
       }
 
-      if (__DEV__) {
-      }
+      if (__DEV__) console.log('[Notifications] Fetching for user:', userId);
 
       // First, get dismissed notifications to filter them out
       const { data: dismissedData, error: dismissedError } = await supabase
@@ -40,6 +38,7 @@ export const NotificationService = {
       );
 
       if (__DEV__) {
+        console.log('[Notifications] Dismissed counts - Manual:', dismissedManual.size, 'Automated:', dismissedAutomated.size);
       }
 
       // Get user's registration date to filter notifications
@@ -115,8 +114,7 @@ export const NotificationService = {
         .slice(0, limit);
 
       if (allNotifications.length === 0) {
-        if (__DEV__) {
-        }
+        if (__DEV__) console.log('[Notifications] No notifications found for user');
         return [];
       }
 
@@ -141,6 +139,7 @@ export const NotificationService = {
       }
 
       if (__DEV__) {
+        console.log(`[Notifications] Returning ${allNotifications.length} notifications`);
       }
 
       // Merge with read status
@@ -175,8 +174,7 @@ export const NotificationService = {
   async getUnreadCount(userId) {
     try {
       if (!userId) {
-        if (__DEV__) {
-        }
+        if (__DEV__) console.log('[Notifications] No userId for unread count');
         return 0;
       }
 

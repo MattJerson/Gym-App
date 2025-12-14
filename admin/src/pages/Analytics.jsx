@@ -81,12 +81,11 @@ const Analytics = () => {
       // Calculate retention (users who logged in within period)
       const retentionRate = totalUsers > 0 ? ((activeUsers / totalUsers) * 100).toFixed(1) : 0;
 
-      // Calculate revenue
+      // Calculate revenue (same logic as Subscriptions page)
       const activeSubscriptions = subscriptions?.filter(sub => sub.status === 'active') || [];
       const totalRevenue = activeSubscriptions.reduce((sum, sub) => {
-        const price = sub.billing_cycle === 'monthly' 
-          ? sub.subscription_packages?.monthly_price || 0 
-          : sub.subscription_packages?.yearly_price || 0;
+        // Get the price directly from the subscription_packages
+        const price = sub.subscription_packages?.price || 0;
         return sum + price;
       }, 0);
 

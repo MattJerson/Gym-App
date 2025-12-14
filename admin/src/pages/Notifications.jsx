@@ -20,7 +20,7 @@ import {
   Award,
   ListOrdered
 } from "lucide-react";
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 import { usePermissions } from '../hooks/usePermissions';
 import PageHeader from '../components/common/PageHeader';
 import Modal from '../components/common/Modal';
@@ -29,11 +29,6 @@ import Input from '../components/common/Input';
 import Select from '../components/common/Select';
 import Badge from '../components/common/Badge';
 import StatsCard from '../components/common/StatsCard';
-
-// Initialize Supabase
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || import.meta.env.SUPABASE_URL;
-const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.SUPABASE_ANON_KEY;
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const Notifications = () => {
   const { hasPermission } = usePermissions();
@@ -262,23 +257,22 @@ const Notifications = () => {
           ? notification.user_id 
           : null;
         
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/deploy-for-notify`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-          },
-          body: JSON.stringify({
+        // Use Supabase's functions.invoke to avoid CORS issues
+        const { data: result, error: pushErr } = await supabase.functions.invoke('deploy-for-notify', {
+          body: {
             notification_id: notificationId, // Pass notification ID for tracking
             user_id: targetUserId,
             title: notification.title,
             body: notification.message,
             data: { type: notification.type }
-          })
+          }
         });
 
-        const result = await response.json();
-        console.log('Notification sent:', result);
+        if (pushErr) {
+          console.warn('Push notification failed (non-fatal):', pushErr.message);
+        } else {
+          console.log('Notification sent:', result);
+        }
       } catch (pushErr) {
         console.warn('Push notification failed (non-fatal):', pushErr.message);
       }
@@ -428,26 +422,22 @@ const Notifications = () => {
   };
 
   const handleTestSendTrigger = async (trigger) => {
-    if (!confirm(`Manually send "${trigger.title}" to all eligible users right now? This will invoke the auto-notify function.`)) return;
+    if (!confirm(`Manually send "${trigger.title}" to all eligible users right now?`)) return;
     
     try {
-      // Invoke the auto-notify edge function
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/auto-notify`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${SUPABASE_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({})
+      // Use Supabase's functions.invoke and pass the specific trigger_id
+      const { data, error } = await supabase.functions.invoke('auto-notify', {
+        body: {
+          trigger_id: trigger.id,  // Pass specific trigger to test
+          manual: true             // Bypass frequency/cooldown checks
+        }
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Edge function error: ${errorText}`);
+      if (error) {
+        throw new Error(`Edge function error: ${error.message}`);
       }
 
-      const result = await response.json();
-      alert(`✅ Auto-notify invoked successfully!\n\nResults:\n- Total Sent: ${result.totalSent || 0}\n- Skipped: ${result.totalSkipped || 0}\n\nCheck notification_logs table for details.`);
+      alert(`✅ Trigger "${trigger.title}" sent successfully!\n\nResults:\n- Total Sent: ${data?.totalSent || 0}\n- Skipped: ${data?.totalSkipped || 0}\n\nCheck notification_logs table for details.`);
       
       await fetchStats();
     } catch (err) {

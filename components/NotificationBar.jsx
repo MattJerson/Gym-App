@@ -53,6 +53,11 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
   // Load notifications when user is available
   useEffect(() => {
     if (userId) {
+      // IMPORTANT: Clear state completely before loading fresh data
+      setNotifications([]);
+      setUnreadCount(0);
+      setCurrentLimit(20);
+      
       loadNotifications();
       
       // Subscribe to real-time notifications
@@ -60,43 +65,26 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
         userId,
         (newNotif) => {
           if (__DEV__) {
+            console.log('[NotificationBar] Real-time notification received:', newNotif.id, newNotif.title);
           }
-          
-          // Optimistic update - add notification immediately to UI
-          setNotifications(prev => {
-            // Check if notification already exists (avoid duplicates)
-            const exists = prev.some(n => n.id === newNotif.id);
-            if (exists) {
-              if (__DEV__) {
-              }
-              return prev;
-            }
-            // Add new notification at the top
-            if (__DEV__) {
-            }
-            return [newNotif, ...prev].slice(0, 10); // Keep only latest 10
-          });
-          
-          // Update badge count immediately
-          setUnreadCount(prev => {
-            const newCount = prev + 1;
-            if (__DEV__) {
-            }
-            return newCount;
-          });
           
           // Shake the bell icon to draw attention
           shakeNotificationBell();
           
-          // Also reload in background to ensure sync with server
+          // Don't add optimistically - just reload from database to ensure accuracy
+          // This prevents phantom notifications from appearing
           if (__DEV__) {
+            console.log('[NotificationBar] Reloading notifications from database...');
           }
-          setTimeout(() => loadNotifications(), 1000);
+          setTimeout(() => loadNotifications(), 500);
         }
       );
 
       // Polling fallback: Check for new notifications every 30 seconds
       const pollingInterval = setInterval(() => {
+        if (__DEV__) {
+          console.log('[NotificationBar] Polling for new notifications...');
+        }
         loadNotifications();
       }, 30000); // 30 seconds
 
@@ -109,11 +97,23 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
 
   const loadNotifications = async () => {
     if (!userId) {
+      if (__DEV__) {
+        console.log('[NotificationBar] Cannot load notifications - no userId');
+      }
       return;
     }
     
     try {
+      if (__DEV__) {
+        console.log('[NotificationBar] Loading notifications for user:', userId);
+      }
+      
       const data = await NotificationService.fetchUserNotifications(userId, currentLimit);
+      
+      if (__DEV__) {
+        console.log('[NotificationBar] Loaded', data.length, 'notifications from database');
+      }
+      
       setNotifications(data);
       
       // Check if there might be more
@@ -121,8 +121,15 @@ const NotificationBar = ({ notifications: initialCount = 0 }) => {
       
       const count = await NotificationService.getUnreadCount(userId);
       setUnreadCount(count);
+      
+      if (__DEV__) {
+        console.log('[NotificationBar] Unread count:', count);
+      }
     } catch (error) {
       console.error('NotificationBar: Error loading notifications:', error.message);
+      // Clear on error to prevent showing stale data
+      setNotifications([]);
+      setUnreadCount(0);
     }
   };
 

@@ -53,7 +53,7 @@ export default function DropdownField({
           placeholderStyle={{ color: "#666", fontSize: 16 }}
           arrowIconStyle={{ tintColor: "#1E3A5F" }}
           tickIconStyle={{ tintColor: "#1E3A5F" }}
-          badgeTextStyle={{ color: "#fff", fontSize: 13 }}
+          badgeTextStyle={{ color: "#000", fontSize: 13 }}
           badgeDotStyle={{ backgroundColor: "#1E3A5F" }}
           searchable={false}
           zIndex={field.zIndex}

@@ -34,7 +34,14 @@ export const WorkoutSessionServiceV2 = {
         .eq('id', templateId)
         .single();
         
-      if (templateError) throw templateError;
+      if (templateError) {
+        console.error('[WorkoutSession] Error fetching template:', templateError);
+        throw new Error('Unable to load workout template. Please try again.');
+      }
+      
+      if (!template) {
+        throw new Error('Workout template not found.');
+      }
       
       // If no exercises found in workout_template_exercises, check workout_exercises table
       // (This is used for assigned workouts and custom workouts)

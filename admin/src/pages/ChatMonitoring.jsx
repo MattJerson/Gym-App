@@ -1,23 +1,36 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
-import { Send, Trash2 } from 'lucide-react';
+import { Send, Trash2, MessageSquare } from 'lucide-react';
 import { usePermissions } from '../hooks/usePermissions';
 
 export default function ChatMonitoring() {
   const { hasPermission, userId: currentUserId } = usePermissions();
   
+  const [viewMode, setViewMode] = useState('channels'); // 'channels' or 'dms'
   const [activeTab, setActiveTab] = useState('general');
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
+  
+  // DM-related state
+  const [dmList, setDmList] = useState([]);
+  const [activeConversation, setActiveConversation] = useState(null);
+  const [dmMessages, setDmMessages] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
 
   useEffect(() => {
-    loadMessages();
-    const unsubscribe = subscribeToMessages();
-    return unsubscribe;
-  }, [activeTab]);
+    if (viewMode === 'channels') {
+      loadMessages();
+      const unsubscribe = subscribeToMessages();
+      return unsubscribe;
+    } else if (viewMode === 'dms' && activeConversation) {
+      loadDMMessages();
+      const unsubscribe = subscribeToDMMessages();
+      return unsubscribe;
+    }
+  }, [activeTab, viewMode, activeConversation]);
 
   useEffect(() => {
     scrollToBottom();
@@ -206,41 +219,418 @@ export default function ChatMonitoring() {
     return date.toLocaleDateString();
   };
 
-  return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <h1 className="text-2xl font-bold text-gray-900 mb-1">Community Chat</h1>
-        <p className="text-sm text-gray-500">Monitor and moderate community conversations</p>
-      </div>
+  // ============================================
+  // DM-RELATED FUNCTIONS
+  // ============================================
 
-      {/* Channel Tabs */}
-      <div className="bg-white border-b border-gray-200 px-6">
-        <div className="flex gap-6">
-          <button
-            onClick={() => setActiveTab('general')}
-            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'general'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            💬 General
-          </button>
-          {hasPermission('community_chat', 'all_channels') && (
-            <button
-              onClick={() => setActiveTab('announcements')}
-              className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === 'announcements'
-                  ? 'border-orange-500 text-orange-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              📢 ANNOUNCEMENTS
-            </button>
-          )}
+  const loadUsersList = async () => {
+    setLoadingUsers(true);
+    try {
+      // Load existing conversations for the admin user
+      const { data: conversations, error: convError } = await supabase
+        .from('dm_conversations')
+        .select(`
+          id,
+          user1_id,
+          user2_id,
+          created_at
+        `)
+        .or(`user1_id.eq.${currentUserId},user2_id.eq.${currentUserId}`)
+        .order('created_at', { ascending: false });
+
+      if (convError) throw convError;
+
+      if (!conversations || conversations.length === 0) {
+        console.log('No existing conversations found');
+        setDmList([]);
+        setLoadingUsers(false);
+        return;
+      }
+
+      // Get all other user IDs (not the admin)
+      const otherUserIds = conversations.map(conv => 
+        conv.user1_id === currentUserId ? conv.user2_id : conv.user1_id
+      ).filter(id => id && id !== currentUserId);
+
+      if (otherUserIds.length === 0) {
+        setDmList([]);
+        setLoadingUsers(false);
+        return;
+      }
+
+      // Fetch profiles for these users
+      const { data: profiles, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, nickname, avatar_emoji')
+        .in('id', otherUserIds);
+
+      if (profileError) throw profileError;
+
+      // Fetch subscription info (optional, use left join)
+      const { data: subscriptions } = await supabase
+        .from('user_subscriptions')
+        .select('user_id, status, plan_name')
+        .in('user_id', otherUserIds)
+        .eq('status', 'active');
+
+      // Create maps for quick lookup
+      const profileMap = {};
+      const subMap = {};
+
+      if (profiles) {
+        profiles.forEach(profile => {
+          profileMap[profile.id] = profile;
+        });
+      }
+
+      if (subscriptions) {
+        subscriptions.forEach(sub => {
+          subMap[sub.user_id] = sub;
+        });
+      }
+
+      // Enrich conversations with user info
+      const enrichedUsers = otherUserIds.map(userId => {
+        const profile = profileMap[userId];
+        const subscription = subMap[userId];
+        const conversation = conversations.find(c => 
+          c.user1_id === userId || c.user2_id === userId
+        );
+
+        return {
+          id: userId,
+          conversationId: conversation?.id,
+          username: profile?.nickname || 'User',
+          avatar: profile?.avatar_emoji || '👤',
+          subscriptionPlan: subscription?.plan_name || 'Free',
+          subscriptionStatus: subscription?.status || 'none',
+        };
+      });
+
+      setDmList(enrichedUsers);
+    } catch (error) {
+      console.error('Error loading users:', error);
+      setDmList([]);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const loadDMMessages = async () => {
+    if (!activeConversation) return;
+    
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('direct_messages')
+        .select(`
+          id,
+          content,
+          created_at,
+          is_deleted,
+          sender_id
+        `)
+        .eq('conversation_id', activeConversation.conversationId)
+        .order('created_at', { ascending: true })
+        .limit(100);
+
+      if (error) throw error;
+
+      // Fetch sender profiles
+      if (data && data.length > 0) {
+        const senderIds = [...new Set(data.map(msg => msg.sender_id))];
+        
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, nickname, avatar_emoji')
+          .in('id', senderIds);
+
+        const profileMap = {};
+        if (profiles) {
+          profiles.forEach(profile => {
+            profileMap[profile.id] = profile;
+          });
+        }
+
+        const enrichedMessages = data.map(msg => ({
+          ...msg,
+          user: {
+            id: msg.sender_id,
+            username: profileMap[msg.sender_id]?.nickname || 'User',
+            avatar: profileMap[msg.sender_id]?.avatar_emoji || '👤',
+            isAdmin: msg.sender_id === currentUserId
+          },
+          isOwnMessage: msg.sender_id === currentUserId
+        }));
+
+        setDmMessages(enrichedMessages);
+      } else {
+        setDmMessages([]);
+      }
+    } catch (error) {
+      console.error('Error loading DM messages:', error);
+      setDmMessages([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const subscribeToDMMessages = () => {
+    if (!activeConversation) return () => {};
+
+    const subscription = supabase
+      .channel(`admin-dm-${activeConversation.conversationId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'direct_messages',
+        filter: `conversation_id=eq.${activeConversation.conversationId}`
+      }, () => {
+        loadDMMessages();
+      })
+      .subscribe();
+    
+    return () => { subscription.unsubscribe(); };
+  };
+
+  const getOrCreateConversation = async (userId) => {
+    try {
+      // Check if conversation already exists
+      const { data: existing, error: fetchError } = await supabase
+        .from('dm_conversations')
+        .select('*')
+        .or(`and(user1_id.eq.${currentUserId},user2_id.eq.${userId}),and(user1_id.eq.${userId},user2_id.eq.${currentUserId})`)
+        .single();
+
+      if (existing) {
+        return { data: existing, error: null };
+      }
+
+      // Create new conversation
+      const { data, error } = await supabase
+        .from('dm_conversations')
+        .insert({
+          user1_id: currentUserId,
+          user2_id: userId
+        })
+        .select()
+        .single();
+
+      return { data, error };
+    } catch (error) {
+      return { data: null, error };
+    }
+  };
+
+  const openDM = async (user) => {
+    // If user already has conversationId (from existing conversation), use it
+    if (user.conversationId) {
+      setActiveConversation({
+        conversationId: user.conversationId,
+        user: user
+      });
+      setViewMode('dms');
+      return;
+    }
+
+    // Otherwise, create new conversation
+    const { data: conversation, error } = await getOrCreateConversation(user.id);
+    
+    if (error || !conversation) {
+      console.error('Error creating conversation:', error);
+      alert('Failed to open conversation');
+      return;
+    }
+
+    setActiveConversation({
+      conversationId: conversation.id,
+      user: user
+    });
+    setViewMode('dms');
+  };
+
+  const handleSendDM = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim() || sending || !activeConversation) return;
+
+    try {
+      setSending(true);
+      const { error } = await supabase
+        .from('direct_messages')
+        .insert({
+          conversation_id: activeConversation.conversationId,
+          sender_id: currentUserId,
+          content: newMessage.trim()
+        });
+      
+      if (error) throw error;
+      
+      setNewMessage('');
+    } catch (error) {
+      console.error('Error sending DM:', error);
+      alert('Failed to send message: ' + error.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleDeleteDM = async (messageId) => {
+    if (!confirm('Delete this message?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('direct_messages')
+        .update({ 
+          is_deleted: true,
+          deleted_at: new Date().toISOString()
+        })
+        .eq('id', messageId);
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting DM:', error);
+      alert('Failed to delete message: ' + error.message);
+    }
+  };
+
+  // Load users when switching to DMs
+  useEffect(() => {
+    if (viewMode === 'dms' && dmList.length === 0) {
+      loadUsersList();
+    }
+  }, [viewMode]);
+
+  return (
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar for DM user list */}
+      {viewMode === 'dms' && (
+        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Users</h2>
+            <p className="text-sm text-gray-500 mt-1">Select a user to message</p>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto">
+            {loadingUsers ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="text-gray-500">Loading users...</div>
+              </div>
+            ) : dmList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-32 px-6 text-center">
+                <p className="text-gray-500">No users found</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {dmList.map((user) => (
+                  <button
+                    key={user.id}
+                    onClick={() => openDM(user)}
+                    className={`w-full px-6 py-4 flex items-center gap-3 hover:bg-gray-50 transition-colors ${
+                      activeConversation?.user.id === user.id ? 'bg-blue-50' : ''
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-xl flex-shrink-0">
+                      {user.avatar}
+                    </div>
+                    <div className="flex-1 text-left min-w-0">
+                      <div className="font-medium text-gray-900 truncate">{user.username}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        {user.subscriptionPlan} Plan
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Main chat area */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">Community Chat</h1>
+          <p className="text-sm text-gray-500">Monitor and moderate community conversations</p>
+        </div>
+
+        {/* View Mode Switcher + Channel/DM Tabs */}
+        <div className="bg-white border-b border-gray-200 px-6">
+          <div className="flex items-center gap-6">
+            {/* View Mode Toggle */}
+            <div className="flex gap-2 border-r border-gray-200 pr-6">
+              <button
+                onClick={() => {
+                  setViewMode('channels');
+                  setActiveConversation(null);
+                }}
+                className={`py-3 px-4 rounded-lg font-medium text-sm transition-colors ${
+                  viewMode === 'channels'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                💬 Channels
+              </button>
+              <button
+                onClick={() => setViewMode('dms')}
+                className={`py-3 px-4 rounded-lg font-medium text-sm transition-colors ${
+                  viewMode === 'dms'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <MessageSquare className="inline-block w-4 h-4 mr-1" />
+                Direct Messages
+              </button>
+            </div>
+
+            {/* Channel Tabs (only show in channels mode) */}
+            {viewMode === 'channels' && (
+              <div className="flex gap-6">
+                <button
+                  onClick={() => setActiveTab('general')}
+                  className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === 'general'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  💬 General
+                </button>
+                {hasPermission('community_chat', 'all_channels') && (
+                  <button
+                    onClick={() => setActiveTab('announcements')}
+                    className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                      activeTab === 'announcements'
+                        ? 'border-orange-500 text-orange-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    📢 ANNOUNCEMENTS
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Active Conversation Info (in DM mode) */}
+            {viewMode === 'dms' && activeConversation && (
+              <div className="flex items-center gap-3 py-2">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-lg">
+                  {activeConversation.user.avatar}
+                </div>
+                <div>
+                  <div className="font-medium text-gray-900">
+                    {activeConversation.user.username}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {activeConversation.user.subscriptionPlan} Plan
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto bg-gray-50 px-6 py-4">
@@ -248,21 +638,35 @@ export default function ChatMonitoring() {
           <div className="flex items-center justify-center h-full">
             <div className="text-gray-500">Loading messages...</div>
           </div>
-        ) : messages.length === 0 ? (
+        ) : viewMode === 'dms' && !activeConversation ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="text-6xl mb-4">{activeTab === 'general' ? '💬' : '📢'}</div>
+            <MessageSquare size={64} className="text-gray-300 mb-4" />
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">
+              Select a user to start messaging
+            </h3>
+            <p className="text-gray-500">
+              Choose a user from the sidebar to send direct messages
+            </p>
+          </div>
+        ) : (viewMode === 'channels' ? messages : dmMessages).length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <div className="text-6xl mb-4">
+              {viewMode === 'dms' ? '💬' : activeTab === 'general' ? '💬' : '📢'}
+            </div>
             <h3 className="text-xl font-semibold text-gray-700 mb-2">
               No messages yet
             </h3>
             <p className="text-gray-500">
-              {activeTab === 'general' 
-                ? 'Be the first to start the conversation!' 
-                : 'Post an announcement to get started'}
+              {viewMode === 'dms'
+                ? 'Start the conversation with this user'
+                : activeTab === 'general' 
+                  ? 'Be the first to start the conversation!' 
+                  : 'Post an announcement to get started'}
             </p>
           </div>
         ) : (
           <div className="space-y-4 max-w-4xl mx-auto">
-            {messages.map((message) => {
+            {(viewMode === 'channels' ? messages : dmMessages).map((message) => {
               const isOwnMessage = message.isOwnMessage;
               const isAdmin = message.user?.isAdmin;
               
@@ -273,7 +677,7 @@ export default function ChatMonitoring() {
                     <div className="flex items-start gap-3 max-w-[80%]">
                       {/* Delete Button (left side for own messages) */}
                       <button
-                        onClick={() => handleDeleteMessage(message.id)}
+                        onClick={() => viewMode === 'channels' ? handleDeleteMessage(message.id) : handleDeleteDM(message.id)}
                         className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-50 rounded-lg text-red-600"
                         title="Delete message"
                       >
@@ -360,7 +764,7 @@ export default function ChatMonitoring() {
 
                       {/* Delete Button */}
                       <button
-                        onClick={() => handleDeleteMessage(message.id)}
+                        onClick={() => viewMode === 'channels' ? handleDeleteMessage(message.id) : handleDeleteDM(message.id)}
                         className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-50 rounded-lg text-red-600"
                         title="Delete message"
                       >
@@ -378,7 +782,7 @@ export default function ChatMonitoring() {
 
       {/* Input Area */}
       <div className="bg-white border-t border-gray-200 px-6 py-4">
-        <form onSubmit={handleSendMessage} className="max-w-4xl mx-auto">
+        <form onSubmit={viewMode === 'channels' ? handleSendMessage : handleSendDM} className="max-w-4xl mx-auto">
           <div className="flex items-end gap-3">
             <div className="flex-1">
               <textarea
@@ -387,23 +791,30 @@ export default function ChatMonitoring() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    handleSendMessage(e);
+                    viewMode === 'channels' ? handleSendMessage(e) : handleSendDM(e);
                   }
                 }}
                 placeholder={
-                  activeTab === 'announcements'
-                    ? '📢 Post an announcement...'
-                    : '💬 Type a message...'
+                  viewMode === 'dms' && !activeConversation
+                    ? 'Select a user to start messaging...'
+                    : viewMode === 'dms'
+                      ? `💬 Message ${activeConversation?.user.username}...`
+                      : activeTab === 'announcements'
+                        ? '📢 Post an announcement...'
+                        : '💬 Type a message...'
                 }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                disabled={viewMode === 'dms' && !activeConversation}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none disabled:bg-gray-100 disabled:text-gray-400"
                 rows="2"
                 maxLength={500}
               />
               <div className="flex justify-between items-center mt-1 px-1">
                 <span className="text-xs text-gray-500">
-                  {activeTab === 'announcements' 
-                    ? 'Announcements are visible to all users' 
-                    : 'Press Enter to send, Shift+Enter for new line'}
+                  {viewMode === 'dms'
+                    ? 'Press Enter to send, Shift+Enter for new line'
+                    : activeTab === 'announcements' 
+                      ? 'Announcements are visible to all users' 
+                      : 'Press Enter to send, Shift+Enter for new line'}
                 </span>
                 <span className="text-xs text-gray-500">
                   {newMessage.length}/500
@@ -412,10 +823,10 @@ export default function ChatMonitoring() {
             </div>
             <button
               type="submit"
-              disabled={!newMessage.trim() || sending}
+              disabled={!newMessage.trim() || sending || (viewMode === 'dms' && !activeConversation)}
               className={`flex-shrink-0 p-3 rounded-lg font-medium transition-all ${
-                newMessage.trim() && !sending
-                  ? activeTab === 'announcements'
+                newMessage.trim() && !sending && (viewMode === 'channels' || activeConversation)
+                  ? activeTab === 'announcements' && viewMode === 'channels'
                     ? 'bg-orange-500 hover:bg-orange-600 text-white'
                     : 'bg-blue-500 hover:bg-blue-600 text-white'
                   : 'bg-gray-200 text-gray-400 cursor-not-allowed'
@@ -431,5 +842,6 @@ export default function ChatMonitoring() {
         </form>
       </div>
     </div>
+  </div>
   );
 }

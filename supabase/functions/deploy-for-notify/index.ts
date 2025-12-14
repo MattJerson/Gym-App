@@ -93,31 +93,12 @@ serve(async (req)=>{
         console.log(`Found ${targetUserIds.length} users for broadcast notification`);
       }
     }
-    // Create notification_logs entries for inbox (one per user, matching auto-notify pattern)
+    // DO NOT create notification_logs entries for manual notifications
+    // Manual notifications are stored in the 'notifications' table and shown via that
+    // Only automated notifications (from auto-notify) should create notification_logs entries
+    // This prevents duplicate notifications from appearing in the mobile app
     let loggedCount = 0;
-    if (targetUserIds.length > 0) {
-      console.log(`Creating notification_logs for ${targetUserIds.length} users`);
-      
-      const notificationLogs = targetUserIds.map((uid)=>({
-          user_id: uid,
-          trigger_id: null,
-          title: title,
-          message: message,
-          type: meta.type || 'info',
-          sent_at: new Date().toISOString()
-        }));
-      
-      const { data: insertedLogs, error: logError } = await adminClient
-        .from('notification_logs')
-        .insert(notificationLogs);
-      
-      if (logError) {
-        console.error('Error creating notification_logs:', logError.message, logError);
-      } else {
-        loggedCount = targetUserIds.length;
-        console.log(`Successfully logged ${loggedCount} notifications`);
-      }
-    }
+    console.log('Skipping notification_logs creation - manual notifications use notifications table');
     if (tokens.length === 0 && targetUserIds.length === 0) return new Response(JSON.stringify({
       sent: 0,
       results: [],

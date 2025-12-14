@@ -35,12 +35,20 @@ export const HomeDataService = {
         .eq('user_id', userId)
         .single();
 
+      // Get actual steps data from tracking table
+      const { data: stepsData } = await supabase
+        .from('daily_activity_tracking')
+        .select('steps_count, steps_goal')
+        .eq('user_id', userId)
+        .eq('tracking_date', dateStr)
+        .maybeSingle();
+
       // Calculate daily metrics
       const workoutCompleted = workoutLogs && workoutLogs.length > 0;
       const caloriesConsumed = mealData?.total_calories || 0;
       const caloriesGoal = mealData?.calorie_goal || 2000;
-      const steps = 8500; // TODO: Integrate with step tracker
-      const stepsGoal = 10000;
+      const steps = stepsData?.steps_count || 0;
+      const stepsGoal = stepsData?.steps_goal || 10000;
 
       return {
         streak: {

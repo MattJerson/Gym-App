@@ -785,6 +785,8 @@ export default function Register() {
                 value={nickname}
                 onChangeText={setNickname}
                 errorMessage={errors.nickname}
+                autoCorrect={false}
+                autoCapitalize="none"
               />
             )}
             <FormInput
@@ -804,7 +806,6 @@ export default function Register() {
               autoComplete="off"
               importantForAutofill="no"
               passwordRules="minlength: 6;"
-              secureTextEntry={true}
             />
 
             {isRegistering && password.length > 0 && (
@@ -842,7 +843,6 @@ export default function Register() {
                 autoComplete="off"
                 importantForAutofill="no"
                 passwordRules="minlength: 6;"
-                secureTextEntry={true}
               />
             )}
 

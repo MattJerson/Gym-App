@@ -2,6 +2,20 @@ import React from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+// Randomized placeholder names for empty leaderboard spots
+const PLACEHOLDER_NAMES = [
+  'Alex Fitness', 'Jamie Strong', 'Casey Champion', 'Jordan Power',
+  'Taylor Swift', 'Morgan Muscle', 'Riley Runner', 'Quinn Quest',
+  'Avery Active', 'Blake Buff', 'Dakota Driven', 'Sage Strong',
+  'Rowan Ready', 'Phoenix Fit', 'Skylar Solid', 'Cameron Core'
+];
+
+// Get consistent random name based on position (same each render)
+const getPlaceholderName = (position) => {
+  const index = (position - 1) % PLACEHOLDER_NAMES.length;
+  return PLACEHOLDER_NAMES[index];
+};
+
 export default function LeaderboardCard({ 
   leaderboard, 
   activeChallenge,
@@ -33,7 +47,7 @@ export default function LeaderboardCard({
       topThree.push({
         position: position,
         user_id: null,
-        display_name: `User ${position}`,
+        display_name: getPlaceholderName(position),
         total_points: 0,
         current_streak: 0,
         progress_value: 0,
@@ -332,6 +346,13 @@ const styles = StyleSheet.create({
   trendText: {
     fontSize: 10,
     fontWeight: "600",
+  },
+  motivationalText: {
+    fontSize: 11,
+    color: "#5B86E5",
+    fontWeight: "600",
+    fontStyle: "italic",
+    textAlign: "right",
   },
   leaderboardFooter: {
     marginTop: 12,

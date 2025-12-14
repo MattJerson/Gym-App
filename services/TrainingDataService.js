@@ -16,14 +16,30 @@ export const TrainingDataService = {
   // Workout Progress Data
   async fetchWorkoutProgress(userId) {
     try {
-      // Fetch today's activity data
-      const { data, error } = await supabase
+      // Fetch today's activity data with error handling
+      let data = null;
+      const rpcResult = await supabase
         .rpc('get_user_daily_stats', { 
           p_user_id: userId,
           p_date: getLocalDateString()
         });
 
-      if (error) throw error;
+      // Check if function doesn't exist (error code 42883)
+      if (rpcResult.error?.code === '42883') {
+        console.warn('[TrainingDataService] RPC function not found, using fallback query');
+        // Fallback to direct table query
+        const fallback = await supabase
+          .from('daily_activity_tracking')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('tracking_date', getLocalDateString())
+          .maybeSingle();
+        data = fallback.data ? [fallback.data] : [];
+      } else if (rpcResult.error) {
+        throw rpcResult.error;
+      } else {
+        data = rpcResult.data;
+      }
 
       const stats = data && data.length > 0 ? data[0] : null;
 
@@ -66,9 +82,41 @@ export const TrainingDataService = {
   // Current/Continue Workout (In-progress session)
   async fetchContinueWorkout(userId) {
     try {
-      const { data, error } = await supabase
+      const rpcResult = await supabase
         .rpc('get_continue_workout', { p_user_id: userId });
 
+      // Check if function doesn't exist
+      if (rpcResult.error?.code === '42883') {
+        console.warn('[TrainingDataService] get_continue_workout RPC not found, using fallback');
+        // Fallback: query active sessions directly
+        const fallback = await supabase
+          .from('workout_sessions')
+          .select('*, workout_templates(name, difficulty, duration_minutes)')
+          .eq('user_id', userId)
+          .eq('status', 'in_progress')
+          .order('started_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (!fallback.data) return null;
+        
+        // Transform to expected format
+        const session = fallback.data;
+        return {
+          id: session.workout_template_id,
+          sessionId: session.id,
+          workoutName: session.workout_name,
+          workoutType: session.workout_type || 'Workout',
+          completedExercises: session.completed_exercises || 0,
+          totalExercises: session.total_exercises || 0,
+          timeElapsed: Math.floor((new Date() - new Date(session.started_at)) / 60000), // Minutes
+          progress: (session.progress_percentage || 0) / 100,
+          caloriesBurned: session.estimated_calories_burned || 0
+        };
+      }
+      
+      if (rpcResult.error) throw rpcResult.error;
+      const { data, error } = rpcResult;
       if (error) throw error;
       
       if (!data || data.length === 0) return null;
@@ -542,7 +590,7 @@ export const TrainingDataService = {
         workoutData.exercises,
         userId
       );
-      const { data, error } = await supabase.rpc('create_custom_workout_v2', {
+      const rpcResult = await supabase.rpc('create_custom_workout_v2', {
         p_user_id: userId,
         p_name: workoutData.name,
         p_description: workoutData.description || '',
@@ -555,6 +603,12 @@ export const TrainingDataService = {
         p_custom_emoji: workoutData.emoji || null
       });
 
+      if (rpcResult.error?.code === '42883') {
+        console.warn('[TrainingDataService] create_custom_workout_v2 RPC not found');
+        throw new Error('Custom workout creation is temporarily unavailable.');
+      }
+      
+      const { data, error } = rpcResult;
       if (error) {
         console.error('Error creating custom workout:', error);
         throw error;
@@ -610,7 +664,7 @@ export const TrainingDataService = {
         userId
       );
 
-      const { data, error } = await supabase.rpc('update_custom_workout_v2', {
+      const rpcResult = await supabase.rpc('update_custom_workout_v2', {
         p_user_id: userId,
         p_template_id: templateId,
         p_name: workoutData.name,
@@ -624,6 +678,12 @@ export const TrainingDataService = {
         p_custom_emoji: workoutData.emoji || null
       });
 
+      if (rpcResult.error?.code === '42883') {
+        console.warn('[TrainingDataService] update_custom_workout_v2 RPC not found');
+        throw new Error('Custom workout update is temporarily unavailable.');
+      }
+      
+      const { data, error } = rpcResult;
       if (error) {
         console.error('Error updating custom workout:', error);
         throw error;

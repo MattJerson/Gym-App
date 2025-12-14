@@ -64,7 +64,13 @@ async function getUserTokens(supabase: any, userId: string): Promise<string[]> {
 }
 
 // Helper: Check if notification should be sent to user (respects cooldown AND scheduling)
-async function shouldSendToUser(supabase: any, userId: string, trigger: any): Promise<boolean> {
+async function shouldSendToUser(supabase: any, userId: string, trigger: any, isManualTrigger: boolean = false): Promise<boolean> {
+  // Skip all checks for manual admin triggers - send to everyone!
+  if (isManualTrigger) {
+    console.log(`✅ Manual trigger - bypassing all checks for user ${userId.substring(0, 8)}...`);
+    return true;
+  }
+
   // Check user registration date - don't send to brand new users (within 24 hours)
   const { data: profile } = await supabase
     .from('registration_profiles')
@@ -158,13 +164,37 @@ async function logNotification(supabase: any, userId: string, triggerId: string,
 }
 
 serve(async (req) => {
+  // CORS headers for admin panel requests
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
+    // Check if this is a manual trigger from admin panel (bypasses cooldowns and grace periods)
+    const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
+    const isManualTrigger = body?.manual === true || req.method === 'POST'; // Admin panel calls are manual
+    const testTriggerId = body?.trigger_id || null; // Specific trigger to test (admin panel only)
+    
+    console.log(`🚀 Auto-notify mode: ${isManualTrigger ? 'MANUAL (admin triggered)' : 'SCHEDULED (cron)'}`);
+    if (testTriggerId) {
+      console.log(`🎯 Testing specific trigger: ${testTriggerId}`);
+    }
+    
     // This function can be called via HTTP POST or scheduled cron
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!supabaseUrl || !serviceKey) {
-      return new Response('Missing environment variables', { status: 500 });
+      return new Response('Missing environment variables', { 
+        status: 500,
+        headers: { ...corsHeaders, 'content-type': 'application/json' }
+      });
     }
 
     const supabase = createClient(supabaseUrl, serviceKey, {
@@ -186,22 +216,30 @@ serve(async (req) => {
     
     console.log(`📅 Current time: Day ${currentDay} (${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][currentDay]}), Hour ${currentHour}`);
 
-    // Get all active triggers
-    const { data: allTriggers, error: triggerError } = await supabase
+    // Get active triggers (optionally filter by specific trigger_id for testing)
+    let triggerQuery = supabase
       .from('notification_triggers')
       .select('*')
       .eq('is_active', true);
+    
+    // If testing a specific trigger, only fetch that one
+    if (testTriggerId) {
+      console.log(`🎯 Fetching only trigger: ${testTriggerId}`);
+      triggerQuery = triggerQuery.eq('id', testTriggerId);
+    }
+    
+    const { data: allTriggers, error: triggerError } = await triggerQuery;
 
     if (triggerError) {
       console.error('Error fetching triggers:', triggerError);
       return new Response(JSON.stringify({ error: 'Failed to fetch triggers' }), { 
         status: 500,
-        headers: { 'content-type': 'application/json' }
+        headers: { ...corsHeaders, 'content-type': 'application/json' }
       });
     }
 
-    // Filter triggers based on scheduling constraints
-    const triggers = (allTriggers || []).filter(trigger => {
+    // Filter triggers based on scheduling constraints (skip filtering for manual test triggers)
+    const triggers = testTriggerId ? (allTriggers || []) : (allTriggers || []).filter(trigger => {
       // If trigger has day constraint, check if today matches
       if (trigger.day_of_week !== null && trigger.day_of_week !== undefined) {
         if (trigger.day_of_week !== currentDay) {
@@ -488,6 +526,17 @@ serve(async (req) => {
           continue;
       }
 
+      // If testing a specific trigger, bypass user filtering and send to ALL users
+      if (testTriggerId && targetUsers.length === 0) {
+        console.log(`🎯 Test mode: No eligible users found by filter, sending to ALL users instead`);
+        const { data: allUsers } = await supabase
+          .from('registration_profiles')
+          .select('user_id');
+        targetUsers = allUsers || [];
+      } else if (testTriggerId) {
+        console.log(`🎯 Test mode: Using filtered users (${targetUsers.length} found)`);
+      }
+
       console.log(`👥 Found ${targetUsers.length} target users for ${trigger.trigger_type}`);
 
       let sentCount = 0;
@@ -496,8 +545,8 @@ serve(async (req) => {
       // Send notification to each target user (with cooldown check)
       for (const user of targetUsers) {
         try {
-          // ⭐ CHECK COOLDOWN BEFORE SENDING
-          const shouldSend = await shouldSendToUser(supabase, user.user_id, trigger);
+          // ⭐ CHECK COOLDOWN BEFORE SENDING (bypassed for manual triggers)
+          const shouldSend = await shouldSendToUser(supabase, user.user_id, trigger, isManualTrigger);
 
           if (!shouldSend) {
             skippedCount++;
@@ -590,7 +639,7 @@ serve(async (req) => {
       }),
       {
         status: 200,
-        headers: { 'content-type': 'application/json' }
+        headers: { ...corsHeaders, 'content-type': 'application/json' }
       }
     );
   } catch (error) {
@@ -601,7 +650,7 @@ serve(async (req) => {
       }),
       {
         status: 500,
-        headers: { 'content-type': 'application/json' }
+        headers: { ...corsHeaders, 'content-type': 'application/json' }
       }
     );
   }

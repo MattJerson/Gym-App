@@ -86,6 +86,7 @@ export default function FormStep({
             {...commonProps}
             emojis={field.emojis || ["😊", "😎", "🔥", "💪", "⚡", "🚀"]}
             onSelect={(emoji) => handleInputChange(field.key, emoji)}
+            horizontal={field.horizontal}
           />
         );
 

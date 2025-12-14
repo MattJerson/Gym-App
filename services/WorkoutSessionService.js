@@ -5,7 +5,7 @@ export const WorkoutSessionService = {
   
   // Get workout details by ID
   async getWorkoutById(workoutId) {
-    console.log('Loading workout with ID:', workoutId); // Debug log
+    if (__DEV__) console.log('[WorkoutSession] Loading workout:', workoutId);
     
     // Mock data - replace with actual API call
     const workouts = {

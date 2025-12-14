@@ -31,14 +31,6 @@ const formConfig = [
     subtitle: "Tell us about yourself",
     fields: [
       {
-        key: "avatarEmoji",
-        label: "Choose your profile emoji",
-        type: "emoji-picker",
-        placeholder: "Select Emoji",
-        required: true,
-        emojis: ["😊", "😎", "🔥", "💪", "⚡", "🚀", "🎯", "👑", "💯", "🏆", "⭐", "🌟", "🎮", "🎨", "🎵", "❤️", "💙", "💚", "💛", "🧡", "💜", "🖤", "🤍", "🤎", "🦄", "🦁", "🐯", "🐻", "🐼", "🐨", "🐸", "🦊", "🐱", "🐶", "🐷"],
-      },
-      {
         key: "gender",
         label: "Please select your gender",
         type: "dropdown",
@@ -221,6 +213,15 @@ const formConfig = [
     title: "Meal Plan",
     subtitle: "Nutrition preferences",
     fields: [
+      {
+        key: "avatarEmoji",
+        label: "Choose your profile emoji",
+        type: "emoji-picker",
+        placeholder: "Select Emoji",
+        required: true,
+        horizontal: true,
+        emojis: ["😊", "😎", "🔥", "💪", "⚡", "🚀", "🎯", "👑", "💯", "🏆", "⭐", "🌟", "🎮", "🎨", "🎵", "❤️", "💙", "💚", "💛", "🧡", "💜", "🖤", "🤍", "🤎", "🦄", "🦁", "🐯", "🐻", "🐼", "🐨", "🐸", "🦊", "🐱", "🐶", "🐷"],
+      },
       {
         key: "mealType",
         label: "What's your meal preference?",

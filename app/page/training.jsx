@@ -118,27 +118,28 @@ export default function Training() {
         throw categoriesError;
       }
 
-      // For each category, count only admin/official templates (created_by_user_id IS NULL)
-      const categoriesWithCounts = await Promise.all(
-        (categoriesData || []).map(async (category) => {
-          const { count, error: countError } = await supabase
-            .from("workout_templates")
-            .select("*", { count: "exact", head: true })
-            .eq("category_id", category.id)
-            .eq("is_active", true)
-            .is("created_by_user_id", null); // Only official templates, not user-created
+      // ⚡ OPTIMIZED: Fetch all template counts in a single query
+      const { data: templateData, error: templateError } = await supabase
+        .from("workout_templates")
+        .select("category_id")
+        .eq("is_active", true)
+        .is("created_by_user_id", null); // Only official templates
 
-          if (countError) {
-            console.error(`Error counting templates for category ${category.id}:`, countError);
-            return { ...category, workout_count: 0 };
-          }
+      if (templateError) {
+        console.error("Error fetching template counts:", templateError);
+      }
 
-          return {
-            ...category,
-            workout_count: count || 0,
-          };
-        })
-      );
+      // Create a map of category_id -> count
+      const countMap = (templateData || []).reduce((acc, template) => {
+        acc[template.category_id] = (acc[template.category_id] || 0) + 1;
+        return acc;
+      }, {});
+
+      // Apply counts to categories
+      const categoriesWithCounts = (categoriesData || []).map(category => ({
+        ...category,
+        workout_count: countMap[category.id] || 0,
+      }));
 
       // Sort categories: Active ones (with workouts) first, then "Coming Soon" (empty) at the end
       const categoriesWithTemplates = categoriesWithCounts.sort((a, b) => {

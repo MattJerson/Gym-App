@@ -70,14 +70,32 @@ const Users = () => {
       // Get all user IDs
       const userIds = authUsers.users.map(u => u.id);
 
-      // Fetch registration profiles for role and subscription_tier
+      // Fetch registration profiles for role and account status
       const { data: profiles, error: profilesError } = await supabase
         .from('registration_profiles')
-        .select('user_id, role, subscription_tier, account_status, suspended_at, suspended_reason, onboarding_completed')
+        .select('user_id, role, account_status, suspended_at, suspended_reason, onboarding_completed')
         .in('user_id', userIds);
 
       if (profilesError) {
         console.error('Profiles Error:', profilesError);
+      }
+
+      // Fetch active subscriptions for all users
+      const { data: subscriptions, error: subsError } = await supabase
+        .from('user_subscriptions')
+        .select(`
+          user_id,
+          status,
+          subscription_packages (
+            name,
+            slug
+          )
+        `)
+        .eq('status', 'active')
+        .in('user_id', userIds);
+
+      if (subsError) {
+        console.error('Subscriptions Error:', subsError);
       }
 
       // Create profiles map
@@ -88,9 +106,22 @@ const Users = () => {
         });
       }
 
-      // Map auth users with profile data
+      // Create subscriptions map (user_id -> subscription package)
+      const subscriptionsMap = {};
+      if (subscriptions) {
+        subscriptions.forEach(sub => {
+          // Only store the first active subscription per user
+          if (!subscriptionsMap[sub.user_id]) {
+            subscriptionsMap[sub.user_id] = sub.subscription_packages;
+          }
+        });
+      }
+
+      // Map auth users with profile data and subscription info
       const rows = authUsers.users.map(u => {
         const profile = profilesMap[u.id] || {};
+        const subscription = subscriptionsMap[u.id];
+        
         return {
           uid: u.id,
           email: u.email,
@@ -102,7 +133,8 @@ const Users = () => {
           suspended_at: profile.suspended_at,
           suspended_reason: profile.suspended_reason,
           role: profile.role || 'user',
-          subscription_tier: profile.subscription_tier || 'free',
+          subscription_package: subscription || null, // Store the package object
+          subscription_tier: subscription?.slug || 'none', // Keep for backwards compatibility
           onboarding_completed: profile.onboarding_completed || false,
           raw: u,
         };
@@ -539,20 +571,12 @@ const Users = () => {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        {user.subscription_tier && user.subscription_tier !== 'free' ? (
+                        {user.subscription_package ? (
                           <div>
                             <div className="flex items-center gap-2">
                               <CreditCard className="h-4 w-4 text-blue-600" />
-                              <span className={`font-semibold text-sm px-2 py-1 rounded-md ${
-                                user.subscription_tier === 'rapid_results' ? 'bg-purple-100 text-purple-800' :
-                                user.subscription_tier === 'standard' ? 'bg-blue-100 text-blue-800' :
-                                user.subscription_tier === 'basic' ? 'bg-green-100 text-green-800' :
-                                'bg-gray-100 text-gray-800'
-                              }`}>
-                                {user.subscription_tier === 'rapid_results' ? 'Rapid Results' :
-                                 user.subscription_tier === 'standard' ? 'Standard' :
-                                 user.subscription_tier === 'basic' ? 'Basic' :
-                                 user.subscription_tier}
+                              <span className="font-semibold text-sm px-2 py-1 rounded-md bg-blue-100 text-blue-800">
+                                {user.subscription_package.name}
                               </span>
                             </div>
                           </div>
