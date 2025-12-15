@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { getLocalDateString } from '../utils/dateUtils';
+import { UnitConversionService } from './UnitConversionService';
 
 /**
  * Weight Progress Service
@@ -18,6 +19,11 @@ import { getLocalDateString } from '../utils/dateUtils';
  * - System automatically projects weight based on logged meals/workouts
  * - Only updates when user logs meals (incentivizes tracking)
  * - Weight progress shown automatically without manual weight entry
+ * 
+ * UNIT CONVERSION:
+ * - All weight data stored in KG in database
+ * - Use formatWeightForDisplay() to show weight in user's preferred unit
+ * - Charts and displays can pass useMetric to get formatted values
  */
 export const WeightProgressService = {
   /**
@@ -593,5 +599,54 @@ export const WeightProgressService = {
       console.error('❌ Error checking unlock celebration status:', error);
       return false;
     }
+  },
+
+  /**
+   * Format weight for display based on user preference
+   * @param {number} weightKg - Weight in kilograms from database
+   * @param {boolean} useMetric - User's unit preference
+   * @param {number} decimals - Number of decimal places
+   * @returns {Object} { value: string, unit: string, raw: number }
+   */
+  formatWeightForDisplay(weightKg, useMetric = true, decimals = 1) {
+    return UnitConversionService.formatWeight(weightKg, useMetric, decimals);
+  },
+
+  /**
+   * Format chart data with weight values converted to user's preferred unit
+   * @param {Object} chartData - Raw chart data from getWeightProgressChart
+   * @param {boolean} useMetric - User's unit preference
+   * @returns {Object} Chart data with converted weight values
+   */
+  formatChartForDisplay(chartData, useMetric = true) {
+    if (!chartData || !chartData.values) return chartData;
+
+    return {
+      ...chartData,
+      values: chartData.values.map(kg => 
+        useMetric ? kg : UnitConversionService.kgToLbs(kg)
+      ),
+      actualMeasurements: chartData.actualMeasurements.map(m => ({
+        ...m,
+        weight: useMetric ? m.weight : UnitConversionService.kgToLbs(m.weight)
+      })),
+      projections: chartData.projections.map(p => ({
+        ...p,
+        weight: useMetric ? p.weight : UnitConversionService.kgToLbs(p.weight)
+      })),
+      startWeight: useMetric ? chartData.startWeight : UnitConversionService.kgToLbs(chartData.startWeight),
+      currentWeight: useMetric ? chartData.currentWeight : UnitConversionService.kgToLbs(chartData.currentWeight),
+      weightChange: useMetric ? chartData.weightChange : UnitConversionService.kgToLbs(Math.abs(chartData.weightChange)) * (chartData.weightChange < 0 ? -1 : 1),
+      unit: useMetric ? 'kg' : 'lbs'
+    };
+  },
+
+  /**
+   * Get weight unit label
+   * @param {boolean} useMetric - User's unit preference
+   * @returns {string} 'kg' or 'lbs'
+   */
+  getWeightUnit(useMetric = true) {
+    return UnitConversionService.getWeightUnit(useMetric);
   }
 };

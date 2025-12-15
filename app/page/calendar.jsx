@@ -108,8 +108,6 @@ export default function Calendar() {
         loadCalendarData();
         loadStreakData();
         loadMonthlyAnalytics();
-        // Force reload to get latest calorie/weight data
-        setProgressChart(prev => prev ? { ...prev, reload: Date.now() } : null);
       }
     }, [userId, currentDate])
   );
@@ -292,7 +290,7 @@ export default function Calendar() {
       setWorkoutData(calendarData);
       setRecentActivitiesData(activitiesData);
       setWorkoutTypes(typesData);
-      setProgressChart(chartData);
+      setProgressChart({ ...chartData, reload: Date.now() }); // Add reload timestamp
       setActivityIndicators(indicatorsData);
 
       // Load steps from HealthKit if permission granted

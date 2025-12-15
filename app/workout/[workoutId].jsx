@@ -23,6 +23,7 @@ import { WorkoutSessionServiceV2 } from "../../services/WorkoutSessionServiceV2"
 import { WorkoutSessionPageSkeleton } from "../../components/skeletons/WorkoutSessionPageSkeleton";
 import { usePageCache } from "../../contexts/PageCacheContext";
 import { INVALIDATION_RULES } from "../../utils/cacheInvalidation";
+import { UnitConversionService } from "../../services/UnitConversionService";
 
 export default function WorkoutSession() {
   const router = useRouter();
@@ -39,7 +40,8 @@ export default function WorkoutSession() {
   const [elapsedTime, setElapsedTime] = useState(0);
 
   // Real-time workout stats
-  const [userWeight, setUserWeight] = useState(70); // Default weight in kg
+  const [userWeight, setUserWeight] = useState(70); // Default weight in kg (always stored in KG)
+  const [useMetric, setUseMetric] = useState(true); // User's unit preference for display
   const [currentStats, setCurrentStats] = useState({
     baseSets: 0,
     completedSets: 0,
@@ -54,7 +56,6 @@ export default function WorkoutSession() {
   const [showExerciseDetail, setShowExerciseDetail] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState(null);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
-  const [completionNotes, setCompletionNotes] = useState("");
   const [difficultyRating, setDifficultyRating] = useState(3);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
 
@@ -163,7 +164,7 @@ export default function WorkoutSession() {
     try {
       const { data, error } = await supabase
         .from('registration_profiles')
-        .select('weight_kg')
+        .select('weight_kg, use_metric')
         .eq('user_id', userId)
         .single();
       
@@ -172,8 +173,9 @@ export default function WorkoutSession() {
         return;
       }
 
-      if (data?.weight_kg) {
-        setUserWeight(data.weight_kg);
+      if (data) {
+        setUserWeight(data.weight_kg || 70);
+        setUseMetric(data.use_metric ?? true);
       }
     } catch (error) {
       console.error('Error getting user weight:', error);
@@ -444,14 +446,14 @@ export default function WorkoutSession() {
         points_earned: currentStats.currentPoints,
         user_weight_kg: userWeight,
         difficulty_rating: difficultyRating,
-        completion_notes: completionNotes
+        completion_notes: '' // No notes field
       };
 
       // Complete session in background
       await WorkoutSessionServiceV2.completeSession(
         session.id,
         difficultyRating,
-        completionNotes,
+        '', // No notes
         completionData
       );
 
@@ -499,7 +501,7 @@ export default function WorkoutSession() {
     setTimeout(() => {
       setShowSuccessAnimation(false);
       router.replace("/page/training");
-    }, 800);
+    }, 1500);
   };
 
   const handleQuitWorkout = () => {
@@ -656,6 +658,7 @@ export default function WorkoutSession() {
               isCompleted={isCompleted}
               userId={userId}
               session={session}
+              useMetric={useMetric}
               onSetComplete={handleSetComplete}
               onSessionUpdate={setSession}
               onExercisePress={() => {
@@ -784,7 +787,7 @@ export default function WorkoutSession() {
 
             {/* Difficulty Rating */}
             <View style={styles.difficultySection}>
-              <Text style={styles.difficultyTitle}>How was this workout?</Text>
+              <Text style={styles.difficultyTitle}>Rate this workout</Text>
               <View style={styles.difficultyRating}>
                 {[1, 2, 3, 4, 5].map((rating) => (
                   <Pressable
@@ -810,16 +813,6 @@ export default function WorkoutSession() {
                 <Text style={styles.difficultyLabelText}>Too Hard</Text>
               </View>
             </View>
-
-            <TextInput
-              style={styles.notesInput}
-              placeholder="Add notes about this workout (optional)"
-              placeholderTextColor="#71717A"
-              multiline
-              numberOfLines={3}
-              value={completionNotes}
-              onChangeText={setCompletionNotes}
-            />
 
             <View style={styles.modalActions}>
               <Pressable
@@ -1241,6 +1234,7 @@ function ExerciseCard({
   isCompleted,
   userId,
   session,
+  useMetric,
   onSetComplete,
   onSessionUpdate,
   onExercisePress,
@@ -1313,18 +1307,24 @@ function ExerciseCard({
       if (history && history.length > 0) {
         // Get the most recent workout data
         const lastWorkout = history[0];
+        
+        // Convert weight from kg to user's preferred unit for display
+        const displayWeight = useMetric 
+          ? lastWorkout.weight_kg 
+          : UnitConversionService.formatWeight(lastWorkout.weight_kg, false).raw;
+        
         setPreviousSetData({
           reps: lastWorkout.actual_reps,
-          weight: lastWorkout.weight_kg,
+          weight: displayWeight,
         });
 
-        // Pre-fill all sets with previous data
+        // Pre-fill all sets with previous data in user's unit
         const prefilledData = {};
         for (let i = 1; i <= targetSets; i++) {
           prefilledData[`${i}_reps`] =
             lastWorkout.actual_reps?.toString() || "";
           prefilledData[`${i}_weight`] =
-            lastWorkout.weight_kg?.toString() || "";
+            displayWeight?.toString() || "";
         }
         setCurrentSetData(prefilledData);
       } else {
@@ -1379,14 +1379,17 @@ function ExerciseCard({
 
   const handleCompleteSet = async (setNumber) => {
     const reps = parseInt(currentSetData[`${setNumber}_reps`]) || 0;
-    const weight = parseFloat(currentSetData[`${setNumber}_weight`]) || 0;
+    const weightInput = parseFloat(currentSetData[`${setNumber}_weight`]) || 0;
+    
+    // Convert weight from user's unit to kg for storage
+    const weightKg = useMetric ? weightInput : UnitConversionService.parseWeightInput(weightInput, false);
 
     if (reps === 0) {
       Alert.alert("Invalid Input", isTimeBased ? "Please enter duration in seconds" : "Please enter number of reps");
       return;
     }
 
-    await onSetComplete(exerciseIndex, setNumber, { reps, weight });
+    await onSetComplete(exerciseIndex, setNumber, { reps, weight: weightKg });
 
     // Auto-fill next set with same values for convenience
     const nextSetNumber = setNumber + 1;
@@ -1572,7 +1575,7 @@ function ExerciseCard({
               <Text style={exerciseCardStyles.previousDataText}>
                 Last: {isTimeBased 
                   ? `${previousSetData.reps}s` 
-                  : `${previousSetData.reps} reps × ${previousSetData.weight}kg`
+                  : `${previousSetData.reps} reps × ${previousSetData.weight?.toFixed(1)}${useMetric ? 'kg' : 'lbs'}`
                 }
               </Text>
             </View>
@@ -1594,18 +1597,28 @@ function ExerciseCard({
                     <Text style={exerciseCardStyles.setCompletedText}>
                       {isTimeBased 
                         ? `${existingSet.actual_reps}s` 
-                        : `${existingSet.actual_reps} reps × ${existingSet.weight_kg}kg`
+                        : (() => {
+                            const displayWeight = useMetric 
+                              ? existingSet.weight_kg 
+                              : UnitConversionService.formatWeight(existingSet.weight_kg, false).raw;
+                            return `${existingSet.actual_reps} reps × ${displayWeight?.toFixed(1)}${useMetric ? 'kg' : 'lbs'}`;
+                          })()
                       }
                     </Text>
                     <TouchableOpacity
                       style={exerciseCardStyles.editSetButton}
                       onPress={() => {
+                        // Convert weight from kg to user's preferred unit
+                        const displayWeight = useMetric 
+                          ? existingSet.weight_kg 
+                          : UnitConversionService.formatWeight(existingSet.weight_kg, false).raw;
+                        
                         setCurrentSetData((prev) => ({
                           ...prev,
                           [`${setNumber}_reps`]:
                             existingSet.actual_reps?.toString() || "",
                           [`${setNumber}_weight`]:
-                            existingSet.weight_kg?.toString() || "",
+                            displayWeight?.toString() || "",
                         }));
                         handleUndoSet(setNumber);
                       }}
@@ -1671,11 +1684,20 @@ function ExerciseCard({
                               placeholderTextColor="#52525B"
                               keyboardType="decimal-pad"
                               value={currentSetData[`${setNumber}_weight`] || ""}
-                              onChangeText={(value) =>
-                                handleSetInput(setNumber, "weight", value)
-                              }
+                              onChangeText={(value) => {
+                                // Only allow numbers and decimal point
+                                const numericValue = value.replace(/[^0-9.]/g, '');
+                                // Ensure only one decimal point
+                                const parts = numericValue.split('.');
+                                const sanitizedValue = parts.length > 2 
+                                  ? parts[0] + '.' + parts.slice(1).join('') 
+                                  : numericValue;
+                                handleSetInput(setNumber, "weight", sanitizedValue);
+                              }}
                             />
-                            <Text style={exerciseCardStyles.weightUnit}>kg</Text>
+                            <Text style={exerciseCardStyles.weightUnit}>
+                              {useMetric ? 'kg' : 'lbs'}
+                            </Text>
                           </View>
                         </View>
                       )}

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Dimensions, Pressable } from "react-native";
 import { LineChart } from "react-native-chart-kit";
 import { Ionicons } from "@expo/vector-icons";
 import EmptyDataState from "./EmptyDataState";
+import UnitConversionService from '../../services/UnitConversionService';
 import { WeightProgressService } from "../../services/WeightProgressService";
 import { supabase } from "../../services/supabase";
 
@@ -17,6 +18,10 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [projectedWeightToday, setProjectedWeightToday] = useState(null);
   const [isLoadingProjection, setIsLoadingProjection] = useState(true);
+  
+  // Get user's unit preference from chart data (already fetched by CalendarDataService)
+  const useMetric = chart?.useMetric ?? true;
+  const weightUnit = chart?.unit || (useMetric ? 'kg' : 'lbs');
 
   // 🔍 COMPREHENSIVE LOGGING - Component Mount
   useEffect(() => {
@@ -39,10 +44,16 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
 
   // Reload daily balance and projection when chart data changes (new food/workout logged)
   useEffect(() => {
-    if (userId && chart?.values) {
-      loadDailyBalance();
+    if (userId) {
+      // Small delay to ensure database has processed latest workout/meal
+      const timer = setTimeout(() => {
+        loadDailyBalance();
+        loadProjectedWeightToday();
+      }, 500);
+      
+      return () => clearTimeout(timer);
     }
-  }, [chart?.values, chart?.labels, chart?.reload]);
+  }, [chart?.reload, userId]);
 
   // Reload projection when daily balance changes (after food/workout logged)
   useEffect(() => {
@@ -91,7 +102,10 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
       // Use local date to ensure we get today's data in user's timezone
       const today = new Date();
       const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      console.log('🔍 Loading daily balance for date:', todayString);
+      
       const balance = await WeightProgressService.getDailyCalorieBalance(userId, todayString);
+      console.log('📊 Daily balance response:', balance);
       
       // CORRECT LOGIC:
       // Net balance = Consumed - (Maintenance + Workout calories burned)
@@ -231,9 +245,15 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
       tomorrow.setDate(tomorrow.getDate() + 1);
       const tomorrowLabel = `${String(tomorrow.getMonth() + 1).padStart(2, '0')}/${String(tomorrow.getDate()).padStart(2, '0')}`;
       
+      // Convert projected weight from kg to match chart's unit
+      const convertedProjectedWeight = UnitConversionService.formatWeight(
+        projectedWeightToday.weight, 
+        useMetric
+      ).raw;
+      
       // Add tomorrow's projection (user will see it as today's date later)
       allData.push({
-        value: projectedWeightToday.weight,
+        value: convertedProjectedWeight,
         label: tomorrowLabel, // Tomorrow's actual date (will be hidden)
         date: tomorrow, // Tomorrow's actual date
         index: allData.length,
@@ -282,6 +302,8 @@ export default function ProgressGraph({ chart, userId, onRefresh }) {
         filteredData = allData;
     }
 
+    // Chart data is already in the correct unit from CalendarDataService
+    // No conversion needed here to avoid double conversion
     return {
       labels: filteredData.map(d => d.label),
       values: filteredData.map(d => d.value),
@@ -591,7 +613,7 @@ const aestheticChartConfig = {
               styles.averageValue, 
               { color: dynamicWeightChange.change < 0 ? '#10B981' : dynamicWeightChange.change > 0 ? '#EF4444' : '#999' }
             ]}>
-              {dynamicWeightChange.change > 0 ? '+' : ''}{dynamicWeightChange.change} kg
+              {dynamicWeightChange.change > 0 ? '+' : ''}{dynamicWeightChange.change} {weightUnit}
             </Text>
             <Text style={styles.averageLabel}>
               {dynamicWeightChange.change < 0 ? 'Lost' : dynamicWeightChange.change > 0 ? 'Gained' : 'No Change'}
@@ -639,7 +661,7 @@ const aestheticChartConfig = {
           <View style={styles.compactBalanceRow}>
             <View style={styles.compactBalanceItem}>
               <Text style={styles.compactBalanceLabel}>Current Weight</Text>
-              <Text style={styles.compactBalanceValue}>{dynamicWeightChange.current.toFixed(1)} kg</Text>
+              <Text style={styles.compactBalanceValue}>{dynamicWeightChange.current.toFixed(1)} {weightUnit}</Text>
             </View>
             <View style={styles.compactBalanceDivider} />
             <View style={styles.compactBalanceItem}>

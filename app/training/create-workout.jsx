@@ -26,6 +26,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { TrainingDataService } from "../../services/TrainingDataService";
 import { ExerciseDataService } from "../../services/ExerciseDataService";
 import { CalorieCalculator } from "../../services/CalorieCalculator";
+import { UnitConversionService } from "../../services/UnitConversionService";
 
 export default function CreateWorkout() {
   const router = useRouter();
@@ -34,7 +35,8 @@ export default function CreateWorkout() {
   // 🔄 Workout creation/editing state
   const isEditMode = !!templateId;
   const [userId, setUserId] = useState(null);
-  const [userWeight, setUserWeight] = useState(null); // User's weight for calorie calculation
+  const [userWeight, setUserWeight] = useState(null); // User's weight for calorie calculation (always in KG)
+  const [useMetric, setUseMetric] = useState(true); // User's unit preference
   const [workoutName, setWorkoutName] = useState("");
   const [workoutDescription, setWorkoutDescription] = useState("");
   const [selectedColor, setSelectedColor] = useState("#3B82F6"); // Default blue
@@ -132,13 +134,20 @@ export default function CreateWorkout() {
       if (user) {
         setUserId(user.id);
         
-        // 🔥 Fetch user weight for calorie calculations
-        const weight = await CalorieCalculator.getUserWeight(user.id);
-        if (weight) {
-          setUserWeight(weight);
+        // 🔥 Fetch user weight and unit preference
+        const { data: profile } = await supabase
+          .from('registration_profiles')
+          .select('weight_kg, use_metric')
+          .eq('user_id', user.id)
+          .single();
+          
+        if (profile) {
+          setUserWeight(profile.weight_kg || 70);
+          setUseMetric(profile.use_metric ?? true);
         } else {
-          console.warn('⚠️ User weight not found, using default 70kg for calculations');
-          setUserWeight(70); // Default fallback
+          console.warn('⚠️ User profile not found, using defaults');
+          setUserWeight(70);
+          setUseMetric(true);
         }
         
         // Load exercises after getting user
@@ -927,7 +936,9 @@ function ExerciseCard({
 
           <View style={exerciseCardStyles.inputRow}>
             <View style={exerciseCardStyles.inputWrapper}>
-              <Text style={exerciseCardStyles.inputLabel}>Weight (kg)</Text>
+              <Text style={exerciseCardStyles.inputLabel}>
+                Weight ({useMetric ? 'kg' : 'lbs'})
+              </Text>
               <TextInput
                 style={exerciseCardStyles.input}
                 value={exercise.weight}

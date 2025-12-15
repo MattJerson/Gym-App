@@ -18,6 +18,7 @@ import SettingsHeader from "../../components/SettingsHeader";
 import DropDownPicker from "react-native-dropdown-picker";
 import { SettingsPageSkeleton } from "../../components/skeletons/SettingsPageSkeleton";
 import { validateMessage } from "../../services/ChatServices";
+import { UnitConversionService } from "../../services/UnitConversionService";
 
 export default function EditProfile() {
   const [isLoading, setIsLoading] = useState(true);
@@ -30,6 +31,8 @@ export default function EditProfile() {
   const [email, setEmail] = useState("");
 
   // Profile Data (from registration_profiles)
+  // Note: height_cm and weight_kg store the DATABASE values (always in metric)
+  // Display values are converted based on use_metric preference
   const [profileData, setProfileData] = useState({
     avatarEmoji: "😊",
     gender: "",
@@ -44,7 +47,7 @@ export default function EditProfile() {
     training_location: "",
     training_duration: "",
     muscle_focus: [],
-    injuries: [],
+    injuries: "",
     training_frequency: "",
     meal_type: "",
     restrictions: [],
@@ -53,6 +56,10 @@ export default function EditProfile() {
     current_body_fat: "",
     goal_body_fat: "",
   });
+
+  // Display values for height and weight (in current unit system)
+  const [displayHeight, setDisplayHeight] = useState("");
+  const [displayWeight, setDisplayWeight] = useState("");
 
   // Dropdown states
   const [openDropdown, setOpenDropdown] = useState("");
@@ -65,6 +72,32 @@ export default function EditProfile() {
   useEffect(() => {
     fetchUserData();
   }, []);
+
+  // Handle unit conversion when use_metric toggle changes
+  useEffect(() => {
+    // Convert display values when unit system changes
+    if (displayHeight) {
+      const convertedHeight = UnitConversionService.convertHeightOnToggle(
+        parseFloat(displayHeight),
+        !profileData.use_metric, // was in opposite system
+        profileData.use_metric    // now in this system
+      );
+      if (convertedHeight && !isLoading) {
+        setDisplayHeight(convertedHeight);
+      }
+    }
+
+    if (displayWeight) {
+      const convertedWeight = UnitConversionService.convertWeightOnToggle(
+        parseFloat(displayWeight),
+        !profileData.use_metric, // was in opposite system
+        profileData.use_metric    // now in this system
+      );
+      if (convertedWeight && !isLoading) {
+        setDisplayWeight(convertedWeight);
+      }
+    }
+  }, [profileData.use_metric]); // Only run when use_metric changes
 
   const fetchUserData = async () => {
     try {
@@ -99,13 +132,15 @@ export default function EditProfile() {
       }
 
       if (profileData) {
+        const useMetric = profileData.use_metric ?? true;
+        
         setProfileData({
           avatarEmoji: profileData.avatar_emoji || "😊",
           gender: profileData.gender || "",
           age: profileData.age?.toString() || "",
           height_cm: profileData.height_cm?.toString() || "",
           weight_kg: profileData.weight_kg?.toString() || "",
-          use_metric: profileData.use_metric ?? true,
+          use_metric: useMetric,
           activity_level: profileData.activity_level || "",
           fitness_goal: profileData.fitness_goal || "",
           favorite_foods: profileData.favorite_foods || [],
@@ -124,6 +159,22 @@ export default function EditProfile() {
           current_body_fat: "",
           goal_body_fat: "",
         });
+
+        // Set display values based on unit preference
+        const heightForDisplay = profileData.height_cm 
+          ? (useMetric 
+              ? profileData.height_cm.toString()
+              : UnitConversionService.cmToInches(profileData.height_cm).toFixed(1))
+          : "";
+        
+        const weightForDisplay = profileData.weight_kg
+          ? (useMetric
+              ? profileData.weight_kg.toString()
+              : UnitConversionService.kgToLbs(profileData.weight_kg).toFixed(1))
+          : "";
+
+        setDisplayHeight(heightForDisplay);
+        setDisplayWeight(weightForDisplay);
       }
 
       // Fetch body fat data from bodyfat_profiles
@@ -250,18 +301,23 @@ export default function EditProfile() {
         // Don't throw - this is non-critical
       }
 
+      // Convert display values to database format (always KG and CM)
+      const heightCm = displayHeight
+        ? UnitConversionService.parseHeightInput(parseFloat(displayHeight), profileData.use_metric)
+        : null;
+      
+      const weightKg = displayWeight
+        ? UnitConversionService.parseWeightInput(parseFloat(displayWeight), profileData.use_metric)
+        : null;
+
       // Prepare profile data payload
       const payload = {
         user_id: userId,
         avatar_emoji: profileData.avatarEmoji || "😊",
         gender: profileData.gender || null,
         age: profileData.age ? parseInt(profileData.age, 10) : null,
-        height_cm: profileData.height_cm
-          ? parseInt(profileData.height_cm, 10)
-          : null,
-        weight_kg: profileData.weight_kg
-          ? parseFloat(profileData.weight_kg)
-          : null,
+        height_cm: heightCm ? parseInt(heightCm, 10) : null,
+        weight_kg: weightKg ? parseFloat(weightKg) : null,
         use_metric: profileData.use_metric,
         activity_level: profileData.activity_level || null,
         fitness_goal: profileData.fitness_goal || null,
@@ -541,10 +597,8 @@ export default function EditProfile() {
                   </Text>
                   <TextInput
                     style={[styles.input, !isEditing && styles.inputDisabled]}
-                    value={profileData.height_cm}
-                    onChangeText={(val) =>
-                      setProfileData({ ...profileData, height_cm: val })
-                    }
+                    value={displayHeight}
+                    onChangeText={(val) => setDisplayHeight(val)}
                     placeholder="Height"
                     placeholderTextColor="#666"
                     keyboardType="numeric"
@@ -557,10 +611,8 @@ export default function EditProfile() {
                   </Text>
                   <TextInput
                     style={[styles.input, !isEditing && styles.inputDisabled]}
-                    value={profileData.weight_kg}
-                    onChangeText={(val) =>
-                      setProfileData({ ...profileData, weight_kg: val })
-                    }
+                    value={displayWeight}
+                    onChangeText={(val) => setDisplayWeight(val)}
                     placeholder="Weight"
                     placeholderTextColor="#666"
                     keyboardType="numeric"

@@ -107,7 +107,7 @@ export default function Mealplan() {
           loadMealPlanData();
         }
       }
-    }, [userId, selectedDate])
+    }, [userId]) // Remove selectedDate from dependencies to prevent infinite loop
   );
 
   const loadMealPlanData = async () => {

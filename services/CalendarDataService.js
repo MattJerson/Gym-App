@@ -192,6 +192,15 @@ export const CalendarDataService = {
   // Progress Data
   async fetchProgressChart(userId, metric = "weight", period = "week") {
     try {
+      // Fetch user's unit preference
+      const { data: userProfile } = await supabase
+        .from('registration_profiles')
+        .select('use_metric')
+        .eq('user_id', userId)
+        .single();
+      
+      const useMetric = userProfile?.use_metric ?? true;
+
       // Fetch 365 days of data to support all time ranges (week/month/year)
       // The ProgressGraph component will filter client-side based on selected range
       const daysBack = 365;
@@ -207,13 +216,15 @@ export const CalendarDataService = {
           actualMeasurements: [],
           projections: [],
           color: (opacity = 1) => `rgba(10, 132, 255, ${opacity})`,
-          unit: "kg",
-          goal: 70,
+          unit: WeightProgressService.getWeightUnit(useMetric),
+          goal: useMetric ? 70 : 154, // 70kg = ~154lbs
           trend: "stable",
           weightChange: 0,
-          calorieBalance: 0
+          calorieBalance: 0,
+          useMetric
         };
       }
+      
       // Get user's weight goal
       const { data: goalData } = await supabase
         .from('user_goals')
@@ -224,25 +235,43 @@ export const CalendarDataService = {
         .limit(1)
         .single();
 
+      // Format chart data with proper unit conversion
+      const formattedChart = WeightProgressService.formatChartForDisplay(progressData, useMetric);
+
       const finalChart = {
         title: "Weight Progress",
-        labels: progressData.labels,
-        values: progressData.values,
-        actualMeasurements: progressData.actualMeasurements,
-        projections: progressData.projections,
+        labels: formattedChart.labels,
+        values: formattedChart.values,
+        actualMeasurements: formattedChart.actualMeasurements,
+        projections: formattedChart.projections,
         color: (opacity = 1) => `rgba(10, 132, 255, ${opacity})`,
-        unit: "kg",
-        goal: goalData?.target_value || 70,
-        trend: progressData.trend,
-        weightChange: progressData.weightChange,
+        unit: formattedChart.unit,
+        goal: goalData?.target_value 
+          ? (useMetric ? goalData.target_value : WeightProgressService.formatWeightForDisplay(goalData.target_value, useMetric).raw)
+          : (useMetric ? 70 : 154),
+        trend: formattedChart.trend,
+        weightChange: formattedChart.weightChange,
         calorieBalance: progressData.avgCalorieBalance,
-        startWeight: progressData.startWeight,
-        currentWeight: progressData.currentWeight
+        startWeight: formattedChart.startWeight,
+        currentWeight: formattedChart.currentWeight,
+        useMetric
       };
       return finalChart;
     } catch (error) {
       console.error('❌ Error fetching progress chart:', error);
       console.error('❌ Error stack:', error.stack);
+      
+      // Get user preference for error fallback
+      let useMetric = true;
+      try {
+        const { data: userProfile } = await supabase
+          .from('registration_profiles')
+          .select('use_metric')
+          .eq('user_id', userId)
+          .single();
+        useMetric = userProfile?.use_metric ?? true;
+      } catch {}
+
       return {
         title: "Weight Progress",
         labels: [],
@@ -250,11 +279,12 @@ export const CalendarDataService = {
         actualMeasurements: [],
         projections: [],
         color: (opacity = 1) => `rgba(10, 132, 255, ${opacity})`,
-        unit: "kg",
-        goal: 70,
+        unit: useMetric ? 'kg' : 'lbs',
+        goal: useMetric ? 70 : 154,
         trend: "stable",
         weightChange: 0,
-        calorieBalance: 0
+        calorieBalance: 0,
+        useMetric
       };
     }
   },

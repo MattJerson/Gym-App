@@ -10,24 +10,36 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  CreditCard
+  CreditCard,
+  Eye,
+  Dumbbell,
+  UtensilsCrossed,
+  Award,
+  Scale
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase, supabaseAdmin } from '../lib/supabase';
 import Modal from '../components/common/Modal';
 import Button from '../components/common/Button';
+import { useUnitConversion } from '../hooks/useUnitConversion';
+import UnitToggle from '../components/common/UnitToggle';
 
 const Users = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [viewingUser, setViewingUser] = useState(null);
+  const [userDetails, setUserDetails] = useState(null);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [formData, setFormData] = useState({ 
     account_status: 'active',
     suspend_reason: ''
   });
   const [error, setError] = useState(null);
+  const { formatWeight, formatHeight } = useUnitConversion();
 
   // Filters and sorting
   const [sortBy, setSortBy] = useState("created_at");
@@ -176,6 +188,89 @@ const Users = () => {
       suspend_reason: user.suspended_reason || ''
     });
     setIsModalOpen(true);
+  };
+
+  const handleViewDetails = async (user) => {
+    setViewingUser(user);
+    setIsDetailModalOpen(true);
+    setLoadingDetails(true);
+
+    try {
+      // Fetch comprehensive user data
+      const [profileRes, workoutsRes, mealsRes, pointsRes, bodyFatRes] = await Promise.all([
+        // Profile data
+        supabase
+          .from('registration_profiles')
+          .select('*')
+          .eq('user_id', user.uid)
+          .single(),
+        
+        // Workout stats
+        supabase
+          .from('workout_sessions')
+          .select('id, estimated_calories_burned, completed_at, total_duration_seconds')
+          .eq('user_id', user.uid)
+          .eq('status', 'completed')
+          .order('completed_at', { ascending: false })
+          .limit(10),
+        
+        // Meal plan info
+        supabase
+          .from('user_meal_plans')
+          .select(`
+            *,
+            meal_plan_templates (
+              name,
+              plan_type,
+              difficulty_level,
+              daily_calories,
+              daily_protein,
+              daily_carbs,
+              daily_fats
+            )
+          `)
+          .eq('user_id', user.uid)
+          .eq('is_active', true)
+          .maybeSingle(),
+        
+        // Gamification points
+        supabase
+          .from('gamification')
+          .select('total_points, current_level, badges_earned, total_workouts, total_meals_logged')
+          .eq('user_id', user.uid)
+          .single(),
+        
+        // Body fat data
+        supabase
+          .from('bodyfat_profiles')
+          .select('current_body_fat, goal_body_fat')
+          .eq('user_id', user.uid)
+          .single()
+      ]);
+
+      // Calculate workout stats
+      const workouts = workoutsRes.data || [];
+      const totalWorkouts = workouts.length;
+      const totalCaloriesBurned = workouts.reduce((sum, w) => sum + (w.estimated_calories_burned || 0), 0);
+      const totalMinutes = workouts.reduce((sum, w) => sum + (w.total_duration_seconds || 0), 0) / 60;
+
+      setUserDetails({
+        profile: profileRes.data || {},
+        workouts: {
+          total: totalWorkouts,
+          caloriesBurned: Math.round(totalCaloriesBurned),
+          minutes: Math.round(totalMinutes),
+          recent: workouts
+        },
+        mealPlan: mealsRes.data || null,
+        points: pointsRes.data || { total_points: 0, current_level: 1, badges_earned: 0 },
+        bodyFat: bodyFatRes.data || {}
+      });
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+    } finally {
+      setLoadingDetails(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -506,7 +601,11 @@ const Users = () => {
                             {user.display_name?.charAt(0).toUpperCase() || user.email?.charAt(0).toUpperCase() || 'U'}
                           </div>
                           <div className="min-w-0">
-                            <p className="font-semibold text-sm text-gray-900 truncate">
+                            <p 
+                              className="font-semibold text-sm text-gray-900 truncate cursor-pointer hover:text-blue-600 transition-colors"
+                              onClick={() => handleViewDetails(user)}
+                              title="View user details"
+                            >
                               {user.display_name}
                             </p>
                             <p className="text-xs text-gray-500 truncate">{user.email}</p>
@@ -612,6 +711,14 @@ const Users = () => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2">
+                          {/* View Details Button */}
+                          <button
+                            onClick={() => handleViewDetails(user)}
+                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="View user details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
                           {/* Edit Status Button */}
                           <button
                             onClick={() => handleEdit(user)}
@@ -841,6 +948,248 @@ const Users = () => {
                   </div>
                 )}
               </form>
+            </div>
+          )}
+        </Modal>
+
+        {/* User Details Modal */}
+        <Modal
+          isOpen={isDetailModalOpen}
+          onClose={() => {
+            setIsDetailModalOpen(false);
+            setViewingUser(null);
+            setUserDetails(null);
+          }}
+          title="User Details"
+        >
+          {viewingUser && (
+            <div className="space-y-6">
+              {/* Unit Toggle at top of modal */}
+              <div className="flex justify-end">
+                <UnitToggle />
+              </div>
+              {/* User Header */}
+              <div className="flex items-center gap-4 pb-6 border-b">
+                <div className="h-16 w-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-2xl">
+                  {viewingUser.display_name?.charAt(0).toUpperCase() || 'U'}
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">{viewingUser.display_name}</h3>
+                  <p className="text-sm text-gray-600">{viewingUser.email}</p>
+                  <div className="flex gap-2 mt-2">
+                    {viewingUser.subscription_package && (
+                      <span className="px-2 py-1 text-xs font-semibold rounded-md bg-blue-100 text-blue-800">
+                        {viewingUser.subscription_package.name}
+                      </span>
+                    )}
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-md ${
+                      viewingUser.account_status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {viewingUser.account_status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {loadingDetails ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+              ) : userDetails ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Profile Info */}
+                  <div className="col-span-1 md:col-span-2 bg-gray-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <UsersIcon className="h-5 w-5 text-blue-600" />
+                      <h4 className="font-bold text-gray-900">Profile Information</h4>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Age</p>
+                        <p className="font-semibold text-gray-900">{userDetails.profile.age || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Gender</p>
+                        <p className="font-semibold text-gray-900 capitalize">{userDetails.profile.gender || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Height</p>
+                        <p className="font-semibold text-gray-900">
+                          {userDetails.profile.height_cm ? (
+                            <>
+                              {formatHeight(userDetails.profile.height_cm).value} {formatHeight(userDetails.profile.height_cm).unit}
+                            </>
+                          ) : 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Weight</p>
+                        <p className="font-semibold text-gray-900">
+                          {userDetails.profile.weight_kg ? (
+                            <>
+                              {formatWeight(userDetails.profile.weight_kg).value} {formatWeight(userDetails.profile.weight_kg).unit}
+                            </>
+                          ) : 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Body Fat</p>
+                        <p className="font-semibold text-gray-900">
+                          {userDetails.bodyFat.current_body_fat ? `${userDetails.bodyFat.current_body_fat}%` : 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Goal BF</p>
+                        <p className="font-semibold text-gray-900">
+                          {userDetails.bodyFat.goal_body_fat ? `${userDetails.bodyFat.goal_body_fat}%` : 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Activity Level</p>
+                        <p className="font-semibold text-gray-900 capitalize">{userDetails.profile.activity_level || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Fitness Goal</p>
+                        <p className="font-semibold text-gray-900 capitalize">{userDetails.profile.fitness_goal || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Workout Stats */}
+                  <div className="bg-blue-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Dumbbell className="h-5 w-5 text-blue-600" />
+                      <h4 className="font-bold text-gray-900">Workout Stats</h4>
+                    </div>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-xs text-gray-600">Total Workouts</p>
+                        <p className="text-2xl font-bold text-blue-600">{userDetails.workouts.total}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600">Calories Burned</p>
+                        <p className="text-xl font-semibold text-gray-900">{userDetails.workouts.caloriesBurned.toLocaleString()} cal</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600">Total Minutes</p>
+                        <p className="text-xl font-semibold text-gray-900">{userDetails.workouts.minutes.toLocaleString()} min</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Meal Plan */}
+                  <div className="bg-green-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <UtensilsCrossed className="h-5 w-5 text-green-600" />
+                      <h4 className="font-bold text-gray-900">Meal Plan</h4>
+                    </div>
+                    {userDetails.mealPlan ? (
+                      <div className="space-y-3">
+                        <div>
+                          <p className="text-xs text-gray-600">Current Plan</p>
+                          <p className="text-lg font-semibold text-gray-900">{userDetails.mealPlan.meal_plan_templates?.name || 'Custom Plan'}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <p className="text-xs text-gray-600">Type</p>
+                            <p className="text-sm font-medium text-gray-900 capitalize">{userDetails.mealPlan.meal_plan_templates?.plan_type?.replace(/_/g, ' ') || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600">Level</p>
+                            <p className="text-sm font-medium text-gray-900 capitalize">{userDetails.mealPlan.meal_plan_templates?.difficulty_level || 'N/A'}</p>
+                          </div>
+                        </div>
+                        {userDetails.mealPlan.meal_plan_templates && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <p className="text-xs text-gray-600 mb-2">Daily Targets</p>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="flex items-center gap-1">
+                                <span>🔥</span>
+                                <span className="font-semibold">{userDetails.mealPlan.meal_plan_templates.daily_calories}</span>
+                                <span className="text-gray-500">cal</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span>🥩</span>
+                                <span className="font-semibold">{userDetails.mealPlan.meal_plan_templates.daily_protein}g</span>
+                                <span className="text-gray-500">protein</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span>🍚</span>
+                                <span className="font-semibold">{userDetails.mealPlan.meal_plan_templates.daily_carbs}g</span>
+                                <span className="text-gray-500">carbs</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span>🥑</span>
+                                <span className="font-semibold">{userDetails.mealPlan.meal_plan_templates.daily_fats}g</span>
+                                <span className="text-gray-500">fats</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-600">No active meal plan</p>
+                    )}
+                  </div>
+
+                  {/* Gamification */}
+                  <div className="col-span-1 md:col-span-2 bg-purple-50 rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Award className="h-5 w-5 text-purple-600" />
+                      <h4 className="font-bold text-gray-900">Gamification & Progress</h4>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-600">Total Points</p>
+                        <p className="text-2xl font-bold text-purple-600">{userDetails.points.total_points || 0}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600">Current Level</p>
+                        <p className="text-2xl font-bold text-gray-900">{userDetails.points.current_level || 1}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600">Badges</p>
+                        <p className="text-2xl font-bold text-yellow-600">{userDetails.points.badges_earned || 0}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600">Total Workouts</p>
+                        <p className="text-xl font-semibold text-gray-900">{userDetails.points.total_workouts || 0}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600">Meals Logged</p>
+                        <p className="text-xl font-semibold text-gray-900">{userDetails.points.total_meals_logged || 0}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recent Workouts */}
+                  {userDetails.workouts.recent.length > 0 && (
+                    <div className="col-span-1 md:col-span-2 bg-gray-50 rounded-xl p-4">
+                      <h4 className="font-bold text-gray-900 mb-3">Recent Workouts (Last 10)</h4>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {userDetails.workouts.recent.map((workout, idx) => (
+                          <div key={workout.id} className="flex items-center justify-between p-2 bg-white rounded-lg text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-500">#{idx + 1}</span>
+                              <span className="font-medium text-gray-900">
+                                {new Date(workout.completed_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs text-gray-600">
+                              <span>{Math.round(workout.total_duration_seconds / 60)} min</span>
+                              <span className="font-semibold text-blue-600">{workout.estimated_calories_burned || 0} cal</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-600">
+                  <p>No additional data available</p>
+                </div>
+              )}
             </div>
           )}
         </Modal>
